@@ -1,0 +1,3680 @@
+package backup
+
+import (
+	"Metarr/internal/consts"
+	"Metarr/internal/logging"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// createBackup creates a backup copy of the original file before modifying it.
+func BackupFile(file *os.File) error {
+
+	// Get the original filename
+	originalFilePath := file.Name()
+
+	backupFilePath := generateBackupFilename(originalFilePath)
+	logging.PrintD(3, "Creating backup of file '%s' as '%s'", originalFilePath, backupFilePath)
+
+	// Open the backup file for writing
+	backupFile, err := os.Create(backupFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create backup file: %w", err)
+	}
+	defer backupFile.Close()
+
+	// Seek to the beginning of the original file
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("failed to seek to beginning of original file: %w", err)
+	}
+
+	// Copy the content of the original file to the backup file
+	_, err = io.Copy(backupFile, file)
+	if err != nil {
+		return fmt.Errorf("failed to copy content to backup file: %w", err)
+	}
+
+	logging.PrintD(3, "Backup successfully created at '%s'", backupFilePath)
+	return nil
+}
+
+// generateBackupFilename creates a backup filename by appending "_backup" to the original filename
+func generateBackupFilename(originalFilePath string) string {
+	ext := filepath.Ext(originalFilePath)
+	base := strings.TrimSuffix(originalFilePath, ext)
+	return fmt.Sprintf(base + consts.OldTag + ext)
+}
+
+// RenameToBackup renames the passed in file
+func RenameToBackup(filename string) error {
+
+	if filename == "" {
+		logging.PrintE(0, "filename was passed in to backup empty")
+	}
+
+	backupName := generateBackupFilename(filename)
+
+	if err := os.Rename(filename, backupName); err != nil {
+		return fmt.Errorf("failed to backup filename '%s' to '%s'", filename, backupName)
+	}
+	return nil
+}
+package browser
+
+import (
+	"Metarr/internal/logging"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
+
+	"github.com/browserutils/kooky"
+	_ "github.com/browserutils/kooky/browser/all"
+)
+
+func GetBrowserCookies(url string) ([]*http.Cookie, error) {
+
+	baseURL, err := extractBaseDomain(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract base domain: %v", err)
+	}
+
+	allCookies := []*http.Cookie{}
+	attemptedBrowsers := make(map[string]bool)
+
+	// Find all cookie stores
+	allStores := kooky.FindAllCookieStores()
+	for _, store := range allStores {
+		browserName := store.Browser()
+		logging.PrintD(2, "Attempting to read cookies from %s", browserName)
+		attemptedBrowsers[browserName] = true
+
+		cookies, err := store.ReadCookies(kooky.Valid, kooky.Domain(baseURL))
+		if err != nil {
+			logging.PrintD(2, "Failed to read cookies from %s: %v", browserName, err)
+			continue
+		}
+
+		if len(cookies) > 0 {
+			logging.PrintI("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
+			// Append to the Go http.Cookie structure
+			for _, c := range cookies {
+				allCookies = append(allCookies, &http.Cookie{
+					Name:   c.Name,
+					Value:  c.Value,
+					Path:   c.Path,
+					Domain: c.Domain,
+					Secure: c.Secure,
+				})
+			}
+		} else {
+			logging.PrintD(2, "No cookies found for %s", browserName)
+		}
+	}
+
+	// Log summary of attempted browsers
+	logging.PrintI("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
+
+	if len(allCookies) == 0 {
+		logging.PrintI("No cookies found for '%s', proceeding without cookies", url)
+	} else {
+		logging.PrintI("Found a total of %d cookies for '%s'", len(allCookies), url)
+	}
+
+	return allCookies, nil
+}
+
+// extractBaseDomain helper function to parse a domain as just it's base.
+// Useful for the purpose of scraping for cookies.
+func extractBaseDomain(urlString string) (string, error) {
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		return "", err
+	}
+
+	parts := strings.Split(parsedURL.Hostname(), ".")
+	if len(parts) > 2 {
+		return strings.Join(parts[len(parts)-2:], "."), nil
+	}
+	return parsedURL.Hostname(), nil
+}
+
+// keysForMap helper function to get keys from a map
+func keysFromMap(m map[string]bool) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+package browser
+
+import (
+	"Metarr/internal/consts"
+	"Metarr/internal/enums"
+	"Metarr/internal/logging"
+	"fmt"
+	"net/http"
+	"regexp"
+	"strings"
+
+	"github.com/gocolly/colly"
+)
+
+// Search web page for missing metadata
+func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
+	c := colly.NewCollector()
+
+	for _, cookie := range cookies {
+		c.SetCookies(targetURL, []*http.Cookie{cookie})
+	}
+
+	var result string
+	var tags []string
+
+	switch tag {
+	case enums.WEBCLASS_DATE:
+		tags = consts.WebDateTags
+	case enums.WEBCLASS_DESCRIPTION:
+		tags = consts.WebDescriptionTags
+	case enums.WEBCLASS_CREDITS:
+		tags = consts.WebCreditsTags
+	default:
+		return "", fmt.Errorf("unsupported metadata tag: %v", tag)
+	}
+
+	// Navigate to web page and scrape
+	c.OnHTML("*", func(e *colly.HTMLElement) {
+		if result != "" {
+			return // Already have result, return
+		}
+
+		classAttr := e.Attr("class")
+		idAttr := e.Attr("id")
+
+		// Check if any input tags are in the class or id
+		for _, t := range tags {
+			if strings.Contains(strings.ToLower(classAttr), t) ||
+				strings.Contains(strings.ToLower(idAttr), t) {
+				text := strings.TrimSpace(e.Text)
+				if looksLikeDate(text) {
+					result = text
+					logging.PrintI("Colly grabbed '%s' from element with class '%s' and id '%s' for URL '%s'",
+						result, classAttr, idAttr, targetURL)
+					return
+				}
+			}
+		}
+
+		// Check if the text looks like a date
+		if tag == enums.WEBCLASS_DATE && looksLikeDate(e.Text) {
+			result = strings.TrimSpace(e.Text)
+			logging.PrintI("Colly grabbed potential date '%s' from element with class '%s' and id '%s' for URL '%s'",
+				result, classAttr, idAttr, targetURL)
+		}
+	})
+
+	err := c.Visit(targetURL)
+	if err != nil {
+		return "", fmt.Errorf("error visiting webpage (%s): %v", targetURL, err)
+	}
+
+	if result == "" {
+		return "", fmt.Errorf("%v not found in the content for URL (%s)", tag, targetURL)
+	}
+
+	logging.PrintD(2, "Returning with metadata '%s' for URL '%s'", result, targetURL)
+	return result, nil
+}
+
+// Check tag if it appears it could contain a date
+func looksLikeDate(s string) bool {
+	s = strings.TrimSpace(s)
+	if len(s) > 30 { // (Dates shouldn't be longer than this)
+		return false
+	}
+
+	lowered := strings.ToLower(s)
+
+	// Check for month names
+	months := []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
+	hasMonth := false
+	for _, month := range months {
+		if strings.Contains(lowered, month) {
+			hasMonth = true
+			break
+		}
+	}
+
+	// Check for year
+	hasYear := regexp.MustCompile(`\b\d{4}\b`).MatchString(s)
+
+	// Check for day
+	hasDay := regexp.MustCompile(`\b\d{1,2}(st|nd|rd|th)?\b`).MatchString(s)
+
+	// Check for common date formats
+	datePatterns := []string{
+		`\d{1,2}[-/]\d{1,2}[-/]\d{2,4}`, // DD/MM/YYYY or MM/DD/YYYY
+		`\d{4}[-/]\d{1,2}[-/]\d{1,2}`,   // YYYY/MM/DD
+		`\w+\s+\d{1,2},?\s+\d{4}`,       // Month DD, YYYY
+		`\d{1,2}\s+\w+\s+\d{4}`,         // DD Month YYYY
+	}
+
+	for _, pattern := range datePatterns {
+		if regexp.MustCompile(pattern).MatchString(s) {
+			return true
+		}
+	}
+
+	// If it has at least two of: month, day, year, it's probably a date
+	return (hasMonth && hasDay) || (hasMonth && hasYear) || (hasDay && hasYear)
+}
+package cmd
+
+import (
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/viper"
+)
+
+// initTextReplace initializes text replacement functions
+func initTextReplace() error {
+
+	// Parse rename flag
+	var renameFlag enums.ReplaceToStyle
+
+	argRenameFlag := viper.GetString(keys.RenameStyle)
+	switch argRenameFlag {
+	case "spaces", "space":
+		renameFlag = enums.SPACES
+		logging.Print("Rename style selected: %v", argRenameFlag)
+
+	case "underscores", "underscore":
+		renameFlag = enums.UNDERSCORES
+		logging.Print("Rename style selected: %v", argRenameFlag)
+
+	case "skip", "none":
+		renameFlag = enums.SKIP
+	default:
+		return fmt.Errorf("invalid rename flag entered")
+	}
+	viper.Set(keys.Rename, renameFlag)
+
+	// Add new field
+	errMsg := fmt.Errorf("invalid use of metadata addition, values must be written as (metatag:field:value)")
+	var metaNewField []models.MetaNewField
+
+	for _, value := range metaNewFieldInput {
+		parts := strings.SplitN(value, ":", 2)
+		if len(parts) < 2 {
+			return errMsg
+		}
+		// Append each parsed field-value pair to the metaNewField array
+		metaNewField = append(metaNewField, models.MetaNewField{
+			Field: parts[0],
+			Value: parts[1],
+		})
+	}
+	if len(metaNewField) > 0 {
+		logging.PrintI("Meta new fields to add: %v", metaNewField)
+		viper.Set(keys.MNewField, metaNewField)
+	}
+
+	// Replace metafield value suffixes
+	errMsg = fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:field suffix:replacement)")
+	var metaReplaceSuffix []models.MetaReplaceSuffix
+
+	for _, tuple := range metaReplaceSuffixInput {
+		parts := strings.SplitN(tuple, ":", 3)
+		if len(parts) < 3 {
+			return errMsg
+		}
+		metaReplaceSuffix = append(metaReplaceSuffix, models.MetaReplaceSuffix{
+			Field:       parts[0],
+			Suffix:      parts[1],
+			Replacement: parts[2],
+		})
+	}
+	if len(metaReplaceSuffix) > 0 {
+		logging.PrintI("Meta replace suffixes: %v\n", metaReplaceSuffix)
+		viper.Set(keys.MReplaceSfx, metaReplaceSuffix)
+	}
+
+	// Replace metafield value prefixes
+	errMsg = fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:field prefix:replacement)")
+	var metaReplacePrefix []models.MetaReplacePrefix
+
+	for _, tuple := range metaReplacePrefixInput {
+		parts := strings.SplitN(tuple, ":", 3)
+		if len(parts) < 3 {
+			return errMsg
+		}
+		metaReplacePrefix = append(metaReplacePrefix, models.MetaReplacePrefix{
+			Field:       parts[0],
+			Prefix:      parts[1],
+			Replacement: parts[2],
+		})
+	}
+	if len(metaReplacePrefix) > 0 {
+		logging.PrintI("Meta replace prefixes: %v", metaReplacePrefix)
+		viper.Set(keys.MReplacePfx, metaReplacePrefix)
+	}
+
+	// Replace filename suffixes
+	errMsg = fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
+	var filenameReplaceSuffix []models.FilenameReplaceSuffix
+
+	for _, pair := range filenameReplaceSuffixInput {
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) < 2 {
+			return errMsg
+		}
+		filenameReplaceSuffix = append(filenameReplaceSuffix, models.FilenameReplaceSuffix{
+			Suffix:      parts[0],
+			Replacement: parts[1],
+		})
+	}
+	if len(filenameReplaceSuffix) > 0 {
+		logging.PrintI("Meta replace suffixes: %v", filenameReplaceSuffix)
+		viper.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+	}
+
+	return nil
+}
+
+// initDateReplaceFormat initializes the user's preferred format for dates
+func initDateReplaceFormat() error {
+
+	dateFmt := viper.GetString(keys.InputFileDatePfx)
+
+	var formatEnum enums.FilenameDateFormat
+
+	if dateFmt == "" {
+		formatEnum = enums.FILEDATE_SKIP
+	} else if len(dateFmt) != 3 {
+		return fmt.Errorf("invalid date format entered, please enter three characters (where 'Y' is yyyy and 'y' is yy)")
+	} else {
+		switch dateFmt {
+		case "Ymd":
+			formatEnum = enums.FILEDATE_YYYY_MM_DD
+		case "ymd":
+			formatEnum = enums.FILEDATE_YY_MM_DD
+		case "Ydm":
+			formatEnum = enums.FILEDATE_YYYY_DD_MM
+		case "ydm":
+			formatEnum = enums.FILEDATE_YY_DD_MM
+		case "dmY":
+			formatEnum = enums.FILEDATE_DD_MM_YYYY
+		case "dmy":
+			formatEnum = enums.FILEDATE_DD_MM_YY
+		case "mdY":
+			formatEnum = enums.FILEDATE_MM_DD_YYYY
+		case "mdy":
+			formatEnum = enums.FILEDATE_MM_DD_YY
+		case "":
+			formatEnum = enums.FILEDATE_SKIP
+		default:
+			return fmt.Errorf("invalid date format entered, please enter three characters (where capital Y is yyyy and y is yy)")
+		}
+	}
+
+	viper.Set(keys.FileDateFmt, formatEnum)
+	logging.PrintD(1, "Set file date format to %v", formatEnum)
+	return nil
+}
+package cmd
+
+import (
+	"fmt"
+
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+
+	"github.com/shirou/gopsutil/mem"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+)
+
+var metaReplaceSuffixInput []string
+var metaReplacePrefixInput []string
+var metaNewFieldInput []string
+var filenameReplaceSuffixInput []string
+
+var rootCmd = &cobra.Command{
+	Use:   "metarr",
+	Short: "Metarr is a video and metatagging tool",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if cmd.Flags().Lookup("help").Changed {
+			return nil // Stop further execution if help is invoked
+		}
+		viper.Set("execute", true)
+		return execute()
+	},
+}
+
+// init sets the initial Viper settings
+func init() {
+
+	// Video directory
+	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
+	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
+
+	// JSON directory
+	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON metadata directory")
+	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
+
+	// Rename choice
+	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
+	viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle))
+
+	// Concurrency limit
+	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
+	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
+
+	// CPU usage
+	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 100.0, "Max CPU usage")
+	viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU))
+
+	// Min memory
+	rootCmd.PersistentFlags().Uint64P(keys.MinMem, "m", 0, "Minimum RAM to start process")
+	viper.BindPFlag(keys.MinMem, rootCmd.PersistentFlags().Lookup(keys.MinMem))
+
+	// File extensions to convert
+	rootCmd.PersistentFlags().StringSliceP(keys.InputExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
+	viper.BindPFlag(keys.InputExts, rootCmd.PersistentFlags().Lookup(keys.InputExts))
+
+	// Only convert files with prefix
+	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
+	viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes))
+
+	// Hardware acceleration
+	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")
+	viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU))
+
+	// Debugging level
+	rootCmd.PersistentFlags().Uint16P(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
+	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
+
+	// Metadata replacement
+	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
+	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
+	rootCmd.PersistentFlags().StringSliceVar(&metaNewFieldInput, "meta-add-field", nil, "Add new fields into metadata files (metatag:value)")
+
+	// Filename transformations
+	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
+	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
+
+	rootCmd.PersistentFlags().StringSliceVar(&filenameReplaceSuffixInput, keys.InputFilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
+	viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx))
+
+	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
+	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
+
+	// Special functions
+	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
+	viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos))
+
+	rootCmd.PersistentFlags().Bool(keys.MOverwrite, false, "When adding new metadata fields, automatically overwrite existing fields with your new values")
+	viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite))
+
+	rootCmd.PersistentFlags().Bool(keys.MPreserve, false, "When adding new metadata fields, skip already existent fields")
+	viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve))
+
+	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
+	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
+}
+
+// Execute is the primary initializer of Viper
+func Execute() error {
+
+	fmt.Println()
+
+	err := rootCmd.Execute()
+	if err != nil {
+		logging.PrintE(0, "Failed to execute cobra")
+		return err
+
+	}
+	return nil
+}
+
+// execute more thoroughly handles settings created in the Viper init
+func execute() error {
+
+	// Parse GPU settings and set commands
+	switch viper.GetString(keys.GPU) {
+	case "nvidia":
+		viper.Set(keys.GPUEnum, enums.NVIDIA)
+		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+	case "amd":
+		viper.Set(keys.GPUEnum, enums.AMD)
+		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+	case "intel":
+		viper.Set(keys.GPUEnum, enums.INTEL)
+		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+	case "none":
+		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
+	default:
+		return fmt.Errorf("invalid hardware acceleration option")
+	}
+
+	// Concurrency
+	maxConcurrentProcesses := viper.GetInt(keys.Concurrency)
+
+	switch {
+	case maxConcurrentProcesses < 1:
+		maxConcurrentProcesses = 1
+		logging.PrintE(2, "Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
+	default:
+		logging.PrintI("Max concurrency: %d", maxConcurrentProcesses)
+	}
+	viper.Set(keys.Concurrency, maxConcurrentProcesses)
+
+	// CPU Usage
+	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
+	switch {
+	case maxCPUUsage > 100.0:
+		maxCPUUsage = 100.0
+		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
+
+	case maxCPUUsage < 1.0:
+		maxCPUUsage = 10.0
+		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
+	}
+	if maxCPUUsage != 100.0 {
+		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
+	}
+	viper.Set(keys.MaxCPU, maxCPUUsage)
+
+	// Minimum memory
+	MinMemUsage := viper.GetUint64(keys.MinMem)
+	MinMemUsage *= 1024 * 1024 // Convert input to MB
+
+	currentAvailableMem, err := mem.VirtualMemory()
+	if err != nil {
+		logging.PrintE(0, "Could not get system memory, using default max RAM requirements", err)
+		currentAvailableMem.Available = 1024
+	}
+	if MinMemUsage > currentAvailableMem.Available {
+		MinMemUsage = currentAvailableMem.Available
+	}
+
+	if MinMemUsage > 0 {
+		logging.PrintI("Min RAM to spawn process: %v", MinMemUsage)
+	}
+	viper.Set(keys.MinMemMB, MinMemUsage)
+
+	// File extension settings
+	var inputExts []enums.ConvertFromFiletype
+
+	argsInputExts := viper.GetStringSlice(keys.InputExts)
+
+	for _, data := range argsInputExts {
+		switch data {
+		case "all":
+			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+		case "mkv":
+			inputExts = append(inputExts, enums.IN_MKV)
+		case "mp4":
+			inputExts = append(inputExts, enums.IN_MP4)
+		case "webm":
+			inputExts = append(inputExts, enums.IN_WEBM)
+		default:
+			return fmt.Errorf("invalid input file extension filters selected")
+		}
+	}
+
+	if len(inputExts) == 0 {
+		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	}
+	viper.Set(keys.InputExtsEnum, inputExts)
+
+	// File prefix filter settings
+	var filePrefixes []string
+
+	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
+	filePrefixes = append(filePrefixes, argInputPrefixes...)
+
+	viper.Set(keys.FilePrefixes, filePrefixes)
+
+	// Debugging level
+	debugLevel := viper.GetUint16(keys.DebugLevel)
+	if debugLevel > 3 {
+		debugLevel = 3
+	} else if debugLevel == 0 {
+		logging.PrintI("Debugging level: %v", debugLevel)
+	}
+	viper.Set(keys.DebugLevel, debugLevel)
+
+	err = initTextReplace()
+	if err != nil {
+		return err
+	}
+
+	err = initDateReplaceFormat()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+package cmd
+
+import (
+	"github.com/spf13/viper"
+)
+
+// Set sets the value for the key in the override register. Set is case-insensitive for a key. Will be used instead of values obtained via flags, config file, ENV, default, or key/value store.
+func Set(key string, value any) {
+
+	viper.Set(key, value)
+}
+
+// Get can retrieve any value given the key to use. Get is case-insensitive for a key. Get has the behavior of returning the value associated with the first place from where it is set. Viper will check in the following order: override, flag, env, config file, key/value store, default
+// Get returns an interface. For a specific value use one of the Get____ methods.
+func Get(key string) any {
+	return viper.Get(key)
+}
+
+// GetBool returns the value associated with the key as a boolean.
+func GetBool(key string) bool {
+	return viper.GetBool(key)
+}
+
+// GetInt returns the value associated with the key as an integer.
+func GetInt(key string) int {
+	return viper.GetInt(key)
+}
+
+// GetUint64 returns the value associated with the key as an unsigned integer.
+func GetUint64(key string) uint64 {
+	return viper.GetUint64(key)
+}
+
+// GetFloat64 returns the value associated with the key as a float64.
+func GetFloat64(key string) float64 {
+	return viper.GetFloat64(key)
+}
+
+// GetString returns the value associated with the key as a string.
+func GetString(key string) string {
+	return viper.GetString(key)
+}
+
+// GetStringSlice returns the value associated with the key as a slice of strings.
+func GetStringSlice(key string) []string {
+	return viper.GetStringSlice(key)
+}
+
+// IsSet checks to see if the key has been set in any of the data locations.
+// IsSet is case-insensitive for a key.
+func IsSet(key string) bool {
+	return viper.IsSet(key)
+}
+package commandvars
+
+var AVCodecCopy = []string{"-codec", "copy"}
+var VideoCodecCopy = []string{"-c:v", "copy"}
+var AudioCodecCopy = []string{"-c:a", "copy"}
+
+var AudioToAAC = []string{"-c:a", "aac"}
+var VideoToH264Balanced = []string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
+var AudioBitrate = []string{"-b:a", "256k"}
+
+var PixelFmtYuv420p = []string{"-pix_fmt", "yuv420p"}
+var KeyframeBalanced = []string{"-g", "50", "-keyint_min", "30"}
+
+var OutputExt = []string{"-f", "mp4"}
+
+var NvidiaAccel = []string{"-hwaccel", "nvdec"}
+var AMDAccel = []string{"-hwaccel", "vulkan"}
+var IntelAccel = []string{"-hwaccel", "qsv"}
+package consts
+
+import "fmt"
+
+// Colors
+const (
+	ColorReset  = "\033[0m"
+	ColorRed    = "\033[91m"
+	ColorGreen  = "\033[92m"
+	ColorYellow = "\033[93m"
+	ColorBlue   = "\033[34m"
+	ColorPurple = "\033[35m"
+	ColorCyan   = "\033[96m"
+	ColorWhite  = "\033[37m"
+)
+
+var RedError string = fmt.Sprintf("%v[ERROR] %v", ColorRed, ColorReset)
+var YellowDebug string = fmt.Sprintf("%v[DEBUG] %v", ColorYellow, ColorReset)
+var GreenSuccess string = fmt.Sprintf("%v[SUCCESS] %v", ColorGreen, ColorReset)
+var BlueInfo string = fmt.Sprintf("%v[Info] %v", ColorCyan, ColorReset)
+
+// File prefix and suffix
+const (
+	OldTag  = "_backup"
+	TempTag = "tmp_"
+)
+
+// Log file keys
+const (
+	LogFinished = "FINISHED: "
+	LogError    = "ERROR: "
+	LogFailure  = "FAILED: "
+	LogSuccess  = "Success: "
+	LogInfo     = "Info: "
+	LogWarning  = "Warning: "
+	LogBasic    = ""
+)
+
+// Webpage tags
+var WebDateTags = []string{"release-date", "upload-date", "date", "date-text"}
+var WebDescriptionTags = []string{"description", "longdescription", "long-description", "summary", "synopsis", "check-for-urls"}
+var WebCreditsTags = []string{"creator", "uploader", "uploaded-by", "uploaded_by"}
+package enums
+
+// User selection of filetypes to convert from
+type ConvertFromFiletype int
+
+const (
+	IN_ALL_EXTENSIONS ConvertFromFiletype = iota
+	IN_MKV            ConvertFromFiletype = iota
+	IN_MP4            ConvertFromFiletype = iota
+	IN_WEBM           ConvertFromFiletype = iota
+	IN_MKVWEBM        ConvertFromFiletype = iota
+)
+
+// User system graphics hardware for transcoding
+type SysGPU int
+
+const (
+	NVIDIA      SysGPU = iota
+	AMD         SysGPU = iota
+	INTEL       SysGPU = iota
+	NO_HW_ACCEL SysGPU = iota
+)
+
+// Naming syle
+type ReplaceToStyle int
+
+const (
+	SPACES      ReplaceToStyle = iota
+	UNDERSCORES ReplaceToStyle = iota
+	SKIP        ReplaceToStyle = iota
+)
+
+// Date formats
+type FilenameDateFormat int
+
+const (
+	FILEDATE_YYYY_MM_DD FilenameDateFormat = iota
+	FILEDATE_YY_MM_DD   FilenameDateFormat = iota
+	FILEDATE_YYYY_DD_MM FilenameDateFormat = iota
+	FILEDATE_YY_DD_MM   FilenameDateFormat = iota
+	FILEDATE_DD_MM_YYYY FilenameDateFormat = iota
+	FILEDATE_DD_MM_YY   FilenameDateFormat = iota
+	FILEDATE_MM_DD_YYYY FilenameDateFormat = iota
+	FILEDATE_MM_DD_YY   FilenameDateFormat = iota
+	FILEDATE_SKIP       FilenameDateFormat = iota
+)
+
+// Viper variable types
+type ViperVarTypes int
+
+const (
+	VIPER_ANY          ViperVarTypes = iota
+	VIPER_BOOL         ViperVarTypes = iota
+	VIPER_INT          ViperVarTypes = iota
+	VIPER_STRING       ViperVarTypes = iota
+	VIPER_STRING_SLICE ViperVarTypes = iota
+)
+
+// Web tags
+type WebClassTags int
+
+const (
+	WEBCLASS_DATE        WebClassTags = iota
+	WEBCLASS_TITLE       WebClassTags = iota
+	WEBCLASS_DESCRIPTION WebClassTags = iota
+	WEBCLASS_CREDITS     WebClassTags = iota
+)
+package keys
+
+// Terminal keys
+const (
+	VideoDir                string = "video-dir"
+	JsonDir                 string = "json-dir"
+	InputExts               string = "input-exts"
+	FilePrefixes            string = "prefix"
+	Concurrency             string = "concurrency"
+	MaxCPU                  string = "max-cpu"
+	MinMem                  string = "min-mem"
+	MinMemMB                string = "min-mem-mb"
+	GPU                     string = "gpu"
+	MFilenamePfx            string = "metadata-filename-prefix"
+	InputFilenameReplaceSfx string = "filename-replace-suffix"
+	InputFileDatePfx        string = "filename-date-tag"
+	RenameStyle             string = "input-rename-style"
+	MReplaceSfx             string = "meta-trim-suffix"
+	MReplacePfx             string = "meta-trim-prefix"
+	MNewField               string = "meta-add-field"
+	MOverwrite              string = "meta-overwrite"
+	MPreserve               string = "meta-preserve"
+	DebugLevel              string = "debug-level"
+	SkipVideos              string = "skip-videos"
+	NoFileOverwrite         string = "no-file-overwrite"
+)
+
+// Primary program
+const (
+	Context   string = "Context"
+	WaitGroup string = "WaitGroup"
+)
+
+// Files and directories
+const (
+	OpenVideoDir string = "openVideoDir"
+	OpenJsonDir  string = "openJsonDir"
+	VideoMap     string = "videoMap"
+	MetaMap      string = "metaMap"
+)
+
+// Filter for files
+const (
+	InputExtsEnum string = "inputExtsEnum"
+)
+
+// Performance
+const (
+	GPUEnum string = "gpuEnum"
+)
+
+// Filename edits
+const (
+	Rename             string = "Rename"
+	FileDateFmt        string = "filenameDateTag"
+	FilenameReplaceSfx string = "filenameReplaceSfx"
+)
+
+// Contains the fields which accept multiple entries as string arrays
+var MultiEntryFields []string = []string{
+	InputExts,
+	FilePrefixes,
+	MReplaceSfx,
+	MReplacePfx,
+	MNewField,
+	FilenameReplaceSfx,
+}
+package logging
+
+import (
+	"Metarr/internal/consts"
+	"Metarr/internal/keys"
+	"fmt"
+	"sync"
+
+	"github.com/spf13/viper"
+)
+
+var (
+	Level int = -1 // Pre initialization
+	mu    sync.Mutex
+)
+
+func PrintE(l int, format string, args ...interface{}) string {
+
+	mu.Lock()
+	defer mu.Unlock()
+	var msg string
+
+	if Level < 0 {
+		Level = viper.GetInt(keys.DebugLevel)
+	}
+	if l <= viper.GetInt(keys.DebugLevel) {
+
+		if len(args) != 0 && args != nil {
+			msg = fmt.Sprintf(consts.RedError+format+"\n", args...)
+		} else {
+			msg = fmt.Sprintf(consts.RedError + format + "\n")
+		}
+		fmt.Print(msg)
+
+		Write(consts.LogError, msg, nil)
+	}
+
+	return msg
+}
+
+func PrintS(l int, format string, args ...interface{}) string {
+
+	mu.Lock()
+	defer mu.Unlock()
+	var msg string
+
+	if Level < 0 {
+		Level = viper.GetInt(keys.DebugLevel)
+	}
+	if l <= viper.GetInt(keys.DebugLevel) {
+
+		if len(args) != 0 && args != nil {
+			msg = fmt.Sprintf(consts.GreenSuccess+format+"\n", args...)
+		} else {
+			msg = fmt.Sprintf(consts.GreenSuccess + format + "\n")
+		}
+		fmt.Print(msg)
+
+		Write(consts.LogSuccess, msg, nil)
+	}
+
+	return msg
+}
+
+func PrintD(l int, format string, args ...interface{}) string {
+
+	mu.Lock()
+	defer mu.Unlock()
+	var msg string
+
+	if Level < 0 {
+		Level = viper.GetInt(keys.DebugLevel)
+	}
+	if l <= viper.GetInt(keys.DebugLevel) && l != 0 { // Debug messages don't appear by default
+
+		if len(args) != 0 && args != nil {
+			msg = fmt.Sprintf(consts.YellowDebug+format+"\n", args...)
+		} else {
+			msg = fmt.Sprintf(consts.YellowDebug + format + "\n")
+		}
+		fmt.Print(msg)
+
+		Write(consts.LogSuccess, msg, nil)
+	}
+
+	return msg
+}
+
+func PrintI(format string, args ...interface{}) string {
+
+	mu.Lock()
+	defer mu.Unlock()
+	var msg string
+
+	if len(args) != 0 && args != nil {
+		msg = fmt.Sprintf(consts.BlueInfo+format+"\n", args...)
+	} else {
+		msg = fmt.Sprintf(consts.BlueInfo + format + "\n")
+	}
+	fmt.Print(msg)
+	Write(consts.LogInfo, msg, nil)
+
+	return msg
+}
+
+func Print(format string, args ...interface{}) string {
+
+	mu.Lock()
+	defer mu.Unlock()
+	var msg string
+
+	if len(args) != 0 && args != nil {
+		msg = fmt.Sprintf(format+"\n", args...)
+	} else {
+		msg = fmt.Sprintf(format + "\n")
+	}
+	fmt.Print(msg)
+	Write(consts.LogBasic, msg, nil)
+
+	return msg
+}
+package logging
+
+import (
+	"fmt"
+	"log"
+	"os"
+	"regexp"
+	"sync"
+	"time"
+)
+
+var ErrorArray []error
+var Loggable bool = false
+var Logger *log.Logger
+var logMutex sync.Mutex
+
+// Regular expression to match ANSI escape codes
+var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// SetupLogging creates and/or opens the log file
+func SetupLogging(targetDir string, logFile *os.File) error {
+
+	Logger = log.New(logFile, "", log.LstdFlags)
+	Loggable = true
+
+	Logger.Printf(":\n=========== %v ===========\n\n", time.Now().Format(time.RFC1123Z))
+	return nil
+}
+
+// Write writes error information to the log file
+func Write(tag, infoMsg string, err error, args ...interface{}) {
+
+	if Loggable {
+		logMutex.Lock()
+		defer logMutex.Unlock()
+
+		var errMsg string
+		var info string
+
+		if err != nil {
+			if tag == "" {
+				errMsg = fmt.Sprintf(err.Error()+"\n", args...)
+			} else {
+				errMsg = fmt.Sprintf(tag+err.Error()+"\n", args...)
+			}
+			Logger.Print(stripAnsiCodes(errMsg))
+
+		} else if infoMsg != "" {
+			if tag == "" {
+				info = fmt.Sprintf(infoMsg+"\n", args...)
+			} else {
+				info = fmt.Sprintf(tag+infoMsg+"\n", args...)
+			}
+			Logger.Print(stripAnsiCodes(info))
+		}
+	}
+}
+
+// WriteArray writes an array of error information to the log file
+func WriteArray(tag string, infoMsg []string, err []error, args ...interface{}) {
+	if Loggable {
+		logMutex.Lock()
+		defer logMutex.Unlock()
+
+		var errMsg, info string
+
+		if len(err) != 0 && err != nil {
+
+			var errOut string
+
+			for _, errValue := range err {
+				errOut += errValue.Error()
+			}
+
+			if tag == "" {
+				errMsg = fmt.Sprintf(errOut+"\n", args...)
+			} else {
+				errMsg = fmt.Sprintf(tag+errOut+"\n", args...)
+			}
+			Logger.Print(stripAnsiCodes(errMsg))
+
+		} else if len(infoMsg) != 0 && infoMsg != nil {
+
+			var infoOut string
+
+			for _, infoValue := range err {
+				infoOut += infoValue.Error()
+			}
+
+			if tag == "" {
+				info = fmt.Sprintf(infoOut+"\n", args...)
+			} else {
+				info = fmt.Sprintf(tag+infoOut+"\n", args...)
+			}
+			Logger.Print(stripAnsiCodes(info))
+		}
+	}
+}
+
+// stripAnsiCodes removes ANSI escape codes from a string
+func stripAnsiCodes(input string) string {
+	return ansiEscape.ReplaceAllString(input, "")
+}
+package metadata
+
+import (
+	"Metarr/internal/cmd"
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+)
+
+// GetVideoFiles fetches video files from a directory
+func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
+	files, err := videoDir.ReadDir(-1)
+	if err != nil {
+		return nil, fmt.Errorf("error reading video directory: %w", err)
+	}
+
+	convertFrom := cmd.Get(keys.InputExtsEnum).([]enums.ConvertFromFiletype)
+	videoExtensions := setExtensions(convertFrom)
+	inputPrefixFilters := cmd.GetStringSlice(keys.FilePrefixes)
+	inputPrefixes := setPrefixFilter(inputPrefixFilters)
+
+	fmt.Printf(`
+
+Filtering directory: %s:
+
+File extensions: %v
+File prefixes: %v
+
+`, videoDir.Name(),
+		videoExtensions,
+		inputPrefixes)
+
+	videoFiles := make(map[string]*models.FileData)
+
+	for _, file := range files {
+		if !file.IsDir() && hasFileExtension(file.Name(), videoExtensions) && hasPrefix(file.Name(), inputPrefixes) {
+			filenameBase := filepath.Base(file.Name())
+
+			fileData := models.NewFileData()
+			fileData.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
+			fileData.OriginalVideoBaseName = strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
+			fileData.VideoDirectory = videoDir.Name()
+
+			videoFiles[file.Name()] = fileData
+
+			logging.PrintI(`Added video to queue: %v`, filenameBase)
+		}
+	}
+
+	if len(videoFiles) == 0 {
+		return nil, fmt.Errorf("no video files with extensions: %v and prefixes: %v found in directory: %s", videoExtensions, inputPrefixes, videoDir.Name())
+	}
+	return videoFiles, nil
+}
+
+// GetMetadataFiles fetches metadata files from a directory
+func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
+	files, err := metaDir.ReadDir(-1)
+	if err != nil {
+		return nil, fmt.Errorf("error reading metadata directory: %w", err)
+	}
+
+	metaExtensions := []string{".json"}
+	inputPrefixFilters := cmd.GetStringSlice(keys.FilePrefixes)
+	inputPrefixes := setPrefixFilter(inputPrefixFilters)
+
+	metaFiles := make(map[string]*models.FileData)
+
+	for _, file := range files {
+		if !file.IsDir() && hasFileExtension(file.Name(), metaExtensions) && hasPrefix(file.Name(), inputPrefixes) {
+			filenameBase := filepath.Base(file.Name())
+
+			fileData := models.NewFileData()
+			fileData.JSONFilePath = filepath.Join(metaDir.Name(), file.Name())
+			fileData.JSONBaseName = strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
+			fileData.JSONDirectory = metaDir.Name()
+
+			metaFiles[file.Name()] = fileData
+		}
+	}
+
+	if len(metaFiles) == 0 {
+		return nil, fmt.Errorf("no meta files with extensions: %v and prefixes: %v found in directory: %s", metaExtensions, inputPrefixes, metaDir.Name())
+	}
+	return metaFiles, nil
+}
+
+// MatchVideoWithMetadata matches video files with their corresponding metadata files
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
+
+	logging.PrintD(3, "Entering metadata and video file matching loop...")
+
+	matchedFiles := make(map[string]*models.FileData)
+
+	specialChars := regexp.MustCompile(`[^\w\s-]`)
+	extraSpaces := regexp.MustCompile(`\s+`)
+
+	for videoName, videoData := range videoFiles {
+
+		// Normalize video name
+		videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
+		normalizedVideoBase := normalizeFilename(videoBase, specialChars, extraSpaces)
+		logging.PrintD(3, "Normalized video base: %s", normalizedVideoBase)
+
+		for metaName, metaData := range metaFiles {
+
+			jsonBase := trimJsonSuffixes(metaName, videoBase)
+			normalizedJsonBase := normalizeFilename(jsonBase, specialChars, extraSpaces)
+			logging.PrintD(3, "Normalized metadata base: %s", normalizedJsonBase)
+
+			if strings.Contains(normalizedJsonBase, normalizedVideoBase) {
+				matchedFiles[videoName] = videoData
+				matchedFiles[videoName].JSONFilePath = metaData.JSONFilePath
+				matchedFiles[videoName].JSONBaseName = metaData.JSONBaseName
+				matchedFiles[videoName].JSONDirectory = metaData.JSONDirectory
+				break
+			}
+		}
+	}
+
+	if len(matchedFiles) == 0 {
+		return nil, fmt.Errorf("no matching metadata files found for any videos")
+	}
+
+	return matchedFiles, nil
+}
+
+// hasVideoExtension checks if the file has a valid video extension
+func hasFileExtension(fileName string, extensions []string) bool {
+
+	if extensions == nil {
+		extensions = append(extensions, ".*")
+	}
+
+	for _, ext := range extensions {
+		if strings.HasSuffix(strings.ToLower(fileName), strings.ToLower(ext)) {
+			return true
+		}
+	}
+
+	// No matches
+	return false
+}
+
+// hasPrefix determines if the input file has the desired prefix
+func hasPrefix(fileName string, prefixes []string) bool {
+
+	if prefixes == nil {
+		prefixes = append(prefixes, "")
+	}
+
+	for _, data := range prefixes {
+		if strings.HasPrefix(strings.ToLower(fileName), strings.ToLower(data)) {
+			return true
+		}
+	}
+
+	// No matches
+	return false
+}
+
+// trimJsonSuffixes normalizes away common json string suffixes
+// e.g. ".info" for yt-dlp outputted JSON files
+func trimJsonSuffixes(jsonBase, videoBase string) string {
+
+	switch {
+
+	case strings.HasSuffix(jsonBase, ".info.json"): // FFmpeg
+		if !strings.HasSuffix(videoBase, ".info") {
+			jsonBase = strings.TrimSuffix(jsonBase, ".info.json")
+		} else {
+			jsonBase = strings.TrimSuffix(jsonBase, ".json")
+		}
+
+	case strings.HasSuffix(jsonBase, ".metadata.json"): // Angular
+		if !strings.HasSuffix(videoBase, ".metadata") {
+			jsonBase = strings.TrimSuffix(jsonBase, ".metadata.json")
+		} else {
+			jsonBase = strings.TrimSuffix(jsonBase, ".json")
+		}
+
+	case strings.HasSuffix(jsonBase, ".model.json"):
+		if !strings.HasSuffix(videoBase, ".model") {
+			jsonBase = strings.TrimSuffix(jsonBase, ".model.json")
+		} else {
+			jsonBase = strings.TrimSuffix(jsonBase, ".json")
+		}
+
+	case strings.HasSuffix(jsonBase, ".manifest.cdm.json"):
+		if !strings.HasSuffix(videoBase, ".manifest.cdm") {
+			jsonBase = strings.TrimSuffix(jsonBase, ".manifest.cdm.json")
+		} else {
+			jsonBase = strings.TrimSuffix(jsonBase, ".json")
+		}
+
+	default:
+		if !strings.HasSuffix(videoBase, ".json") {
+			jsonBase = strings.TrimSuffix(jsonBase, ".json")
+		}
+		logging.PrintD(1, "Common suffix not found for JSON (%s)", jsonBase)
+	}
+
+	return jsonBase
+}
+
+// setExtensions creates a list of extensions to filter
+func setExtensions(convertFrom []enums.ConvertFromFiletype) []string {
+
+	var videoExtensions []string
+
+	for _, arg := range convertFrom {
+
+		switch arg {
+		case enums.IN_ALL_EXTENSIONS:
+			videoExtensions = append(videoExtensions, ".mp4",
+				".mkv",
+				".avi",
+				".wmv",
+				".webm")
+
+		case enums.IN_MKV:
+			videoExtensions = append(videoExtensions, ".mkv")
+
+		case enums.IN_MP4:
+			videoExtensions = append(videoExtensions, ".mp4")
+
+		case enums.IN_WEBM:
+			videoExtensions = append(videoExtensions, ".webm")
+
+		default:
+			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
+			videoExtensions = append(videoExtensions, ".mp4",
+				".mkv",
+				".avi",
+				".wmv",
+				".webm")
+		}
+	}
+
+	return videoExtensions
+}
+
+// setPrefixFilter sets a list of prefixes to filter
+func setPrefixFilter(inputPrefixFilters []string) []string {
+
+	var prefixFilters []string
+
+	prefixFilters = append(prefixFilters, inputPrefixFilters...)
+
+	return prefixFilters
+}
+
+// normalizeFilename removes special characters and normalizes spacing
+func normalizeFilename(filename string, specialChars, extraSpaces *regexp.Regexp) string {
+
+	normalized := strings.ToLower(filename)
+	normalized = specialChars.ReplaceAllString(normalized, "")
+	normalized = extraSpaces.ReplaceAllString(normalized, " ")
+	normalized = strings.TrimSpace(normalized)
+
+	return normalized
+}
+package metadata
+
+import (
+	"Metarr/internal/backup"
+	"Metarr/internal/browser"
+	"Metarr/internal/cmd"
+	"Metarr/internal/consts"
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"Metarr/internal/naming"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+	"sync"
+)
+
+var (
+	printFields sync.Mutex
+	processMeta sync.Mutex
+)
+
+// ProcessJSONFile reads a single JSON file and fills in the metadata
+func ProcessJSONFile(m *models.FileData) (*models.FileData, error) {
+
+	// Function mutex
+	processMeta.Lock()
+	defer processMeta.Unlock()
+
+	filePath := m.JSONFilePath
+
+	// Open the file
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	fileContent, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read JSON file: %w", err)
+	}
+
+	var jsonData map[string]interface{}
+	err = json.Unmarshal(fileContent, &jsonData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	// Return early if user wants to skip videos
+	if cmd.GetBool(keys.SkipVideos) {
+		return m, nil
+	}
+
+	// Make metadata adjustments per user selection
+	err = naming.MakeMetaEdits(fileContent, jsonData, file, m)
+	if err != nil {
+		return nil, err
+	}
+
+	// Seek to the beginning before reading
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, fmt.Errorf("failed to seek file: %w", err)
+	}
+
+	ok := fillTitles(m, jsonData)
+	if !ok {
+		logging.PrintI("No title metadata found")
+	}
+
+	ok = fillDescriptions(m, jsonData, file)
+	if !ok {
+		logging.PrintI("No description metadata found")
+	}
+
+	ok = fillCredits(m, jsonData, file)
+	if !ok {
+		logging.PrintI("No credits metadata found")
+	}
+
+	ok = fillTimestamps(m, jsonData, file)
+	if ok {
+		m.MDates.FormattedDate = formatDate(m)
+	} else {
+		logging.PrintI("No date metadata found")
+	}
+
+	// Make date tag
+	logging.PrintD(3, "About to make date tag for: %v", file.Name())
+	if cmd.Get(keys.FileDateFmt).(enums.FilenameDateFormat) != enums.FILEDATE_SKIP {
+		m.FilenameDateTag, err = makeDateTag(jsonData, file.Name())
+		if err != nil {
+			logging.PrintE(0, "Failed to make date tag: %v", err)
+		}
+	}
+
+	// Add new filename tag for files
+	logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
+	m.FilenameMetaPrefix = makeFilenameTag(jsonData, file)
+
+	return m, nil
+}
+
+// fillTitles grabs the fulltitle ("title")
+func fillTitles(m *models.FileData, j map[string]interface{}) bool {
+
+	for key, value := range j {
+
+		switch {
+		case key == "fulltitle":
+			m.MTitleDesc.Title = value.(string)
+		case key == "title":
+			m.MTitleDesc.FallbackTitle = value.(string)
+		case key == "subtitle":
+			m.MTitleDesc.Subtitle = value.(string)
+
+		}
+	}
+
+	if m.MTitleDesc.Title == "" && m.MTitleDesc.FallbackTitle != "" {
+		m.MTitleDesc.Title = m.MTitleDesc.FallbackTitle
+	}
+
+	if m.MTitleDesc.Title == "" {
+		return false
+	}
+
+	return true
+}
+
+// fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
+func fillCredits(m *models.FileData, metadata map[string]interface{}, file *os.File) bool {
+
+	c := m.MCredits
+	w := m.MWebData
+
+	fieldMap := map[string]*string{
+		"creator":   &c.Creator,
+		"performer": &c.Performer,
+		"author":    &c.Author,
+		"director":  &c.Director,
+		"actor":     &c.Actor,
+		"studio":    &c.Studio,
+		"producer":  &c.Producer,
+		"uploader":  &c.Uploader,
+		"publisher": &c.Publisher,
+		"composer":  &c.Composer,
+		"artist":    &c.Artist,
+	}
+
+	dataFilled := unpackJSON(fieldMap, metadata)
+
+	switch {
+	case dataFilled:
+		return true
+	case w.WebpageURL == "":
+		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", m.JSONFilePath)
+		return false
+	}
+
+	var err error
+	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
+	if err != nil {
+		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+	}
+
+	credits, err := browser.ScrapeForMetadata(w.WebpageURL, w.Cookies, enums.WEBCLASS_CREDITS)
+	if err != nil {
+		logging.PrintE(0, "Failed to scrape '%s' for credits: %v", w.WebpageURL, err)
+		return false
+	}
+
+	if credits != "" {
+
+		for _, value := range fieldMap {
+			if *value == "" {
+				*value = credits
+			}
+		}
+
+		err := insertScrapedMetadata(m, file, enums.WEBCLASS_CREDITS)
+		if err != nil {
+			logging.PrintE(0, "Failed to insert new metadata (%s) into JSON file '%s': %v", credits, m.JSONFilePath, err)
+		}
+
+		return true
+	} else {
+		return false
+	}
+}
+
+// fillDescriptions grabs description metadata from JSON
+func fillDescriptions(m *models.FileData, metadata map[string]interface{}, file *os.File) bool {
+
+	d := m.MTitleDesc
+	w := m.MWebData
+
+	fieldMap := map[string]*string{
+		"description":      &d.Description,
+		"longdescription":  &d.LongDescription,
+		"long_description": &d.Long_Description,
+		"synopsis":         &d.Synopsis,
+		"summary":          &d.Summary,
+		"comment":          &d.Comment,
+	}
+
+	dataFilled := unpackJSON(fieldMap, metadata)
+
+	switch {
+	case dataFilled:
+		return true
+	case w.WebpageURL == "":
+		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing description in '%s'", m.JSONFilePath)
+		return false
+	}
+
+	var err error
+	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
+	if err != nil {
+		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+	}
+
+	description, err := browser.ScrapeForMetadata(w.WebpageURL, w.Cookies, enums.WEBCLASS_DESCRIPTION)
+	if err != nil {
+		logging.PrintE(0, "Failed to scrape '%s' for description: %v", w.WebpageURL, err)
+		return false
+	}
+
+	if description != "" {
+		for _, value := range fieldMap {
+			if *value == "" {
+				*value = description
+			}
+		}
+
+		err := insertScrapedMetadata(m, file, enums.WEBCLASS_DESCRIPTION)
+		if err != nil {
+			logging.PrintE(0, "Failed to insert new metadata (%s) into JSON file '%s': %v", description, m.JSONFilePath, err)
+		}
+		return true
+	} else {
+		return false
+	}
+}
+
+// fillTimestamps grabs timestamp metadata from JSON
+func fillTimestamps(m *models.FileData, metadata map[string]interface{}, file *os.File) bool {
+
+	t := m.MDates
+	w := m.MWebData
+
+	fieldMap := map[string]*string{
+		"creation_time":           &t.Creation_Time,
+		"created_at":              &t.Creation_Time,
+		"originally_available_at": &t.Originally_Available_At,
+		"originally_available":    &t.Originally_Available_At,
+		"originallyavailable":     &t.Originally_Available_At,
+		"release_date":            &t.ReleaseDate,
+		"releasedate":             &t.ReleaseDate,
+		"released_on":             &t.ReleaseDate,
+		"upload_date":             &t.UploadDate,
+		"uploaddate":              &t.UploadDate,
+		"uploaded_on":             &t.UploadDate,
+	}
+
+	for key, value := range metadata {
+		if strVal, ok := value.(string); ok {
+			if field, exists := fieldMap[key]; exists && *field == "" {
+				*field = strVal
+			}
+		}
+	}
+
+	var gotRelevantDate bool
+
+	switch {
+	case t.Originally_Available_At != "" && len(t.Originally_Available_At) >= 6:
+
+		gotRelevantDate = true
+
+		if t.Creation_Time == "" {
+			t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
+
+		}
+
+	case t.ReleaseDate != "" && len(t.ReleaseDate) >= 6:
+
+		gotRelevantDate = true
+
+		if t.Creation_Time == "" {
+			t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
+
+		}
+		if t.Originally_Available_At == "" {
+			t.Originally_Available_At = t.ReleaseDate
+		}
+
+	case t.Date != "" && len(t.Date) >= 6:
+
+		gotRelevantDate = true
+
+		if t.Creation_Time == "" {
+			t.Creation_Time = t.Date + "T00:00:00Z"
+
+		}
+		if t.Originally_Available_At == "" {
+			t.Originally_Available_At = t.Date
+		}
+
+	case t.UploadDate != "" && len(t.UploadDate) >= 6:
+		if t.Creation_Time == "" {
+			t.Creation_Time = t.UploadDate + "T00:00:00Z"
+
+		}
+		if t.Originally_Available_At == "" {
+			t.Originally_Available_At = t.UploadDate
+		}
+	}
+
+	if t.Date == "" {
+		switch {
+		case t.ReleaseDate != "":
+			t.Date = t.ReleaseDate
+			t.Originally_Available_At = t.ReleaseDate
+		case t.UploadDate != "":
+			t.Date = t.UploadDate
+			t.Originally_Available_At = t.UploadDate
+		}
+	}
+
+	if t.Year == "" {
+		switch {
+		case t.Date != "" && len(t.Date) >= 4:
+			t.Year = t.Date[:4]
+		case t.UploadDate != "" && len(t.UploadDate) >= 4:
+			t.Year = t.UploadDate[:4]
+		}
+	}
+
+	switch {
+	case gotRelevantDate:
+		return true
+	case w.WebpageURL == "":
+		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", m.JSONFilePath)
+		return false
+	}
+
+	var err error
+	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
+	if err != nil {
+		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+	}
+
+	data, err := browser.ScrapeForMetadata(w.WebpageURL, w.Cookies, enums.WEBCLASS_DATE)
+	if err != nil {
+		logging.PrintE(0, "Failed to scrape '%s' for date: %v", w.WebpageURL, err)
+		return false
+	}
+
+	var date string
+	if data != "" {
+		date, err = naming.ParseAndFormatDate(data)
+		if err != nil || date == "" {
+			logging.PrintE(0, "Failed to parse date '%s': %v", data, err)
+		} else {
+
+			t.ReleaseDate = date
+			t.Date = date
+			t.Creation_Time = date + "T00:00:00Z"
+
+			if len(date) >= 4 {
+				t.Year = date[:4]
+			}
+
+			err := insertScrapedMetadata(m, file, enums.WEBCLASS_DATE)
+			if err != nil {
+				logging.PrintE(0, "Failed to insert new metadata (%s) into JSON file '%s': %v", date, m.JSONFilePath, err)
+			}
+			return true
+		}
+	}
+	return false
+}
+
+// formatDate formats timestamps into a hyphenated form
+func formatDate(m *models.FileData) string {
+
+	var result string = ""
+	var ok bool = false
+
+	d := m.MDates
+
+	if !ok && d.Originally_Available_At != "" {
+
+		logging.PrintD(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
+		result, ok = yyyyMmDd(d.Originally_Available_At)
+	}
+
+	if !ok && d.ReleaseDate != "" {
+
+		logging.PrintD(2, "Attempting to format release date: %v", d.ReleaseDate)
+		result, ok = yyyyMmDd(d.ReleaseDate)
+	}
+
+	if !ok && d.Date != "" {
+
+		logging.PrintD(2, "Attempting to format date: %v", d.Date)
+		result, ok = yyyyMmDd(d.Date)
+	}
+
+	if !ok && d.UploadDate != "" {
+
+		logging.PrintD(2, "Attempting to format upload date: %v", d.UploadDate)
+		result, ok = yyyyMmDd(d.UploadDate)
+	}
+
+	if !ok && d.Creation_Time != "" {
+
+		logging.PrintD(3, "Attempting to format creation time: %v", d.Creation_Time)
+		result, ok = yyyyMmDd(d.Creation_Time)
+	}
+
+	if !ok {
+		logging.PrintE(0, "Failed to format dates")
+		return ""
+	} else {
+		logging.PrintD(2, "Exiting with formatted date: %v", result)
+		return result
+	}
+}
+
+// yyyyMmDd converts inputted date strings into the user's defined format
+func yyyyMmDd(fieldValue string) (string, bool) {
+
+	logging.PrintD(3, "in yyyyMmDd function with string: '%s'", fieldValue)
+
+	// Extract date part if it contains 'T'
+	if strings.Contains(fieldValue, "T") {
+		fieldValue = strings.Split(fieldValue, "T")[0]
+	}
+
+	// Remove existing hyphens
+	fieldValue = strings.ReplaceAll(fieldValue, "-", "")
+
+	if len(fieldValue) >= 8 {
+		formatted := fieldValue[:4] + "-" + fieldValue[4:6] + "-" + fieldValue[6:8]
+		logging.PrintD(2, "Formatted date: '%s'", formatted)
+		return formatted, true // YYYY-MM-DD
+	}
+
+	// Return original value if no changes or date format invalid
+	return fieldValue, false
+}
+
+// insertScrapedDate inserts the newly scraped date back into the JSON file
+func insertScrapedMetadata(m *models.FileData, file *os.File, tag enums.WebClassTags) error {
+
+	creds := m.MCredits
+	dates := m.MDates
+	titledesc := m.MTitleDesc
+
+	logging.PrintD(3, "Entering insertScrapedData for file '%s'", m.JSONFilePath)
+
+	// Seek to the beginning of the file
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("failed to seek to beginning of file: %w", err)
+	}
+
+	// Read the existing JSON content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("failed to read JSON file: %w", err)
+	}
+
+	logging.PrintD(3, "Got JSON content: %s", string(content))
+
+	// Unmarshal the JSON into a map
+	var jsonData map[string]interface{}
+	err = json.Unmarshal(content, &jsonData)
+	if err != nil {
+		logging.PrintE(0, "Error unmarshalling JSON. Content: %s", string(content))
+		return fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	if cmd.GetBool(keys.NoFileOverwrite) {
+		err := backup.BackupFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to create a backup of file '%s'", file.Name())
+		}
+	}
+
+	switch tag {
+	case enums.WEBCLASS_DATE:
+		jsonData["release_date"] = dates.ReleaseDate
+		jsonData["date"] = dates.Date
+		jsonData["upload_date"] = dates.Date
+		jsonData["year"] = dates.Year
+	case enums.WEBCLASS_DESCRIPTION:
+		jsonData["description"] = titledesc.Description
+		jsonData["longdescription"] = titledesc.LongDescription
+		jsonData["synopsis"] = titledesc.Synopsis
+		jsonData["comment"] = titledesc.Comment
+	case enums.WEBCLASS_CREDITS:
+		jsonData["actor"] = creds.Actor
+		jsonData["author"] = creds.Author
+		jsonData["artist"] = creds.Artist
+		jsonData["creator"] = creds.Creator
+		jsonData["studio"] = creds.Studio
+		jsonData["publisher"] = creds.Publisher
+		jsonData["producer"] = creds.Producer
+		jsonData["performer"] = creds.Performer
+		jsonData["uploader"] = creds.Uploader
+		jsonData["composer"] = creds.Composer
+		jsonData["director"] = creds.Director
+	}
+
+	// Marshal the updated JSON
+	updatedContent, err := json.MarshalIndent(jsonData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated JSON: %w", err)
+	}
+
+	// Truncate the file and write the updated content
+	err = file.Truncate(0)
+	if err != nil {
+		return fmt.Errorf("failed to truncate file: %w", err)
+	}
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("failed to seek to beginning of file: %w", err)
+	}
+	_, err = file.Write(updatedContent)
+	if err != nil {
+		return fmt.Errorf("failed to write updated JSON to file: %w", err)
+	}
+
+	logging.PrintD(3, "Successfully updated JSON file with new date information")
+
+	return nil
+}
+
+// Unpack JSON decodes JSON for metafields
+func unpackJSON(fieldMap map[string]*string, metadata map[string]interface{}) bool {
+
+	var fillEmptyPriority []string
+
+	// Iterate through the decoded JSON to match fields against
+	// the passed in map of fields to fill
+	for key, value := range metadata {
+		if strVal, ok := value.(string); ok {
+			if field, exists := fieldMap[key]; exists && *field == "" {
+				*field = strVal
+				fillEmptyPriority = append(fillEmptyPriority, *field)
+			}
+		}
+	}
+
+	var dataFilled bool
+
+	// Iterate over the map of fields and attempt to fill the missing
+	// fields (uses priority of the order of fields in the map)
+	for _, value := range fieldMap {
+		if *value == "" {
+			for _, replacement := range fillEmptyPriority {
+				if replacement != "" {
+					*value = replacement
+					dataFilled = true
+					break
+				}
+			}
+		}
+	}
+
+	var headerSet bool
+
+	printFields.Lock()
+	defer printFields.Unlock()
+
+	for printKey, printVal := range fieldMap {
+		if !headerSet {
+			fmt.Println()
+			logging.PrintI("Filled meta fields:")
+			headerSet = true
+		}
+		if printVal != nil {
+			fmt.Printf("\n" + consts.ColorCyan + "Key: " + consts.ColorReset + printKey + consts.ColorGreen + "\nValue: " + consts.ColorReset + *printVal + "\n")
+		}
+	}
+	fmt.Println()
+	return dataFilled
+}
+package metadata
+
+import (
+	"Metarr/internal/backup"
+	"Metarr/internal/cmd"
+	"Metarr/internal/commandvars"
+	"Metarr/internal/consts"
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"sync"
+)
+
+var (
+	preCommandMutex  sync.RWMutex
+	postCommandMutex sync.RWMutex
+)
+
+// WriteMetadata writes metadata to a single video file
+func WriteMetadata(m *models.FileData) error {
+
+	// Set mutex until command execution
+	preCommandMutex.Lock()
+
+	var originalVPath string = m.OriginalVideoPath
+	dir := m.VideoDirectory
+
+	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
+
+	// Make temp output path with .mp4 extension
+	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
+
+	tempOutputFilePath := filepath.Join(dir, consts.TempTag+fileBase+filepath.Ext(originalVPath)+".mp4")
+	m.TempOutputFilePath = tempOutputFilePath // Add to video file data struct
+
+	defer func() {
+		if _, err := os.Stat(tempOutputFilePath); err == nil {
+			os.Remove(tempOutputFilePath)
+		}
+	}()
+
+	args, err := buildCommand(m, tempOutputFilePath)
+	if err != nil {
+		// Unlock mutex
+		preCommandMutex.Unlock()
+		return err
+	}
+
+	command := exec.Command("ffmpeg", args...)
+
+	logging.PrintI("\nConstructed FFmpeg command for '%s':\n\n%v\n", m.OriginalVideoPath, command)
+
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+
+	origPath := originalVPath
+	m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+	m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + ".mp4"
+
+	fmt.Printf(`
+
+Video file path data:
+	
+Original Video Path: %s
+Metadata File Path: %s
+Final Video Path: %s
+
+Temp Output Path: %s
+	
+`, originalVPath,
+		m.JSONFilePath,
+		m.FinalVideoPath,
+		m.TempOutputFilePath)
+
+	// Unlock mutex
+	preCommandMutex.Unlock()
+
+	// Run the ffmpeg command
+	if err := command.Run(); err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		return fmt.Errorf("failed to run ffmpeg command: %w", err)
+	}
+
+	// Lock second mutex after command executes
+	postCommandMutex.Lock()
+	defer postCommandMutex.Unlock()
+
+	// Rename temporary file to overwrite the original video file:
+	// First check overwrite rules
+	if cmd.GetBool(keys.NoFileOverwrite) && originalVPath == m.FinalVideoPath {
+		if err := backup.RenameToBackup(originalVPath); err != nil {
+			return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+		}
+	}
+	err = os.Rename(tempOutputFilePath, m.FinalVideoPath)
+	if err != nil {
+		return fmt.Errorf("failed to overwrite original file: %w", err)
+	}
+
+	fmt.Printf("Successfully renamed video from %s to %s\n", tempOutputFilePath, m.FinalVideoPath)
+
+	if filepath.Ext(originalVPath) != ".mp4" {
+		logging.PrintI("Removing original non-MP4 file: %s", originalVPath)
+
+		if cmd.GetBool(keys.NoFileOverwrite) {
+			if _, err := os.Stat(originalVPath); os.IsNotExist(err) {
+				logging.PrintI("File does not exist, safe to proceed overwriting: %s", originalVPath)
+			} else {
+				if err := backup.RenameToBackup(originalVPath); err != nil {
+					return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+				}
+			}
+			err = os.Remove(originalVPath)
+			if err != nil {
+				logging.ErrorArray = append(logging.ErrorArray, err)
+				return fmt.Errorf("failed to remove original file (%s). Error: %v", originalVPath, err)
+			}
+		}
+	}
+
+	fmt.Println()
+	logging.PrintS(0, `Successfully processed video:
+
+Original file: %s
+New file: %s
+
+Title: %s
+
+`, originalVPath,
+		m.FinalVideoPath,
+		m.MTitleDesc.Title)
+
+	return nil
+}
+
+// buildCommand is the function to create the final FFmpeg output command
+func buildCommand(m *models.FileData, outputFile string) ([]string, error) {
+	var originalVPath string = m.OriginalVideoPath
+	var args []string
+
+	// Determine GPU Acceleration
+	gpuFlag := cmd.Get(keys.GPUEnum).(enums.SysGPU)
+	switch gpuFlag {
+	case enums.NVIDIA:
+		args = append(args, commandvars.NvidiaAccel...)
+	case enums.AMD:
+		args = append(args, commandvars.AMDAccel...)
+	case enums.INTEL:
+		args = append(args, commandvars.IntelAccel...)
+	}
+
+	// Input file argument
+	args = append(args, "-y", "-i", originalVPath)
+
+	// Metadata titles
+	if m.MTitleDesc.Title != "" {
+		args = append(args, "-metadata", fmt.Sprintf("title=%s", fieldFormatter(m.MTitleDesc.Title)))
+	} else if m.MTitleDesc.FallbackTitle != "" {
+		args = append(args, "-metadata", fmt.Sprintf("title=%s", fieldFormatter(m.MTitleDesc.FallbackTitle)))
+	}
+
+	if m.MTitleDesc.Subtitle != "" {
+		args = append(args, "-metadata", fmt.Sprintf("subtitle=%s", fieldFormatter(m.MTitleDesc.Subtitle)))
+	}
+	if m.MTitleDesc.Description != "" {
+		args = append(args, "-metadata", fmt.Sprintf("description=%s", fieldFormatter(m.MTitleDesc.Description)))
+	}
+	if m.MTitleDesc.LongDescription != "" {
+		args = append(args, "-metadata", fmt.Sprintf("longdescription=%s", fieldFormatter(m.MTitleDesc.LongDescription)))
+	}
+	if m.MTitleDesc.Synopsis != "" {
+		args = append(args, "-metadata", fmt.Sprintf("synopsis=%s", fieldFormatter(m.MTitleDesc.Synopsis)))
+	}
+	if m.MTitleDesc.Comment != "" {
+		args = append(args, "-metadata", fmt.Sprintf("comment=%s", fieldFormatter(m.MTitleDesc.Comment)))
+	}
+	logging.PrintD(1, "Adding title metadata: %v", m.MTitleDesc)
+
+	// Metadata credits
+	if m.MCredits.Actor != "" {
+		args = append(args, "-metadata", fmt.Sprintf("actor=%s", fieldFormatter(m.MCredits.Actor)))
+	}
+	if m.MCredits.Author != "" {
+		args = append(args, "-metadata", fmt.Sprintf("author=%s", fieldFormatter(m.MCredits.Author)))
+	}
+	if m.MCredits.Artist != "" {
+		args = append(args, "-metadata", fmt.Sprintf("artist=%s", fieldFormatter(m.MCredits.Artist)))
+	}
+	if m.MCredits.Creator != "" {
+		args = append(args, "-metadata", fmt.Sprintf("creator=%s", fieldFormatter(m.MCredits.Creator)))
+	}
+	if m.MCredits.Studio != "" {
+		args = append(args, "-metadata", fmt.Sprintf("studio=%s", fieldFormatter(m.MCredits.Studio)))
+	}
+	if m.MCredits.Publisher != "" {
+		args = append(args, "-metadata", fmt.Sprintf("publisher=%s", fieldFormatter(m.MCredits.Publisher)))
+	}
+	if m.MCredits.Producer != "" {
+		args = append(args, "-metadata", fmt.Sprintf("producer=%s", fieldFormatter(m.MCredits.Producer)))
+	}
+	if m.MCredits.Performer != "" {
+		args = append(args, "-metadata", fmt.Sprintf("performer=%s", fieldFormatter(m.MCredits.Performer)))
+	}
+	if m.MCredits.Uploader != "" {
+		args = append(args, "-metadata", fmt.Sprintf("uploader=%s", fieldFormatter(m.MCredits.Uploader)))
+	}
+	if m.MCredits.Composer != "" {
+		args = append(args, "-metadata", fmt.Sprintf("composer=%s", fieldFormatter(m.MCredits.Composer)))
+	}
+	if m.MCredits.Director != "" {
+		args = append(args, "-metadata", fmt.Sprintf("director=%s", fieldFormatter(m.MCredits.Director)))
+	}
+	logging.PrintD(1, "Adding credits metadata: %v", m.MCredits)
+
+	// Metadata dates
+	if m.MDates.UploadDate != "" {
+		args = append(args, "-metadata", fmt.Sprintf("upload_date=%s", fieldFormatter(m.MDates.UploadDate)))
+	}
+	if m.MDates.ReleaseDate != "" {
+		args = append(args, "-metadata", fmt.Sprintf("release_date=%s", fieldFormatter(m.MDates.ReleaseDate)))
+	}
+	if m.MDates.Date != "" {
+		args = append(args, "-metadata", fmt.Sprintf("date=%s", fieldFormatter(m.MDates.Date)))
+	}
+	if m.MDates.Year != "" {
+		args = append(args, "-metadata", fmt.Sprintf("year=%s", fieldFormatter(m.MDates.Year)))
+	}
+	if m.MDates.Originally_Available_At != "" {
+		args = append(args, "-metadata", fmt.Sprintf("originally_available_at=%s", fieldFormatter(m.MDates.Originally_Available_At)))
+	}
+	if m.MDates.Creation_Time != "" {
+		args = append(args, "-metadata", fmt.Sprintf("creation_time=%s", fieldFormatter(m.MDates.Creation_Time)))
+	}
+	logging.PrintD(1, "Adding date metadata: %v", m.MDates)
+
+	// Metadata show info
+	if m.MShowData.Show != "" {
+		args = append(args, "-metadata", fmt.Sprintf("show=%s", fieldFormatter(m.MShowData.Show)))
+	}
+	if m.MShowData.Episode_ID != "" {
+		args = append(args, "-metadata", fmt.Sprintf("episode_id=%s", fieldFormatter(m.MShowData.Episode_ID)))
+	}
+	if m.MShowData.Episode_Sort != "" {
+		args = append(args, "-metadata", fmt.Sprintf("episode_sort=%s", fieldFormatter(m.MShowData.Episode_Sort)))
+	}
+	if m.MShowData.Season_Number != "" {
+		args = append(args, "-metadata", fmt.Sprintf("season_number=%s", fieldFormatter(m.MShowData.Season_Number)))
+	}
+	logging.PrintD(1, "Adding show info metadata: %v", m.MShowData)
+
+	// Other metadata
+	if m.MOther.Language != "" {
+		args = append(args, "-metadata", fmt.Sprintf("language=%s", fieldFormatter(m.MOther.Language)))
+	}
+	if m.MOther.Genre != "" {
+		args = append(args, "-metadata", fmt.Sprintf("genre=%s", fieldFormatter(m.MOther.Genre)))
+	}
+	if m.MOther.HD_Video != "" {
+		args = append(args, "-metadata", fmt.Sprintf("hd_video=%s", fieldFormatter(m.MOther.HD_Video)))
+	}
+	logging.PrintD(1, "Adding other metadata: %v", m.MOther)
+
+	// Output format specific arguments
+	fileExtension := filepath.Ext(originalVPath)
+	switch fileExtension {
+	case ".mp4":
+		args = append(args, commandvars.AVCodecCopy...)
+	case ".mkv":
+		args = append(args, commandvars.OutputExt...)
+		args = append(args, commandvars.VideoCodecCopy...)
+		args = append(args, commandvars.AudioToAAC...)
+		args = append(args, commandvars.AudioBitrate...)
+	case ".webm":
+		args = append(args, commandvars.OutputExt...)
+		args = append(args, commandvars.VideoToH264Balanced...)
+		args = append(args, commandvars.PixelFmtYuv420p...)
+		args = append(args, commandvars.KeyframeBalanced...)
+		args = append(args, commandvars.AudioToAAC...)
+		args = append(args, commandvars.AudioBitrate...)
+	}
+
+	// Output file
+	args = append(args, outputFile)
+
+	// Debug print the final command
+	logging.PrintD(1, "Metadata arguments for %s:\n", m.OriginalVideoBaseName)
+	for i, arg := range args {
+		if i > 0 && args[i-1] == "-metadata" {
+			fmt.Printf("  %s\n", arg)
+		}
+	}
+	fmt.Println()
+
+	return args, nil
+}
+
+// formatter formats field values
+func fieldFormatter(fieldValue string) string {
+
+	if fieldValue != "" {
+		fieldValue = strings.TrimSpace(fieldValue)
+	}
+
+	return fieldValue
+}
+
+// makeDateTag creates the date tag to affix to the filename
+func makeDateTag(jsonData map[string]interface{}, fileName string) (string, error) {
+
+	preferredDateFields := []string{"release_date", "creation_time", "upload_date", "date", "year"}
+
+	dateFmt, ok := cmd.Get(keys.FileDateFmt).(enums.FilenameDateFormat)
+	if !ok {
+		return "", fmt.Errorf("grabbed value from Viper in makeDateTag but var type was not correct")
+	}
+
+	var gotDate bool = false
+	var date string = ""
+
+	for _, field := range preferredDateFields {
+		if value, found := jsonData[field]; found && !gotDate {
+			date, ok = value.(string)
+			if !ok {
+				dateInt, ok := value.(int)
+				if !ok {
+					continue
+				}
+				date = strconv.Itoa(dateInt)
+			}
+			gotDate = true
+			break
+		}
+	}
+
+	if !gotDate {
+		logging.PrintE(0, "No dates found in JSON file")
+		return "", nil
+	}
+
+	alreadyFormatted := strings.Contains(date, "-")
+
+	if !alreadyFormatted {
+		logging.PrintD(1, "Entering case check for %v", fileName)
+
+		if len(date) >= 8 {
+			logging.PrintD(3, "Input date length >= 8: %d", date)
+			switch dateFmt {
+			case enums.FILEDATE_YYYY_MM_DD:
+				logging.PrintD(3, "Formatting as: yyyy-mm-dd")
+				date = date[:4] + "-" + date[4:6] + "-" + date[6:8]
+
+			case enums.FILEDATE_YY_MM_DD:
+				logging.PrintD(3, "Formatting as: yy-mm-dd")
+				date = date[2:4] + "-" + date[4:6] + "-" + date[6:8]
+
+			case enums.FILEDATE_YYYY_DD_MM:
+				logging.PrintD(3, "Formatting as: yyyy-dd-mm")
+				date = date[:4] + "-" + date[6:8] + "-" + date[4:6]
+
+			case enums.FILEDATE_YY_DD_MM:
+				logging.PrintD(3, "Formatting as: yy-dd-mm")
+				date = date[2:4] + "-" + date[6:8] + "-" + date[4:6]
+
+			case enums.FILEDATE_DD_MM_YYYY:
+				logging.PrintD(3, "Formatting as: dd-mm-yyyy")
+				date = date[6:8] + "-" + date[4:6] + "-" + date[:4]
+
+			case enums.FILEDATE_DD_MM_YY:
+				logging.PrintD(3, "Formatting as: dd-mm-yy")
+				date = date[6:8] + "-" + date[4:6] + "-" + date[2:4]
+
+			case enums.FILEDATE_MM_DD_YYYY:
+				logging.PrintD(3, "Formatting as: mm-dd-yyyy")
+				date = date[4:6] + "-" + date[6:8] + "-" + date[:4]
+
+			case enums.FILEDATE_MM_DD_YY:
+				logging.PrintD(3, "Formatting as: mm-dd-yy")
+				date = date[4:6] + "-" + date[6:8] + "-" + date[2:4]
+			}
+		} else if len(date) >= 6 {
+			logging.PrintD(3, "Input date length >= 6 and < 8: %d", date)
+			switch dateFmt {
+			case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
+				date = date[:2] + "-" + date[2:4] + "-" + date[4:6]
+
+			case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
+				date = date[:2] + "-" + date[4:6] + "-" + date[2:4]
+
+			case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
+				date = date[4:6] + "-" + date[2:4] + "-" + date[:2]
+
+			case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
+				date = date[2:4] + "-" + date[4:6] + "-" + date[:2]
+			}
+		} else if len(date) >= 4 {
+			logging.PrintD(3, "Input date length >= 4 and < 6: %d", date)
+			switch dateFmt {
+			case enums.FILEDATE_YYYY_MM_DD,
+				enums.FILEDATE_YY_MM_DD,
+				enums.FILEDATE_MM_DD_YYYY,
+				enums.FILEDATE_MM_DD_YY:
+
+				date = date[:2] + "-" + date[2:4]
+
+			case enums.FILEDATE_YYYY_DD_MM,
+				enums.FILEDATE_YY_DD_MM,
+				enums.FILEDATE_DD_MM_YYYY,
+				enums.FILEDATE_DD_MM_YY:
+
+				date = date[2:4] + "-" + date[:2]
+			}
+		}
+	}
+	dateTag := "[" + date + "]"
+
+	logging.PrintD(1, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
+
+	if dateTag != "[]" {
+		if checkTagExists(dateTag, filepath.Base(fileName)) {
+			logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
+			dateTag = "[]"
+		}
+	} else {
+		logging.PrintD(3, "Constructed empty tag, skipping tag exists check for file '%s'", filepath.Base(fileName))
+	}
+
+	return dateTag, nil
+}
+
+// makeFilenameTag creates the metatag string to prefix filenames with
+func makeFilenameTag(jsonData map[string]interface{}, file *os.File) string {
+
+	logging.PrintD(3, "Entering makeFilenameTag with data@ %v", jsonData)
+
+	tagArray := cmd.GetStringSlice(keys.MFilenamePfx)
+	tag := "["
+
+	for field, value := range jsonData {
+		for i, data := range tagArray {
+
+			if field == data {
+				tag += fmt.Sprintf(value.(string))
+				logging.PrintD(3, "Added metafield %v data %v to prefix tag (Tag so far: %s)", field, data, tag)
+
+				if i != len(tagArray)-1 {
+					tag += "_"
+				}
+			}
+		}
+	}
+	tag += "]"
+	tag = strings.TrimSpace(tag)
+	tag = strings.ToValidUTF8(tag, "")
+
+	invalidChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	tag = invalidChars.ReplaceAllString(tag, "")
+
+	logging.PrintD(1, "Made metatag '%s' from file '%s'", tag, file.Name())
+
+	if tag != "[]" {
+		if checkTagExists(tag, filepath.Base(file.Name())) {
+			logging.PrintD(2, "Tag '%s' already detected in name, skipping...", tag)
+			tag = "[]"
+		}
+	}
+
+	return tag
+}
+
+// checkTagExists checks if the constructed tag already exists in the filename
+func checkTagExists(tag, filename string) bool {
+
+	logging.PrintD(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
+
+	return strings.Contains(filename, tag)
+}
+package models
+
+import (
+	"net/http"
+	"os"
+)
+
+func NewFileData() *FileData {
+	return &FileData{
+		MTitleDesc: &MetadataTitlesDescs{},
+		MCredits:   &MetadataCredits{},
+		MDates:     &MetadataDates{},
+		MShowData:  &MetadataShowData{},
+		MWebData:   &MetadataWebData{},
+		MOther:     &MetadataOtherData{},
+	}
+}
+
+type FileData struct {
+	VideoDirectory        string   `json:"-"`
+	OriginalVideoPath     string   `json:"-"`
+	OriginalVideoBaseName string   `json:"-"`
+	TempOutputFilePath    string   `json:"-"`
+	FinalVideoPath        string   `json:"-"`
+	FinalVideoBaseName    string   `json:"-"`
+	FilenameMetaPrefix    string   `json:"-"`
+	FilenameDateTag       string   `json:"-"`
+	VideoFile             *os.File `json:"-"`
+
+	// JSON paths
+
+	JSONDirectory string `json:"-"`
+	JSONFilePath  string `json:"-"`
+	JSONBaseName  string `json:"-"`
+
+	// Metadata
+
+	MCredits   *MetadataCredits     `json:"meta_credits"`
+	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description"`
+	MDates     *MetadataDates       `json:"meta_dates"`
+	MShowData  *MetadataShowData    `json:"meta_show_data"`
+	MWebData   *MetadataWebData     `json:"meta_web_data"`
+	MOther     *MetadataOtherData   `json:"meta_other_data"`
+}
+
+type MetadataCredits struct {
+	Actor     string `json:"actor"`
+	Author    string `json:"author"`
+	Artist    string `json:"artist"`
+	Creator   string `json:"creator"`
+	Studio    string `json:"studio"`
+	Publisher string `json:"publisher"`
+	Producer  string `json:"producer"`
+	Performer string `json:"performer"`
+	Uploader  string `json:"uploader"`
+	Composer  string `json:"composer"` // Writer(s)
+	Director  string `json:"director"`
+}
+
+type MetadataTitlesDescs struct {
+	Title            string `json:"fulltitle"`
+	FallbackTitle    string `json:"title"`
+	Subtitle         string `json:"subtitle"`
+	Description      string `json:"description"`
+	LongDescription  string `json:"longdescription"`
+	Long_Description string `json:"long_description"`
+	Synopsis         string `json:"synopsis"`
+	Summary          string `json:"summary"`
+	Comment          string `json:"comment"`
+}
+
+type MetadataDates struct {
+	FormattedDate           string `json:"-"`
+	UploadDate              string `json:"upload_date"`
+	ReleaseDate             string `json:"release_date"`
+	Date                    string `json:"date"`
+	Year                    string `json:"year"`
+	Originally_Available_At string `json:"originally_available_at"`
+	Creation_Time           string `json:"creation_time"` // YYYY-MM-DDT00:00:00Z
+}
+
+// Video page URL
+type MetadataWebData struct {
+	WebpageURL string         `json:"webpage_url"`
+	Cookies    []*http.Cookie `json:"-"`
+}
+
+type MetadataOtherData struct {
+	Language string `json:"language"`
+	Genre    string `json:"genre"`
+	HD_Video string `json:"hd_video"` // HD flag (0 = SD, 1 = 720p, 2 = 1080p/i Full HD, 3 = 2160p UHD)
+}
+
+type MetadataShowData struct {
+	// Series
+	Show          string `json:"show"`
+	Episode_ID    string `json:"episode_id"`   // TV episode ID
+	Episode_Sort  string `json:"episode_sort"` // Episode number
+	Season_Number string `json:"season_number"`
+}
+package models
+
+import "Metarr/internal/enums"
+
+type MetaReplaceSuffix struct {
+	Field       string
+	Suffix      string
+	Replacement string
+}
+
+type MetaReplacePrefix struct {
+	Field       string
+	Prefix      string
+	Replacement string
+}
+
+type MetaNewField struct {
+	Field string
+	Value string
+}
+
+type FilenameDatePrefix struct {
+	YearLength  int
+	MonthLength int
+	DayLength   int
+	Order       enums.FilenameDateFormat
+}
+
+type FilenameReplaceSuffix struct {
+	Suffix      string
+	Replacement string
+}
+package naming
+
+var contractions map[string]string = map[string]string{
+	"ain t":     "aint",
+	"can t":     "cant",
+	"don t":     "dont",
+	"didn t":    "didnt",
+	"hasn t":    "hasnt",
+	"haven t":   "havent",
+	"won t":     "wont",
+	"wouldn t":  "wouldnt",
+	"shouldn t": "shouldnt",
+	"couldn t":  "couldnt",
+	"wasn t":    "wasnt",
+	"weren t":   "werent",
+	"let s":     "lets",
+	"hadn t":    "hadnt",
+	"who s":     "whos",
+	"what s":    "whats",
+	"when s":    "whens",
+	"where s":   "wheres",
+	"why s":     "whys",
+	"how s":     "hows",
+	"there s":   "theres",
+	"that s":    "thats",
+	"it d":      "itd",
+	"she d":     "shed",
+	"he d":      "hed",
+	"it ll":     "itll",
+	"should ve": "shouldve",
+	"could ve":  "couldve",
+	"would ve":  "wouldve",
+}
+
+var contractionsUnderscored map[string]string = map[string]string{
+	"ain_t":     "aint",
+	"can_t":     "cant",
+	"don_t":     "dont",
+	"didn_t":    "didnt",
+	"hasn_t":    "hasnt",
+	"haven_t":   "havent",
+	"won_t":     "wont",
+	"wouldn_t":  "wouldnt",
+	"shouldn_t": "shouldnt",
+	"couldn_t":  "couldnt",
+	"wasn_t":    "wasnt",
+	"weren_t":   "werent",
+	"let_s":     "lets",
+	"hadn_t":    "hadnt",
+	"who_s":     "whos",
+	"what_s":    "whats",
+	"when_s":    "whens",
+	"where_s":   "wheres",
+	"why_s":     "whys",
+	"how_s":     "hows",
+	"there_s":   "theres",
+	"that_s":    "thats",
+	"it_d":      "itd",
+	"she_d":     "shed",
+	"he_d":      "hed",
+	"it_ll":     "itll",
+	"should_ve": "shouldve",
+	"could_ve":  "couldve",
+	"would_ve":  "wouldve",
+}
+package naming
+
+import (
+	"Metarr/internal/cmd"
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"unicode"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+)
+
+// FileRename formats the file names
+func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
+
+	skipVideos := cmd.GetBool(keys.SkipVideos)
+
+	var renamedVideo string
+	var renamedJSON string
+	var vidExt string
+	var jsonExt string
+
+	for _, m := range dataArray {
+
+		if !skipVideos {
+			logging.PrintD(2, "Renaming video with data: %v...", m.JSONFilePath)
+			vidExt = filepath.Ext(m.OriginalVideoPath)
+			jsonExt = filepath.Ext(m.JSONFilePath)
+
+			logging.PrintD(2, `
+Rename function fetched:
+
+Video extension: %v
+Video base name: %v
+JSON extension: %v
+JSON base name: %v
+`, vidExt,
+				m.FinalVideoBaseName,
+				jsonExt,
+				m.JSONBaseName)
+
+		} else {
+			logging.PrintD(2, "Renaming JSON file: %v...", m.JSONFilePath)
+			jsonExt = filepath.Ext(m.JSONFilePath)
+
+			logging.PrintD(2, `
+Rename function fetched:
+
+JSON extension: %v
+JSON base name: %v
+`, jsonExt,
+				m.JSONBaseName)
+		}
+
+		renamedVideo = m.FinalVideoBaseName
+		if !skipVideos {
+			renamedJSON = m.FinalVideoBaseName // Rename to the same base name as the video
+		} else {
+			renamedJSON = m.JSONBaseName
+		}
+
+		// Rename to spaces or underscores
+		renamedVideo, renamedJSON = spacesOrUnderscores(skipVideos, style, renamedVideo, renamedJSON, m)
+
+		if !skipVideos {
+			logging.PrintD(2, `
+Rename replacements:
+
+Video: %v
+JSON: %v
+`, renamedVideo,
+				renamedJSON)
+		} else {
+			logging.PrintD(2, `
+Rename replacements:
+
+JSON: %v
+`, renamedJSON)
+		}
+
+		if style != enums.SKIP {
+
+			var err error
+			renamedVideo, renamedJSON, err = fixContractions(renamedVideo, renamedJSON, style)
+			if err != nil {
+				return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
+			}
+		}
+
+		// Trim suffix
+		logging.PrintD(3, "Entering suffix trim with video string '%s' and JSON string '%s'", renamedVideo, renamedJSON)
+		if cmd.IsSet(keys.FilenameReplaceSfx) {
+			renamedVideo, renamedJSON = filenameReplaceSuffix(renamedVideo, renamedJSON)
+		}
+
+		// Add the metatag to the front of the filenames
+		renamedVideo, renamedJSON = addTags(renamedVideo, renamedJSON, m)
+
+		// Construct final output filepaths
+		renamedVideoOut := filepath.Join(m.VideoDirectory, renamedVideo+vidExt)
+		renamedJsonOut := filepath.Join(m.JSONDirectory, renamedJSON+jsonExt)
+
+		if err := writeResults(skipVideos, renamedVideoOut, renamedJsonOut, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// writeResults executes the final commands to write the transformed files
+func writeResults(skipVideos bool, renamedVideoOut, renamedJsonOut string, m *models.FileData) error {
+	if !skipVideos {
+		logging.PrintD(1, `
+Rename function final commands:
+
+Video: Replacing "%v" with "%v"
+JSON: Replacing "%v" with "%v"
+`, m.FinalVideoPath, renamedVideoOut,
+			m.JSONFilePath, renamedJsonOut)
+	} else {
+		logging.PrintD(1, `
+Rename function final commands:
+
+JSON: Replacing "%v" with "%v"
+`, m.JSONFilePath, renamedJsonOut)
+	}
+
+	if !cmd.GetBool(keys.SkipVideos) && renamedVideoOut != "" {
+		err := os.Rename(m.FinalVideoPath, renamedVideoOut)
+		if err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", m.FinalVideoPath, renamedVideoOut, err)
+		}
+	}
+
+	if renamedJsonOut != "" {
+		err := os.Rename(m.JSONFilePath, renamedJsonOut)
+		if err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", m.JSONFilePath, renamedJsonOut, err)
+		}
+	}
+	return nil
+}
+
+// Renaming conventions
+func spacesOrUnderscores(skipVideos bool, style enums.ReplaceToStyle, renamedVideo, renamedJSON string, m *models.FileData) (string, string) {
+	switch style {
+	case enums.SPACES:
+		if !skipVideos {
+			renamedVideo = strings.ReplaceAll(m.FinalVideoBaseName, "_", " ")
+			renamedJSON = strings.ReplaceAll(m.FinalVideoBaseName, "_", " ")
+		} else {
+			renamedJSON = strings.ReplaceAll(m.JSONBaseName, "_", " ")
+		}
+
+	case enums.UNDERSCORES:
+		if !skipVideos {
+			renamedVideo = strings.ReplaceAll(m.FinalVideoBaseName, " ", "_")
+			renamedJSON = strings.ReplaceAll(m.FinalVideoBaseName, " ", "_")
+		} else {
+			renamedJSON = strings.ReplaceAll(m.JSONBaseName, " ", "_")
+		}
+	default:
+		logging.PrintI("Skipping space or underscore renaming conventions...")
+	}
+	return renamedVideo, renamedJSON
+}
+
+// addTags handles the tagging of the video files where necessary
+func addTags(renamedVideo, renamedJSON string, m *models.FileData) (string, string) {
+
+	if len(m.FilenameMetaPrefix) > 2 {
+		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
+		renamedJSON = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedJSON)
+	}
+
+	if len(m.FilenameDateTag) > 2 {
+		renamedVideo = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedVideo)
+		renamedJSON = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedJSON)
+	}
+
+	return renamedVideo, renamedJSON
+}
+
+// fixContractions fixes the contractions created by ffmpeg's restrict-filenames flag
+func fixContractions(videoFilename, jsonFilename string, style enums.ReplaceToStyle) (string, string, error) {
+
+	var contractionsMap map[string]string
+	if style == enums.SPACES {
+		contractionsMap = contractions
+	} else if style == enums.UNDERSCORES {
+		contractionsMap = contractionsUnderscored
+	} else {
+		return videoFilename, jsonFilename, nil
+	}
+
+	// Initialize the title caser to handle case transformations
+	caser := cases.Title(language.English)
+
+	// Function to replace contractions in a filename
+	replaceContractions := func(filename string) string {
+		for contraction, replacement := range contractionsMap {
+
+			contractionPattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`)
+			filename = contractionPattern.ReplaceAllStringFunc(filename, func(match string) string {
+
+				return fixCase(match, replacement, caser)
+			})
+		}
+		logging.PrintD(2, "Made contraction replacements for file '%s'", filename)
+		return filename
+	}
+
+	// Replace contractions in both filenames
+	videoFilename = replaceContractions(videoFilename)
+	jsonFilename = replaceContractions(jsonFilename)
+
+	return videoFilename, jsonFilename, nil
+}
+
+// fixCase checks if the first character of the match is uppercase and adjust the replacement
+// If the first letter of the match is uppercase, it adjusts the replacement to also have
+// the first letter as uppercase
+func fixCase(match, replacement string, caser cases.Caser) string {
+
+	trimmedMatch := strings.TrimSpace(match)
+	if len(trimmedMatch) > 0 && unicode.IsUpper(rune(trimmedMatch[0])) {
+		return caser.String(replacement) // Title case the replacement
+	}
+	return replacement
+}
+
+// filenameReplaceSuffix trims the end of a filename
+func filenameReplaceSuffix(renamedVideo, renamedJSON string) (string, string) {
+
+	suffixes, ok := cmd.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
+	if !ok {
+		logging.PrintE(0, "Entered filename replace suffix function but flag was never set")
+		return renamedVideo, renamedJSON
+	}
+
+	if suffixes == nil {
+		logging.PrintD(1, "Suffix trim array %v sent in empty for video: '%s' and metadata file '%s', returning...",
+			suffixes, renamedVideo, renamedJSON)
+		return renamedVideo, renamedJSON
+	}
+
+	logging.PrintI("Suffixes passed in for renaming video '%s' and metafile '%s': %v",
+		renamedVideo, renamedJSON, suffixes)
+
+	trimmedVideo := renamedVideo
+	trimmedMeta := renamedJSON
+
+	// Common known compound extensions
+	var metaExt string
+	switch {
+	case strings.HasSuffix(trimmedMeta, ".info.json"):
+		metaExt = ".info.json"
+	case strings.HasSuffix(trimmedMeta, ".metadata.json"):
+		metaExt = ".metadata.json"
+	case strings.HasSuffix(trimmedMeta, ".model.json"):
+		metaExt = ".model.json"
+	default:
+		metaExt = filepath.Ext(trimmedMeta)
+	}
+
+	for _, suffix := range suffixes {
+		// Handle video file
+		if strings.HasSuffix(trimmedVideo, suffix.Suffix) {
+			trimmedVideo = strings.TrimSuffix(trimmedVideo, suffix.Suffix) + suffix.Replacement
+		}
+
+		// Handle JSON file
+		baseName := strings.TrimSuffix(trimmedMeta, metaExt)
+		if strings.HasSuffix(baseName, suffix.Suffix) {
+			baseName = strings.TrimSuffix(baseName, suffix.Suffix) + suffix.Replacement
+			trimmedMeta = baseName + metaExt
+		}
+	}
+
+	logging.PrintD(2, "Leaving suffix trim with video string '%s' and metafile string '%s'", trimmedVideo, trimmedMeta)
+
+	return trimmedVideo, trimmedMeta
+}
+package naming
+
+import (
+	"Metarr/internal/backup"
+	"Metarr/internal/cmd"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"Metarr/internal/shared"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+
+	"github.com/araddon/dateparse"
+)
+
+type TransformationFunc func(map[string]interface{}, *models.FileData) error
+
+var (
+	FieldOverwrite bool = false
+	FieldPreserve  bool = false
+)
+
+// makeMetaEdits applies a series of transformations and writes the final result to the file
+func MakeMetaEdits(fileContent []byte, jsonData map[string]interface{}, file *os.File, m *models.FileData) error {
+
+	err := json.Unmarshal(fileContent, &jsonData)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal JSON: %w", err)
+	}
+
+	if cmd.IsSet(keys.MReplacePfx) {
+		replaceMetaPrefix(jsonData)
+	}
+
+	if cmd.IsSet(keys.MReplaceSfx) {
+		replaceMetaSuffix(jsonData)
+	}
+
+	if cmd.IsSet(keys.MNewField) {
+		addNewMetaField(jsonData, m)
+	}
+
+	logging.PrintD(3, "JSON after transformations: %v", jsonData)
+
+	// Marshal the updated JSON back to a byte slice
+	updatedFileContent, err := json.MarshalIndent(jsonData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal updated JSON: %w", err)
+	}
+
+	err = writeToFile(file, updatedFileContent)
+	if err != nil {
+		return fmt.Errorf("failed to write updated JSON to file: %w", err)
+	}
+
+	logging.PrintS(0, "Successfully applied metadata edits to: %v", file.Name())
+	return nil
+}
+
+// replaceMetaSuffix applies suffix replacement to the fields in the JSON data
+func replaceMetaSuffix(jsonData map[string]interface{}) error {
+
+	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", jsonData)
+
+	if !cmd.IsSet(keys.MReplaceSfx) {
+		logging.PrintD(2, "Key %s is not set in Viper", keys.MReplaceSfx)
+		return nil // No additions to apply
+	}
+
+	replacements, ok := cmd.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
+	if !ok || len(replacements) == 0 {
+		return nil // No replacements to apply
+	}
+
+	for _, replace := range replacements {
+		if replace.Field == "" || replace.Suffix == "" {
+			continue
+		}
+
+		if value, found := jsonData[replace.Field]; found {
+
+			if strValue, ok := value.(string); ok {
+
+				logging.PrintD(2, "Identified input JSON field '%v', trimming off '%v'", value, replace.Suffix)
+
+				if strings.HasSuffix(strValue, replace.Suffix) {
+					newValue := strings.TrimSuffix(strValue, replace.Suffix) + replace.Replacement
+					newValue = strings.TrimSpace(newValue)
+
+					logging.PrintD(2, "Changing '%v' to new value '%v'", replace.Field, newValue)
+					jsonData[replace.Field] = newValue
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// replaceMetaPrefix applies prefix replacement to the fields in the JSON data
+func replaceMetaPrefix(jsonData map[string]interface{}) error {
+
+	logging.PrintD(2, "Entering replaceMetaPrefix with data: %v", jsonData)
+
+	replacements, ok := cmd.Get(keys.MReplacePfx).([]models.MetaReplacePrefix)
+	if !ok || len(replacements) == 0 {
+		return nil // No replacements to apply
+	}
+
+	for _, replace := range replacements {
+		if replace.Field == "" || replace.Prefix == "" {
+			continue
+		}
+
+		if value, found := jsonData[replace.Field]; found {
+			if strValue, ok := value.(string); ok {
+
+				if strings.HasPrefix(strValue, replace.Prefix) {
+					newValue := strings.TrimPrefix(strValue, replace.Prefix) + replace.Replacement
+					newValue = strings.TrimSpace(newValue)
+					jsonData[replace.Field] = newValue
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// addNewField can insert a new field which does not yet exist into the metadata file
+func addNewMetaField(jsonData map[string]interface{}, m *models.FileData) error {
+
+	ctx := cmd.Get(keys.Context).(context.Context)
+
+	if !cmd.IsSet(keys.MNewField) {
+		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)
+		return nil
+	}
+	additions, ok := cmd.Get(keys.MNewField).([]models.MetaNewField)
+	if !ok || len(additions) == 0 {
+		return nil
+	}
+
+	logging.PrintD(3, "Retrieved additions for new field data: %v", additions)
+	processedFields := make(map[string]bool)
+
+	for _, addition := range additions {
+		if addition.Field == "" || addition.Value == "" {
+			continue
+		}
+		if !FieldOverwrite {
+
+			// Check for context cancellation before proceeding
+			select {
+			case <-ctx.Done():
+				logging.PrintI("Operation canceled for field: %s", addition.Field)
+				return fmt.Errorf("operation canceled")
+			default:
+				// Proceed
+			}
+			if _, alreadyProcessed := processedFields[addition.Field]; alreadyProcessed {
+				continue
+			}
+
+			if existingValue, exists := jsonData[addition.Field]; exists {
+
+				if !FieldOverwrite && !FieldPreserve {
+
+					promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue", addition.Field, existingValue, m.JSONFilePath)
+
+					reply, err := shared.PromptMetaReplace(promptMsg, m.JSONFilePath, &FieldOverwrite, &FieldPreserve)
+					if err != nil {
+						logging.PrintE(0, err.Error())
+					}
+
+					switch reply {
+					case "Y":
+						logging.PrintD(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, m.JSONFilePath)
+						FieldOverwrite = true
+						fallthrough
+					case "y":
+						logging.PrintD(2, logging.PrintD(2, "Received meta overwrite reply as 'y' for %s in %s", existingValue, m.JSONFilePath))
+						addition.Field = strings.TrimSpace(addition.Field)
+						logging.PrintD(3, "Adjusted field from '%s' to '%s'\n", jsonData[addition.Field], addition.Field)
+
+						jsonData[addition.Field] = addition.Value
+						processedFields[addition.Field] = true
+
+					case "N":
+						logging.PrintD(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, m.JSONFilePath)
+						FieldPreserve = true
+						fallthrough
+					case "n":
+						logging.PrintD(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, m.JSONFilePath)
+						logging.Print("Skipping field '%s'\n", addition.Field)
+						processedFields[addition.Field] = true
+					}
+				} else if FieldOverwrite { // FieldOverwrite is set
+
+					jsonData[addition.Field] = addition.Value
+					processedFields[addition.Field] = true
+
+				} else if FieldPreserve { // FieldPreserve is set
+
+					continue
+				}
+			}
+		} else {
+			// Add the field if it doesn't exist yet, or overwrite is true
+			jsonData[addition.Field] = addition.Value
+			processedFields[addition.Field] = true
+		}
+	}
+	return nil
+}
+
+// writeToFile truncates the file and writes the updated content
+func writeToFile(file *os.File, content []byte) error {
+
+	_, err := file.Seek(0, io.SeekStart)
+	if err != nil {
+		return fmt.Errorf("failed to seek file: %w", err)
+	}
+
+	if cmd.GetBool(keys.NoFileOverwrite) {
+		err := backup.BackupFile(file)
+		if err != nil {
+			return fmt.Errorf("failed to create a backup of file '%s'", file.Name())
+		}
+	}
+
+	err = file.Truncate(0) // Clear the file before writing new content
+	if err != nil {
+		return fmt.Errorf("failed to truncate file: %w", err)
+	}
+
+	_, err = file.Write(content)
+	if err != nil {
+		return fmt.Errorf("failed to write updated JSON to file: %w", err)
+	}
+
+	return nil
+}
+
+// ParseAndFormatDate parses and formats the inputted date string
+func ParseAndFormatDate(dateString string) (string, error) {
+
+	t, err := dateparse.ParseAny(dateString)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse date: %s", dateString)
+	}
+
+	return t.Format("20060102"), nil
+}
+package processing
+
+import (
+	"Metarr/internal/cmd"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/models"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+)
+
+func sysResourceLoop(fileStr string) {
+
+	var resourceMsg bool
+	var audioMemoryThreshold uint64 = cmd.GetUint64(keys.MinMemMB)
+
+	for {
+		// Fetch system resources and determine if processing can proceed
+		proceed, availableMemory, CPUUsage, err := checkSysResources(audioMemoryThreshold)
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			logging.PrintE(0, "Error checking system resources: %v", err)
+		}
+		if proceed {
+			resourceMsg = false
+			break
+		}
+
+		// Log resource info only once when insufficient resources are detected
+		if !resourceMsg {
+			logging.PrintI("Not enough system resources to process %s, waiting...", fileStr)
+			logging.PrintD(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(1024*1024), CPUUsage)
+			resourceMsg = true
+		}
+		time.Sleep(1 * time.Second) // Wait before checking again
+	}
+}
+
+// checkAvailableMemory checks if enough memory is available (at least the threshold).
+func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		return false, 0, 0, err
+	}
+
+	cpuPct, err := cpu.Percent(0, false)
+	if err != nil {
+		return false, 0, 0, err
+	}
+
+	maxCpuUsage := cmd.GetFloat64(keys.MaxCPU)
+	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCpuUsage), vMem.Available, cpuPct[0], nil
+}
+
+// cleanupTempFiles removes temporary files
+func cleanupTempFiles(files map[string]*models.FileData) error {
+
+	var errReturn error
+	var path string
+
+	for _, data := range files {
+		path = data.TempOutputFilePath
+		if _, err := os.Stat(path); err == nil {
+			fmt.Printf("Removing temp file: %s\n", path)
+			err = os.Remove(path)
+			if err != nil {
+				errReturn = fmt.Errorf("error removing temp file: %w", err)
+			}
+		}
+	}
+	return errReturn
+}
+package processing
+
+import (
+	"Metarr/internal/cmd"
+	"Metarr/internal/enums"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/metadata"
+	"Metarr/internal/models"
+	"Metarr/internal/naming"
+	"context"
+	"fmt"
+	"os"
+	"sync"
+	"sync/atomic"
+)
+
+var totalMetaFiles int32
+var totalVideoFiles int32
+var processedMetaFiles int32
+var processedVideoFiles int32
+var processedDataArray []*models.FileData
+
+// processFiles is the main program function to process folder entries
+func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideoDir, openJsonDir *os.File) {
+
+	skipVideos := cmd.GetBool(keys.SkipVideos)
+
+	var videoMap, metaMap, matchedFiles map[string]*models.FileData
+	var err error
+
+	metaMap, err = metadata.GetMetadataFiles(openJsonDir)
+	if err != nil {
+		logging.PrintE(0, "Error: %v", err)
+		os.Exit(1)
+	}
+
+	if !skipVideos {
+		videoMap, err = metadata.GetVideoFiles(openVideoDir)
+		if err != nil {
+			logging.PrintE(0, "Error fetching video files: %v", err)
+			os.Exit(1)
+		}
+
+		matchedFiles, err = metadata.MatchVideoWithMetadata(videoMap, metaMap)
+		if err != nil {
+			logging.PrintE(0, "Error matching videos with metadata: %v", err)
+			os.Exit(1)
+		}
+	} else {
+		matchedFiles = metaMap
+	}
+
+	cmd.Set(keys.VideoMap, videoMap)
+	cmd.Set(keys.MetaMap, metaMap)
+
+	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
+	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
+
+	fmt.Printf("\nFound %d file(s) to process in the directory\n", totalMetaFiles+totalVideoFiles)
+
+	for _, fileData := range matchedFiles {
+		processedData, err := metadata.ProcessJSONFile(fileData)
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			errMsg := fmt.Errorf("error processing JSON for file: %w", err)
+			logging.PrintE(0, errMsg.Error())
+			return
+		}
+		processedDataArray = append(processedDataArray, processedData)
+	}
+
+	// Goroutine to handle signals and cleanup
+	go func() {
+		<-cleanupChan
+
+		fmt.Println("\nSignal received, cleaning up temporary files...")
+
+		cancel()
+
+		err = cleanupTempFiles(videoMap)
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			fmt.Printf("\nFailed to cleanup temp files: %v", err)
+			logging.PrintE(0, "Failed to cleanup temp files", err)
+		}
+
+		logging.PrintI("Process was interrupted by a syscall", nil)
+
+		wg.Wait()
+		os.Exit(0)
+	}()
+
+	sem := make(chan struct{}, cmd.GetInt(keys.Concurrency))
+
+	for fileName, fileData := range matchedFiles {
+
+		executeFile(ctx, wg, sem, fileName, fileData)
+	}
+
+	wg.Wait()
+
+	err = cleanupTempFiles(videoMap)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.PrintE(0, "Failed to cleanup temp files: %v", err)
+	}
+
+	replaceToStyle := cmd.Get(keys.Rename).(enums.ReplaceToStyle)
+	inputVideoDir := cmd.GetString(keys.JsonDir)
+
+	err = naming.FileRename(processedDataArray, replaceToStyle)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.PrintE(0, "Failed to rename files: %v", err)
+	} else {
+		logging.PrintS(0, "Successfully formatted file names in directory: %v", inputVideoDir)
+	}
+
+	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
+
+		logging.PrintS(0, "Successfully processed all videos in directory (%v) with no errors.", inputVideoDir)
+		fmt.Println()
+	} else {
+
+		logging.PrintE(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
+		fmt.Println()
+	}
+}
+
+// processFile handles processing for both video and metadata files
+func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *models.FileData) {
+	wg.Add(1)
+	go func(fileName string, fileData *models.FileData) {
+
+		defer wg.Done()
+
+		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
+		total := atomic.LoadInt32(&totalMetaFiles)
+
+		fmt.Printf("\n====================================================\n")
+		fmt.Printf("    Processed metafile %d of %d\n", currentFile, total)
+		fmt.Printf("    Remaining: %d\n", total-currentFile)
+		fmt.Printf("====================================================\n\n")
+
+		sem <- struct{}{}
+		defer func() {
+			<-sem
+		}()
+
+		select {
+		case <-ctx.Done():
+			fmt.Printf("Skipping processing for %s due to cancellation\n", fileName)
+			return
+		default:
+		}
+
+		sysResourceLoop(fileName)
+
+		skipVideos := cmd.GetBool(keys.SkipVideos)
+		isVideoFile := fileData.OriginalVideoPath != ""
+
+		if isVideoFile {
+			logging.PrintI("Processing file: %s", fileName)
+		} else {
+			logging.PrintI("Processing metadata file: %s", fileName)
+		}
+
+		if isVideoFile && !skipVideos {
+			err := metadata.WriteMetadata(fileData)
+			if err != nil {
+				logging.ErrorArray = append(logging.ErrorArray, err)
+				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
+				logging.PrintE(0, errMsg.Error())
+			} else {
+				logging.PrintS(0, "Successfully processed video %s\n", fileName)
+			}
+		} else {
+			logging.PrintS(0, "Successfully processed metadata for %s\n", fileName)
+		}
+
+		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
+		total = atomic.LoadInt32(&totalVideoFiles)
+
+		fmt.Printf("\n====================================================\n")
+		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)
+		fmt.Printf("    Remaining: %d\n", total-currentFile)
+		fmt.Printf("====================================================\n\n")
+
+	}(fileName, fileData)
+}
+package shared
+
+import (
+	"Metarr/internal/cmd"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+	"strings"
+)
+
+var (
+	userInputChan = make(chan string) // Channel for user input
+	decisionMade  bool
+)
+
+// Initialize user input reader in a goroutine
+func InitUserInputReader() {
+	go func() {
+		reader := bufio.NewReader(os.Stdin)
+		for {
+			input, _ := reader.ReadString('\n')
+			userInputChan <- strings.TrimSpace(input)
+		}
+	}()
+}
+
+// PromptMetaReplace displays a prompt message and waits for valid user input.
+// The option can be used to tell the program to overwrite all in the queue,
+// preserve all in the queue, or move through value by value
+func PromptMetaReplace(promptMsg, fileName string, overwriteAll, preserveAll *bool) (string, error) {
+
+	logging.PrintD(3, "Entering PromptUser dialogue...")
+
+	ctx, ok := cmd.Get(keys.Context).(context.Context)
+	if !ok {
+		return "", fmt.Errorf("context not correctly grabbed in PromptUser")
+	}
+
+	if decisionMade {
+		// If overwriteAll, return "Y" without waiting
+		if *overwriteAll {
+
+			logging.PrintD(3, "Overwrite all is set...")
+			return "Y", nil
+		} else if *preserveAll {
+
+			logging.PrintD(3, "Preserve all is set...")
+			return "N", nil
+		}
+	}
+
+	fmt.Println()
+	logging.PrintI(promptMsg)
+
+	// Wait for user input
+	select {
+	case response := <-userInputChan:
+		if response == "Y" {
+			*overwriteAll = true
+		}
+		decisionMade = true
+		return response, nil
+
+	case <-ctx.Done():
+		logging.PrintI("Operation canceled during input.")
+		return "", fmt.Errorf("operation canceled")
+	}
+}
+package main
+
+import (
+	"Metarr/internal/cmd"
+	"Metarr/internal/keys"
+	"Metarr/internal/logging"
+	"Metarr/internal/naming"
+	"Metarr/internal/processing"
+	"Metarr/internal/shared"
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"sync"
+	"syscall"
+)
+
+func main() {
+
+	var err error
+	var directory string
+
+	if err := cmd.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Println()
+		os.Exit(1)
+	}
+
+	if !cmd.GetBool("execute") {
+		fmt.Println()
+		logging.PrintI(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
+		fmt.Println()
+		return // Exit early if not meant to execute
+	}
+
+	// Handle cleanup on interrupt or termination signals
+	ctx, cancel := context.WithCancel(context.Background())
+	cmd.Set(keys.Context, ctx)
+	defer cancel()
+
+	// Open input video directory
+	inputVideoDir := cmd.GetString(keys.VideoDir)
+	openVideoDir, err := os.Open(inputVideoDir)
+	if err != nil {
+		logging.PrintE(0, "Error: %v", err)
+		os.Exit(1)
+	}
+	defer openVideoDir.Close()
+	cmd.Set(keys.OpenVideoDir, openVideoDir)
+
+	directory = inputVideoDir
+
+	// Open input metadata directory
+	inputMetaDir := cmd.GetString(keys.JsonDir)
+	openJsonDir, err := os.Open(inputMetaDir)
+	if err != nil {
+		logging.PrintE(0, "Error: %v", err)
+		os.Exit(1)
+	}
+	defer openJsonDir.Close()
+	cmd.Set(keys.OpenJsonDir, openJsonDir)
+
+	if directory == "" {
+		directory = inputMetaDir
+	}
+
+	// Setup logging
+	logFilePath := filepath.Join(directory, "metarr-log.txt")
+
+	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logging.PrintE(0, "Error: %v", err)
+		os.Exit(1)
+	}
+	defer logFile.Close()
+
+	err = logging.SetupLogging(directory, logFile)
+	if err != nil {
+		fmt.Printf(`
+
+Notice: Log file was not created
+Reason: %s
+
+`, err)
+	}
+
+	// Program control
+	var wg sync.WaitGroup
+	cmd.Set(keys.WaitGroup, &wg)
+
+	cleanupChan := make(chan os.Signal, 1)
+	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
+
+	naming.FieldOverwrite = cmd.GetBool(keys.MOverwrite)
+	naming.FieldPreserve = cmd.GetBool(keys.MPreserve)
+
+	if naming.FieldOverwrite && naming.FieldPreserve {
+		fmt.Println()
+		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
+		fmt.Println()
+		os.Exit(1)
+	}
+
+	shared.InitUserInputReader()
+
+	// Proceed to process files (videos, metadata files, etc...)
+	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideoDir, openJsonDir)
+}
