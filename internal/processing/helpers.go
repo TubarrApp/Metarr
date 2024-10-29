@@ -1,10 +1,10 @@
 package processing
 
 import (
-	"Metarr/internal/cmd"
-	"Metarr/internal/keys"
-	"Metarr/internal/logging"
-	"Metarr/internal/models"
+	"Metarr/internal/config"
+	keys "Metarr/internal/domain/keys"
+	"Metarr/internal/types"
+	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
 	"time"
@@ -16,7 +16,7 @@ import (
 func sysResourceLoop(fileStr string) {
 
 	var resourceMsg bool
-	var audioMemoryThreshold uint64 = cmd.GetUint64(keys.MinMemMB)
+	var audioMemoryThreshold uint64 = config.GetUint64(keys.MinMemMB)
 
 	for {
 		// Fetch system resources and determine if processing can proceed
@@ -52,12 +52,12 @@ func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
 		return false, 0, 0, err
 	}
 
-	maxCpuUsage := cmd.GetFloat64(keys.MaxCPU)
+	maxCpuUsage := config.GetFloat64(keys.MaxCPU)
 	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCpuUsage), vMem.Available, cpuPct[0], nil
 }
 
 // cleanupTempFiles removes temporary files
-func cleanupTempFiles(files map[string]*models.FileData) error {
+func cleanupTempFiles(files map[string]*types.FileData) error {
 
 	var errReturn error
 	var path string
