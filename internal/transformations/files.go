@@ -8,6 +8,7 @@ import (
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -85,6 +86,11 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 
 		if err := writeResults(skipVideos, renamedVideoOut, renamedMetaOut, metaPath, m.FinalVideoPath); err != nil {
 			return err
+		}
+		if config.IsSet(keys.MoveOnComplete) {
+			if err := moveFile(m); err != nil {
+				logging.PrintE(0, "Failed to move to destination folder: %v", err)
+			}
 		}
 	}
 	return nil
@@ -276,27 +282,85 @@ func filenameReplaceSuffix(renamedVideo, renamedMeta string) (string, string) {
 	return trimmedVideo, trimmedMeta
 }
 
-// MoveOnComplete moves the file(s) to the specified directory on completion
-func MoveOnComplete(fd *types.FileData) error {
+// moveFile moves the file(s) to the specified location on completion,
+// either by renaming or by copying if cross-device
+func moveFile(fd *types.FileData) error {
 
-	f := fd.FinalVideoPath
+	if fd == nil {
+		return fmt.Errorf("passed model in null")
+	}
+	src := fd.FinalVideoPath
 
-	if f != "" && config.IsSet(keys.MoveOnComplete) {
-		destination := config.GetString(keys.MoveOnComplete)
-		if !strings.HasSuffix(destination, "/") {
-			destination += "/"
+	if src != "" && config.IsSet(keys.MoveOnComplete) {
+		dst := config.GetString(keys.MoveOnComplete)
+		if !strings.HasSuffix(dst, "/") {
+			dst += "/"
 		}
-		if check, err := os.Stat(destination); err != nil {
-			return fmt.Errorf("unable to stat destination folder '%s': %w", f, err)
+		if check, err := os.Stat(dst); err != nil {
+			return fmt.Errorf("unable to stat destination folder '%s': %w", src, err)
 		} else if !check.IsDir() {
-			return fmt.Errorf("destination path must be a folder. Sent in '%s'", f)
+			return fmt.Errorf("destination path must be a folder. Sent in '%s'", src)
 		} else {
-			base := filepath.Base(f)
-			target := destination + base
-			if err := os.Rename(f, target); err != nil {
+			base := filepath.Base(src)
+			target := dst + base
+
+			if err := os.Rename(src, target); err != nil {
+
+				if strings.Contains(err.Error(), "invalid cross-device link") {
+					logging.PrintD(1, "Falling back to copy for moving %s to %s", src, dst)
+
+					// Ensure the destination directory exists
+					if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+						return fmt.Errorf("failed to create destination directory: %v", err)
+					}
+
+					// Copy the file
+					if err := copyFile(src, dst); err != nil {
+						return fmt.Errorf("failed to copy file: %v", err)
+					}
+				}
 				return fmt.Errorf("failed to move file: %w", err)
 			}
 		}
 	}
+	return nil
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	// Open source file
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %v", err)
+	}
+	defer sourceFile.Close()
+
+	// Create the destination file
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %v", err)
+	}
+	defer destFile.Close()
+
+	// Get source file info for permissions
+	sourceInfo, err := sourceFile.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to get source file info: %v", err)
+	}
+
+	if _, err = io.Copy(destFile, sourceFile); err != nil {
+		return fmt.Errorf("failed to copy file contents: %v", err)
+	}
+
+	// Sync to ensure write is complete
+	if err = destFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync destination file: %v", err)
+	}
+
+	// Set the same permissions on the new file
+	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to set file permissions: %v", err)
+	}
+
 	return nil
 }

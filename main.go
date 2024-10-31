@@ -4,7 +4,6 @@ import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/processing"
-	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
 	"context"
@@ -140,56 +139,8 @@ Reason: %s
 		fmt.Println()
 		os.Exit(1)
 	}
-
-	fetchNewFromURL := config.GetString(keys.GetLatest)
-	if fetchNewFromURL != "" {
-		logging.PrintD(1, "Checking URL '%s' for new videos", fetchNewFromURL)
-
-		if cookies, err := browser.GetBrowserCookies(fetchNewFromURL); err == nil {
-			if _, err := browser.GrabNewEpisodeURLs(fetchNewFromURL, cookies); err != nil {
-				logging.PrintE(0, err.Error())
-			}
-			config.AutoPreset(fetchNewFromURL)
-		}
-	} else {
-		logging.PrintD(2, "No URL to check for new videos, skipping...")
-	}
-
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
-}
-
-// NOT YET IMPLEMENTED
-// setupInputFiles sets up the directory string
-func setupInputFiles() (directory string, openVideo, openJson *os.File, err error) {
-	if config.IsSet(keys.VideoDir) {
-		directory = config.GetString(keys.VideoDir)
-		openVideo, err = os.Open(directory)
-	} else if config.IsSet(keys.VideoFile) {
-		inputVideo := config.GetString(keys.VideoFile)
-		openVideo, err = os.Open(inputVideo)
-		directory = filepath.Dir(inputVideo)
-	}
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("error opening video file/directory: %v", err)
-	}
-
-	if config.IsSet(keys.JsonDir) {
-		if directory == "" {
-			directory = config.GetString(keys.JsonDir)
-		}
-		openJson, err = os.Open(config.GetString(keys.JsonDir))
-	} else if config.IsSet(keys.JsonFile) {
-		inputMeta := config.GetString(keys.JsonFile)
-		if directory == "" {
-			directory = filepath.Dir(inputMeta)
-		}
-		openJson, err = os.Open(inputMeta)
-	}
-	if err != nil {
-		return "", openVideo, nil, fmt.Errorf("error opening metadata file/directory: %v", err)
-	}
-	return directory, openVideo, openJson, nil
 }

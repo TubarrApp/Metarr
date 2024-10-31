@@ -214,12 +214,6 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
 		total = atomic.LoadInt32(&totalVideoFiles)
 
-		if config.IsSet(keys.MoveOnComplete) {
-			if err := transformations.MoveOnComplete(fileData); err != nil {
-				logging.PrintE(0, "Failed to move to destination folder: %v", err)
-			}
-		}
-
 		fmt.Printf("\n====================================================\n")
 		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)
 		fmt.Printf("    Remaining: %d\n", total-currentFile)
