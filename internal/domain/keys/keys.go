@@ -3,7 +3,9 @@ package domain
 // Terminal keys
 const (
 	VideoDir                string = "video-dir"
+	VideoFile               string = "video-file"
 	JsonDir                 string = "json-dir"
+	JsonFile                string = "json-file"
 	InputExts               string = "input-exts"
 	FilePrefixes            string = "prefix"
 	Concurrency             string = "concurrency"
@@ -11,6 +13,7 @@ const (
 	MinMem                  string = "min-mem"
 	MinMemMB                string = "min-mem-mb"
 	GPU                     string = "gpu"
+	GetLatest               string = "get-latest"
 	MFilenamePfx            string = "metadata-filename-prefix"
 	InputFilenameReplaceSfx string = "filename-replace-suffix"
 	InputFileDatePfx        string = "filename-date-tag"
@@ -25,20 +28,23 @@ const (
 	NoFileOverwrite         string = "no-file-overwrite"
 	MDescDatePfx            string = "desc-date-prefix"
 	MDescDateSfx            string = "desc-date-suffix"
+	InputPreset             string = "preset"
+	MoveOnComplete          string = "move-on-complete"
 )
 
 // Primary program
 const (
-	Context   string = "Context"
-	WaitGroup string = "WaitGroup"
+	Context    string = "Context"
+	WaitGroup  string = "WaitGroup"
+	SingleFile string = "SingleFile"
 )
 
 // Files and directories
 const (
-	OpenVideoDir string = "openVideoDir"
-	OpenJsonDir  string = "openJsonDir"
-	VideoMap     string = "videoMap"
-	MetaMap      string = "metaMap"
+	OpenVideo string = "openVideo"
+	OpenJson  string = "openJson"
+	VideoMap  string = "videoMap"
+	MetaMap   string = "metaMap"
 )
 
 // Filter for files

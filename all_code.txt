@@ -1,6 +1,76 @@
 package config
 
 import (
+	keys "Metarr/internal/domain/keys"
+	"Metarr/internal/types"
+	"strings"
+)
+
+func AutoPreset(url string) {
+	if strings.Contains(url, "censored.tv") {
+		censoredTvPreset()
+	}
+}
+
+func censoredTvPreset() {
+	var metaReplaceSuffix []types.MetaReplaceSuffix
+
+	sfxArg1 := types.MetaReplaceSuffix{
+		Field:       "title",
+		Suffix:      " (1)",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg1)
+
+	sfxArg2 := types.MetaReplaceSuffix{
+		Field:       "fulltitle",
+		Suffix:      " (1)",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg2)
+
+	sfxArg3 := types.MetaReplaceSuffix{
+		Field:       "id",
+		Suffix:      "-1",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg3)
+
+	sfxArg4 := types.MetaReplaceSuffix{
+		Field:       "display_id",
+		Suffix:      "-1",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg4)
+
+	Set(keys.MReplaceSfx, metaReplaceSuffix)
+
+	Set(keys.MOverwrite, true)
+
+	var newFields []types.MetaNewField
+
+	creator := types.MetaNewField{
+		Field: "creator",
+		Value: "Atheism-is-Unstoppable",
+	}
+	newFields = append(newFields, creator)
+
+	Set(keys.MNewField, newFields)
+
+	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+
+	trimEnd := types.FilenameReplaceSuffix{
+		Suffix:      " 1",
+		Replacement: "",
+	}
+	filenameReplaceSuffix = append(filenameReplaceSuffix, trimEnd)
+	Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+
+	Set(keys.FileDateFmt, "ymd")
+}
+package config
+
+import (
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
@@ -34,10 +104,16 @@ func init() {
 	// Video directory
 	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
 	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
+	// Video file
+	rootCmd.PersistentFlags().StringP(keys.VideoFile, "V", ".", "Video file")
+	viper.BindPFlag(keys.VideoFile, rootCmd.PersistentFlags().Lookup(keys.VideoFile))
 
 	// JSON directory
-	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON metadata directory")
+	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON directory")
 	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
+	// JSON file
+	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
+	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
 
 	// Rename choice
 	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
@@ -103,6 +179,12 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
 	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
+
+	rootCmd.PersistentFlags().String(keys.GetLatest, "", "Grabs new videos released since the last stored URL in the grabbed-urls.txt folder (parameter should be the channel URL)")
+	viper.BindPFlag(keys.GetLatest, rootCmd.PersistentFlags().Lookup(keys.GetLatest))
+
+	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
+	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
 }
 
 // Execute is the primary initializer of Viper
@@ -226,6 +308,33 @@ func execute() error {
 		logging.PrintI("Debugging level: %v", debugLevel)
 	}
 	viper.Set(keys.DebugLevel, debugLevel)
+
+	// Ensure no video and metadata location conflicts
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFileSet := viper.IsSet(keys.VideoFile)
+	videoDirSet := viper.IsSet(keys.VideoDir)
+
+	if jsonFileSet && jsonDirSet || jsonFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular metadata file for whole video directory")
+	}
+	if videoFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular video file AND video directory")
+	}
+
+	if videoFileSet {
+		viper.Set(keys.SingleFile, true)
+	}
+
+	// Get presets
+
+	switch viper.GetString(keys.InputPreset) {
+	case "censoredtv":
+		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
+		censoredTvPreset()
+	default:
+		// Do nothing
+	}
 
 	err = initTextReplace()
 	if err != nil {
@@ -466,6 +575,27 @@ var RedError string = fmt.Sprintf("%v[ERROR] %v", ColorRed, ColorReset)
 var YellowDebug string = fmt.Sprintf("%v[DEBUG] %v", ColorYellow, ColorReset)
 var GreenSuccess string = fmt.Sprintf("%v[SUCCESS] %v", ColorGreen, ColorReset)
 var BlueInfo string = fmt.Sprintf("%v[Info] %v", ColorCyan, ColorReset)
+package domain
+
+import (
+	"os/exec"
+)
+
+func GrabLatestCommand(videoDir, targetURL string) *exec.Cmd {
+	return exec.Command(
+		"yt-dlp",
+		"--write-info-json",
+		"-P", videoDir,
+		"--external-downloader", "aria2c",
+		"--external-downloader-args", "-x 16 -s 16",
+		"--restrict-filenames",
+		"-o", "%(title)s.%(ext)s",
+		"--retries", "999",
+		"--retry-sleep", "10",
+		"--cookies-from-browser", "firefox",
+		targetURL,
+	)
+}
 package domain
 
 // File prefix and suffix
@@ -784,12 +914,21 @@ const (
 	WEBCLASS_CREDITS     WebClassTags = iota
 	WEBCLASS_WEBINFO     WebClassTags = iota
 )
+
+// Presets
+type SitePresets int
+
+const (
+	PRESET_CENSOREDTV SitePresets = iota
+)
 package domain
 
 // Terminal keys
 const (
 	VideoDir                string = "video-dir"
+	VideoFile               string = "video-file"
 	JsonDir                 string = "json-dir"
+	JsonFile                string = "json-file"
 	InputExts               string = "input-exts"
 	FilePrefixes            string = "prefix"
 	Concurrency             string = "concurrency"
@@ -797,6 +936,7 @@ const (
 	MinMem                  string = "min-mem"
 	MinMemMB                string = "min-mem-mb"
 	GPU                     string = "gpu"
+	GetLatest               string = "get-latest"
 	MFilenamePfx            string = "metadata-filename-prefix"
 	InputFilenameReplaceSfx string = "filename-replace-suffix"
 	InputFileDatePfx        string = "filename-date-tag"
@@ -811,20 +951,22 @@ const (
 	NoFileOverwrite         string = "no-file-overwrite"
 	MDescDatePfx            string = "desc-date-prefix"
 	MDescDateSfx            string = "desc-date-suffix"
+	InputPreset             string = "preset"
 )
 
 // Primary program
 const (
-	Context   string = "Context"
-	WaitGroup string = "WaitGroup"
+	Context    string = "Context"
+	WaitGroup  string = "WaitGroup"
+	SingleFile string = "SingleFile"
 )
 
 // Files and directories
 const (
-	OpenVideoDir string = "openVideoDir"
-	OpenJsonDir  string = "openJsonDir"
-	VideoMap     string = "videoMap"
-	MetaMap      string = "metaMap"
+	OpenVideo string = "openVideo"
+	OpenJson  string = "openJson"
+	VideoMap  string = "videoMap"
+	MetaMap   string = "metaMap"
 )
 
 // Filter for files
@@ -856,93 +998,8 @@ var MultiEntryFields []string = []string{
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
-)
-
-// fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
-func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-
-	c := fd.MCredits
-	w := fd.MWebData
-
-	fieldMap := map[string]*string{
-		// Order by importance
-		consts.JCreator:   &c.Creator,
-		consts.JPerformer: &c.Performer,
-		consts.JAuthor:    &c.Author,
-		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
-		consts.JDirector:  &c.Director,
-		consts.JActor:     &c.Actor,
-		consts.JStudio:    &c.Studio,
-		consts.JProducer:  &c.Producer,
-		consts.JWriter:    &c.Writer,
-		consts.JUploader:  &c.Uploader,
-		consts.JPublisher: &c.Publisher,
-		consts.JComposer:  &c.Composer,
-	}
-
-	dataFilled := unpackJSON("credits", fieldMap, data)
-
-	if !dataFilled {
-		for _, val := range fieldMap {
-			if val != nil && *val == "" {
-				continue
-			} else {
-				dataFilled = true
-			}
-		}
-	}
-
-	switch {
-	case dataFilled:
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
-		switch {
-		case err != nil:
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
-			return data, true
-		case rtn != nil:
-			data = rtn
-			return data, true
-		}
-
-	case w.WebpageURL == "":
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
-		return data, false
-	}
-
-	credits := scrapeMeta(w, enums.WEBCLASS_CREDITS)
-
-	if credits != "" {
-		for _, value := range fieldMap {
-			if *value == "" {
-				*value = credits
-			}
-		}
-
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
-		switch {
-		case err != nil:
-			logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
-			return data, true
-		case rtn != nil:
-			data = rtn
-			return data, true
-		}
-
-	}
-	return data, false
-}
-package metadata
-
-import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/types"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
 	"fmt"
 	"strconv"
 	"strings"
@@ -950,279 +1007,8 @@ import (
 	"github.com/araddon/dateparse"
 )
 
-// fillTimestamps grabs timestamp metadata from JSON
-func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-
-	t := fd.MDates
-	w := fd.MWebData
-
-	printMap := make(map[string]string)
-	var err error
-	var gotRelevantDate bool
-
-	fieldMap := map[string]*string{
-		// Order by importance
-		consts.JReleaseDate:         &t.ReleaseDate,
-		consts.JOriginallyAvailable: &t.Originally_Available_At,
-		consts.JDate:                &t.Date,
-		consts.JUploadDate:          &t.UploadDate,
-		consts.JReleaseYear:         &t.Year,
-		consts.JYear:                &t.Year,
-		consts.JCreationTime:        &t.Creation_Time,
-	}
-
-	if ok := unpackJSON("date", fieldMap, data); !ok {
-		logging.PrintE(1, "Failed to unpack date JSON, no dates currently exist in file?")
-	}
-
-	for key, value := range data {
-		if strVal, ok := value.(string); ok {
-			if _, exists := fieldMap[key]; exists {
-
-				if len(strVal) >= 6 {
-					if formatted, ok := yyyyMmDd(strVal); ok {
-						*fieldMap[key] = formatted
-						printMap[key] = formatted
-						gotRelevantDate = true
-						continue
-
-					} else {
-						*fieldMap[key] = strVal
-						printMap[key] = strVal
-						gotRelevantDate = true
-						continue
-					}
-				} else {
-					*fieldMap[key] = strVal
-					printMap[key] = strVal
-					gotRelevantDate = true
-					continue
-				}
-			}
-		}
-		continue
-	}
-
-	if fillEmptyTimestamps(t) {
-		gotRelevantDate = true
-	}
-
-	switch {
-	case gotRelevantDate:
-
-		logging.PrintD(3, "Got a relevant date, proceeding...")
-		print.PrintGrabbedFields("time and date", &printMap)
-		if t.FormattedDate == "" {
-			FormatAllDates(fd)
-		} else {
-			t.StringDate, err = parseNumDate(t.FormattedDate)
-			if err != nil {
-				logging.PrintE(0, err.Error())
-			}
-		}
-
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
-		if err != nil {
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
-			return data, true
-		} else if rtn != nil {
-			data = rtn
-			return data, true
-		}
-
-	case w.WebpageURL == "":
-
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
-		print.PrintGrabbedFields("time and date", &printMap)
-		return data, false
-	}
-
-	scrapedDate := scrapeMeta(w, enums.WEBCLASS_DATE)
-	logging.PrintD(1, "Scraped date: %s", scrapedDate)
-
-	logging.PrintD(3, "Passed web scrape attempt for date.")
-
-	var date string
-	if scrapedDate != "" {
-		date, err = parseStringDate(scrapedDate)
-		if err != nil || date == "" {
-			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
-			return data, false
-		} else {
-			if t.ReleaseDate == "" {
-				t.ReleaseDate = date
-			}
-			if t.Date == "" {
-				t.Date = date
-			}
-			if t.Creation_Time == "" {
-				t.Creation_Time = date + "T00:00:00Z"
-			}
-			if t.UploadDate == "" {
-				t.UploadDate = date
-			}
-			if t.Originally_Available_At == "" {
-				t.Originally_Available_At = date
-			}
-			if t.FormattedDate == "" {
-				t.FormattedDate = date
-			}
-			if len(date) >= 4 {
-				t.Year = date[:4]
-			}
-
-			printMap[consts.JReleaseDate] = t.ReleaseDate
-			printMap[consts.JDate] = t.Date
-			printMap[consts.JYear] = t.Year
-
-			print.PrintGrabbedFields("time and date", &printMap)
-
-			if t.FormattedDate == "" {
-				FormatAllDates(fd)
-			}
-			rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
-			switch {
-			case err != nil:
-				logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
-				return data, true
-			case rtn != nil:
-				data = rtn
-				return data, true
-			}
-		}
-	}
-	return data, false
-}
-
-// fillEmptyTimestamps attempts to infer missing timestamps
-func fillEmptyTimestamps(t *types.MetadataDates) bool {
-
-	gotRelevantDate := false
-
-	// Infer from originally available date
-	if t.Originally_Available_At != "" && len(t.Originally_Available_At) >= 6 {
-		gotRelevantDate = true
-		if t.Creation_Time == "" {
-			if formatted, ok := yyyyMmDd(t.Originally_Available_At); ok {
-				if !strings.ContainsRune(formatted, 'T') {
-					t.Creation_Time = formatted + "T00:00:00Z"
-					t.FormattedDate = formatted
-				} else {
-					t.Creation_Time = formatted
-					t.FormattedDate, _, _ = strings.Cut(formatted, "T")
-				}
-			} else {
-				if formatted, ok := yyyyMmDd(t.Originally_Available_At); ok {
-					if !strings.ContainsRune(formatted, 'T') {
-						t.Creation_Time = formatted + "T00:00:00Z"
-						t.FormattedDate = formatted
-					} else {
-						t.Creation_Time = formatted
-						t.FormattedDate, _, _ = strings.Cut(formatted, "T")
-					}
-				} else {
-					t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
-				}
-			}
-		}
-	}
-	// Infer from release date
-	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
-		gotRelevantDate = true
-		if t.Creation_Time == "" {
-			if formatted, ok := yyyyMmDd(t.ReleaseDate); ok {
-				t.Creation_Time = formatted + "T00:00:00Z"
-				if t.FormattedDate == "" {
-					t.FormattedDate = formatted
-				}
-			} else {
-				t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
-			}
-		}
-		if t.Originally_Available_At == "" {
-			if formatted, ok := yyyyMmDd(t.ReleaseDate); ok {
-				t.Originally_Available_At = formatted
-				if t.FormattedDate == "" {
-					t.FormattedDate = formatted
-				}
-			} else {
-				t.Originally_Available_At = t.ReleaseDate
-			}
-		}
-	}
-	// Infer from date
-	if t.Date != "" && len(t.Date) >= 6 {
-		gotRelevantDate = true
-		if formatted, ok := yyyyMmDd(t.ReleaseDate); ok {
-			t.Creation_Time = formatted + "T00:00:00Z"
-			if t.FormattedDate == "" {
-				t.FormattedDate = formatted
-			}
-		} else {
-			t.Creation_Time = t.Date + "T00:00:00Z"
-		}
-		if t.Originally_Available_At == "" {
-			if formatted, ok := yyyyMmDd(t.ReleaseDate); ok {
-				t.Originally_Available_At = formatted
-				if t.FormattedDate == "" {
-					t.FormattedDate = formatted
-				}
-			} else {
-				t.Originally_Available_At = t.Date
-			}
-		}
-	}
-
-	// Infer from upload date
-	if t.UploadDate != "" && len(t.UploadDate) >= 6 {
-		if formatted, ok := yyyyMmDd(t.UploadDate); ok {
-			t.Creation_Time = formatted + "T00:00:00Z"
-			if t.FormattedDate == "" {
-				t.FormattedDate = formatted
-			}
-		} else {
-			t.Creation_Time = t.UploadDate + "T00:00:00Z"
-		}
-		if t.Originally_Available_At == "" {
-			t.Originally_Available_At = t.UploadDate
-		}
-	}
-	// Fill empty date
-	if t.Date == "" {
-		switch {
-		case t.ReleaseDate != "":
-			t.Date = t.ReleaseDate
-			t.Originally_Available_At = t.ReleaseDate
-
-		case t.UploadDate != "":
-			t.Date = t.UploadDate
-			t.Originally_Available_At = t.UploadDate
-
-		case t.FormattedDate != "":
-			t.Date = t.FormattedDate
-		}
-	}
-	// Fill empty year
-	if t.Year == "" {
-		switch {
-		case t.Date != "" && len(t.Date) >= 4:
-			t.Year = t.Date[:4]
-
-		case t.UploadDate != "" && len(t.UploadDate) >= 4:
-			t.Year = t.UploadDate[:4]
-
-		case t.FormattedDate != "" && len(t.FormattedDate) >= 4:
-			t.Year = t.FormattedDate[:4]
-		}
-	}
-	if len(t.Year) > 4 {
-		t.Year = t.Year[:4]
-	}
-	return gotRelevantDate
-}
-
 // ParseAndFormatDate parses and formats the inputted date string
-func parseStringDate(dateString string) (string, error) {
+func ParseStringDate(dateString string) (string, error) {
 
 	t, err := dateparse.ParseAny(dateString)
 	if err != nil {
@@ -1233,7 +1019,7 @@ func parseStringDate(dateString string) (string, error) {
 }
 
 // ParseAndFormatDate parses and formats the inputted date string
-func parseNumDate(dateNum string) (string, error) {
+func ParseNumDate(dateNum string) (string, error) {
 
 	t, err := dateparse.ParseAny(dateNum)
 	if err != nil {
@@ -1325,7 +1111,7 @@ func dayStringSwitch(day string) string {
 }
 
 // YyyyMmDd converts inputted date strings into the user's defined format
-func yyyyMmDd(fieldValue string) (string, bool) {
+func YyyyMmDd(fieldValue string) (string, bool) {
 
 	var t string = ""
 	if tIdx := strings.Index(fieldValue, "T"); tIdx != -1 {
@@ -1348,7 +1134,7 @@ func yyyyMmDd(fieldValue string) (string, bool) {
 	return fieldValue, false
 }
 
-// formatDate formats timestamps into a hyphenated form
+// FormatAllDates formats timestamps into a hyphenated form
 func FormatAllDates(fd *types.FileData) string {
 
 	var result string = ""
@@ -1358,23 +1144,23 @@ func FormatAllDates(fd *types.FileData) string {
 
 	if !ok && d.Originally_Available_At != "" {
 		logging.PrintD(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
-		result, ok = yyyyMmDd(d.Originally_Available_At)
+		result, ok = YyyyMmDd(d.Originally_Available_At)
 	}
 	if !ok && d.ReleaseDate != "" {
 		logging.PrintD(2, "Attempting to format release date: %v", d.ReleaseDate)
-		result, ok = yyyyMmDd(d.ReleaseDate)
+		result, ok = YyyyMmDd(d.ReleaseDate)
 	}
 	if !ok && d.Date != "" {
 		logging.PrintD(2, "Attempting to format date: %v", d.Date)
-		result, ok = yyyyMmDd(d.Date)
+		result, ok = YyyyMmDd(d.Date)
 	}
 	if !ok && d.UploadDate != "" {
 		logging.PrintD(2, "Attempting to format upload date: %v", d.UploadDate)
-		result, ok = yyyyMmDd(d.UploadDate)
+		result, ok = YyyyMmDd(d.UploadDate)
 	}
 	if !ok && d.Creation_Time != "" {
 		logging.PrintD(3, "Attempting to format creation time: %v", d.Creation_Time)
-		result, ok = yyyyMmDd(d.Creation_Time)
+		result, ok = YyyyMmDd(d.Creation_Time)
 	}
 	if !ok {
 		logging.PrintE(0, "Failed to format dates")
@@ -1387,7 +1173,7 @@ func FormatAllDates(fd *types.FileData) string {
 		logging.PrintD(2, "Got formatted date '%s' and entering parse to string function...", result)
 
 		var err error
-		d.StringDate, err = parseNumDate(d.FormattedDate)
+		d.StringDate, err = ParseNumDate(d.FormattedDate)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -1398,10 +1184,405 @@ func FormatAllDates(fd *types.FileData) string {
 package metadata
 
 import (
+	enums "Metarr/internal/domain/enums"
+	"Metarr/internal/types"
+	browser "Metarr/internal/utils/browser"
+	logging "Metarr/internal/utils/logging"
+)
+
+// scrapeMeta gets cookies for a given URL and returns a grabbed string
+func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
+
+	var err error
+	data := ""
+
+	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
+	if err != nil {
+		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+	}
+	for _, try := range w.TryURLs {
+		data, err = browser.ScrapeForMetadata(try, w.Cookies, find)
+		if err != nil {
+			logging.PrintE(0, "Failed to scrape '%s' for credits: %v", try, err)
+		} else {
+			break
+		}
+	}
+	return data
+}
+package metadata
+
+import (
+	consts "Metarr/internal/domain/constants"
+	enums "Metarr/internal/domain/enums"
+	helpers "Metarr/internal/metadata/process/helpers"
+	"Metarr/internal/types"
+	logging "Metarr/internal/utils/logging"
+)
+
+// fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
+func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+
+	c := fd.MCredits
+	w := fd.MWebData
+
+	fieldMap := map[string]*string{
+		// Order by importance
+		consts.JCreator:   &c.Creator,
+		consts.JPerformer: &c.Performer,
+		consts.JAuthor:    &c.Author,
+		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
+		consts.JDirector:  &c.Director,
+		consts.JActor:     &c.Actor,
+		consts.JStudio:    &c.Studio,
+		consts.JProducer:  &c.Producer,
+		consts.JWriter:    &c.Writer,
+		consts.JUploader:  &c.Uploader,
+		consts.JPublisher: &c.Publisher,
+		consts.JComposer:  &c.Composer,
+	}
+
+	dataFilled := unpackJSON("credits", fieldMap, data)
+
+	if !dataFilled {
+		for _, val := range fieldMap {
+			if val != nil && *val == "" {
+				continue
+			} else {
+				dataFilled = true
+			}
+		}
+	}
+
+	switch {
+	case dataFilled:
+		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		switch {
+		case err != nil:
+			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			return data, true
+		case rtn != nil:
+			data = rtn
+			return data, true
+		}
+
+	case w.WebpageURL == "":
+		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
+		return data, false
+	}
+
+	credits := helpers.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
+
+	if credits != "" {
+		for _, value := range fieldMap {
+			if *value == "" {
+				*value = credits
+			}
+		}
+
+		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		switch {
+		case err != nil:
+			logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
+			return data, true
+		case rtn != nil:
+			data = rtn
+			return data, true
+		}
+
+	}
+	return data, false
+}
+package metadata
+
+import (
+	consts "Metarr/internal/domain/constants"
+	enums "Metarr/internal/domain/enums"
+	helpers "Metarr/internal/metadata/process/helpers"
+	"Metarr/internal/types"
+	logging "Metarr/internal/utils/logging"
+	print "Metarr/internal/utils/print"
+	"strings"
+)
+
+// fillTimestamps grabs timestamp metadata from JSON
+func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+
+	t := fd.MDates
+	w := fd.MWebData
+
+	printMap := make(map[string]string)
+	var err error
+	var gotRelevantDate bool
+
+	fieldMap := map[string]*string{
+		// Order by importance
+		consts.JReleaseDate:         &t.ReleaseDate,
+		consts.JOriginallyAvailable: &t.Originally_Available_At,
+		consts.JDate:                &t.Date,
+		consts.JUploadDate:          &t.UploadDate,
+		consts.JReleaseYear:         &t.Year,
+		consts.JYear:                &t.Year,
+		consts.JCreationTime:        &t.Creation_Time,
+	}
+
+	if ok := unpackJSON("date", fieldMap, data); !ok {
+		logging.PrintE(1, "Failed to unpack date JSON, no dates currently exist in file?")
+	}
+
+	for key, value := range data {
+		if strVal, ok := value.(string); ok {
+			if _, exists := fieldMap[key]; exists {
+
+				if len(strVal) >= 6 {
+					if formatted, ok := helpers.YyyyMmDd(strVal); ok {
+						*fieldMap[key] = formatted
+						printMap[key] = formatted
+						gotRelevantDate = true
+						continue
+
+					} else {
+						*fieldMap[key] = strVal
+						printMap[key] = strVal
+						gotRelevantDate = true
+						continue
+					}
+				} else {
+					*fieldMap[key] = strVal
+					printMap[key] = strVal
+					gotRelevantDate = true
+					continue
+				}
+			}
+		}
+		continue
+	}
+
+	if fillEmptyTimestamps(t) {
+		gotRelevantDate = true
+	}
+
+	switch {
+	case gotRelevantDate:
+
+		logging.PrintD(3, "Got a relevant date, proceeding...")
+		print.PrintGrabbedFields("time and date", &printMap)
+		if t.FormattedDate == "" {
+			helpers.FormatAllDates(fd)
+		} else {
+			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
+			if err != nil {
+				logging.PrintE(0, err.Error())
+			}
+		}
+
+		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		if err != nil {
+			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			return data, true
+		} else if rtn != nil {
+			data = rtn
+			return data, true
+		}
+
+	case w.WebpageURL == "":
+
+		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		print.PrintGrabbedFields("time and date", &printMap)
+		return data, false
+	}
+
+	scrapedDate := helpers.ScrapeMeta(w, enums.WEBCLASS_DATE)
+	logging.PrintD(1, "Scraped date: %s", scrapedDate)
+
+	logging.PrintD(3, "Passed web scrape attempt for date.")
+
+	var date string
+	if scrapedDate != "" {
+		date, err = helpers.ParseStringDate(scrapedDate)
+		if err != nil || date == "" {
+			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			return data, false
+		} else {
+			if t.ReleaseDate == "" {
+				t.ReleaseDate = date
+			}
+			if t.Date == "" {
+				t.Date = date
+			}
+			if t.Creation_Time == "" {
+				t.Creation_Time = date + "T00:00:00Z"
+			}
+			if t.UploadDate == "" {
+				t.UploadDate = date
+			}
+			if t.Originally_Available_At == "" {
+				t.Originally_Available_At = date
+			}
+			if t.FormattedDate == "" {
+				t.FormattedDate = date
+			}
+			if len(date) >= 4 {
+				t.Year = date[:4]
+			}
+
+			printMap[consts.JReleaseDate] = t.ReleaseDate
+			printMap[consts.JDate] = t.Date
+			printMap[consts.JYear] = t.Year
+
+			print.PrintGrabbedFields("time and date", &printMap)
+
+			if t.FormattedDate == "" {
+				helpers.FormatAllDates(fd)
+			}
+			rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+			switch {
+			case err != nil:
+				logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
+				return data, true
+			case rtn != nil:
+				data = rtn
+				return data, true
+			}
+		}
+	}
+	return data, false
+}
+
+// fillEmptyTimestamps attempts to infer missing timestamps
+func fillEmptyTimestamps(t *types.MetadataDates) bool {
+
+	gotRelevantDate := false
+
+	// Infer from originally available date
+	if t.Originally_Available_At != "" && len(t.Originally_Available_At) >= 6 {
+		gotRelevantDate = true
+		if t.Creation_Time == "" {
+			if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
+				if !strings.ContainsRune(formatted, 'T') {
+					t.Creation_Time = formatted + "T00:00:00Z"
+					t.FormattedDate = formatted
+				} else {
+					t.Creation_Time = formatted
+					t.FormattedDate, _, _ = strings.Cut(formatted, "T")
+				}
+			} else {
+				if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
+					if !strings.ContainsRune(formatted, 'T') {
+						t.Creation_Time = formatted + "T00:00:00Z"
+						t.FormattedDate = formatted
+					} else {
+						t.Creation_Time = formatted
+						t.FormattedDate, _, _ = strings.Cut(formatted, "T")
+					}
+				} else {
+					t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
+				}
+			}
+		}
+	}
+	// Infer from release date
+	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
+		gotRelevantDate = true
+		if t.Creation_Time == "" {
+			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+				t.Creation_Time = formatted + "T00:00:00Z"
+				if t.FormattedDate == "" {
+					t.FormattedDate = formatted
+				}
+			} else {
+				t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
+			}
+		}
+		if t.Originally_Available_At == "" {
+			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+				t.Originally_Available_At = formatted
+				if t.FormattedDate == "" {
+					t.FormattedDate = formatted
+				}
+			} else {
+				t.Originally_Available_At = t.ReleaseDate
+			}
+		}
+	}
+	// Infer from date
+	if t.Date != "" && len(t.Date) >= 6 {
+		gotRelevantDate = true
+		if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			t.Creation_Time = formatted + "T00:00:00Z"
+			if t.FormattedDate == "" {
+				t.FormattedDate = formatted
+			}
+		} else {
+			t.Creation_Time = t.Date + "T00:00:00Z"
+		}
+		if t.Originally_Available_At == "" {
+			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+				t.Originally_Available_At = formatted
+				if t.FormattedDate == "" {
+					t.FormattedDate = formatted
+				}
+			} else {
+				t.Originally_Available_At = t.Date
+			}
+		}
+	}
+
+	// Infer from upload date
+	if t.UploadDate != "" && len(t.UploadDate) >= 6 {
+		if formatted, ok := helpers.YyyyMmDd(t.UploadDate); ok {
+			t.Creation_Time = formatted + "T00:00:00Z"
+			if t.FormattedDate == "" {
+				t.FormattedDate = formatted
+			}
+		} else {
+			t.Creation_Time = t.UploadDate + "T00:00:00Z"
+		}
+		if t.Originally_Available_At == "" {
+			t.Originally_Available_At = t.UploadDate
+		}
+	}
+	// Fill empty date
+	if t.Date == "" {
+		switch {
+		case t.ReleaseDate != "":
+			t.Date = t.ReleaseDate
+			t.Originally_Available_At = t.ReleaseDate
+
+		case t.UploadDate != "":
+			t.Date = t.UploadDate
+			t.Originally_Available_At = t.UploadDate
+
+		case t.FormattedDate != "":
+			t.Date = t.FormattedDate
+		}
+	}
+	// Fill empty year
+	if t.Year == "" {
+		switch {
+		case t.Date != "" && len(t.Date) >= 4:
+			t.Year = t.Date[:4]
+
+		case t.UploadDate != "" && len(t.UploadDate) >= 4:
+			t.Year = t.UploadDate[:4]
+
+		case t.FormattedDate != "" && len(t.FormattedDate) >= 4:
+			t.Year = t.FormattedDate[:4]
+		}
+	}
+	if len(t.Year) > 4 {
+		t.Year = t.Year[:4]
+	}
+	return gotRelevantDate
+}
+package metadata
+
+import (
 	"Metarr/internal/config"
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
+	helpers "Metarr/internal/metadata/process/helpers"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
 	"strings"
@@ -1489,7 +1670,7 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 		return data, false
 	}
 
-	description := scrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
+	description := helpers.ScrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
 
 	// Infer remaining fields from description
 	if description != "" {
@@ -1630,6 +1811,7 @@ package metadata
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	helpers "Metarr/internal/metadata/process/helpers"
 	"Metarr/internal/types"
 	print "Metarr/internal/utils/print"
 )
@@ -1662,7 +1844,7 @@ func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 		t.Title = t.FallbackTitle
 	}
 	if t.Title == "" {
-		title := scrapeMeta(w, enums.WEBCLASS_TITLE)
+		title := helpers.ScrapeMeta(w, enums.WEBCLASS_TITLE)
 		if title != "" {
 			t.Title = title
 		}
@@ -1675,9 +1857,7 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
 	"Metarr/internal/types"
-	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
@@ -1756,32 +1936,12 @@ func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
 
 	return isFilled
 }
-
-// scrapeMeta gets cookies for a given URL and returns a grabbed string
-func scrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
-
-	var err error
-	data := ""
-
-	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
-	if err != nil {
-		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
-	}
-	for _, try := range w.TryURLs {
-		data, err = browser.ScrapeForMetadata(try, w.Cookies, find)
-		if err != nil {
-			logging.PrintE(0, "Failed to scrape '%s' for credits: %v", try, err)
-		} else {
-			break
-		}
-	}
-	return data
-}
 package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
 	"Metarr/internal/types"
+	logging "Metarr/internal/utils/logging"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
@@ -1806,56 +1966,251 @@ func fillNFOCredits(fd *types.FileData) bool {
 		for _, actor := range n.Actors {
 			c.Actors = append(c.Actors, actor.Name)
 		}
+		fillSingleCredits(c.Actors, &c.Actor)
 	}
 	if n.Directors != nil {
 		c.Directors = append(c.Directors, n.Directors...)
+		fillSingleCredits(c.Directors, &c.Director)
 	}
 	if n.Producers != nil {
 		c.Producers = append(c.Producers, n.Producers...)
+		fillSingleCredits(c.Producers, &c.Producer)
 	}
 	if n.Writers != nil {
 		c.Writers = append(c.Writers, n.Writers...)
+		fillSingleCredits(c.Writers, &c.Writer)
 	}
 	if n.Publishers != nil {
 		c.Publishers = append(c.Publishers, n.Publishers...)
+		fillSingleCredits(c.Publishers, &c.Publisher)
 	}
 	if n.Studios != nil {
 		c.Studios = append(c.Studios, n.Studios...)
+		fillSingleCredits(c.Studios, &c.Studio)
+	}
+
+	return true
+}
+
+// fillSingleCredits fills empty singular credits fields from
+// filled arrays
+func fillSingleCredits(entries []string, target *string) {
+
+	if target == nil || *target != "" {
+		logging.PrintD(1, "Target string is nil or not empty, skipping...")
+	}
+
+	var out string
+
+	for i, entry := range entries {
+		if entry != "" {
+			out += entry
+			if i != len(entries)-1 {
+				out += ", "
+			}
+		}
+	}
+
+	*target = out
+}
+
+func unpackCredits(fd *types.FileData, creditsData map[string]interface{}) bool {
+	c := fd.MCredits
+	filled := false
+
+	// Recursive helper to search for "role" within nested maps
+	var findRoles func(data map[string]interface{})
+	findRoles = func(data map[string]interface{}) {
+		// Check each key-value pair within the actor data
+		for k, v := range data {
+			if k == "role" {
+				if role, ok := v.(string); ok {
+					logging.PrintD(3, "Adding role '%s' to actors", role)
+					c.Actors = append(c.Actors, role)
+					filled = true
+				}
+			} else if nested, ok := v.(map[string]interface{}); ok {
+				// Recursive call for further nested maps
+				findRoles(nested)
+			} else if nestedList, ok := v.([]interface{}); ok {
+				// Handle lists of nested elements
+				for _, item := range nestedList {
+					if nestedMap, ok := item.(map[string]interface{}); ok {
+						findRoles(nestedMap)
+					}
+				}
+			}
+		}
+	}
+
+	// Access the "cast" data to find "actor" entries
+	if castData, ok := creditsData["cast"].(map[string]interface{}); ok {
+		if actorsData, ok := castData["actor"].([]interface{}); ok {
+			for _, actorData := range actorsData {
+				if actorMap, ok := actorData.(map[string]interface{}); ok {
+					if name, ok := actorMap["name"].(string); ok {
+						logging.PrintD(3, "Adding actor name '%s'", name)
+						c.Actors = append(c.Actors, name)
+						filled = true
+					}
+					if role, ok := actorMap["role"].(string); ok {
+						logging.PrintD(3, "Adding actor role '%s'", role)
+						filled = true
+					}
+				}
+			}
+		} else {
+			logging.PrintD(1, "'actor' key is present but not a valid structure")
+		}
+	} else {
+		logging.PrintD(1, "'cast' key is missing or not a map")
+	}
+
+	return filled
+}
+package metadata
+
+import (
+	consts "Metarr/internal/domain/constants"
+	enums "Metarr/internal/domain/enums"
+	helpers "Metarr/internal/metadata/process/helpers"
+	"Metarr/internal/types"
+	logging "Metarr/internal/utils/logging"
+	print "Metarr/internal/utils/print"
+)
+
+func fillNFOTimestamps(fd *types.FileData) bool {
+
+	t := fd.MDates
+	w := fd.MWebData
+	n := fd.NFOData
+
+	fieldMap := map[string]*string{
+		consts.NAired:        &t.Date,
+		consts.NPremiereDate: &t.ReleaseDate,
+		consts.NYear:         &t.Year,
+	}
+
+	cleanEmptyFields(fieldMap)
+
+	gotRelevantDate := false
+	printMap := make(map[string]string)
+
+	if n.Premiered != "" {
+		if rtn, ok := helpers.YyyyMmDd(n.Premiered); ok && rtn != "" {
+			if t.FormattedDate == "" {
+				t.FormattedDate = rtn
+			}
+		}
+		printMap[consts.NPremiereDate] = n.Premiered
+		gotRelevantDate = true
+	}
+	if n.ReleaseDate != "" {
+		if rtn, ok := helpers.YyyyMmDd(n.ReleaseDate); ok && rtn != "" {
+			if t.FormattedDate == "" {
+				t.FormattedDate = rtn
+			}
+		}
+		printMap[consts.NAired] = n.Premiered
+		gotRelevantDate = true
+	}
+	if n.Year != "" {
+		t.Year = n.Year
+		printMap[consts.NYear] = n.Year
+	}
+
+	if t.FormattedDate != "" {
+		if t.Date == "" {
+			t.Date = t.FormattedDate
+		}
+		if t.ReleaseDate == "" {
+			t.ReleaseDate = t.FormattedDate
+		}
+		if t.Creation_Time == "" {
+			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
+		}
+		gotRelevantDate = true
+	}
+
+	switch {
+	case gotRelevantDate:
+
+		var err error
+
+		logging.PrintD(3, "Got a relevant date, proceeding...")
+		print.PrintGrabbedFields("time and date", &printMap)
+		if t.FormattedDate == "" {
+			helpers.FormatAllDates(fd)
+		} else {
+			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
+			if err != nil {
+				logging.PrintE(0, err.Error())
+			}
+		}
+
+	case w.WebpageURL == "":
+
+		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		print.PrintGrabbedFields("time and date", &printMap)
+		return false
+	}
+
+	scrapedDate := helpers.ScrapeMeta(w, enums.WEBCLASS_DATE)
+	logging.PrintD(1, "Scraped date: %s", scrapedDate)
+
+	logging.PrintD(3, "Passed web scrape attempt for date.")
+
+	var date string
+	var err error
+	if scrapedDate != "" {
+		date, err = helpers.ParseStringDate(scrapedDate)
+		if err != nil || date == "" {
+			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			return false
+		} else {
+			if t.ReleaseDate == "" {
+				t.ReleaseDate = date
+			}
+			if t.Date == "" {
+				t.Date = date
+			}
+			if t.Creation_Time == "" {
+				t.Creation_Time = date + "T00:00:00Z"
+			}
+			if t.UploadDate == "" {
+				t.UploadDate = date
+			}
+			if t.Originally_Available_At == "" {
+				t.Originally_Available_At = date
+			}
+			if t.FormattedDate == "" {
+				t.FormattedDate = date
+			}
+			if len(date) >= 4 {
+				t.Year = date[:4]
+			}
+
+			printMap[consts.NPremiereDate] = t.ReleaseDate
+			printMap[consts.NAired] = t.Date
+			printMap[consts.NYear] = t.Year
+
+			print.PrintGrabbedFields("time and date", &printMap)
+
+			if t.FormattedDate == "" {
+				helpers.FormatAllDates(fd)
+			}
+		}
 	}
 
 	return true
 }
 package metadata
-package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
 	"Metarr/internal/types"
-	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
-	"strings"
 )
-
-// FillNFO is the primary entrypoint for filling NFO metadata
-// from an open file's read content
-func FillNFO(fd *types.FileData) bool {
-
-	var filled bool
-
-	if ok := fillNFOTitles(fd); ok {
-		filled = true
-	}
-	if ok := fillNFODescriptions(fd); ok {
-		filled = true
-	}
-	if ok := fillNFOCredits(fd); ok {
-		filled = true
-	}
-
-	print.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file '%s'", fd.NFOFilePath)
-
-	return filled
-}
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFODescriptions(fd *types.FileData) bool {
@@ -1875,18 +2230,93 @@ func fillNFODescriptions(fd *types.FileData) bool {
 		if d.Description == "" {
 			d.Description = n.Description
 		}
+		if d.LongDescription == "" {
+			d.LongDescription = n.Description
+		}
 	}
 	if n.Plot != "" {
 		if d.Description == "" {
 			d.Description = n.Plot
 		}
 		if d.LongDescription == "" {
-			d.Description = n.Plot
+			d.LongDescription = n.Plot
 		}
 	}
 
-	print.CreateModelPrintout(n, "", "Parsing NFO data")
+	if d.Synopsis == "" {
+		switch {
+		case n.Plot != "":
+			d.Synopsis = n.Plot
+		case n.Description != "":
+			d.Summary = n.Description
+		case d.LongDescription != "":
+			d.Synopsis = d.LongDescription
+		case d.Description != "":
+			d.Synopsis = d.Description
+		}
+	}
+	if d.Summary == "" {
+		switch {
+		case n.Plot != "":
+			d.Summary = n.Plot
+		case n.Description != "":
+			d.Summary = n.Description
+		case d.LongDescription != "":
+			d.Summary = d.LongDescription
+		case d.Description != "":
+			d.Summary = d.Description
+		}
+	}
+	if d.Comment == "" {
+		switch {
+		case n.Plot != "":
+			d.Comment = n.Plot
+		case n.Description != "":
+			d.Comment = n.Description
+		case d.LongDescription != "":
+			d.Comment = d.LongDescription
+		case d.Description != "":
+			d.Comment = d.Description
+		}
+	}
+
+	print.CreateModelPrintout(fd, fd.NFOFilePath, "Parsing NFO descriptions")
 	return true
+}
+package metadata
+
+import (
+	"Metarr/internal/types"
+	logging "Metarr/internal/utils/logging"
+	print "Metarr/internal/utils/print"
+	"strings"
+)
+
+// FillNFO is the primary entrypoint for filling NFO metadata
+// from an open file's read content
+func FillNFO(fd *types.FileData) bool {
+
+	var filled bool
+
+	if ok := fillNFOTimestamps(fd); ok {
+		filled = true
+	}
+	if ok := fillNFOTitles(fd); ok {
+		filled = true
+	}
+	if ok := fillNFODescriptions(fd); ok {
+		filled = true
+	}
+	if ok := fillNFOCredits(fd); ok {
+		filled = true
+	}
+	if ok := fillNFOWebData(fd); ok {
+		filled = true
+	}
+
+	print.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file '%s'", fd.NFOFilePath)
+
+	return filled
 }
 
 // Clean up empty fields from fieldmap
@@ -2014,87 +2444,6 @@ func unpackNFO(fd *types.FileData, data map[string]interface{}, fieldMap map[str
 		}
 	}
 }
-
-// unpackTitle unpacks common nested title elements to the model
-func unpackTitle(fd *types.FileData, titleData map[string]interface{}) bool {
-	t := fd.MTitleDesc
-	filled := false
-
-	for key, value := range titleData {
-		switch key {
-		case "main":
-			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting main title to '%s'", strVal)
-				t.Title = strVal
-				filled = true
-			}
-		case "sub":
-			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting subtitle to '%s'", strVal)
-				t.Subtitle = strVal
-				filled = true
-			}
-		default:
-			logging.PrintD(1, "Unknown nested title element '%s', skipping...", key)
-		}
-	}
-	return filled
-}
-
-func unpackCredits(fd *types.FileData, creditsData map[string]interface{}) bool {
-	c := fd.MCredits
-	filled := false
-
-	// Recursive helper to search for "role" within nested maps
-	var findRoles func(data map[string]interface{})
-	findRoles = func(data map[string]interface{}) {
-		// Check each key-value pair within the actor data
-		for k, v := range data {
-			if k == "role" {
-				if role, ok := v.(string); ok {
-					logging.PrintD(3, "Adding role '%s' to actors", role)
-					c.Actors = append(c.Actors, role)
-					filled = true
-				}
-			} else if nested, ok := v.(map[string]interface{}); ok {
-				// Recursive call for further nested maps
-				findRoles(nested)
-			} else if nestedList, ok := v.([]interface{}); ok {
-				// Handle lists of nested elements
-				for _, item := range nestedList {
-					if nestedMap, ok := item.(map[string]interface{}); ok {
-						findRoles(nestedMap)
-					}
-				}
-			}
-		}
-	}
-
-	// Access the "cast" data to find "actor" entries
-	if castData, ok := creditsData["cast"].(map[string]interface{}); ok {
-		if actorsData, ok := castData["actor"].([]interface{}); ok {
-			for _, actorData := range actorsData {
-				if actorMap, ok := actorData.(map[string]interface{}); ok {
-					if name, ok := actorMap["name"].(string); ok {
-						logging.PrintD(3, "Adding actor name '%s'", name)
-						c.Actors = append(c.Actors, name)
-						filled = true
-					}
-					if role, ok := actorMap["role"].(string); ok {
-						logging.PrintD(3, "Adding actor role '%s'", role)
-						filled = true
-					}
-				}
-			}
-		} else {
-			logging.PrintD(1, "'actor' key is present but not a valid structure")
-		}
-	} else {
-		logging.PrintD(1, "'cast' key is missing or not a map")
-	}
-
-	return filled
-}
 package metadata
 
 import (
@@ -2138,6 +2487,67 @@ func fillNFOTitles(fd *types.FileData) bool {
 			t.Subtitle = n.Title.Sub
 		}
 	}
+	if n.Title.PlainText != "" {
+		if t.Title == "" {
+			t.Title = n.Title.PlainText
+		}
+	}
+	return true
+}
+
+// unpackTitle unpacks common nested title elements to the model
+func unpackTitle(fd *types.FileData, titleData map[string]interface{}) bool {
+	t := fd.MTitleDesc
+	filled := false
+
+	for key, value := range titleData {
+		switch key {
+		case "main":
+			if strVal, ok := value.(string); ok {
+				logging.PrintD(3, "Setting main title to '%s'", strVal)
+				t.Title = strVal
+				filled = true
+			}
+		case "sub":
+			if strVal, ok := value.(string); ok {
+				logging.PrintD(3, "Setting subtitle to '%s'", strVal)
+				t.Subtitle = strVal
+				filled = true
+			}
+		default:
+			logging.PrintD(1, "Unknown nested title element '%s', skipping...", key)
+		}
+	}
+	return filled
+}
+package metadata
+
+import (
+	consts "Metarr/internal/domain/constants"
+	"Metarr/internal/types"
+	print "Metarr/internal/utils/print"
+)
+
+// fillNFODescriptions attempts to fill in title info from NFO
+func fillNFOWebData(fd *types.FileData) bool {
+
+	w := fd.MWebData
+	nw := fd.NFOData.WebpageInfo
+
+	fieldMap := map[string]*string{
+		consts.NURL: &w.WebpageURL,
+	}
+
+	// Post-unmarshal clean
+	cleanEmptyFields(fieldMap)
+
+	if nw.URL != "" {
+		if w.WebpageURL == "" {
+			w.WebpageURL = nw.URL
+		}
+	}
+
+	print.CreateModelPrintout(fd, fd.NFOFilePath, "Parsing NFO descriptions")
 	return true
 }
 package metadata
@@ -2146,6 +2556,7 @@ import (
 	"Metarr/internal/config"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
+	helpers "Metarr/internal/metadata/process/helpers"
 	process "Metarr/internal/metadata/process/json"
 	tags "Metarr/internal/metadata/tags"
 	writer "Metarr/internal/metadata/writer"
@@ -2216,7 +2627,7 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 	}
 
 	if fd.MDates.FormattedDate == "" {
-		process.FormatAllDates(fd)
+		helpers.FormatAllDates(fd)
 	}
 
 	// Make date tag
@@ -2916,18 +3327,28 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File) (bool, error) {
 
 	var edited bool
+	var ok bool
+	var pfx []types.MetaReplacePrefix
+	var sfx []types.MetaReplaceSuffix
+	var new []types.MetaNewField
 
-	pfx, ok := config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	if config.IsSet(keys.MReplacePfx) {
+		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+		if !ok {
+			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+		}
 	}
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	if config.IsSet(keys.MReplaceSfx) {
+		sfx, ok = config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+		if !ok {
+			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
+		}
 	}
-	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	if config.IsSet(keys.MNewField) {
+		new, ok = config.Get(keys.MNewField).([]types.MetaNewField)
+		if !ok {
+			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+		}
 	}
 
 	if len(pfx) > 0 {
@@ -3351,7 +3772,7 @@ var (
 
 type NFOFileRW struct {
 	Model *types.NFOData
-	Meta  []byte
+	Meta  string
 	File  *os.File
 }
 
@@ -3380,7 +3801,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 	}
 
 	// Store the raw content
-	rw.Meta = content
+	rw.Meta = string(content)
 
 	// Reset file pointer
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -3422,16 +3843,40 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 	return rw.Model, nil
 }
 
-// MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *NFOFileRW) MakeMetaEdits(data []byte, file *os.File) (bool, error) {
-	var edited bool
-	xmlStr := string(data)
+// func (rw *NFOFileRW) WriteMetadata(fieldMap map[string]*string) error {
 
-	// Store original content for validation
-	originalContent := xmlStr
+// 	muNWrite.Lock()
+// 	defer muNWrite.Unlock()
+
+// 	file := rw.File
+
+// 	if err := file.Truncate(0); err != nil {
+// 		return fmt.Errorf("truncate file: %w", err)
+// 	}
+
+// 	if _, err := file.Seek(0, io.SeekStart); err != nil {
+// 		return fmt.Errorf("seek file: %w", err)
+// 	}
+
+// 	// Use buffered writer for efficiency
+// 	writer := bufio.NewWriter(file)
+// 	if _, err := writer.Write(fieldMap); err != nil {
+// 		return fmt.Errorf("write content: %w", err)
+// 	}
+
+// 	if err := rw.refreshMetadataInternal(file); err != nil {
+// 		return fmt.Errorf("failed to refresh metadata: %w", err)
+// 	}
+
+// 	return writer.Flush()
+// }
+
+// MakeMetaEdits applies a series of transformations and writes the final result to the file
+func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
+	var edited bool
 
 	// Ensure we have valid XML
-	if !strings.Contains(xmlStr, "<movie>") {
+	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
 	}
 
@@ -3462,7 +3907,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data []byte, file *os.File) (bool, error) {
 	}
 
 	// Track content at each step
-	currentContent := xmlStr
+	currentContent := data
 
 	// Add new fields first
 	if len(new) > 0 {
@@ -3501,16 +3946,10 @@ func (rw *NFOFileRW) MakeMetaEdits(data []byte, file *os.File) (bool, error) {
 		}
 	}
 
-	// Verify we haven't lost content
-	if len(currentContent) < len(originalContent)/2 {
-		logging.PrintE(0, "Warning: Significant content loss detected during edits")
-		return false, fmt.Errorf("content preservation error")
-	}
-
 	// Only write if changes were made
 	if edited {
 		if err := rw.writeMetadataToFile(file, []byte(currentContent)); err != nil {
-			return false, fmt.Errorf("failed to write updated XML: %w", err)
+			return false, fmt.Errorf("failed to refresh metadata: %w", err)
 		}
 	}
 
@@ -3571,11 +4010,15 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 		return fmt.Errorf("write content: %w", err)
 	}
 
+	if err := rw.refreshMetadataInternal(file); err != nil {
+		return fmt.Errorf("failed to refresh metadata: %w", err)
+	}
+
 	return writer.Flush()
 }
 
 // replaceMetaSuffix applies suffix replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceMetaSuffix(data string) ([]byte, bool, error) {
+func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
 	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", sfx)
@@ -3584,7 +4027,7 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) ([]byte, bool, error) {
 	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", string(data))
 
 	if len(sfx) == 0 {
-		return []byte(data), false, nil // No replacements to apply
+		return data, false, nil // No replacements to apply
 	}
 
 	newAddition := false
@@ -3617,11 +4060,11 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) ([]byte, bool, error) {
 			newAddition = true
 		}
 	}
-	return []byte(data), newAddition, nil
+	return data, newAddition, nil
 }
 
 // replaceMetaPrefix applies Prefix replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceMetaPrefix(data string) ([]byte, bool, error) {
+func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
 	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
@@ -3630,7 +4073,7 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) ([]byte, bool, error) {
 	logging.PrintD(3, "Entering replaceMetaPrefix with data: %v", data)
 
 	if len(sfx) == 0 {
-		return []byte(data), false, nil // No replacements to apply
+		return data, false, nil // No replacements to apply
 	}
 
 	newAddition := false
@@ -3663,11 +4106,11 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) ([]byte, bool, error) {
 			newAddition = true
 		}
 	}
-	return []byte(data), newAddition, nil
+	return data, newAddition, nil
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
+func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
@@ -3677,7 +4120,7 @@ func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
 
 	if len(new) == 0 {
 		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)
-		return []byte(data), false, nil
+		return data, false, nil
 	}
 
 	logging.PrintD(3, "Retrieved additions for new field data: %v", new)
@@ -3731,7 +4174,7 @@ func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
 			select {
 			case <-ctx.Done():
 				logging.PrintI("Operation canceled for field: %s", addition.Field)
-				return []byte(data), false, fmt.Errorf("operation canceled")
+				return data, false, fmt.Errorf("operation canceled")
 			default:
 				// Proceed
 			}
@@ -3765,7 +4208,7 @@ func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
 		}
 	}
 
-	return []byte(data), newAddition, nil
+	return data, newAddition, nil
 }
 
 // addNewField adds a new field into the NFO
@@ -3868,33 +4311,49 @@ var processedVideoFiles int32
 var processedDataArray []*types.FileData
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideoDir, openMetaDir *os.File) {
+func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	var videoMap, metaMap, matchedFiles map[string]*types.FileData
 	var err error
 
-	metaMap, err = fs.GetMetadataFiles(openMetaDir)
-	if err != nil {
-		logging.PrintE(0, "Error: %v", err)
-		os.Exit(1)
+	// Process metadata, checking if it’s a directory or a single file
+	if openMeta != nil {
+		fileInfo, _ := openMeta.Stat()
+		if fileInfo.IsDir() {
+			metaMap, err = fs.GetMetadataFiles(openMeta)
+		} else {
+			metaMap, err = fs.GetSingleMetadataFile(openMeta)
+		}
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
 	}
-
-	if !skipVideos {
-		videoMap, err = fs.GetVideoFiles(openVideoDir)
+	// Process video files, checking if it’s a directory or a single file
+	if openVideo != nil {
+		fileInfo, _ := openVideo.Stat()
+		if fileInfo.IsDir() {
+			videoMap, err = fs.GetVideoFiles(openVideo)
+		} else if !skipVideos {
+			videoMap, err = fs.GetSingleVideoFile(openVideo)
+		}
 		if err != nil {
 			logging.PrintE(0, "Error fetching video files: %v", err)
 			os.Exit(1)
 		}
 
-		matchedFiles, err = fs.MatchVideoWithMetadata(videoMap, metaMap)
-		if err != nil {
-			logging.PrintE(0, "Error matching videos with metadata: %v", err)
-			os.Exit(1)
+		// Match video and metadata files
+		if !skipVideos {
+			matchedFiles, err = fs.MatchVideoWithMetadata(videoMap, metaMap)
+			if err != nil {
+				logging.PrintE(0, "Error matching videos with metadata: %v", err)
+				os.Exit(1)
+			}
+		} else {
+			matchedFiles = metaMap
 		}
-	} else {
-		matchedFiles = metaMap
 	}
 
 	config.Set(keys.VideoMap, videoMap)
@@ -4064,6 +4523,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+// sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
 
 	var resourceMsg bool
@@ -4468,7 +4928,7 @@ type JSONFileRW interface {
 type NFOFileRW interface {
 	DecodeMetadata(file *os.File) (*NFOData, error)
 	RefreshMetadata() (*NFOData, error)
-	MakeMetaEdits(data []byte, file *os.File) (bool, error)
+	MakeMetaEdits(data string, file *os.File) (bool, error)
 }
 package types
 
@@ -4591,7 +5051,9 @@ type NFOData struct {
 	Publishers  []string    `xml:"publisher"`
 	Writers     []string    `xml:"writer"`
 	Studios     []string    `xml:"studio"`
-	Year        int         `xml:"year"`
+	Year        string      `xml:"year"`
+	Premiered   string      `xml:"premiered"`
+	ReleaseDate string      `xml:"releasedate"`
 	ShowInfo    ShowInfo    `xml:"showinfo"`
 	WebpageInfo WebpageInfo `xml:"web"`
 }
@@ -4718,11 +5180,15 @@ func keysFromMap(m map[string]bool) []string {
 package utils
 
 import (
+	"Metarr/internal/config"
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
+	"bufio"
 	"fmt"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -4843,6 +5309,140 @@ func looksLikeDate(s string) bool {
 
 	// If it has at least two of: month, day, year, it's probably a date
 	return (hasMonth && hasDay) || (hasMonth && hasYear) || (hasDay && hasYear)
+}
+
+// GrabNewEpisodeURLs checks for new episode URLs containing "/episode/" that are not yet in grabbed-urls.txt
+func GrabNewEpisodeURLs(targetURL string, cookies []*http.Cookie) ([]string, error) {
+	c := colly.NewCollector()
+
+	for _, cookie := range cookies {
+		c.SetCookies(targetURL, []*http.Cookie{cookie})
+	}
+
+	var episodeURLs []string
+
+	// Scrape all links that contain "/episode/"
+	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		link := e.Request.AbsoluteURL(e.Attr("href"))
+		if strings.Contains(link, "/episode/") {
+			episodeURLs = append(episodeURLs, link)
+		}
+	})
+
+	// Visit the target URL
+	err := c.Visit(targetURL)
+	if err != nil {
+		return nil, fmt.Errorf("error visiting webpage (%s): %v", targetURL, err)
+	}
+
+	// Load existing URLs from grabbed-urls.txt
+	existingURLs, err := loadURLsFromFile("grabbed-urls.txt")
+	if err != nil {
+		return nil, fmt.Errorf("error reading grabbed URLs file: %v", err)
+	}
+
+	// Filter out URLs that are already in grabbed-urls.txt
+	var newURLs []string
+	for _, url := range episodeURLs {
+		if _, exists := existingURLs[url]; !exists {
+			newURLs = append(newURLs, url)
+		}
+	}
+
+	for _, entry := range newURLs {
+		command := consts.GrabLatestCommand(config.GetString(keys.VideoDir), entry)
+
+		logging.PrintI(command.String())
+
+		command.Stdout = os.Stdout
+		command.Stderr = os.Stderr
+
+		if err = command.Run(); err != nil {
+			logging.PrintE(0, err.Error())
+			// EXIT ON COMMAND FAIL
+			os.Exit(1)
+		}
+	}
+
+	// Append new URLs to the file and return them
+	if len(newURLs) > 0 {
+		if err := appendURLsToFile("grabbed-urls.txt", newURLs); err != nil {
+			return nil, fmt.Errorf("error appending new URLs to file: %v", err)
+		}
+	} else {
+		logging.PrintI("No new videos at %s, exiting program...", targetURL)
+		// EXIT IF NO NEW VIDEOS
+		os.Exit(0)
+	}
+	return newURLs, nil
+}
+
+// loadURLsFromFile reads URLs from a file and returns them as a map for quick lookup
+func loadURLsFromFile(filename string) (map[string]struct{}, error) {
+	videoDir := config.GetString(keys.VideoDir)
+	var filepath string
+
+	switch strings.HasSuffix(videoDir, "/") {
+	case false:
+		filepath = videoDir + "/" + filename
+	default:
+		filepath = videoDir + filename
+	}
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	urlMap := make(map[string]struct{})
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		url := scanner.Text()
+		urlMap[url] = struct{}{}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return urlMap, nil
+}
+
+// appendURLsToFile appends new URLs to the specified file
+func appendURLsToFile(filename string, urls []string) error {
+	logging.PrintD(2, "Appending URLs to file... %v", urls)
+	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Track URLs that have already been written
+	written := make(map[string]bool)
+
+	// Load existing URLs from the file into the map
+	existingFile, err := os.Open(filename)
+	if err == nil {
+		defer existingFile.Close()
+		var line string
+		for scanner := bufio.NewScanner(existingFile); scanner.Scan(); {
+			line = scanner.Text()
+			written[line] = true
+		}
+	}
+
+	// Append only new URLs to the file
+	for _, url := range urls {
+		if !written[url] {
+			if _, err := file.WriteString(url + "\n"); err != nil {
+				return err
+			}
+			written[url] = true
+		}
+	}
+
+	return nil
 }
 package utils
 
@@ -5041,6 +5641,52 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 
 	logging.PrintD(3, "Returning meta files %v", metaFiles)
 	return metaFiles, nil
+}
+
+// GetSingleVideoFile handles a single video file
+func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) {
+	videoMap := make(map[string]*types.FileData)
+
+	// Extract information for the video file
+	filename := filepath.Base(videoFile.Name())
+	videoData := &types.FileData{
+		OriginalVideoPath:     videoFile.Name(),
+		OriginalVideoBaseName: strings.TrimSuffix(filename, filepath.Ext(filename)),
+		VideoDirectory:        filepath.Dir(videoFile.Name()),
+	}
+
+	// Add to map with filename as key
+	videoMap[filename] = videoData
+
+	return videoMap, nil
+}
+
+// GetSingleMetadataFile handles a single metadata file
+func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error) {
+	metaMap := make(map[string]*types.FileData)
+	filename := filepath.Base(metaFile.Name())
+	fileData := &types.FileData{}
+
+	// Determine file type and set paths based on extension
+	switch filepath.Ext(metaFile.Name()) {
+	case ".json":
+		fileData.MetaFileType = enums.METAFILE_JSON
+		fileData.JSONFilePath = metaFile.Name()
+		fileData.JSONBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
+	case ".nfo":
+		fileData.MetaFileType = enums.METAFILE_NFO
+		fileData.NFOFilePath = metaFile.Name()
+		fileData.NFOBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+		fileData.NFODirectory = filepath.Dir(metaFile.Name())
+	default:
+		return nil, fmt.Errorf("unsupported metadata file type: %s", filepath.Ext(metaFile.Name()))
+	}
+
+	// Add to map with filename as key
+	metaMap[filename] = fileData
+
+	return metaMap, nil
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
@@ -5564,11 +6210,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 		}
 
 		output += consts.ColorYellow + "\nTitles and descriptions:\n" + consts.ColorReset
-		output += printStructFields(n.Title.Main)
-		output += printStructFields(n.Title.Original)
-		output += printStructFields(n.Title.PlainText)
-		output += printStructFields(n.Title.Sort)
-		output += printStructFields(n.Title.Sub)
+		output += printStructFields(n.Title)
 		output += printStructFields(n.Description)
 		output += printStructFields(n.Plot)
 
@@ -5600,7 +6242,7 @@ func printStructFields(s interface{}) string {
 		return fmt.Sprintf("Expected a struct, got %s\n", val.Kind())
 	}
 
-	typ := val.Type() // Get the type of the struct
+	typ := val.Type()
 	output := ""
 
 	for i := 0; i < val.NumField(); i++ {
@@ -5613,7 +6255,7 @@ func printStructFields(s interface{}) string {
 			continue
 		}
 
-		fieldName := field.Name                                    // Get the field name
+		fieldName := field.Name
 		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string
 
 		// Append the field name and value in key-value format
@@ -5713,6 +6355,7 @@ import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/processing"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
 	"context"
@@ -5747,50 +6390,89 @@ func main() {
 	config.Set(keys.Context, ctx)
 	defer cancel()
 
-	// Open input video directory
-	inputVideoDir := config.GetString(keys.VideoDir)
-	openVideoDir, err := os.Open(inputVideoDir)
-	if err != nil {
-		logging.PrintE(0, "Error: %v", err)
-		os.Exit(1)
-	}
-	defer openVideoDir.Close()
-	config.Set(keys.OpenVideoDir, openVideoDir)
+	var openVideo *os.File
+	var inputVideoDir string
+	var inputVideo string
 
-	directory = inputVideoDir
+	if config.IsSet(keys.VideoDir) {
 
-	// Open input metadata directory
-	inputMetaDir := config.GetString(keys.JsonDir)
-	openJsonDir, err := os.Open(inputMetaDir)
-	if err != nil {
-		logging.PrintE(0, "Error: %v", err)
-		os.Exit(1)
-	}
-	defer openJsonDir.Close()
-	config.Set(keys.OpenJsonDir, openJsonDir)
+		inputVideoDir = config.GetString(keys.VideoDir)
+		openVideo, err = os.Open(inputVideoDir)
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
+		defer openVideo.Close()
+		directory = inputVideoDir
 
-	if directory == "" {
-		directory = inputMetaDir
+	} else if config.IsSet(keys.VideoFile) {
+
+		inputVideo = config.GetString(keys.VideoFile)
+		openVideo, err = os.Open(inputVideo)
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
+		defer openVideo.Close()
+		directory = filepath.Dir(inputVideo)
 	}
+	config.Set(keys.OpenVideo, openVideo)
+
+	var openJson *os.File
+	var inputMetaDir string
+	var inputMeta string
+
+	if config.IsSet(keys.JsonDir) {
+
+		inputMetaDir = config.GetString(keys.JsonDir)
+		openJson, err = os.Open(inputMetaDir)
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
+		defer openJson.Close()
+		if directory == "" {
+			directory = inputMetaDir
+		}
+
+	} else if config.IsSet(keys.JsonFile) {
+
+		inputMeta = config.GetString(keys.JsonFile)
+		openJson, err = os.Open(inputMeta)
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
+		defer openJson.Close()
+		if directory == "" {
+			directory = filepath.Dir(inputMeta)
+		}
+	}
+	config.Set(keys.OpenJson, openJson)
 
 	// Setup logging
-	logFilePath := filepath.Join(directory, "metarr-log.txt")
+	if directory != "" {
+		logFilePath := filepath.Join(directory, "metarr-log.txt")
 
-	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		logging.PrintE(0, "Error: %v", err)
-		os.Exit(1)
-	}
-	defer logFile.Close()
+		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
+		defer logFile.Close()
 
-	err = logging.SetupLogging(directory, logFile)
-	if err != nil {
-		fmt.Printf(`
+		err = logging.SetupLogging(directory, logFile)
+		if err != nil {
+			fmt.Printf(`
 
 Notice: Log file was not created
 Reason: %s
 
 `, err)
+		}
+	} else {
+		logging.PrintI("Directory and file strings were entered empty. Exiting...")
+		os.Exit(1)
 	}
 
 	// Program control
@@ -5810,8 +6492,55 @@ Reason: %s
 		os.Exit(1)
 	}
 
+	fetchNewFromURL := config.GetString(keys.GetLatest)
+	if fetchNewFromURL != "" {
+		logging.PrintD(1, "Checking URL '%s' for new videos", fetchNewFromURL)
+
+		if cookies, err := browser.GetBrowserCookies(fetchNewFromURL); err == nil {
+			if _, err := browser.GrabNewEpisodeURLs(fetchNewFromURL, cookies); err != nil {
+				logging.PrintE(0, err.Error())
+			}
+			config.AutoPreset(fetchNewFromURL)
+		}
+	} else {
+		logging.PrintD(2, "No URL to check for new videos, skipping...")
+	}
+
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)
-	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideoDir, openJsonDir)
+	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
+}
+
+// NOT YET IMPLEMENTED
+// setupInputFiles sets up the directory string
+func setupInputFiles() (directory string, openVideo, openJson *os.File, err error) {
+	if config.IsSet(keys.VideoDir) {
+		directory = config.GetString(keys.VideoDir)
+		openVideo, err = os.Open(directory)
+	} else if config.IsSet(keys.VideoFile) {
+		inputVideo := config.GetString(keys.VideoFile)
+		openVideo, err = os.Open(inputVideo)
+		directory = filepath.Dir(inputVideo)
+	}
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("error opening video file/directory: %v", err)
+	}
+
+	if config.IsSet(keys.JsonDir) {
+		if directory == "" {
+			directory = config.GetString(keys.JsonDir)
+		}
+		openJson, err = os.Open(config.GetString(keys.JsonDir))
+	} else if config.IsSet(keys.JsonFile) {
+		inputMeta := config.GetString(keys.JsonFile)
+		if directory == "" {
+			directory = filepath.Dir(inputMeta)
+		}
+		openJson, err = os.Open(inputMeta)
+	}
+	if err != nil {
+		return "", openVideo, nil, fmt.Errorf("error opening metadata file/directory: %v", err)
+	}
+	return directory, openVideo, openJson, nil
 }

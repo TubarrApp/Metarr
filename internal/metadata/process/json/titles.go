@@ -3,6 +3,7 @@ package metadata
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	helpers "Metarr/internal/metadata/process/helpers"
 	"Metarr/internal/types"
 	print "Metarr/internal/utils/print"
 )
@@ -35,7 +36,7 @@ func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 		t.Title = t.FallbackTitle
 	}
 	if t.Title == "" {
-		title := scrapeMeta(w, enums.WEBCLASS_TITLE)
+		title := helpers.ScrapeMeta(w, enums.WEBCLASS_TITLE)
 		if title != "" {
 			t.Title = title
 		}

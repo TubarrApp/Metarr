@@ -24,33 +24,49 @@ var processedVideoFiles int32
 var processedDataArray []*types.FileData
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideoDir, openMetaDir *os.File) {
+func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	var videoMap, metaMap, matchedFiles map[string]*types.FileData
 	var err error
 
-	metaMap, err = fs.GetMetadataFiles(openMetaDir)
-	if err != nil {
-		logging.PrintE(0, "Error: %v", err)
-		os.Exit(1)
+	// Process metadata, checking if it’s a directory or a single file
+	if openMeta != nil {
+		fileInfo, _ := openMeta.Stat()
+		if fileInfo.IsDir() {
+			metaMap, err = fs.GetMetadataFiles(openMeta)
+		} else {
+			metaMap, err = fs.GetSingleMetadataFile(openMeta)
+		}
+		if err != nil {
+			logging.PrintE(0, "Error: %v", err)
+			os.Exit(1)
+		}
 	}
-
-	if !skipVideos {
-		videoMap, err = fs.GetVideoFiles(openVideoDir)
+	// Process video files, checking if it’s a directory or a single file
+	if openVideo != nil {
+		fileInfo, _ := openVideo.Stat()
+		if fileInfo.IsDir() {
+			videoMap, err = fs.GetVideoFiles(openVideo)
+		} else if !skipVideos {
+			videoMap, err = fs.GetSingleVideoFile(openVideo)
+		}
 		if err != nil {
 			logging.PrintE(0, "Error fetching video files: %v", err)
 			os.Exit(1)
 		}
 
-		matchedFiles, err = fs.MatchVideoWithMetadata(videoMap, metaMap)
-		if err != nil {
-			logging.PrintE(0, "Error matching videos with metadata: %v", err)
-			os.Exit(1)
+		// Match video and metadata files
+		if !skipVideos {
+			matchedFiles, err = fs.MatchVideoWithMetadata(videoMap, metaMap)
+			if err != nil {
+				logging.PrintE(0, "Error matching videos with metadata: %v", err)
+				os.Exit(1)
+			}
+		} else {
+			matchedFiles = metaMap
 		}
-	} else {
-		matchedFiles = metaMap
 	}
 
 	config.Set(keys.VideoMap, videoMap)
@@ -197,6 +213,12 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
 		total = atomic.LoadInt32(&totalVideoFiles)
+
+		if config.IsSet(keys.MoveOnComplete) {
+			if err := transformations.MoveOnComplete(fileData); err != nil {
+				logging.PrintE(0, "Failed to move to destination folder: %v", err)
+			}
+		}
 
 		fmt.Printf("\n====================================================\n")
 		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)

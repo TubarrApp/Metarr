@@ -132,6 +132,64 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 	return metaFiles, nil
 }
 
+// GetSingleVideoFile handles a single video file
+func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) {
+	videoMap := make(map[string]*types.FileData)
+
+	// Extract information for the video file
+	filename := filepath.Base(videoFile.Name())
+
+	// Initialize with NewFileData() to ensure all nested structs are created
+	videoData := types.NewFileData()
+	videoData.OriginalVideoPath = videoFile.Name()
+	videoData.OriginalVideoBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
+	videoData.VideoFile = videoFile
+
+	logging.PrintD(3, "Created video file data for single file: %s", filename)
+
+	// Add to map with filename as key
+	videoMap[filename] = videoData
+
+	return videoMap, nil
+}
+
+// GetSingleMetadataFile handles a single metadata file
+func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error) {
+	metaMap := make(map[string]*types.FileData)
+	filename := filepath.Base(metaFile.Name())
+
+	// Initialize with NewFileData() to ensure all nested structs are created
+	fileData := types.NewFileData()
+
+	// Determine file type and set paths based on extension
+	switch filepath.Ext(metaFile.Name()) {
+	case ".json":
+		fileData.MetaFileType = enums.METAFILE_JSON
+		fileData.JSONFilePath = metaFile.Name()
+		fileData.JSONBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
+
+		logging.PrintD(3, "Created JSON metadata file data for single file: %s", filename)
+
+	case ".nfo":
+		fileData.MetaFileType = enums.METAFILE_NFO
+		fileData.NFOFilePath = metaFile.Name()
+		fileData.NFOBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+		fileData.NFODirectory = filepath.Dir(metaFile.Name())
+
+		logging.PrintD(3, "Created NFO metadata file data for single file: %s", filename)
+
+	default:
+		return nil, fmt.Errorf("unsupported metadata file type: %s", filepath.Ext(metaFile.Name()))
+	}
+
+	// Add to map with filename as key
+	metaMap[filename] = fileData
+
+	return metaMap, nil
+}
+
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*types.FileData) (map[string]*types.FileData, error) {
 

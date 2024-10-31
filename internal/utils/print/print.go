@@ -68,11 +68,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 		}
 
 		output += consts.ColorYellow + "\nTitles and descriptions:\n" + consts.ColorReset
-		output += printStructFields(n.Title.Main)
-		output += printStructFields(n.Title.Original)
-		output += printStructFields(n.Title.PlainText)
-		output += printStructFields(n.Title.Sort)
-		output += printStructFields(n.Title.Sub)
+		output += printStructFields(n.Title)
 		output += printStructFields(n.Description)
 		output += printStructFields(n.Plot)
 
@@ -104,7 +100,7 @@ func printStructFields(s interface{}) string {
 		return fmt.Sprintf("Expected a struct, got %s\n", val.Kind())
 	}
 
-	typ := val.Type() // Get the type of the struct
+	typ := val.Type()
 	output := ""
 
 	for i := 0; i < val.NumField(); i++ {
@@ -117,7 +113,7 @@ func printStructFields(s interface{}) string {
 			continue
 		}
 
-		fieldName := field.Name                                    // Get the field name
+		fieldName := field.Name
 		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string
 
 		// Append the field name and value in key-value format

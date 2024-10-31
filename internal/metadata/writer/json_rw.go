@@ -150,18 +150,28 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File) (bool, error) {
 
 	var edited bool
+	var ok bool
+	var pfx []types.MetaReplacePrefix
+	var sfx []types.MetaReplaceSuffix
+	var new []types.MetaNewField
 
-	pfx, ok := config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	if config.IsSet(keys.MReplacePfx) {
+		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+		if !ok {
+			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+		}
 	}
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	if config.IsSet(keys.MReplaceSfx) {
+		sfx, ok = config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+		if !ok {
+			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
+		}
 	}
-	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	if config.IsSet(keys.MNewField) {
+		new, ok = config.Get(keys.MNewField).([]types.MetaNewField)
+		if !ok {
+			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+		}
 	}
 
 	if len(pfx) > 0 {

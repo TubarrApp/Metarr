@@ -14,5 +14,5 @@ type JSONFileRW interface {
 type NFOFileRW interface {
 	DecodeMetadata(file *os.File) (*NFOData, error)
 	RefreshMetadata() (*NFOData, error)
-	MakeMetaEdits(data []byte, file *os.File) (bool, error)
+	MakeMetaEdits(data string, file *os.File) (bool, error)
 }

@@ -24,7 +24,7 @@ var (
 
 type NFOFileRW struct {
 	Model *types.NFOData
-	Meta  []byte
+	Meta  string
 	File  *os.File
 }
 
@@ -53,7 +53,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 	}
 
 	// Store the raw content
-	rw.Meta = content
+	rw.Meta = string(content)
 
 	// Reset file pointer
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -95,16 +95,40 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 	return rw.Model, nil
 }
 
-// MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *NFOFileRW) MakeMetaEdits(data []byte, file *os.File) (bool, error) {
-	var edited bool
-	xmlStr := string(data)
+// func (rw *NFOFileRW) WriteMetadata(fieldMap map[string]*string) error {
 
-	// Store original content for validation
-	originalContent := xmlStr
+// 	muNWrite.Lock()
+// 	defer muNWrite.Unlock()
+
+// 	file := rw.File
+
+// 	if err := file.Truncate(0); err != nil {
+// 		return fmt.Errorf("truncate file: %w", err)
+// 	}
+
+// 	if _, err := file.Seek(0, io.SeekStart); err != nil {
+// 		return fmt.Errorf("seek file: %w", err)
+// 	}
+
+// 	// Use buffered writer for efficiency
+// 	writer := bufio.NewWriter(file)
+// 	if _, err := writer.Write(fieldMap); err != nil {
+// 		return fmt.Errorf("write content: %w", err)
+// 	}
+
+// 	if err := rw.refreshMetadataInternal(file); err != nil {
+// 		return fmt.Errorf("failed to refresh metadata: %w", err)
+// 	}
+
+// 	return writer.Flush()
+// }
+
+// MakeMetaEdits applies a series of transformations and writes the final result to the file
+func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
+	var edited bool
 
 	// Ensure we have valid XML
-	if !strings.Contains(xmlStr, "<movie>") {
+	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
 	}
 
@@ -135,7 +159,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data []byte, file *os.File) (bool, error) {
 	}
 
 	// Track content at each step
-	currentContent := xmlStr
+	currentContent := data
 
 	// Add new fields first
 	if len(new) > 0 {
@@ -174,16 +198,10 @@ func (rw *NFOFileRW) MakeMetaEdits(data []byte, file *os.File) (bool, error) {
 		}
 	}
 
-	// Verify we haven't lost content
-	if len(currentContent) < len(originalContent)/2 {
-		logging.PrintE(0, "Warning: Significant content loss detected during edits")
-		return false, fmt.Errorf("content preservation error")
-	}
-
 	// Only write if changes were made
 	if edited {
 		if err := rw.writeMetadataToFile(file, []byte(currentContent)); err != nil {
-			return false, fmt.Errorf("failed to write updated XML: %w", err)
+			return false, fmt.Errorf("failed to refresh metadata: %w", err)
 		}
 	}
 
@@ -244,11 +262,15 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 		return fmt.Errorf("write content: %w", err)
 	}
 
+	if err := rw.refreshMetadataInternal(file); err != nil {
+		return fmt.Errorf("failed to refresh metadata: %w", err)
+	}
+
 	return writer.Flush()
 }
 
 // replaceMetaSuffix applies suffix replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceMetaSuffix(data string) ([]byte, bool, error) {
+func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
 	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", sfx)
@@ -257,7 +279,7 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) ([]byte, bool, error) {
 	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", string(data))
 
 	if len(sfx) == 0 {
-		return []byte(data), false, nil // No replacements to apply
+		return data, false, nil // No replacements to apply
 	}
 
 	newAddition := false
@@ -290,11 +312,11 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) ([]byte, bool, error) {
 			newAddition = true
 		}
 	}
-	return []byte(data), newAddition, nil
+	return data, newAddition, nil
 }
 
 // replaceMetaPrefix applies Prefix replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceMetaPrefix(data string) ([]byte, bool, error) {
+func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
 	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
@@ -303,7 +325,7 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) ([]byte, bool, error) {
 	logging.PrintD(3, "Entering replaceMetaPrefix with data: %v", data)
 
 	if len(sfx) == 0 {
-		return []byte(data), false, nil // No replacements to apply
+		return data, false, nil // No replacements to apply
 	}
 
 	newAddition := false
@@ -336,11 +358,11 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) ([]byte, bool, error) {
 			newAddition = true
 		}
 	}
-	return []byte(data), newAddition, nil
+	return data, newAddition, nil
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
+func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
@@ -350,7 +372,7 @@ func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
 
 	if len(new) == 0 {
 		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)
-		return []byte(data), false, nil
+		return data, false, nil
 	}
 
 	logging.PrintD(3, "Retrieved additions for new field data: %v", new)
@@ -404,7 +426,7 @@ func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
 			select {
 			case <-ctx.Done():
 				logging.PrintI("Operation canceled for field: %s", addition.Field)
-				return []byte(data), false, fmt.Errorf("operation canceled")
+				return data, false, fmt.Errorf("operation canceled")
 			default:
 				// Proceed
 			}
@@ -438,7 +460,7 @@ func (rw *NFOFileRW) addMetaFields(data string) ([]byte, bool, error) {
 		}
 	}
 
-	return []byte(data), newAddition, nil
+	return data, newAddition, nil
 }
 
 // addNewField adds a new field into the NFO

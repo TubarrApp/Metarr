@@ -3,6 +3,7 @@ package metadata
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	helpers "Metarr/internal/metadata/process/helpers"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
 )
@@ -58,7 +59,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 		return data, false
 	}
 
-	credits := scrapeMeta(w, enums.WEBCLASS_CREDITS)
+	credits := helpers.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
 
 	if credits != "" {
 		for _, value := range fieldMap {

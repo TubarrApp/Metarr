@@ -1,7 +1,6 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
@@ -14,6 +13,9 @@ func FillNFO(fd *types.FileData) bool {
 
 	var filled bool
 
+	if ok := fillNFOTimestamps(fd); ok {
+		filled = true
+	}
 	if ok := fillNFOTitles(fd); ok {
 		filled = true
 	}
@@ -23,42 +25,13 @@ func FillNFO(fd *types.FileData) bool {
 	if ok := fillNFOCredits(fd); ok {
 		filled = true
 	}
+	if ok := fillNFOWebData(fd); ok {
+		filled = true
+	}
 
 	print.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file '%s'", fd.NFOFilePath)
 
 	return filled
-}
-
-// fillNFODescriptions attempts to fill in title info from NFO
-func fillNFODescriptions(fd *types.FileData) bool {
-
-	d := fd.MTitleDesc
-	n := fd.NFOData
-
-	fieldMap := map[string]*string{
-		consts.NDescription: &d.Description,
-		consts.NPlot:        &d.LongDescription,
-	}
-
-	// Post-unmarshal clean
-	cleanEmptyFields(fieldMap)
-
-	if n.Description != "" {
-		if d.Description == "" {
-			d.Description = n.Description
-		}
-	}
-	if n.Plot != "" {
-		if d.Description == "" {
-			d.Description = n.Plot
-		}
-		if d.LongDescription == "" {
-			d.Description = n.Plot
-		}
-	}
-
-	print.CreateModelPrintout(n, "", "Parsing NFO data")
-	return true
 }
 
 // Clean up empty fields from fieldmap
@@ -185,85 +158,4 @@ func unpackNFO(fd *types.FileData, data map[string]interface{}, fieldMap map[str
 			logging.PrintD(1, "Unknown field type for '%s', skipping...", field)
 		}
 	}
-}
-
-// unpackTitle unpacks common nested title elements to the model
-func unpackTitle(fd *types.FileData, titleData map[string]interface{}) bool {
-	t := fd.MTitleDesc
-	filled := false
-
-	for key, value := range titleData {
-		switch key {
-		case "main":
-			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting main title to '%s'", strVal)
-				t.Title = strVal
-				filled = true
-			}
-		case "sub":
-			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting subtitle to '%s'", strVal)
-				t.Subtitle = strVal
-				filled = true
-			}
-		default:
-			logging.PrintD(1, "Unknown nested title element '%s', skipping...", key)
-		}
-	}
-	return filled
-}
-
-func unpackCredits(fd *types.FileData, creditsData map[string]interface{}) bool {
-	c := fd.MCredits
-	filled := false
-
-	// Recursive helper to search for "role" within nested maps
-	var findRoles func(data map[string]interface{})
-	findRoles = func(data map[string]interface{}) {
-		// Check each key-value pair within the actor data
-		for k, v := range data {
-			if k == "role" {
-				if role, ok := v.(string); ok {
-					logging.PrintD(3, "Adding role '%s' to actors", role)
-					c.Actors = append(c.Actors, role)
-					filled = true
-				}
-			} else if nested, ok := v.(map[string]interface{}); ok {
-				// Recursive call for further nested maps
-				findRoles(nested)
-			} else if nestedList, ok := v.([]interface{}); ok {
-				// Handle lists of nested elements
-				for _, item := range nestedList {
-					if nestedMap, ok := item.(map[string]interface{}); ok {
-						findRoles(nestedMap)
-					}
-				}
-			}
-		}
-	}
-
-	// Access the "cast" data to find "actor" entries
-	if castData, ok := creditsData["cast"].(map[string]interface{}); ok {
-		if actorsData, ok := castData["actor"].([]interface{}); ok {
-			for _, actorData := range actorsData {
-				if actorMap, ok := actorData.(map[string]interface{}); ok {
-					if name, ok := actorMap["name"].(string); ok {
-						logging.PrintD(3, "Adding actor name '%s'", name)
-						c.Actors = append(c.Actors, name)
-						filled = true
-					}
-					if role, ok := actorMap["role"].(string); ok {
-						logging.PrintD(3, "Adding actor role '%s'", role)
-						filled = true
-					}
-				}
-			}
-		} else {
-			logging.PrintD(1, "'actor' key is present but not a valid structure")
-		}
-	} else {
-		logging.PrintD(1, "'cast' key is missing or not a map")
-	}
-
-	return filled
 }

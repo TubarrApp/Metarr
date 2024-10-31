@@ -5,6 +5,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
+	helpers "Metarr/internal/metadata/process/helpers"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
 	"strings"
@@ -92,7 +93,7 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 		return data, false
 	}
 
-	description := scrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
+	description := helpers.ScrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
 
 	// Infer remaining fields from description
 	if description != "" {

@@ -34,10 +34,16 @@ func init() {
 	// Video directory
 	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
 	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
+	// Video file
+	rootCmd.PersistentFlags().StringP(keys.VideoFile, "V", ".", "Video file")
+	viper.BindPFlag(keys.VideoFile, rootCmd.PersistentFlags().Lookup(keys.VideoFile))
 
 	// JSON directory
-	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON metadata directory")
+	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON directory")
 	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
+	// JSON file
+	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
+	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
 
 	// Rename choice
 	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
@@ -103,6 +109,15 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
 	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
+
+	rootCmd.PersistentFlags().String(keys.GetLatest, "", "Grabs new videos released since the last stored URL in the grabbed-urls.txt folder (parameter should be the channel URL)")
+	viper.BindPFlag(keys.GetLatest, rootCmd.PersistentFlags().Lookup(keys.GetLatest))
+
+	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
+	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
+
+	rootCmd.PersistentFlags().String(keys.MoveOnComplete, "", "Move files to given directory on program completion")
+	viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete))
 }
 
 // Execute is the primary initializer of Viper
@@ -226,6 +241,33 @@ func execute() error {
 		logging.PrintI("Debugging level: %v", debugLevel)
 	}
 	viper.Set(keys.DebugLevel, debugLevel)
+
+	// Ensure no video and metadata location conflicts
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFileSet := viper.IsSet(keys.VideoFile)
+	videoDirSet := viper.IsSet(keys.VideoDir)
+
+	if jsonFileSet && jsonDirSet || jsonFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular metadata file for whole video directory")
+	}
+	if videoFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular video file AND video directory")
+	}
+
+	if videoFileSet {
+		viper.Set(keys.SingleFile, true)
+	}
+
+	// Get presets
+
+	switch viper.GetString(keys.InputPreset) {
+	case "censoredtv":
+		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
+		censoredTvPreset()
+	default:
+		// Do nothing
+	}
 
 	err = initTextReplace()
 	if err != nil {

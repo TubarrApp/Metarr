@@ -13,6 +13,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
+// sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
 
 	var resourceMsg bool

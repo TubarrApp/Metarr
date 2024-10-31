@@ -4,6 +4,7 @@ import (
 	"Metarr/internal/config"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
+	helpers "Metarr/internal/metadata/process/helpers"
 	process "Metarr/internal/metadata/process/json"
 	tags "Metarr/internal/metadata/tags"
 	writer "Metarr/internal/metadata/writer"
@@ -74,7 +75,7 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 	}
 
 	if fd.MDates.FormattedDate == "" {
-		process.FormatAllDates(fd)
+		helpers.FormatAllDates(fd)
 	}
 
 	// Make date tag

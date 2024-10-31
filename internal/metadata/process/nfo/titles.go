@@ -41,5 +41,36 @@ func fillNFOTitles(fd *types.FileData) bool {
 			t.Subtitle = n.Title.Sub
 		}
 	}
+	if n.Title.PlainText != "" {
+		if t.Title == "" {
+			t.Title = n.Title.PlainText
+		}
+	}
 	return true
+}
+
+// unpackTitle unpacks common nested title elements to the model
+func unpackTitle(fd *types.FileData, titleData map[string]interface{}) bool {
+	t := fd.MTitleDesc
+	filled := false
+
+	for key, value := range titleData {
+		switch key {
+		case "main":
+			if strVal, ok := value.(string); ok {
+				logging.PrintD(3, "Setting main title to '%s'", strVal)
+				t.Title = strVal
+				filled = true
+			}
+		case "sub":
+			if strVal, ok := value.(string); ok {
+				logging.PrintD(3, "Setting subtitle to '%s'", strVal)
+				t.Subtitle = strVal
+				filled = true
+			}
+		default:
+			logging.PrintD(1, "Unknown nested title element '%s', skipping...", key)
+		}
+	}
+	return filled
 }

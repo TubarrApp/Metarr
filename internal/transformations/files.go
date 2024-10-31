@@ -275,3 +275,28 @@ func filenameReplaceSuffix(renamedVideo, renamedMeta string) (string, string) {
 
 	return trimmedVideo, trimmedMeta
 }
+
+// MoveOnComplete moves the file(s) to the specified directory on completion
+func MoveOnComplete(fd *types.FileData) error {
+
+	f := fd.FinalVideoPath
+
+	if f != "" && config.IsSet(keys.MoveOnComplete) {
+		destination := config.GetString(keys.MoveOnComplete)
+		if !strings.HasSuffix(destination, "/") {
+			destination += "/"
+		}
+		if check, err := os.Stat(destination); err != nil {
+			return fmt.Errorf("unable to stat destination folder '%s': %w", f, err)
+		} else if !check.IsDir() {
+			return fmt.Errorf("destination path must be a folder. Sent in '%s'", f)
+		} else {
+			base := filepath.Base(f)
+			target := destination + base
+			if err := os.Rename(f, target); err != nil {
+				return fmt.Errorf("failed to move file: %w", err)
+			}
+		}
+	}
+	return nil
+}

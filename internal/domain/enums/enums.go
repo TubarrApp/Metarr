@@ -75,3 +75,10 @@ const (
 	WEBCLASS_CREDITS     WebClassTags = iota
 	WEBCLASS_WEBINFO     WebClassTags = iota
 )
+
+// Presets
+type SitePresets int
+
+const (
+	PRESET_CENSOREDTV SitePresets = iota
+)
