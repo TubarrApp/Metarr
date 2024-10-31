@@ -26,17 +26,17 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 	var vidExt string
 	var metaExt string
 
-	for _, m := range dataArray {
+	for _, fd := range dataArray {
 
-		metaBase, metaDir, metaPath := getMetafileData(m)
+		metaBase, metaDir, metaPath := getMetafileData(fd)
 
 		if !skipVideos {
 			logging.PrintD(2, "Renaming video with data: %v...", metaPath)
-			vidExt = filepath.Ext(m.OriginalVideoPath)
+			vidExt = filepath.Ext(fd.OriginalVideoPath)
 			metaExt = filepath.Ext(metaPath)
 
 			logging.PrintD(2, "\n\nRename function fetched:\n\nVideo extension: %v\nVideo base name: %v\nMetafile extension: %v\nMetafile base name: %v\n\n", vidExt,
-				m.FinalVideoBaseName,
+				fd.FinalVideoBaseName,
 				metaExt,
 				metaBase)
 
@@ -47,15 +47,15 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 			logging.PrintD(2, "\n\nRename function fetched:\n\nMetafile extension: %v\nMetafile base name: %v\n\n", metaExt, metaBase)
 		}
 
-		renamedVideo = m.FinalVideoBaseName
+		renamedVideo = fd.FinalVideoBaseName
 		if !skipVideos {
-			renamedMeta = m.FinalVideoBaseName // Rename to the same base name as the video
+			renamedMeta = fd.FinalVideoBaseName // Rename to the same base name as the video
 		} else {
 			renamedMeta = metaBase
 		}
 
 		// Rename to spaces or underscores
-		renamedVideo, renamedMeta = spacesOrUnderscores(skipVideos, style, renamedVideo, renamedMeta, m)
+		renamedVideo, renamedMeta = spacesOrUnderscores(skipVideos, style, renamedVideo, renamedMeta, fd)
 
 		if !skipVideos {
 			logging.PrintD(2, "\n\nRename replacements:\n\nVideo: %v\nMetafile\n\n: %v", renamedVideo, renamedMeta)
@@ -78,17 +78,17 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 		}
 
 		// Add the metatag to the front of the filenames
-		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, m)
+		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
 
 		// Construct final output filepaths
-		renamedVideoOut := filepath.Join(m.VideoDirectory, renamedVideo+vidExt)
+		renamedVideoOut := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
 		renamedMetaOut := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		if err := writeResults(skipVideos, renamedVideoOut, renamedMetaOut, metaPath, m.FinalVideoPath); err != nil {
+		if err := writeResults(skipVideos, renamedVideoOut, renamedMetaOut, metaPath, fd.FinalVideoPath, fd); err != nil {
 			return err
 		}
 		if config.IsSet(keys.MoveOnComplete) {
-			if err := moveFile(m); err != nil {
+			if err := moveFile(fd); err != nil {
 				logging.PrintE(0, "Failed to move to destination folder: %v", err)
 			}
 		}
@@ -111,7 +111,7 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 }
 
 // writeResults executes the final commands to write the transformed files
-func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, finalVideoPath string) error {
+func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, finalVideoPath string, fd *types.FileData) error {
 
 	if !skipVideos {
 		logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", finalVideoPath, renamedVideoOut,
@@ -124,6 +124,8 @@ func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, fi
 		err := os.Rename(finalVideoPath, renamedVideoOut)
 		if err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", finalVideoPath, renamedVideoOut, err)
+		} else {
+			fd.RenamedVideo = renamedVideoOut
 		}
 	}
 
@@ -131,6 +133,8 @@ func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, fi
 		err := os.Rename(metaPath, renamedMetaOut)
 		if err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", metaPath, renamedMetaOut, err)
+		} else {
+			fd.RenamedMeta = renamedMetaOut
 		}
 	}
 	return nil
@@ -289,25 +293,28 @@ func moveFile(fd *types.FileData) error {
 	if fd == nil {
 		return fmt.Errorf("passed model in null")
 	}
-	src := fd.FinalVideoPath
+	videoSrc := fd.RenamedVideo
+	metaSrc := fd.RenamedMeta
 
-	if src != "" && config.IsSet(keys.MoveOnComplete) {
+	if videoSrc != "" && config.IsSet(keys.MoveOnComplete) {
 		dst := config.GetString(keys.MoveOnComplete)
 		if !strings.HasSuffix(dst, "/") {
 			dst += "/"
 		}
 		if check, err := os.Stat(dst); err != nil {
-			return fmt.Errorf("unable to stat destination folder '%s': %w", src, err)
+			return fmt.Errorf("unable to stat destination folder '%s': %w", videoSrc, err)
 		} else if !check.IsDir() {
-			return fmt.Errorf("destination path must be a folder. Sent in '%s'", src)
+			return fmt.Errorf("destination path must be a folder. Sent in '%s'", videoSrc)
 		} else {
-			base := filepath.Base(src)
-			target := dst + base
+			videoBase := filepath.Base(videoSrc)
+			metaBase := filepath.Base(metaSrc)
+			videoTarget := filepath.Join(dst, videoBase)
+			metaTarget := filepath.Join(dst, metaBase)
 
-			if err := os.Rename(src, target); err != nil {
+			if err := os.Rename(videoSrc, videoTarget); err != nil {
 
 				if strings.Contains(err.Error(), "invalid cross-device link") {
-					logging.PrintD(1, "Falling back to copy for moving %s to %s", src, dst)
+					logging.PrintD(1, "Falling back to copy for moving %s to %s", videoSrc, dst)
 
 					// Ensure the destination directory exists
 					if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
@@ -315,8 +322,32 @@ func moveFile(fd *types.FileData) error {
 					}
 
 					// Copy the file
-					if err := copyFile(src, dst); err != nil {
-						return fmt.Errorf("failed to copy file: %v", err)
+					if err := copyFile(videoSrc, videoTarget); err != nil {
+						return fmt.Errorf("failed to copy file: %w", err)
+					} else {
+						if err := os.Remove(videoSrc); err != nil {
+							logging.PrintE(0, "Failed to remove source file after copy: %v", err)
+						}
+					}
+				}
+				return fmt.Errorf("failed to move file: %w", err)
+			}
+			if err := os.Rename(metaSrc, metaTarget); err != nil {
+				if strings.Contains(err.Error(), "invalid cross-device link") {
+					logging.PrintD(1, "Falling back to copy for moving %s to %s", metaSrc, dst)
+
+					// Ensure the destination directory exists
+					if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+						return fmt.Errorf("failed to create destination directory: %v", err)
+					}
+
+					// Copy the file
+					if err := copyFile(metaSrc, metaTarget); err != nil {
+						return fmt.Errorf("failed to copy file: %w", err)
+					} else {
+						if err := os.Remove(metaSrc); err != nil {
+							logging.PrintE(0, "Failed to remove source file after copy: %v", err)
+						}
 					}
 				}
 				return fmt.Errorf("failed to move file: %w", err)
@@ -328,6 +359,18 @@ func moveFile(fd *types.FileData) error {
 
 // copyFile copies a file from src to dst
 func copyFile(src, dst string) error {
+
+	logging.PrintI("Copying:\n'%s'\nto\n'%s'...", src, dst)
+
+	if _, err := os.Stat(dst); err == nil {
+		// File exists already, do not overwrite
+		logging.PrintI("Destination file already exists: %s", dst)
+		return nil
+	} else if !os.IsNotExist(err) {
+		// Error other than file not existing
+		return fmt.Errorf("error checking destination file: %w", err)
+	}
+
 	// Open source file
 	sourceFile, err := os.Open(src)
 	if err != nil {
@@ -360,6 +403,15 @@ func copyFile(src, dst string) error {
 	// Set the same permissions on the new file
 	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
 		return fmt.Errorf("failed to set file permissions: %v", err)
+	}
+
+	// Check destination file
+	check, err := destFile.Stat()
+	if err != nil {
+		return fmt.Errorf("error statting destination file: %w", err)
+	}
+	if check.Size() <= 0 {
+		return fmt.Errorf("destination file not properly formed. Size is 0")
 	}
 
 	return nil
