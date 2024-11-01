@@ -24,7 +24,7 @@ func fillNFOTimestamps(fd *types.FileData) bool {
 	cleanEmptyFields(fieldMap)
 
 	gotRelevantDate := false
-	printMap := make(map[string]string)
+	printMap := make(map[string]string, len(fieldMap))
 
 	if n.Premiered != "" {
 		if rtn, ok := helpers.YyyyMmDd(n.Premiered); ok && rtn != "" {

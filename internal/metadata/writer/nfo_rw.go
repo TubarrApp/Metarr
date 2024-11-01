@@ -16,13 +16,8 @@ import (
 	"sync"
 )
 
-var (
-	muNWrite   sync.Mutex
-	muNRefresh sync.Mutex
-	muNDecode  sync.Mutex
-)
-
 type NFOFileRW struct {
+	mu    sync.RWMutex
 	Model *types.NFOData
 	Meta  string
 	File  *os.File
@@ -38,8 +33,8 @@ func NewNFOFileRW(file *os.File) *NFOFileRW {
 
 // DecodeMetadata decodes XML from a file into a map, stores, and returns it
 func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
-	muNDecode.Lock()
-	defer muNDecode.Unlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	// Read the entire file content first
 	content, err := io.ReadAll(file)
@@ -76,8 +71,8 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 // RefreshMetadata reloads the metadata map from the file after updates
 func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 
-	muNRefresh.Lock()
-	defer muNRefresh.Unlock()
+	rw.mu.RLock()
+	defer rw.mu.RUnlock()
 
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -94,34 +89,6 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 
 	return rw.Model, nil
 }
-
-// func (rw *NFOFileRW) WriteMetadata(fieldMap map[string]*string) error {
-
-// 	muNWrite.Lock()
-// 	defer muNWrite.Unlock()
-
-// 	file := rw.File
-
-// 	if err := file.Truncate(0); err != nil {
-// 		return fmt.Errorf("truncate file: %w", err)
-// 	}
-
-// 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-// 		return fmt.Errorf("seek file: %w", err)
-// 	}
-
-// 	// Use buffered writer for efficiency
-// 	writer := bufio.NewWriter(file)
-// 	if _, err := writer.Write(fieldMap); err != nil {
-// 		return fmt.Errorf("write content: %w", err)
-// 	}
-
-// 	if err := rw.refreshMetadataInternal(file); err != nil {
-// 		return fmt.Errorf("failed to refresh metadata: %w", err)
-// 	}
-
-// 	return writer.Flush()
-// }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
@@ -226,6 +193,7 @@ func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 
 // refreshMetadataInternal is a private metadata refresh function
 func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
+
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek file: %w", err)
 	}
@@ -244,9 +212,6 @@ func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 
 // writeMetadataToFile is a private metadata writing helper function
 func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-
-	muNWrite.Lock()
-	defer muNWrite.Unlock()
 
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("truncate file: %w", err)

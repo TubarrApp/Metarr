@@ -13,17 +13,13 @@ import (
 
 var (
 	Level int = -1 // Pre initialization
-	muD   sync.Mutex
-	muE   sync.Mutex
-	muI   sync.Mutex
-	muP   sync.Mutex
-	muS   sync.Mutex
+	mu    sync.Mutex
 )
 
 func PrintE(l int, format string, args ...interface{}) string {
 
-	muE.Lock()
-	defer muE.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 	var msg string
 
 	_, file, line, _ := runtime.Caller(1)
@@ -50,8 +46,8 @@ func PrintE(l int, format string, args ...interface{}) string {
 
 func PrintS(l int, format string, args ...interface{}) string {
 
-	muS.Lock()
-	defer muS.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 	var msg string
 
 	_, file, line, _ := runtime.Caller(1)
@@ -78,8 +74,8 @@ func PrintS(l int, format string, args ...interface{}) string {
 
 func PrintD(l int, format string, args ...interface{}) string {
 
-	muD.Lock()
-	defer muD.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 	var msg string
 
 	_, file, line, _ := runtime.Caller(1)
@@ -106,8 +102,8 @@ func PrintD(l int, format string, args ...interface{}) string {
 
 func PrintI(format string, args ...interface{}) string {
 
-	muI.Lock()
-	defer muI.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 	var msg string
 
 	if len(args) != 0 && args != nil {
@@ -123,8 +119,8 @@ func PrintI(format string, args ...interface{}) string {
 
 func Print(format string, args ...interface{}) string {
 
-	muP.Lock()
-	defer muP.Unlock()
+	mu.Lock()
+	defer mu.Unlock()
 	var msg string
 
 	if len(args) != 0 && args != nil {

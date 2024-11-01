@@ -5,14 +5,12 @@ import (
 	"log"
 	"os"
 	"regexp"
-	"sync"
 	"time"
 )
 
 var ErrorArray []error
 var Loggable bool = false
 var Logger *log.Logger
-var mu sync.Mutex
 
 // Regular expression to match ANSI escape codes
 var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -31,8 +29,6 @@ func SetupLogging(targetDir string, logFile *os.File) error {
 func Write(tag, infoMsg string, err error, args ...interface{}) {
 
 	if Loggable {
-		mu.Lock()
-		defer mu.Unlock()
 
 		var errMsg string
 		var info string
@@ -59,8 +55,6 @@ func Write(tag, infoMsg string, err error, args ...interface{}) {
 // WriteArray writes an array of error information to the log file
 func WriteArray(tag string, infoMsg []string, err []error, args ...interface{}) {
 	if Loggable {
-		mu.Lock()
-		defer mu.Unlock()
 
 		var errMsg, info string
 

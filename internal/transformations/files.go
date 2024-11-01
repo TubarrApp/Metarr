@@ -7,6 +7,7 @@ import (
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
+	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -397,8 +398,13 @@ func copyFile(src, dst string) error {
 	}()
 
 	// Copy contents with buffer
-	buf := make([]byte, 32*1024)
-	if _, err = io.CopyBuffer(destFile, sourceFile, buf); err != nil {
+	bufferedSource := bufio.NewReaderSize(sourceFile, 4*1024*1024) // 1024 * 1024 is 1 MB
+	bufferedDest := bufio.NewWriterSize(destFile, 4*1024*1024)
+	defer bufferedDest.Flush()
+
+	buf := make([]byte, 4*1024*1024)
+
+	if _, err = io.CopyBuffer(bufferedDest, bufferedSource, buf); err != nil {
 		return fmt.Errorf("failed to copy file contents: %w", err)
 	}
 

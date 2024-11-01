@@ -5,6 +5,7 @@ import (
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/shirou/gopsutil/mem"
@@ -122,6 +123,9 @@ func init() {
 
 	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
 	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
+
+	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
+	viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking))
 }
 
 // Execute is the primary initializer of Viper
@@ -142,6 +146,167 @@ func Execute() error {
 func execute() error {
 
 	// Parse GPU settings and set commands
+	verifyHWAcceleration()
+
+	// Concurrency
+	verifyConcurrencyLimit()
+
+	// Resource usage limits (CPU and memory)
+	verifyResourceLimits()
+
+	// File extension settings
+	verifyInputFiletypes()
+
+	// File prefix filter settings
+	verifyFilePrefixes()
+
+	// Debugging level
+	verifyDebugLevel()
+
+	// Filetype to output as
+	verifyOutputFiletype()
+
+	// Ensure no video and metadata location conflicts
+	if err := checkFileDirs(); err != nil {
+		return err
+	}
+
+	// Get presets
+	switch viper.GetString(keys.InputPreset) {
+	case "censoredtv":
+		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
+		censoredTvPreset()
+	default:
+		// Do nothing
+	}
+
+	if err := initTextReplace(); err != nil {
+		return err
+	}
+
+	if err := initDateReplaceFormat(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
+func checkFileDirs() error {
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFileSet := viper.IsSet(keys.VideoFile)
+	videoDirSet := viper.IsSet(keys.VideoDir)
+
+	if jsonFileSet {
+		if file, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
+			switch {
+			case file.IsDir():
+				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
+			case os.IsNotExist(err):
+				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
+			}
+		}
+	}
+	if jsonDirSet {
+		if dir, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
+			switch {
+			case !dir.IsDir():
+				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
+			case os.IsNotExist(err):
+				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
+			}
+		}
+	}
+	if videoFileSet {
+		if file, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
+			switch {
+			case file.IsDir():
+				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
+			case os.IsNotExist(err):
+				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
+			}
+		}
+	}
+	if videoDirSet {
+		if dir, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
+			switch {
+			case !dir.IsDir():
+				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
+			case os.IsNotExist(err):
+				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
+			}
+		}
+	}
+
+	if jsonFileSet && jsonDirSet {
+		return fmt.Errorf("cannot set both the JSON file and the JSON directory")
+	}
+	if jsonFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular metadata file for whole video directory")
+	}
+	if videoFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular video file AND video directory")
+	}
+
+	if videoFileSet {
+		viper.Set(keys.SingleFile, true)
+	}
+	return nil
+}
+
+// verifyFilePrefixes checks and sets the file prefix filters
+func verifyFilePrefixes() {
+	var filePrefixes []string
+
+	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
+	for _, arg := range argInputPrefixes {
+		if arg != "" {
+			filePrefixes = append(filePrefixes, arg)
+		}
+	}
+	if len(filePrefixes) > 0 {
+		viper.Set(keys.FilePrefixes, filePrefixes)
+	}
+}
+
+// verifyDebugLevel checks and sets the debugging level to use
+func verifyDebugLevel() {
+	debugLevel := viper.GetUint16(keys.DebugLevel)
+	if debugLevel > 3 {
+		debugLevel = 3
+	} else if debugLevel == 0 {
+		logging.PrintI("Debugging level: %v", debugLevel)
+	}
+	viper.Set(keys.DebugLevel, debugLevel)
+}
+
+// verifyInputFiletypes checks that the inputted filetypes are accepted
+func verifyInputFiletypes() {
+	var inputExts []enums.ConvertFromFiletype
+
+	argsInputExts := viper.GetStringSlice(keys.InputExts)
+
+	for _, data := range argsInputExts {
+		switch data {
+		case "mkv":
+			inputExts = append(inputExts, enums.IN_MKV)
+		case "mp4":
+			inputExts = append(inputExts, enums.IN_MP4)
+		case "webm":
+			inputExts = append(inputExts, enums.IN_WEBM)
+		default:
+			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+		}
+	}
+	if len(inputExts) == 0 {
+		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	}
+	viper.Set(keys.InputExtsEnum, inputExts)
+}
+
+// verifyHWAcceleration checks and sets HW acceleration to use
+func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
 		viper.Set(keys.GPUEnum, enums.NVIDIA)
@@ -152,13 +317,13 @@ func execute() error {
 	case "intel":
 		viper.Set(keys.GPUEnum, enums.INTEL)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
-	case "none":
-		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
 	default:
-		return fmt.Errorf("invalid hardware acceleration option")
+		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
 	}
+}
 
-	// Concurrency
+// verifyConcurrencyLimit checks and ensures correct concurrency limit input
+func verifyConcurrencyLimit() {
 	maxConcurrentProcesses := viper.GetInt(keys.Concurrency)
 
 	switch {
@@ -169,24 +334,10 @@ func execute() error {
 		logging.PrintI("Max concurrency: %d", maxConcurrentProcesses)
 	}
 	viper.Set(keys.Concurrency, maxConcurrentProcesses)
+}
 
-	// CPU Usage
-	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
-	switch {
-	case maxCPUUsage > 100.0:
-		maxCPUUsage = 100.0
-		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
-
-	case maxCPUUsage < 1.0:
-		maxCPUUsage = 10.0
-		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
-	}
-	if maxCPUUsage != 100.0 {
-		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
-	}
-	viper.Set(keys.MaxCPU, maxCPUUsage)
-
-	// Minimum memory
+// verifyCPUUsage verifies the value used to limit the CPU needed to spawn a new routine
+func verifyResourceLimits() {
 	MinMemUsage := viper.GetUint64(keys.MinMem)
 	MinMemUsage *= 1024 * 1024 // Convert input to MB
 
@@ -204,88 +355,20 @@ func execute() error {
 	}
 	viper.Set(keys.MinMemMB, MinMemUsage)
 
-	// File extension settings
-	var inputExts []enums.ConvertFromFiletype
+	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
+	switch {
+	case maxCPUUsage > 100.0:
+		maxCPUUsage = 100.0
+		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
 
-	argsInputExts := viper.GetStringSlice(keys.InputExts)
-
-	for _, data := range argsInputExts {
-		switch data {
-		case "all":
-			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
-		case "mkv":
-			inputExts = append(inputExts, enums.IN_MKV)
-		case "mp4":
-			inputExts = append(inputExts, enums.IN_MP4)
-		case "webm":
-			inputExts = append(inputExts, enums.IN_WEBM)
-		default:
-			return fmt.Errorf("invalid input file extension filters selected")
-		}
+	case maxCPUUsage < 1.0:
+		maxCPUUsage = 10.0
+		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
 	}
-
-	if len(inputExts) == 0 {
-		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	if maxCPUUsage != 100.0 {
+		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
 	}
-	viper.Set(keys.InputExtsEnum, inputExts)
-
-	// File prefix filter settings
-	var filePrefixes []string
-
-	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
-	filePrefixes = append(filePrefixes, argInputPrefixes...)
-
-	viper.Set(keys.FilePrefixes, filePrefixes)
-
-	// Debugging level
-	debugLevel := viper.GetUint16(keys.DebugLevel)
-	if debugLevel > 3 {
-		debugLevel = 3
-	} else if debugLevel == 0 {
-		logging.PrintI("Debugging level: %v", debugLevel)
-	}
-	viper.Set(keys.DebugLevel, debugLevel)
-
-	// Ensure no video and metadata location conflicts
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-	jsonDirSet := viper.IsSet(keys.JsonDir)
-	videoFileSet := viper.IsSet(keys.VideoFile)
-	videoDirSet := viper.IsSet(keys.VideoDir)
-
-	if jsonFileSet && jsonDirSet || jsonFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular metadata file for whole video directory")
-	}
-	if videoFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular video file AND video directory")
-	}
-
-	if videoFileSet {
-		viper.Set(keys.SingleFile, true)
-	}
-
-	// Get presets
-
-	switch viper.GetString(keys.InputPreset) {
-	case "censoredtv":
-		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
-		censoredTvPreset()
-	default:
-		// Do nothing
-	}
-
-	verifyOutputFiletype()
-
-	err = initTextReplace()
-	if err != nil {
-		return err
-	}
-
-	err = initDateReplaceFormat()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	viper.Set(keys.MaxCPU, maxCPUUsage)
 }
 
 // Verify the output filetype is valid for FFmpeg

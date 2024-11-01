@@ -3,6 +3,8 @@ package utils
 import (
 	enums "Metarr/internal/domain/enums"
 	logging "Metarr/internal/utils/logging"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -86,4 +88,27 @@ func SetPrefixFilter(inputPrefixFilters []string) []string {
 	prefixFilters = append(prefixFilters, inputPrefixFilters...)
 
 	return prefixFilters
+}
+
+// GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized
+func GetDirStats(dir string) (vidCount, metaCount int) {
+	// Quick initial scan just counting files, not storing anything
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, 0
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			ext := strings.ToLower(filepath.Ext(entry.Name()))
+			switch ext {
+			case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
+				".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
+				".ts", ".vob", ".webm", ".wmv":
+				vidCount++
+			case ".json", ".nfo":
+				metaCount++
+			}
+		}
+	}
+	return vidCount, metaCount
 }

@@ -53,7 +53,7 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 func unpackJSON(fieldType string, fieldMap map[string]*string, metadata map[string]interface{}) bool {
 
 	dataFilled := false
-	printMap := make(map[string]string)
+	printMap := make(map[string]string, len(fieldMap))
 
 	// Iterate through the decoded JSON to match fields against
 	// the passed in map of fields to fill

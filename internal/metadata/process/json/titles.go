@@ -11,7 +11,7 @@ import (
 // fillTitles grabs the fulltitle ("title")
 func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 
-	printMap := make(map[string]string)
+	printMap := make(map[string]string, len(data))
 	t := fd.MTitleDesc
 	w := fd.MWebData
 

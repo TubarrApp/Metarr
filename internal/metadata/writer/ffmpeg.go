@@ -17,8 +17,7 @@ import (
 )
 
 var (
-	muPre  sync.Mutex
-	muPost sync.Mutex
+	muWriteCommand sync.Mutex
 )
 
 // MetadataMap holds all metadata key-value pairs
@@ -60,9 +59,6 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 // WriteMetadata writes metadata to a single video file
 func WriteMetadata(m *types.FileData) error {
 
-	// Set mutex until command execution
-	muPre.Lock()
-
 	var originalVPath string = m.OriginalVideoPath
 	dir := m.VideoDirectory
 
@@ -89,14 +85,15 @@ func WriteMetadata(m *types.FileData) error {
 		}
 	}()
 
+	muWriteCommand.Lock()
 	args, err := buildCommand(m, tempOutputFilePath)
 	if err != nil {
-		// Unlock mutex
-		muPre.Unlock()
+		muWriteCommand.Unlock()
 		return err
 	}
 
 	command := exec.Command("ffmpeg", args...)
+	muWriteCommand.Unlock()
 
 	logging.PrintI("\n%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
 
@@ -113,23 +110,12 @@ func WriteMetadata(m *types.FileData) error {
 		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + originalExt
 	}
 
-	fmt.Printf(`
-
-Video file path data:
-	
-Original Video Path: %s
-Metadata File Path: %s
-Final Video Path: %s
-
-Temp Output Path: %s
-	
-`, originalVPath,
+	fmt.Printf("\n\nVideo file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s\n\n", originalVPath,
 		m.JSONFilePath,
 		m.FinalVideoPath,
 		m.TempOutputFilePath)
 
 	// Unlock mutex
-	muPre.Unlock()
 
 	// Run the ffmpeg command
 	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, m.FinalVideoBaseName, consts.ColorReset)
@@ -137,10 +123,6 @@ Temp Output Path: %s
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		return fmt.Errorf("failed to run ffmpeg command: %w", err)
 	}
-
-	// Lock second mutex after command executes
-	muPost.Lock()
-	defer muPost.Unlock()
 
 	// Rename temporary file to overwrite the original video file:
 	// First check overwrite rules
@@ -175,15 +157,7 @@ Temp Output Path: %s
 		}
 	}
 
-	fmt.Println()
-	logging.PrintS(0, `Successfully processed video:
-
-Original file: %s
-New file: %s
-
-Title: %s
-
-`, originalVPath,
+	logging.PrintS(0, "\nSuccessfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
 		m.FinalVideoPath,
 		m.MTitleDesc.Title)
 

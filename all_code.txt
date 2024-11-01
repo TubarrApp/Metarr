@@ -75,6 +75,8 @@ import (
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/shirou/gopsutil/mem"
 	"github.com/spf13/cobra"
@@ -167,6 +169,9 @@ func init() {
 	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
 	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
 
+	rootCmd.PersistentFlags().StringP(keys.MoveOnComplete, "o", "", "Move files to given directory on program completion")
+	viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete))
+
 	// Special functions
 	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
 	viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos))
@@ -185,6 +190,12 @@ func init() {
 
 	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
 	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
+
+	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
+	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
+
+	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
+	viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking))
 }
 
 // Execute is the primary initializer of Viper
@@ -205,6 +216,167 @@ func Execute() error {
 func execute() error {
 
 	// Parse GPU settings and set commands
+	verifyHWAcceleration()
+
+	// Concurrency
+	verifyConcurrencyLimit()
+
+	// Resource usage limits (CPU and memory)
+	verifyResourceLimits()
+
+	// File extension settings
+	verifyInputFiletypes()
+
+	// File prefix filter settings
+	verifyFilePrefixes()
+
+	// Debugging level
+	verifyDebugLevel()
+
+	// Filetype to output as
+	verifyOutputFiletype()
+
+	// Ensure no video and metadata location conflicts
+	if err := checkFileDirs(); err != nil {
+		return err
+	}
+
+	// Get presets
+	switch viper.GetString(keys.InputPreset) {
+	case "censoredtv":
+		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
+		censoredTvPreset()
+	default:
+		// Do nothing
+	}
+
+	if err := initTextReplace(); err != nil {
+		return err
+	}
+
+	if err := initDateReplaceFormat(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
+func checkFileDirs() error {
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFileSet := viper.IsSet(keys.VideoFile)
+	videoDirSet := viper.IsSet(keys.VideoDir)
+
+	if jsonFileSet {
+		if file, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
+			switch {
+			case file.IsDir():
+				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
+			case os.IsNotExist(err):
+				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
+			}
+		}
+	}
+	if jsonDirSet {
+		if dir, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
+			switch {
+			case !dir.IsDir():
+				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
+			case os.IsNotExist(err):
+				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
+			}
+		}
+	}
+	if videoFileSet {
+		if file, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
+			switch {
+			case file.IsDir():
+				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
+			case os.IsNotExist(err):
+				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
+			}
+		}
+	}
+	if videoDirSet {
+		if dir, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
+			switch {
+			case !dir.IsDir():
+				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
+			case os.IsNotExist(err):
+				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
+			}
+		}
+	}
+
+	if jsonFileSet && jsonDirSet {
+		return fmt.Errorf("cannot set both the JSON file and the JSON directory")
+	}
+	if jsonFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular metadata file for whole video directory")
+	}
+	if videoFileSet && videoDirSet {
+		return fmt.Errorf("cannot set singular video file AND video directory")
+	}
+
+	if videoFileSet {
+		viper.Set(keys.SingleFile, true)
+	}
+	return nil
+}
+
+// verifyFilePrefixes checks and sets the file prefix filters
+func verifyFilePrefixes() {
+	var filePrefixes []string
+
+	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
+	for _, arg := range argInputPrefixes {
+		if arg != "" {
+			filePrefixes = append(filePrefixes, arg)
+		}
+	}
+	if len(filePrefixes) > 0 {
+		viper.Set(keys.FilePrefixes, filePrefixes)
+	}
+}
+
+// verifyDebugLevel checks and sets the debugging level to use
+func verifyDebugLevel() {
+	debugLevel := viper.GetUint16(keys.DebugLevel)
+	if debugLevel > 3 {
+		debugLevel = 3
+	} else if debugLevel == 0 {
+		logging.PrintI("Debugging level: %v", debugLevel)
+	}
+	viper.Set(keys.DebugLevel, debugLevel)
+}
+
+// verifyInputFiletypes checks that the inputted filetypes are accepted
+func verifyInputFiletypes() {
+	var inputExts []enums.ConvertFromFiletype
+
+	argsInputExts := viper.GetStringSlice(keys.InputExts)
+
+	for _, data := range argsInputExts {
+		switch data {
+		case "mkv":
+			inputExts = append(inputExts, enums.IN_MKV)
+		case "mp4":
+			inputExts = append(inputExts, enums.IN_MP4)
+		case "webm":
+			inputExts = append(inputExts, enums.IN_WEBM)
+		default:
+			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+		}
+	}
+	if len(inputExts) == 0 {
+		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	}
+	viper.Set(keys.InputExtsEnum, inputExts)
+}
+
+// verifyHWAcceleration checks and sets HW acceleration to use
+func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
 		viper.Set(keys.GPUEnum, enums.NVIDIA)
@@ -215,13 +387,13 @@ func execute() error {
 	case "intel":
 		viper.Set(keys.GPUEnum, enums.INTEL)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
-	case "none":
-		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
 	default:
-		return fmt.Errorf("invalid hardware acceleration option")
+		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
 	}
+}
 
-	// Concurrency
+// verifyConcurrencyLimit checks and ensures correct concurrency limit input
+func verifyConcurrencyLimit() {
 	maxConcurrentProcesses := viper.GetInt(keys.Concurrency)
 
 	switch {
@@ -232,24 +404,10 @@ func execute() error {
 		logging.PrintI("Max concurrency: %d", maxConcurrentProcesses)
 	}
 	viper.Set(keys.Concurrency, maxConcurrentProcesses)
+}
 
-	// CPU Usage
-	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
-	switch {
-	case maxCPUUsage > 100.0:
-		maxCPUUsage = 100.0
-		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
-
-	case maxCPUUsage < 1.0:
-		maxCPUUsage = 10.0
-		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
-	}
-	if maxCPUUsage != 100.0 {
-		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
-	}
-	viper.Set(keys.MaxCPU, maxCPUUsage)
-
-	// Minimum memory
+// verifyCPUUsage verifies the value used to limit the CPU needed to spawn a new routine
+func verifyResourceLimits() {
 	MinMemUsage := viper.GetUint64(keys.MinMem)
 	MinMemUsage *= 1024 * 1024 // Convert input to MB
 
@@ -267,86 +425,37 @@ func execute() error {
 	}
 	viper.Set(keys.MinMemMB, MinMemUsage)
 
-	// File extension settings
-	var inputExts []enums.ConvertFromFiletype
+	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
+	switch {
+	case maxCPUUsage > 100.0:
+		maxCPUUsage = 100.0
+		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
 
-	argsInputExts := viper.GetStringSlice(keys.InputExts)
-
-	for _, data := range argsInputExts {
-		switch data {
-		case "all":
-			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
-		case "mkv":
-			inputExts = append(inputExts, enums.IN_MKV)
-		case "mp4":
-			inputExts = append(inputExts, enums.IN_MP4)
-		case "webm":
-			inputExts = append(inputExts, enums.IN_WEBM)
-		default:
-			return fmt.Errorf("invalid input file extension filters selected")
-		}
+	case maxCPUUsage < 1.0:
+		maxCPUUsage = 10.0
+		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
 	}
-
-	if len(inputExts) == 0 {
-		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	if maxCPUUsage != 100.0 {
+		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
 	}
-	viper.Set(keys.InputExtsEnum, inputExts)
+	viper.Set(keys.MaxCPU, maxCPUUsage)
+}
 
-	// File prefix filter settings
-	var filePrefixes []string
-
-	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
-	filePrefixes = append(filePrefixes, argInputPrefixes...)
-
-	viper.Set(keys.FilePrefixes, filePrefixes)
-
-	// Debugging level
-	debugLevel := viper.GetUint16(keys.DebugLevel)
-	if debugLevel > 3 {
-		debugLevel = 3
-	} else if debugLevel == 0 {
-		logging.PrintI("Debugging level: %v", debugLevel)
+// Verify the output filetype is valid for FFmpeg
+func verifyOutputFiletype() {
+	o := GetString(keys.OutputFiletype)
+	if !strings.HasPrefix(o, ".") {
+		o = "." + o
+		Set(keys.OutputFiletype, o)
 	}
-	viper.Set(keys.DebugLevel, debugLevel)
-
-	// Ensure no video and metadata location conflicts
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-	jsonDirSet := viper.IsSet(keys.JsonDir)
-	videoFileSet := viper.IsSet(keys.VideoFile)
-	videoDirSet := viper.IsSet(keys.VideoDir)
-
-	if jsonFileSet && jsonDirSet || jsonFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular metadata file for whole video directory")
-	}
-	if videoFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular video file AND video directory")
-	}
-
-	if videoFileSet {
-		viper.Set(keys.SingleFile, true)
-	}
-
-	// Get presets
-
-	switch viper.GetString(keys.InputPreset) {
-	case "censoredtv":
-		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
-		censoredTvPreset()
+	switch o {
+	case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
+		".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
+		".ts", ".vob", ".webm", ".wmv":
+		logging.PrintI("Outputting files as %s", o)
 	default:
-		// Do nothing
+		Set(keys.OutputFiletype, "")
 	}
-
-	err = initTextReplace()
-	if err != nil {
-		return err
-	}
-
-	err = initDateReplaceFormat()
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 package config
 
@@ -575,27 +684,6 @@ var RedError string = fmt.Sprintf("%v[ERROR] %v", ColorRed, ColorReset)
 var YellowDebug string = fmt.Sprintf("%v[DEBUG] %v", ColorYellow, ColorReset)
 var GreenSuccess string = fmt.Sprintf("%v[SUCCESS] %v", ColorGreen, ColorReset)
 var BlueInfo string = fmt.Sprintf("%v[Info] %v", ColorCyan, ColorReset)
-package domain
-
-import (
-	"os/exec"
-)
-
-func GrabLatestCommand(videoDir, targetURL string) *exec.Cmd {
-	return exec.Command(
-		"yt-dlp",
-		"--write-info-json",
-		"-P", videoDir,
-		"--external-downloader", "aria2c",
-		"--external-downloader-args", "-x 16 -s 16",
-		"--restrict-filenames",
-		"-o", "%(title)s.%(ext)s",
-		"--retries", "999",
-		"--retry-sleep", "10",
-		"--cookies-from-browser", "firefox",
-		targetURL,
-	)
-}
 package domain
 
 // File prefix and suffix
@@ -952,6 +1040,9 @@ const (
 	MDescDatePfx            string = "desc-date-prefix"
 	MDescDateSfx            string = "desc-date-suffix"
 	InputPreset             string = "preset"
+	MoveOnComplete          string = "output-directory"
+	OutputFiletype          string = "ext"
+	Benchmarking            string = "benchmark"
 )
 
 // Primary program
@@ -2993,7 +3084,16 @@ func WriteMetadata(m *types.FileData) error {
 	// Make temp output path with .mp4 extension
 	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
 
-	tempOutputFilePath := filepath.Join(dir, consts.TempTag+fileBase+filepath.Ext(originalVPath)+".mp4")
+	var tempOutputFilePath string
+	originalExt := filepath.Ext(originalVPath)
+	outputExt := config.GetString(keys.OutputFiletype)
+	switch {
+	case outputExt != "":
+		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+outputExt)
+	default:
+		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+originalExt)
+	}
+
 	m.TempOutputFilePath = tempOutputFilePath // Add to video file data struct
 
 	defer func() {
@@ -3018,7 +3118,13 @@ func WriteMetadata(m *types.FileData) error {
 
 	origPath := originalVPath
 	m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-	m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + ".mp4"
+
+	switch {
+	case outputExt != "":
+		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + outputExt
+	default:
+		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + originalExt
+	}
 
 	fmt.Printf(`
 
@@ -3193,13 +3299,8 @@ import (
 	"sync"
 )
 
-var (
-	muJWrite   sync.Mutex
-	muJRefresh sync.Mutex
-	muJDecode  sync.Mutex
-)
-
 type JSONFileRW struct {
+	mu   sync.RWMutex
 	Meta map[string]interface{}
 	File *os.File
 }
@@ -3215,8 +3316,8 @@ func NewJSONFileRW(file *os.File) *JSONFileRW {
 // DecodeMetadata parses and stores XML metadata into a map and returns it
 func (rw *JSONFileRW) DecodeMetadata(file *os.File) (map[string]interface{}, error) {
 
-	muJDecode.Lock()
-	defer muJDecode.Unlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -3245,8 +3346,8 @@ func (rw *JSONFileRW) DecodeMetadata(file *os.File) (map[string]interface{}, err
 // RefreshMetadata reloads the metadata map from the file after updates
 func (rw *JSONFileRW) RefreshMetadata() (map[string]interface{}, error) {
 
-	muJRefresh.Lock()
-	defer muJRefresh.Unlock()
+	rw.mu.RLock()
+	defer rw.mu.RUnlock()
 
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -3267,12 +3368,12 @@ func (rw *JSONFileRW) RefreshMetadata() (map[string]interface{}, error) {
 // WriteMetadata inserts metadata into the JSON file from a map
 func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]interface{}, error) {
 
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
 	logging.PrintD(3, "Entering WriteMetadata for file '%s'", rw.File.Name())
 	noFileOW := config.GetBool(keys.NoFileOverwrite)
 	metaOW := config.GetBool(keys.MOverwrite)
-
-	muJWrite.Lock()
-	defer muJWrite.Unlock()
 
 	if noFileOW {
 		err := backup.BackupFile(rw.File)
@@ -3423,7 +3524,9 @@ func (rw *JSONFileRW) refreshMetadataInternal(file *os.File) error {
 
 // writeMetadataToFile is a private metadata writing helper function
 func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-	// Write back to file
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("failed to truncate file: %w", err)
 	}
@@ -3764,13 +3867,8 @@ import (
 	"sync"
 )
 
-var (
-	muNWrite   sync.Mutex
-	muNRefresh sync.Mutex
-	muNDecode  sync.Mutex
-)
-
 type NFOFileRW struct {
+	mu    sync.RWMutex
 	Model *types.NFOData
 	Meta  string
 	File  *os.File
@@ -3786,8 +3884,8 @@ func NewNFOFileRW(file *os.File) *NFOFileRW {
 
 // DecodeMetadata decodes XML from a file into a map, stores, and returns it
 func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
-	muNDecode.Lock()
-	defer muNDecode.Unlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	// Read the entire file content first
 	content, err := io.ReadAll(file)
@@ -3824,8 +3922,8 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 // RefreshMetadata reloads the metadata map from the file after updates
 func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 
-	muNRefresh.Lock()
-	defer muNRefresh.Unlock()
+	rw.mu.RLock()
+	defer rw.mu.RUnlock()
 
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -3842,34 +3940,6 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 
 	return rw.Model, nil
 }
-
-// func (rw *NFOFileRW) WriteMetadata(fieldMap map[string]*string) error {
-
-// 	muNWrite.Lock()
-// 	defer muNWrite.Unlock()
-
-// 	file := rw.File
-
-// 	if err := file.Truncate(0); err != nil {
-// 		return fmt.Errorf("truncate file: %w", err)
-// 	}
-
-// 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-// 		return fmt.Errorf("seek file: %w", err)
-// 	}
-
-// 	// Use buffered writer for efficiency
-// 	writer := bufio.NewWriter(file)
-// 	if _, err := writer.Write(fieldMap); err != nil {
-// 		return fmt.Errorf("write content: %w", err)
-// 	}
-
-// 	if err := rw.refreshMetadataInternal(file); err != nil {
-// 		return fmt.Errorf("failed to refresh metadata: %w", err)
-// 	}
-
-// 	return writer.Flush()
-// }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
@@ -3974,6 +4044,7 @@ func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 
 // refreshMetadataInternal is a private metadata refresh function
 func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
+
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek file: %w", err)
 	}
@@ -3992,9 +4063,6 @@ func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 
 // writeMetadataToFile is a private metadata writing helper function
 func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-
-	muNWrite.Lock()
-	defer muNWrite.Unlock()
 
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("truncate file: %w", err)
@@ -4594,7 +4662,9 @@ import (
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/types"
 	logging "Metarr/internal/utils/logging"
+	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -4612,17 +4682,17 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 	var vidExt string
 	var metaExt string
 
-	for _, m := range dataArray {
+	for _, fd := range dataArray {
 
-		metaBase, metaDir, metaPath := getMetafileData(m)
+		metaBase, metaDir, metaPath := getMetafileData(fd)
 
 		if !skipVideos {
 			logging.PrintD(2, "Renaming video with data: %v...", metaPath)
-			vidExt = filepath.Ext(m.OriginalVideoPath)
+			vidExt = filepath.Ext(fd.OriginalVideoPath)
 			metaExt = filepath.Ext(metaPath)
 
 			logging.PrintD(2, "\n\nRename function fetched:\n\nVideo extension: %v\nVideo base name: %v\nMetafile extension: %v\nMetafile base name: %v\n\n", vidExt,
-				m.FinalVideoBaseName,
+				fd.FinalVideoBaseName,
 				metaExt,
 				metaBase)
 
@@ -4633,15 +4703,15 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 			logging.PrintD(2, "\n\nRename function fetched:\n\nMetafile extension: %v\nMetafile base name: %v\n\n", metaExt, metaBase)
 		}
 
-		renamedVideo = m.FinalVideoBaseName
+		renamedVideo = fd.FinalVideoBaseName
 		if !skipVideos {
-			renamedMeta = m.FinalVideoBaseName // Rename to the same base name as the video
+			renamedMeta = fd.FinalVideoBaseName // Rename to the same base name as the video
 		} else {
 			renamedMeta = metaBase
 		}
 
 		// Rename to spaces or underscores
-		renamedVideo, renamedMeta = spacesOrUnderscores(skipVideos, style, renamedVideo, renamedMeta, m)
+		renamedVideo, renamedMeta = spacesOrUnderscores(skipVideos, style, renamedVideo, renamedMeta, fd)
 
 		if !skipVideos {
 			logging.PrintD(2, "\n\nRename replacements:\n\nVideo: %v\nMetafile\n\n: %v", renamedVideo, renamedMeta)
@@ -4664,14 +4734,19 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 		}
 
 		// Add the metatag to the front of the filenames
-		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, m)
+		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
 
 		// Construct final output filepaths
-		renamedVideoOut := filepath.Join(m.VideoDirectory, renamedVideo+vidExt)
+		renamedVideoOut := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
 		renamedMetaOut := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		if err := writeResults(skipVideos, renamedVideoOut, renamedMetaOut, metaPath, m.FinalVideoPath); err != nil {
+		if err := writeResults(skipVideos, renamedVideoOut, renamedMetaOut, metaPath, fd.FinalVideoPath, fd); err != nil {
 			return err
+		}
+		if config.IsSet(keys.MoveOnComplete) {
+			if err := moveFile(fd); err != nil {
+				logging.PrintE(0, "Failed to move to destination folder: %v", err)
+			}
 		}
 	}
 	return nil
@@ -4692,7 +4767,8 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 }
 
 // writeResults executes the final commands to write the transformed files
-func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, finalVideoPath string) error {
+// WRITES THE FINAL FILENAME TO THE MODEL IF NO ERROR
+func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, finalVideoPath string, fd *types.FileData) error {
 
 	if !skipVideos {
 		logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", finalVideoPath, renamedVideoOut,
@@ -4705,6 +4781,8 @@ func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, fi
 		err := os.Rename(finalVideoPath, renamedVideoOut)
 		if err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", finalVideoPath, renamedVideoOut, err)
+		} else {
+			fd.RenamedVideo = renamedVideoOut
 		}
 	}
 
@@ -4712,6 +4790,8 @@ func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, fi
 		err := os.Rename(metaPath, renamedMetaOut)
 		if err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", metaPath, renamedMetaOut, err)
+		} else {
+			fd.RenamedMeta = renamedMetaOut
 		}
 	}
 	return nil
@@ -4862,6 +4942,183 @@ func filenameReplaceSuffix(renamedVideo, renamedMeta string) (string, string) {
 
 	return trimmedVideo, trimmedMeta
 }
+
+// moveFile moves files to specified location, handling cross-device moves
+func moveFile(fd *types.FileData) error {
+	if fd == nil {
+		return fmt.Errorf("passed model is null")
+	}
+
+	// Early return if move not specified
+	if !config.IsSet(keys.MoveOnComplete) {
+		return nil
+	}
+
+	videoSrc := fd.RenamedVideo
+	metaSrc := fd.RenamedMeta
+
+	// Verify at least one file exists to be moved
+	if videoSrc == "" && metaSrc == "" {
+		return nil
+	}
+
+	// Get and validate destination directory
+	dst := config.GetString(keys.MoveOnComplete)
+	dst = filepath.Clean(dst) // Handle path separators properly
+
+	// Check destination directory exists
+	check, err := os.Stat(dst)
+	if err != nil {
+		return fmt.Errorf("unable to stat destination folder '%s': %w", dst, err)
+	}
+	if !check.IsDir() {
+		return fmt.Errorf("destination path must be a folder: '%s'", dst)
+	}
+
+	// Move or copy video and metadata file
+	if videoSrc != "" {
+		videoBase := filepath.Base(videoSrc)
+		videoTarget := filepath.Join(dst, videoBase)
+		if err := moveOrCopyFile(videoSrc, videoTarget); err != nil {
+			return fmt.Errorf("failed to move video file: %w", err)
+		}
+	}
+	if metaSrc != "" {
+		metaBase := filepath.Base(metaSrc)
+		metaTarget := filepath.Join(dst, metaBase)
+		if err := moveOrCopyFile(metaSrc, metaTarget); err != nil {
+			return fmt.Errorf("failed to move metadata file: %w", err)
+		}
+	}
+	return nil
+}
+
+// copyFile copies a file to a target destination
+func copyFile(src, dst string) error {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
+	if src == dst {
+		logging.PrintI("Source file '%s' and destination file '%s' are the same, nothing to do", src, dst)
+		return nil
+	}
+
+	logging.PrintI("Copying:\n'%s'\nto\n'%s'...", src, dst)
+
+	// Validate source file
+	sourceInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to stat source file: %w", err)
+	}
+	if !sourceInfo.Mode().IsRegular() {
+		return fmt.Errorf("source is not a regular file: %s", src)
+	}
+	if sourceInfo.Size() == 0 {
+		return fmt.Errorf("source file is empty: %s", src)
+	}
+
+	// Check destination
+	if destInfo, err := os.Stat(dst); err == nil {
+		if os.SameFile(sourceInfo, destInfo) {
+			return nil // Same file
+		}
+		logging.PrintI("Destination file already exists: %s", dst)
+		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("error checking destination file: %w", err)
+	}
+
+	// Ensure destination directory exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Open source file
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer sourceFile.Close()
+
+	// Create destination file
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer func() {
+		destFile.Close()
+		if err != nil {
+			os.Remove(dst) // Clean up on error
+		}
+	}()
+
+	// Copy contents with buffer
+	bufferedSource := bufio.NewReaderSize(sourceFile, 4*1024*1024) // 1024 * 1024 is 1 MB
+	bufferedDest := bufio.NewWriterSize(destFile, 4*1024*1024)
+	defer bufferedDest.Flush()
+
+	buf := make([]byte, 4*1024*1024)
+
+	if _, err = io.CopyBuffer(bufferedDest, bufferedSource, buf); err != nil {
+		return fmt.Errorf("failed to copy file contents: %w", err)
+	}
+
+	// Sync to ensure write is complete
+	if err = destFile.Sync(); err != nil {
+		return fmt.Errorf("failed to sync destination file: %w", err)
+	}
+
+	// Set same permissions as source
+	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to set file permissions: %w", err)
+	}
+
+	// Verify destination file
+	check, err := destFile.Stat()
+	if err != nil {
+		return fmt.Errorf("error statting destination file: %w", err)
+	}
+	if check.Size() != sourceInfo.Size() {
+		return fmt.Errorf("destination file size (%d) does not match source size (%d)",
+			check.Size(), sourceInfo.Size())
+	}
+	return nil
+}
+
+// moveOrCopyFile attempts rename first, falls back to copy+delete for cross-device moves
+func moveOrCopyFile(src, dst string) error {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
+	if src == dst {
+		return nil // Same file, nothing to do
+	}
+
+	// Try rename first
+	err := os.Rename(src, dst)
+	if err == nil {
+		return nil
+	}
+
+	// If cross-device error, fall back to copy+delete
+	if strings.Contains(err.Error(), "invalid cross-device link") {
+		logging.PrintD(1, "Falling back to copy for moving %s to %s", src, dst)
+
+		// Copy the file
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("failed to copy file: %w", err)
+		}
+
+		// Remove source after successful copy
+		if err := os.Remove(src); err != nil {
+			logging.PrintE(0, "Failed to remove source file after copy: %v", err)
+			// Continue anyway since copy was successful
+		}
+		return nil
+	}
+
+	return fmt.Errorf("failed to move file: %w", err)
+}
 package types
 
 import (
@@ -4889,6 +5146,8 @@ type FileData struct {
 	FinalVideoBaseName    string   `json:"-" xml:"-"`
 	FilenameMetaPrefix    string   `json:"-" xml:"-"`
 	FilenameDateTag       string   `json:"-" xml:"-"`
+	RenamedVideo          string   `json:"-"`
+	RenamedMeta           string   `json:"-"`
 	VideoFile             *os.File `json:"-" xml:"-"`
 	// JSON paths
 	JSONDirectory string `json:"-" xml:"-"`
@@ -5180,15 +5439,11 @@ func keysFromMap(m map[string]bool) []string {
 package utils
 
 import (
-	"Metarr/internal/config"
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
-	"bufio"
 	"fmt"
 	"net/http"
-	"os"
 	"regexp"
 	"strings"
 
@@ -5310,140 +5565,6 @@ func looksLikeDate(s string) bool {
 	// If it has at least two of: month, day, year, it's probably a date
 	return (hasMonth && hasDay) || (hasMonth && hasYear) || (hasDay && hasYear)
 }
-
-// GrabNewEpisodeURLs checks for new episode URLs containing "/episode/" that are not yet in grabbed-urls.txt
-func GrabNewEpisodeURLs(targetURL string, cookies []*http.Cookie) ([]string, error) {
-	c := colly.NewCollector()
-
-	for _, cookie := range cookies {
-		c.SetCookies(targetURL, []*http.Cookie{cookie})
-	}
-
-	var episodeURLs []string
-
-	// Scrape all links that contain "/episode/"
-	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		link := e.Request.AbsoluteURL(e.Attr("href"))
-		if strings.Contains(link, "/episode/") {
-			episodeURLs = append(episodeURLs, link)
-		}
-	})
-
-	// Visit the target URL
-	err := c.Visit(targetURL)
-	if err != nil {
-		return nil, fmt.Errorf("error visiting webpage (%s): %v", targetURL, err)
-	}
-
-	// Load existing URLs from grabbed-urls.txt
-	existingURLs, err := loadURLsFromFile("grabbed-urls.txt")
-	if err != nil {
-		return nil, fmt.Errorf("error reading grabbed URLs file: %v", err)
-	}
-
-	// Filter out URLs that are already in grabbed-urls.txt
-	var newURLs []string
-	for _, url := range episodeURLs {
-		if _, exists := existingURLs[url]; !exists {
-			newURLs = append(newURLs, url)
-		}
-	}
-
-	for _, entry := range newURLs {
-		command := consts.GrabLatestCommand(config.GetString(keys.VideoDir), entry)
-
-		logging.PrintI(command.String())
-
-		command.Stdout = os.Stdout
-		command.Stderr = os.Stderr
-
-		if err = command.Run(); err != nil {
-			logging.PrintE(0, err.Error())
-			// EXIT ON COMMAND FAIL
-			os.Exit(1)
-		}
-	}
-
-	// Append new URLs to the file and return them
-	if len(newURLs) > 0 {
-		if err := appendURLsToFile("grabbed-urls.txt", newURLs); err != nil {
-			return nil, fmt.Errorf("error appending new URLs to file: %v", err)
-		}
-	} else {
-		logging.PrintI("No new videos at %s, exiting program...", targetURL)
-		// EXIT IF NO NEW VIDEOS
-		os.Exit(0)
-	}
-	return newURLs, nil
-}
-
-// loadURLsFromFile reads URLs from a file and returns them as a map for quick lookup
-func loadURLsFromFile(filename string) (map[string]struct{}, error) {
-	videoDir := config.GetString(keys.VideoDir)
-	var filepath string
-
-	switch strings.HasSuffix(videoDir, "/") {
-	case false:
-		filepath = videoDir + "/" + filename
-	default:
-		filepath = videoDir + filename
-	}
-
-	file, err := os.Open(filepath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	urlMap := make(map[string]struct{})
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		url := scanner.Text()
-		urlMap[url] = struct{}{}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return urlMap, nil
-}
-
-// appendURLsToFile appends new URLs to the specified file
-func appendURLsToFile(filename string, urls []string) error {
-	logging.PrintD(2, "Appending URLs to file... %v", urls)
-	file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Track URLs that have already been written
-	written := make(map[string]bool)
-
-	// Load existing URLs from the file into the map
-	existingFile, err := os.Open(filename)
-	if err == nil {
-		defer existingFile.Close()
-		var line string
-		for scanner := bufio.NewScanner(existingFile); scanner.Scan(); {
-			line = scanner.Text()
-			written[line] = true
-		}
-	}
-
-	// Append only new URLs to the file
-	for _, url := range urls {
-		if !written[url] {
-			if _, err := file.WriteString(url + "\n"); err != nil {
-				return err
-			}
-			written[url] = true
-		}
-	}
-
-	return nil
-}
 package utils
 
 import (
@@ -5459,7 +5580,6 @@ import (
 // createBackup creates a backup copy of the original file before modifying it.
 func BackupFile(file *os.File) error {
 
-	// Get the original filename
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)
@@ -5472,14 +5592,15 @@ func BackupFile(file *os.File) error {
 	}
 	defer backupFile.Close()
 
-	// Seek to the beginning of the original file
+	// Seek to the beginning of the original file (not the backup file)
 	_, err = file.Seek(0, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("failed to seek to beginning of original file: %w", err)
 	}
 
 	// Copy the content of the original file to the backup file
-	_, err = io.Copy(backupFile, file)
+	buf := make([]byte, 32*1024)
+	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
 	}
@@ -5525,6 +5646,28 @@ import (
 	"strings"
 )
 
+// Variable cache
+var (
+	videoExtensions []string
+	inputPrefixes   []string
+	metaExtensions  = []string{".json", ".nfo"}
+)
+
+// InitFetchFilesVars sets up the cached variables to be used in file fetching ops
+func InitFetchFilesVars() error {
+
+	if inExts, ok := config.Get(keys.InputExtsEnum).([]enums.ConvertFromFiletype); ok {
+		videoExtensions = SetExtensions(inExts)
+	} else {
+		return fmt.Errorf("wrong type sent in. Received type %T", inExts)
+	}
+
+	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
+	metaExtensions = []string{".json", ".nfo"}
+
+	return nil
+}
+
 // GetVideoFiles fetches video files from a directory
 func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
@@ -5532,23 +5675,9 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 		return nil, fmt.Errorf("error reading video directory: %w", err)
 	}
 
-	convertFrom := config.Get(keys.InputExtsEnum).([]enums.ConvertFromFiletype)
-	videoExtensions := SetExtensions(convertFrom)
-	inputPrefixFilters := config.GetStringSlice(keys.FilePrefixes)
-	inputPrefixes := SetPrefixFilter(inputPrefixFilters)
+	logging.Print("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
 
-	fmt.Printf(`
-
-Filtering directory: %s:
-
-File extensions: %v
-File prefixes: %v
-
-`, videoDir.Name(),
-		videoExtensions,
-		inputPrefixes)
-
-	videoFiles := make(map[string]*types.FileData)
+	videoFiles := make(map[string]*types.FileData, len(files))
 
 	for _, file := range files {
 		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) && HasPrefix(file.Name(), inputPrefixes) {
@@ -5561,11 +5690,10 @@ File prefixes: %v
 
 			if !strings.HasSuffix(m.OriginalVideoBaseName, consts.OldTag) {
 				videoFiles[file.Name()] = m
+				logging.PrintI("Added video to queue: %v", filenameBase)
 			} else {
 				logging.PrintI("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.OldTag)
 			}
-
-			logging.PrintI(`Added video to queue: %v`, filenameBase)
 		}
 	}
 
@@ -5582,59 +5710,45 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 		return nil, fmt.Errorf("error reading metadata directory: %w", err)
 	}
 
-	metaExtensions := []string{".json", ".nfo"}
-	inputPrefixFilters := config.GetStringSlice(keys.FilePrefixes)
-	inputPrefixes := SetPrefixFilter(inputPrefixFilters)
+	metaFiles := make(map[string]*types.FileData, len(files))
 
-	metaFiles := make(map[string]*types.FileData)
+	for _, file := range files {
+		if !file.IsDir() && HasPrefix(file.Name(), inputPrefixes) {
+			ext := filepath.Ext(file.Name())
+			if ext != ".json" && ext != ".nfo" {
+				continue
+			}
 
-	for _, extension := range metaExtensions {
-		for _, file := range files {
-			if !file.IsDir() && strings.HasSuffix(file.Name(), extension) && HasPrefix(file.Name(), inputPrefixes) {
+			filenameBase := filepath.Base(file.Name())
+			baseName := strings.TrimSuffix(filenameBase, ext)
 
-				logging.PrintD(3, "Iterating over file '%s'", file.Name())
+			m := types.NewFileData()
+			filePath := filepath.Join(metaDir.Name(), file.Name())
 
-				filenameBase := filepath.Base(file.Name())
+			switch ext {
+			case ".json":
+				logging.PrintD(1, "Detected JSON file '%s'", file.Name())
+				m.JSONFilePath = filePath
+				m.JSONBaseName = baseName
+				m.JSONDirectory = metaDir.Name()
+				m.MetaFileType = enums.METAFILE_JSON
 
-				logging.PrintD(3, "Made base name for file: %s", filenameBase)
+			case ".nfo":
+				logging.PrintD(1, "Detected NFO file '%s'", file.Name())
+				m.NFOFilePath = filePath
+				m.NFOBaseName = baseName
+				m.NFODirectory = metaDir.Name()
+				m.MetaFileType = enums.METAFILE_NFO
+			}
 
-				m := types.NewFileData()
-
-				filePath := filepath.Join(metaDir.Name(), file.Name())
-				baseName := strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
-
-				logging.PrintD(3, "Filepath and base name: %s, %s", filePath, baseName)
-
-				switch filepath.Ext(filePath) {
-				case ".json":
-					logging.PrintD(1, "Detected JSON file '%s'", file.Name())
-					m.JSONFilePath = filePath
-					m.JSONBaseName = baseName
-					m.JSONDirectory = metaDir.Name()
-
-					m.MetaFileType = enums.METAFILE_JSON
-
-					logging.PrintD(3, "Meta file type set in model to %v", m.MetaFileType)
-
-				case ".nfo":
-					logging.PrintD(1, "Detected NFO file '%s'", file.Name())
-					m.NFOFilePath = filePath
-					m.NFOBaseName = baseName
-					m.NFODirectory = metaDir.Name()
-
-					m.MetaFileType = enums.METAFILE_NFO
-
-					logging.PrintD(3, "Meta file type set in model to %v", m.MetaFileType)
-				}
-
-				if !strings.Contains(baseName, consts.OldTag) {
-					metaFiles[file.Name()] = m
-				} else {
-					logging.PrintI("Skipping file '%s' containing backup tag ('%s')", m.JSONBaseName, consts.OldTag)
-				}
+			if !strings.Contains(baseName, consts.OldTag) {
+				metaFiles[file.Name()] = m
+			} else {
+				logging.PrintI("Skipping file '%s' containing backup tag ('%s')", baseName, consts.OldTag)
 			}
 		}
 	}
+
 	if len(metaFiles) == 0 {
 		return nil, fmt.Errorf("no meta files with extensions: %v and prefixes: %v found in directory: %s", metaExtensions, inputPrefixes, metaDir.Name())
 	}
@@ -5645,95 +5759,86 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 
 // GetSingleVideoFile handles a single video file
 func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) {
-	videoMap := make(map[string]*types.FileData)
-
-	// Extract information for the video file
+	videoMap := make(map[string]*types.FileData, 1)
 	filename := filepath.Base(videoFile.Name())
-	videoData := &types.FileData{
-		OriginalVideoPath:     videoFile.Name(),
-		OriginalVideoBaseName: strings.TrimSuffix(filename, filepath.Ext(filename)),
-		VideoDirectory:        filepath.Dir(videoFile.Name()),
-	}
 
-	// Add to map with filename as key
+	videoData := types.NewFileData()
+	videoData.OriginalVideoPath = videoFile.Name()
+	videoData.OriginalVideoBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
+	videoData.VideoFile = videoFile
+
+	logging.PrintD(3, "Created video file data for single file: %s", filename)
+
 	videoMap[filename] = videoData
-
 	return videoMap, nil
 }
 
 // GetSingleMetadataFile handles a single metadata file
 func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error) {
-	metaMap := make(map[string]*types.FileData)
+	metaMap := make(map[string]*types.FileData, 1)
 	filename := filepath.Base(metaFile.Name())
-	fileData := &types.FileData{}
 
-	// Determine file type and set paths based on extension
-	switch filepath.Ext(metaFile.Name()) {
+	fileData := types.NewFileData()
+	ext := filepath.Ext(metaFile.Name())
+
+	switch ext {
 	case ".json":
 		fileData.MetaFileType = enums.METAFILE_JSON
 		fileData.JSONFilePath = metaFile.Name()
-		fileData.JSONBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+		fileData.JSONBaseName = strings.TrimSuffix(filename, ext)
 		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
+		logging.PrintD(3, "Created JSON metadata file data for single file: %s", filename)
+
 	case ".nfo":
 		fileData.MetaFileType = enums.METAFILE_NFO
 		fileData.NFOFilePath = metaFile.Name()
-		fileData.NFOBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+		fileData.NFOBaseName = strings.TrimSuffix(filename, ext)
 		fileData.NFODirectory = filepath.Dir(metaFile.Name())
+		logging.PrintD(3, "Created NFO metadata file data for single file: %s", filename)
+
 	default:
-		return nil, fmt.Errorf("unsupported metadata file type: %s", filepath.Ext(metaFile.Name()))
+		return nil, fmt.Errorf("unsupported metadata file type: %s", ext)
 	}
 
-	// Add to map with filename as key
 	metaMap[filename] = fileData
-
 	return metaMap, nil
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*types.FileData) (map[string]*types.FileData, error) {
-
 	logging.PrintD(3, "Entering metadata and video file matching loop...")
 
-	matchedFiles := make(map[string]*types.FileData)
+	matchedFiles := make(map[string]*types.FileData, len(videoFiles))
 
 	specialChars := regexp.MustCompile(`[^\w\s-]`)
 	extraSpaces := regexp.MustCompile(`\s+`)
 
-	for videoName, videoData := range videoFiles {
+	// Pre-process metaFiles into a lookup map
+	metaLookup := make(map[string]*types.FileData)
+	for metaName, metaData := range metaFiles {
+		baseKey := NormalizeFilename(TrimMetafileSuffixes(metaName, ""), specialChars, extraSpaces)
+		metaLookup[baseKey] = metaData
+	}
 
-		// Normalize video name
+	for videoName, videoData := range videoFiles {
 		videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
 		normalizedVideoBase := NormalizeFilename(videoBase, specialChars, extraSpaces)
-		logging.PrintD(3, "Normalized video base: %s", normalizedVideoBase)
 
-		for metaName, metaData := range metaFiles {
+		if metaData, exists := metaLookup[normalizedVideoBase]; exists {
+			matchedFiles[videoName] = videoData
+			matchedFiles[videoName].MetaFileType = metaData.MetaFileType
 
-			metaBase := TrimMetafileSuffixes(metaName, videoBase)
-			normalizedMetaBase := NormalizeFilename(metaBase, specialChars, extraSpaces)
-			logging.PrintD(3, "Normalized metadata base: %s", normalizedMetaBase)
+			switch metaData.MetaFileType {
+			case enums.METAFILE_JSON:
+				matchedFiles[videoName].JSONFilePath = metaData.JSONFilePath
+				matchedFiles[videoName].JSONBaseName = metaData.JSONBaseName
+				matchedFiles[videoName].JSONDirectory = metaData.JSONDirectory
 
-			if strings.Contains(normalizedMetaBase, normalizedVideoBase) {
-				matchedFiles[videoName] = videoData
-				matchedFiles[videoName].MetaFileType = metaData.MetaFileType
-
-				logging.PrintD(3, "Entering meta filetype switch for matching videos and metadata...")
-
-				switch videoData.MetaFileType {
-
-				case enums.METAFILE_JSON:
-
-					logging.PrintD(3, "Detected JSON")
-					matchedFiles[videoName].JSONFilePath = metaData.JSONFilePath
-					matchedFiles[videoName].JSONBaseName = metaData.JSONBaseName
-					matchedFiles[videoName].JSONDirectory = metaData.JSONDirectory
-
-				case enums.METAFILE_NFO:
-
-					logging.PrintD(3, "Detected NFO")
-					matchedFiles[videoName].NFOFilePath = metaData.NFOFilePath
-					matchedFiles[videoName].NFOBaseName = metaData.NFOBaseName
-					matchedFiles[videoName].NFODirectory = metaData.NFODirectory
-				}
+			case enums.METAFILE_NFO:
+				matchedFiles[videoName].NFOFilePath = metaData.NFOFilePath
+				matchedFiles[videoName].NFOBaseName = metaData.NFOBaseName
+				matchedFiles[videoName].NFODirectory = metaData.NFODirectory
 			}
 		}
 	}
@@ -5749,6 +5854,8 @@ package utils
 import (
 	enums "Metarr/internal/domain/enums"
 	logging "Metarr/internal/utils/logging"
+	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -5832,6 +5939,29 @@ func SetPrefixFilter(inputPrefixFilters []string) []string {
 	prefixFilters = append(prefixFilters, inputPrefixFilters...)
 
 	return prefixFilters
+}
+
+// GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized
+func GetDirStats(dir string) (vidCount, metaCount int) {
+	// Quick initial scan just counting files, not storing anything
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return 0, 0
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			ext := strings.ToLower(filepath.Ext(entry.Name()))
+			switch ext {
+			case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
+				".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
+				".ts", ".vob", ".webm", ".wmv":
+				vidCount++
+			case ".json", ".nfo":
+				metaCount++
+			}
+		}
+	}
+	return vidCount, metaCount
 }
 package utils
 
@@ -6355,22 +6485,72 @@ import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/processing"
-	browser "Metarr/internal/utils/browser"
+	fs "Metarr/internal/utils/fs"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/pprof"
+	"runtime/trace"
 	"sync"
 	"syscall"
+	"time"
 )
+
+var startTime time.Time
+
+func init() {
+	startTime = time.Now()
+}
 
 func main() {
 
 	var err error
 	var directory string
+
+	// TESTING FUNCTIONS
+	if config.GetBool(keys.Benchmarking) {
+		// CPU profile
+		cpuFile, err := os.Create("cpu.prof")
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		defer cpuFile.Close() // Don't forget to close the file
+		if err := pprof.StartCPUProfile(cpuFile); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+
+		// Memory profile
+		memFile, err := os.Create("mem.prof")
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		defer memFile.Close()
+		defer func() {
+			if config.GetBool(keys.Benchmarking) {
+				if err := pprof.WriteHeapProfile(memFile); err != nil {
+					log.Fatal("could not write memory profile: ", err)
+				}
+			}
+		}()
+
+		// Trace
+		traceFile, err := os.Create("trace.out")
+		if err != nil {
+			log.Fatal("could not create trace file: ", err)
+		}
+		defer traceFile.Close()
+		if err := trace.Start(traceFile); err != nil {
+			log.Fatal("could not start trace: ", err)
+		}
+		defer trace.Stop()
+	}
+	// END OF TESTING FUNCTIONS: MEM TEST WRITE AT BOTTOM
 
 	if err := config.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -6475,6 +6655,11 @@ Reason: %s
 		os.Exit(1)
 	}
 
+	if err := fs.InitFetchFilesVars(); err != nil {
+		logging.PrintE(0, "Failed to initialize variables to fetch files. Exiting...")
+		os.Exit(1)
+	}
+
 	// Program control
 	var wg sync.WaitGroup
 	config.Set(keys.WaitGroup, &wg)
@@ -6491,56 +6676,10 @@ Reason: %s
 		fmt.Println()
 		os.Exit(1)
 	}
-
-	fetchNewFromURL := config.GetString(keys.GetLatest)
-	if fetchNewFromURL != "" {
-		logging.PrintD(1, "Checking URL '%s' for new videos", fetchNewFromURL)
-
-		if cookies, err := browser.GetBrowserCookies(fetchNewFromURL); err == nil {
-			if _, err := browser.GrabNewEpisodeURLs(fetchNewFromURL, cookies); err != nil {
-				logging.PrintE(0, err.Error())
-			}
-			config.AutoPreset(fetchNewFromURL)
-		}
-	} else {
-		logging.PrintD(2, "No URL to check for new videos, skipping...")
-	}
-
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
-}
 
-// NOT YET IMPLEMENTED
-// setupInputFiles sets up the directory string
-func setupInputFiles() (directory string, openVideo, openJson *os.File, err error) {
-	if config.IsSet(keys.VideoDir) {
-		directory = config.GetString(keys.VideoDir)
-		openVideo, err = os.Open(directory)
-	} else if config.IsSet(keys.VideoFile) {
-		inputVideo := config.GetString(keys.VideoFile)
-		openVideo, err = os.Open(inputVideo)
-		directory = filepath.Dir(inputVideo)
-	}
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("error opening video file/directory: %v", err)
-	}
-
-	if config.IsSet(keys.JsonDir) {
-		if directory == "" {
-			directory = config.GetString(keys.JsonDir)
-		}
-		openJson, err = os.Open(config.GetString(keys.JsonDir))
-	} else if config.IsSet(keys.JsonFile) {
-		inputMeta := config.GetString(keys.JsonFile)
-		if directory == "" {
-			directory = filepath.Dir(inputMeta)
-		}
-		openJson, err = os.Open(inputMeta)
-	}
-	if err != nil {
-		return "", openVideo, nil, fmt.Errorf("error opening metadata file/directory: %v", err)
-	}
-	return directory, openVideo, openJson, nil
+	logging.PrintI("Time elapsed: %v", time.Since(startTime).Seconds())
 }

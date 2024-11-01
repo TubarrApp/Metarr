@@ -16,13 +16,8 @@ import (
 	"sync"
 )
 
-var (
-	muJWrite   sync.Mutex
-	muJRefresh sync.Mutex
-	muJDecode  sync.Mutex
-)
-
 type JSONFileRW struct {
+	mu   sync.RWMutex
 	Meta map[string]interface{}
 	File *os.File
 }
@@ -38,8 +33,8 @@ func NewJSONFileRW(file *os.File) *JSONFileRW {
 // DecodeMetadata parses and stores XML metadata into a map and returns it
 func (rw *JSONFileRW) DecodeMetadata(file *os.File) (map[string]interface{}, error) {
 
-	muJDecode.Lock()
-	defer muJDecode.Unlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -68,8 +63,8 @@ func (rw *JSONFileRW) DecodeMetadata(file *os.File) (map[string]interface{}, err
 // RefreshMetadata reloads the metadata map from the file after updates
 func (rw *JSONFileRW) RefreshMetadata() (map[string]interface{}, error) {
 
-	muJRefresh.Lock()
-	defer muJRefresh.Unlock()
+	rw.mu.RLock()
+	defer rw.mu.RUnlock()
 
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -90,12 +85,12 @@ func (rw *JSONFileRW) RefreshMetadata() (map[string]interface{}, error) {
 // WriteMetadata inserts metadata into the JSON file from a map
 func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]interface{}, error) {
 
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
 	logging.PrintD(3, "Entering WriteMetadata for file '%s'", rw.File.Name())
 	noFileOW := config.GetBool(keys.NoFileOverwrite)
 	metaOW := config.GetBool(keys.MOverwrite)
-
-	muJWrite.Lock()
-	defer muJWrite.Unlock()
 
 	if noFileOW {
 		err := backup.BackupFile(rw.File)
@@ -246,7 +241,9 @@ func (rw *JSONFileRW) refreshMetadataInternal(file *os.File) error {
 
 // writeMetadataToFile is a private metadata writing helper function
 func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-	// Write back to file
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("failed to truncate file: %w", err)
 	}
@@ -351,7 +348,7 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 	}
 
 	logging.PrintD(3, "Retrieved additions for new field data: %v", new)
-	processedFields := make(map[string]bool)
+	processedFields := make(map[string]bool, len(new))
 
 	newAddition := false
 	ctx := context.Background()

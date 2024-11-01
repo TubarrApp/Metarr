@@ -31,6 +31,7 @@ const (
 	InputPreset             string = "preset"
 	MoveOnComplete          string = "output-directory"
 	OutputFiletype          string = "ext"
+	Benchmarking            string = "benchmark"
 )
 
 // Primary program

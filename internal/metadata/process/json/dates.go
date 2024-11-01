@@ -16,7 +16,6 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 	t := fd.MDates
 	w := fd.MWebData
 
-	printMap := make(map[string]string)
 	var err error
 	var gotRelevantDate bool
 
@@ -34,6 +33,8 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 	if ok := unpackJSON("date", fieldMap, data); !ok {
 		logging.PrintE(1, "Failed to unpack date JSON, no dates currently exist in file?")
 	}
+
+	printMap := make(map[string]string, len(fieldMap))
 
 	for key, value := range data {
 		if strVal, ok := value.(string); ok {

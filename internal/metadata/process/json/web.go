@@ -12,8 +12,8 @@ func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
 
 	w := fd.MWebData
 
-	printMap := make(map[string]string)
 	priorityMap := []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
+	printMap := make(map[string]string, len(priorityMap))
 
 	var isFilled bool
 
