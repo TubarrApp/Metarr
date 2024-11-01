@@ -71,7 +71,16 @@ func WriteMetadata(m *types.FileData) error {
 	// Make temp output path with .mp4 extension
 	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
 
-	tempOutputFilePath := filepath.Join(dir, consts.TempTag+fileBase+filepath.Ext(originalVPath)+".mp4")
+	var tempOutputFilePath string
+	originalExt := filepath.Ext(originalVPath)
+	outputExt := config.GetString(keys.OutputFiletype)
+	switch {
+	case outputExt != "":
+		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+outputExt)
+	default:
+		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+originalExt)
+	}
+
 	m.TempOutputFilePath = tempOutputFilePath // Add to video file data struct
 
 	defer func() {
@@ -96,7 +105,13 @@ func WriteMetadata(m *types.FileData) error {
 
 	origPath := originalVPath
 	m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-	m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + ".mp4"
+
+	switch {
+	case outputExt != "":
+		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + outputExt
+	default:
+		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + originalExt
+	}
 
 	fmt.Printf(`
 

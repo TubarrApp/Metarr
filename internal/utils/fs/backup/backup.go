@@ -13,7 +13,6 @@ import (
 // createBackup creates a backup copy of the original file before modifying it.
 func BackupFile(file *os.File) error {
 
-	// Get the original filename
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)
@@ -26,7 +25,7 @@ func BackupFile(file *os.File) error {
 	}
 	defer backupFile.Close()
 
-	// Seek to the beginning of the original file
+	// Seek to the beginning of the original file (not the backup file)
 	_, err = file.Seek(0, io.SeekStart)
 	if err != nil {
 		return fmt.Errorf("failed to seek to beginning of original file: %w", err)

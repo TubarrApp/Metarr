@@ -5,6 +5,7 @@ import (
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"strings"
 
 	"github.com/shirou/gopsutil/mem"
 	"github.com/spf13/cobra"
@@ -96,6 +97,9 @@ func init() {
 
 	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
 	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
+
+	rootCmd.PersistentFlags().StringP(keys.OutputFiletype, "o", "", "File extension to output as (mp4 works best for most media servers)")
+	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
 
 	// Special functions
 	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
@@ -269,6 +273,8 @@ func execute() error {
 		// Do nothing
 	}
 
+	verifyOutputFiletype()
+
 	err = initTextReplace()
 	if err != nil {
 		return err
@@ -280,4 +286,21 @@ func execute() error {
 	}
 
 	return nil
+}
+
+// Verify the output filetype is valid for FFmpeg
+func verifyOutputFiletype() {
+	o := GetString(keys.OutputFiletype)
+	if !strings.HasPrefix(o, ".") {
+		o = "." + o
+		Set(keys.OutputFiletype, o)
+	}
+	switch o {
+	case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
+		".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
+		".ts", ".vob", ".webm", ".wmv":
+		logging.PrintI("Outputting files as %s", o)
+	default:
+		Set(keys.OutputFiletype, "")
+	}
 }
