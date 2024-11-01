@@ -241,8 +241,6 @@ func (rw *JSONFileRW) refreshMetadataInternal(file *os.File) error {
 
 // writeMetadataToFile is a private metadata writing helper function
 func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-	rw.mu.Lock()
-	defer rw.mu.Unlock()
 
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("failed to truncate file: %w", err)

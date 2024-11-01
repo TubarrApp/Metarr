@@ -32,13 +32,21 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 
 	dataFilled := unpackJSON("credits", fieldMap, data)
 
-	if !dataFilled {
-		for _, val := range fieldMap {
-			if val != nil && *val == "" {
-				continue
-			} else {
+	// Check if filled
+	for key, val := range fieldMap {
+		if val == nil {
+			logging.PrintE(0, "Value is null")
+			continue
+		}
+		if *val == "" {
+			logging.PrintD(2, "Value for '%s' is empty, attempting to fill by inference...", key)
+			*val = fillEmptyCredits(c)
+			logging.PrintD(2, "Set value to '%s'", *val)
+			if *val != "" {
 				dataFilled = true
 			}
+		} else if *val != "" {
+			dataFilled = true
 		}
 	}
 
@@ -80,4 +88,49 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 
 	}
 	return data, false
+}
+
+// fillEmptyCredits attempts to fill empty fields by inference
+func fillEmptyCredits(c *types.MetadataCredits) string {
+
+	// Order by importance
+	switch {
+	case c.Creator != "":
+		return c.Creator
+
+	case c.Author != "":
+		return c.Author
+
+	case c.Publisher != "":
+		return c.Publisher
+
+	case c.Producer != "":
+		return c.Producer
+
+	case c.Actor != "":
+		return c.Actor
+
+	case c.Performer != "":
+		return c.Performer
+
+	case c.Uploader != "":
+		return c.Uploader
+
+	case c.Artist != "":
+		return c.Artist
+
+	case c.Director != "":
+		return c.Director
+
+	case c.Studio != "":
+		return c.Studio
+
+	case c.Writer != "":
+		return c.Writer
+
+	case c.Composer != "":
+		return c.Composer
+	default:
+		return ""
+	}
 }
