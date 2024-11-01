@@ -183,18 +183,18 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*types.FileData) (m
 	extraSpaces := regexp.MustCompile(`\s+`)
 
 	// Pre-process metaFiles into a lookup map
-	metaLookup := make(map[string]*types.FileData)
+	metaLookup := make(map[string]*types.FileData, len(metaFiles))
 	for metaName, metaData := range metaFiles {
 		baseKey := NormalizeFilename(TrimMetafileSuffixes(metaName, ""), specialChars, extraSpaces)
 		metaLookup[baseKey] = metaData
 	}
 
-	for videoName, videoData := range videoFiles {
+	for videoName := range videoFiles {
 		videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
 		normalizedVideoBase := NormalizeFilename(videoBase, specialChars, extraSpaces)
 
-		if metaData, exists := metaLookup[normalizedVideoBase]; exists {
-			matchedFiles[videoName] = videoData
+		if metaData, exists := metaLookup[normalizedVideoBase]; exists { // This checks if the key exists in the metaLookup map
+			matchedFiles[videoName] = videoFiles[videoName]
 			matchedFiles[videoName].MetaFileType = metaData.MetaFileType
 
 			switch metaData.MetaFileType {
