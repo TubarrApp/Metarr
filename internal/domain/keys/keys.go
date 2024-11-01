@@ -29,8 +29,8 @@ const (
 	MDescDatePfx            string = "desc-date-prefix"
 	MDescDateSfx            string = "desc-date-suffix"
 	InputPreset             string = "preset"
-	MoveOnComplete          string = "move-on-complete"
-	OutputFiletype          string = "output-filetype"
+	MoveOnComplete          string = "output-directory"
+	OutputFiletype          string = "ext"
 )
 
 // Primary program
