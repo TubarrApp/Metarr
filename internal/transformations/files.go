@@ -111,6 +111,7 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 }
 
 // writeResults executes the final commands to write the transformed files
+// WRITES THE FINAL FILENAME TO THE MODEL IF NO ERROR
 func writeResults(skipVideos bool, renamedVideoOut, renamedMetaOut, metaPath, finalVideoPath string, fd *types.FileData) error {
 
 	if !skipVideos {
@@ -286,133 +287,174 @@ func filenameReplaceSuffix(renamedVideo, renamedMeta string) (string, string) {
 	return trimmedVideo, trimmedMeta
 }
 
-// moveFile moves the file(s) to the specified location on completion,
-// either by renaming or by copying if cross-device
+// moveFile moves files to specified location, handling cross-device moves
 func moveFile(fd *types.FileData) error {
-
 	if fd == nil {
-		return fmt.Errorf("passed model in null")
+		return fmt.Errorf("passed model is null")
 	}
+
+	// Early return if move not specified
+	if !config.IsSet(keys.MoveOnComplete) {
+		return nil
+	}
+
 	videoSrc := fd.RenamedVideo
 	metaSrc := fd.RenamedMeta
 
-	if videoSrc != "" && config.IsSet(keys.MoveOnComplete) {
-		dst := config.GetString(keys.MoveOnComplete)
-		if !strings.HasSuffix(dst, "/") {
-			dst += "/"
+	// Verify at least one file exists to be moved
+	if videoSrc == "" && metaSrc == "" {
+		return nil
+	}
+
+	// Get and validate destination directory
+	dst := config.GetString(keys.MoveOnComplete)
+	dst = filepath.Clean(dst) // Handle path separators properly
+
+	// Check destination directory exists
+	check, err := os.Stat(dst)
+	if err != nil {
+		return fmt.Errorf("unable to stat destination folder '%s': %w", dst, err)
+	}
+	if !check.IsDir() {
+		return fmt.Errorf("destination path must be a folder: '%s'", dst)
+	}
+
+	// Move or copy video and metadata file
+	if videoSrc != "" {
+		videoBase := filepath.Base(videoSrc)
+		videoTarget := filepath.Join(dst, videoBase)
+		if err := moveOrCopyFile(videoSrc, videoTarget); err != nil {
+			return fmt.Errorf("failed to move video file: %w", err)
 		}
-		if check, err := os.Stat(dst); err != nil {
-			return fmt.Errorf("unable to stat destination folder '%s': %w", videoSrc, err)
-		} else if !check.IsDir() {
-			return fmt.Errorf("destination path must be a folder. Sent in '%s'", videoSrc)
-		} else {
-			videoBase := filepath.Base(videoSrc)
-			metaBase := filepath.Base(metaSrc)
-			videoTarget := filepath.Join(dst, videoBase)
-			metaTarget := filepath.Join(dst, metaBase)
-
-			if err := os.Rename(videoSrc, videoTarget); err != nil {
-
-				if strings.Contains(err.Error(), "invalid cross-device link") {
-					logging.PrintD(1, "Falling back to copy for moving %s to %s", videoSrc, dst)
-
-					// Ensure the destination directory exists
-					if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-						return fmt.Errorf("failed to create destination directory: %v", err)
-					}
-
-					// Copy the file
-					if err := copyFile(videoSrc, videoTarget); err != nil {
-						return fmt.Errorf("failed to copy file: %w", err)
-					} else {
-						if err := os.Remove(videoSrc); err != nil {
-							logging.PrintE(0, "Failed to remove source file after copy: %v", err)
-						}
-					}
-				}
-				return fmt.Errorf("failed to move file: %w", err)
-			}
-			if err := os.Rename(metaSrc, metaTarget); err != nil {
-				if strings.Contains(err.Error(), "invalid cross-device link") {
-					logging.PrintD(1, "Falling back to copy for moving %s to %s", metaSrc, dst)
-
-					// Ensure the destination directory exists
-					if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
-						return fmt.Errorf("failed to create destination directory: %v", err)
-					}
-
-					// Copy the file
-					if err := copyFile(metaSrc, metaTarget); err != nil {
-						return fmt.Errorf("failed to copy file: %w", err)
-					} else {
-						if err := os.Remove(metaSrc); err != nil {
-							logging.PrintE(0, "Failed to remove source file after copy: %v", err)
-						}
-					}
-				}
-				return fmt.Errorf("failed to move file: %w", err)
-			}
+	}
+	if metaSrc != "" {
+		metaBase := filepath.Base(metaSrc)
+		metaTarget := filepath.Join(dst, metaBase)
+		if err := moveOrCopyFile(metaSrc, metaTarget); err != nil {
+			return fmt.Errorf("failed to move metadata file: %w", err)
 		}
 	}
 	return nil
 }
 
-// copyFile copies a file from src to dst
+// copyFile copies a file to a target destination
 func copyFile(src, dst string) error {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
+	if src == dst {
+		logging.PrintI("Source file '%s' and destination file '%s' are the same, nothing to do", src, dst)
+		return nil
+	}
 
 	logging.PrintI("Copying:\n'%s'\nto\n'%s'...", src, dst)
 
-	if _, err := os.Stat(dst); err == nil {
-		// File exists already, do not overwrite
+	// Validate source file
+	sourceInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to stat source file: %w", err)
+	}
+	if !sourceInfo.Mode().IsRegular() {
+		return fmt.Errorf("source is not a regular file: %s", src)
+	}
+	if sourceInfo.Size() == 0 {
+		return fmt.Errorf("source file is empty: %s", src)
+	}
+
+	// Check destination
+	if destInfo, err := os.Stat(dst); err == nil {
+		if os.SameFile(sourceInfo, destInfo) {
+			return nil // Same file
+		}
 		logging.PrintI("Destination file already exists: %s", dst)
 		return nil
 	} else if !os.IsNotExist(err) {
-		// Error other than file not existing
 		return fmt.Errorf("error checking destination file: %w", err)
+	}
+
+	// Ensure destination directory exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	// Open source file
 	sourceFile, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("failed to open source file: %v", err)
+		return fmt.Errorf("failed to open source file: %w", err)
 	}
 	defer sourceFile.Close()
 
-	// Create the destination file
+	// Create destination file
 	destFile, err := os.Create(dst)
 	if err != nil {
-		return fmt.Errorf("failed to create destination file: %v", err)
+		return fmt.Errorf("failed to create destination file: %w", err)
 	}
-	defer destFile.Close()
+	defer func() {
+		destFile.Close()
+		if err != nil {
+			os.Remove(dst) // Clean up on error
+		}
+	}()
 
-	// Get source file info for permissions
-	sourceInfo, err := sourceFile.Stat()
-	if err != nil {
-		return fmt.Errorf("failed to get source file info: %v", err)
-	}
-
-	if _, err = io.Copy(destFile, sourceFile); err != nil {
-		return fmt.Errorf("failed to copy file contents: %v", err)
+	// Copy contents with buffer
+	buf := make([]byte, 32*1024)
+	if _, err = io.CopyBuffer(destFile, sourceFile, buf); err != nil {
+		return fmt.Errorf("failed to copy file contents: %w", err)
 	}
 
 	// Sync to ensure write is complete
 	if err = destFile.Sync(); err != nil {
-		return fmt.Errorf("failed to sync destination file: %v", err)
+		return fmt.Errorf("failed to sync destination file: %w", err)
 	}
 
-	// Set the same permissions on the new file
+	// Set same permissions as source
 	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
-		return fmt.Errorf("failed to set file permissions: %v", err)
+		return fmt.Errorf("failed to set file permissions: %w", err)
 	}
 
-	// Check destination file
+	// Verify destination file
 	check, err := destFile.Stat()
 	if err != nil {
 		return fmt.Errorf("error statting destination file: %w", err)
 	}
-	if check.Size() <= 0 {
-		return fmt.Errorf("destination file not properly formed. Size is 0")
+	if check.Size() != sourceInfo.Size() {
+		return fmt.Errorf("destination file size (%d) does not match source size (%d)",
+			check.Size(), sourceInfo.Size())
+	}
+	return nil
+}
+
+// moveOrCopyFile attempts rename first, falls back to copy+delete for cross-device moves
+func moveOrCopyFile(src, dst string) error {
+	src = filepath.Clean(src)
+	dst = filepath.Clean(dst)
+
+	if src == dst {
+		return nil // Same file, nothing to do
 	}
 
-	return nil
+	// Try rename first
+	err := os.Rename(src, dst)
+	if err == nil {
+		return nil
+	}
+
+	// If cross-device error, fall back to copy+delete
+	if strings.Contains(err.Error(), "invalid cross-device link") {
+		logging.PrintD(1, "Falling back to copy for moving %s to %s", src, dst)
+
+		// Copy the file
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("failed to copy file: %w", err)
+		}
+
+		// Remove source after successful copy
+		if err := os.Remove(src); err != nil {
+			logging.PrintE(0, "Failed to remove source file after copy: %v", err)
+			// Continue anyway since copy was successful
+		}
+		return nil
+	}
+
+	return fmt.Errorf("failed to move file: %w", err)
 }
