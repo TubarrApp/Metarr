@@ -75,3 +75,21 @@ func cleanupTempFiles(files map[string]*types.FileData) error {
 	}
 	return errReturn
 }
+
+// metaChanges determines if metadatashould be processed
+func metaChanges() bool {
+	response := false
+	if config.IsSet(keys.MReplacePfx) {
+		response = true
+	}
+	if config.IsSet(keys.MReplaceSfx) {
+		response = true
+	}
+	if config.IsSet(keys.MNewField) {
+		response = true
+	}
+	if config.IsSet(keys.FileDateFmt) {
+		response = true
+	}
+	return response
+}
