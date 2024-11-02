@@ -1,6 +1,7 @@
 package config
 
 import (
+	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
@@ -374,14 +375,24 @@ func verifyResourceLimits() {
 // Verify the output filetype is valid for FFmpeg
 func verifyOutputFiletype() {
 	o := GetString(keys.OutputFiletype)
+	o = strings.TrimSpace(o)
+
 	if !strings.HasPrefix(o, ".") {
 		o = "." + o
 		Set(keys.OutputFiletype, o)
 	}
-	switch o {
-	case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
-		".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
-		".ts", ".vob", ".webm", ".wmv":
+
+	valid := false
+	for _, ext := range consts.AllVidExtensions {
+		if o != ext {
+			continue
+		}
+		valid = true
+		break
+	}
+
+	switch valid {
+	case true:
 		logging.PrintI("Outputting files as %s", o)
 	default:
 		Set(keys.OutputFiletype, "")

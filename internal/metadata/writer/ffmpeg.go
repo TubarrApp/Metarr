@@ -115,8 +115,6 @@ func WriteMetadata(m *types.FileData) error {
 		m.FinalVideoPath,
 		m.TempOutputFilePath)
 
-	// Unlock mutex
-
 	// Run the ffmpeg command
 	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, m.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
@@ -224,7 +222,7 @@ func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
 	// Add input file
 	args = append(args, "-y", "-i", b.inputFile)
 
-	// Add all metadata in a single batch
+	// Add all -metadata commands
 	for key, value := range b.metadataMap {
 		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, fieldFormatter(value)))
 	}

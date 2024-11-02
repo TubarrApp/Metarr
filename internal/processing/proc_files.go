@@ -84,22 +84,26 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		var processedData *types.FileData
 		var err error = fmt.Errorf("")
 
-		switch fileData.MetaFileType {
-		case enums.METAFILE_JSON:
-			logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-			processedData, err = reader.ProcessJSONFile(fileData)
+		if shouldProcessMeta() {
+			switch fileData.MetaFileType {
+			case enums.METAFILE_JSON:
+				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
+				processedData, err = reader.ProcessJSONFile(fileData)
 
-		case enums.METAFILE_NFO:
-			logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
-			processedData, err = reader.ProcessNFOFiles(fileData)
+			case enums.METAFILE_NFO:
+				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
+				processedData, err = reader.ProcessNFOFiles(fileData)
+			}
+			if err != nil {
+				logging.ErrorArray = append(logging.ErrorArray, err)
+				errMsg := fmt.Errorf("error processing metadata for file: %w", err)
+				logging.PrintE(0, errMsg.Error())
+				return
+			}
+			processedDataArray = append(processedDataArray, processedData)
+		} else {
+			processedDataArray = append(processedDataArray, fileData)
 		}
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			errMsg := fmt.Errorf("error processing metadata for file: %w", err)
-			logging.PrintE(0, errMsg.Error())
-			return
-		}
-		processedDataArray = append(processedDataArray, processedData)
 	}
 
 	// Goroutine to handle signals and cleanup

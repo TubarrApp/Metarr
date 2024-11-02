@@ -19,7 +19,6 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 	var vidExt string
 
 	for _, fd := range dataArray {
-
 		metaBase, metaDir, originalMPath := getMetafileData(fd)
 		metaExt := filepath.Ext(originalMPath)
 
@@ -85,7 +84,6 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	if style != enums.SKIP {
 		name = toNamingStyle(style, name)
 	}
-
 	return name
 }
 
@@ -106,6 +104,5 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	if style != enums.SKIP {
 		name = toNamingStyle(style, name)
 	}
-
 	return name
 }

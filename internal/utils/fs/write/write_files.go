@@ -43,20 +43,19 @@ func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta strin
 	}
 }
 
-// writeResults executes the final commands to write the transformed files
-// WRITES THE FINAL FILENAME TO THE MODEL IF NO ERROR
+// WriteResults executes the final commands to write the transformed files
 func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	switch fs.SkipVids {
-	case false:
-		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
+	if !fs.SkipVids {
+		if fs.SrcVideo != fs.DestVideo && fs.SrcVideo != "" && fs.DestVideo != "" {
+			if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
+				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
+			}
 		}
-		fallthrough
-
-	case true:
+	}
+	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
@@ -67,17 +66,15 @@ func (fs *FSFileWriter) WriteResults() error {
 	return nil
 }
 
-// moveFile moves files to specified location
+// MoveFile moves files to specified location
 func (fs *FSFileWriter) MoveFile() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	// Early return if move not specified
 	if !config.IsSet(keys.MoveOnComplete) {
 		return nil
 	}
 
-	// Verify at least one file exists to be moved
 	if fs.DestVideo == "" && fs.DestMeta == "" {
 		return fmt.Errorf("video and metafile source strings both empty")
 	}
@@ -85,7 +82,7 @@ func (fs *FSFileWriter) MoveFile() error {
 	dst := config.GetString(keys.MoveOnComplete)
 	dst = filepath.Clean(dst)
 
-	// Check destination directory exists
+	// Check destination directory
 	check, err := os.Stat(dst)
 	if err != nil {
 		return fmt.Errorf("unable to stat destination folder '%s': %w", dst, err)
@@ -94,7 +91,7 @@ func (fs *FSFileWriter) MoveFile() error {
 		return fmt.Errorf("destination path must be a folder: '%s'", dst)
 	}
 
-	// Move or copy video and metadata file
+	// Move/copy video and metadata file
 	if fs.DestVideo != "" {
 		destVBase := filepath.Base(fs.DestVideo)
 		destVTarget := filepath.Join(dst, destVBase)

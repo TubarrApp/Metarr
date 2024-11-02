@@ -42,14 +42,12 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 		if result != "" {
 			return // Stop if result is already set
 		}
-
 		classAttr := e.Attr("class")
 		idAttr := e.Attr("id")
 		text := strings.TrimSpace(e.Text)
 
-		// Check if element matches tags based on class, id, or tag type
+		// Check if element matches tags by class, id, etc.
 		for _, t := range tags {
-			// Check for <p> tags with specific IDs or for class/id matches
 			if (e.Name == "p" && strings.Contains(strings.ToLower(idAttr), t)) ||
 				strings.Contains(strings.ToLower(classAttr), t) ||
 				strings.Contains(strings.ToLower(idAttr), t) {
@@ -60,7 +58,6 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 						result, classAttr, idAttr, targetURL)
 					return
 				}
-
 				if tag != enums.WEBCLASS_DATE {
 					// For non-date tags, directly set result
 					result = text
@@ -71,7 +68,6 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 			}
 		}
 	})
-
 	err := c.Visit(targetURL)
 	if err != nil {
 		return "", fmt.Errorf("error visiting webpage (%s): %v", targetURL, err)

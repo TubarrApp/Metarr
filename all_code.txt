@@ -71,6 +71,7 @@ func censoredTvPreset() {
 package config
 
 import (
+	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
@@ -444,14 +445,24 @@ func verifyResourceLimits() {
 // Verify the output filetype is valid for FFmpeg
 func verifyOutputFiletype() {
 	o := GetString(keys.OutputFiletype)
+	o = strings.TrimSpace(o)
+
 	if !strings.HasPrefix(o, ".") {
 		o = "." + o
 		Set(keys.OutputFiletype, o)
 	}
-	switch o {
-	case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
-		".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
-		".ts", ".vob", ".webm", ".wmv":
+
+	valid := false
+	for _, ext := range consts.AllVidExtensions {
+		if o != ext {
+			continue
+		}
+		valid = true
+		break
+	}
+
+	switch valid {
+	case true:
 		logging.PrintI("Outputting files as %s", o)
 	default:
 		Set(keys.OutputFiletype, "")
@@ -692,11 +703,19 @@ const (
 	TempTag = "tmp_"
 )
 
+var (
+	AllVidExtensions = []string{".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
+		".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
+		".ts", ".vob", ".webm", ".wmv"}
+)
+
 // Webpage tags
-var WebDateTags = []string{"release-date", "upload-date", "date", "date-text", "text-date"}
-var WebDescriptionTags = []string{"description", "longdescription", "long-description", "summary", "synopsis", "check-for-urls"}
-var WebCreditsTags = []string{"creator", "uploader", "uploaded-by", "uploaded_by"}
-var WebTitleTags = []string{"video-title", "video-name"}
+var (
+	WebDateTags        = []string{"release-date", "upload-date", "date", "date-text", "text-date"}
+	WebDescriptionTags = []string{"description", "longdescription", "long-description", "summary", "synopsis", "check-for-urls"}
+	WebCreditsTags     = []string{"creator", "uploader", "uploaded-by", "uploaded_by"}
+	WebTitleTags       = []string{"video-title", "video-name"}
+)
 package domain
 
 var ContractionsSpaced map[string]string = map[string]string{
@@ -3182,8 +3201,6 @@ func WriteMetadata(m *types.FileData) error {
 		m.FinalVideoPath,
 		m.TempOutputFilePath)
 
-	// Unlock mutex
-
 	// Run the ffmpeg command
 	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, m.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
@@ -3291,7 +3308,7 @@ func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
 	// Add input file
 	args = append(args, "-y", "-i", b.inputFile)
 
-	// Add all metadata in a single batch
+	// Add all -metadata commands
 	for key, value := range b.metadataMap {
 		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, fieldFormatter(value)))
 	}
@@ -3308,6 +3325,143 @@ func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
 // fieldFormatter cleans field values
 func fieldFormatter(value string) string {
 	return strings.TrimSpace(value)
+}
+package metadata
+
+import (
+	"Metarr/internal/types"
+	"strings"
+)
+
+// addCredits adds all credit-related metadata
+func (b *CommandBuilder) addTitlesDescs(t *types.MetadataTitlesDescs) {
+
+	if t.Title == "" && t.FallbackTitle != "" {
+		t.Title = t.FallbackTitle
+	}
+	if t.LongDescription == "" && t.Long_Description != "" {
+		t.LongDescription = t.Long_Description
+	}
+
+	fields := map[string]string{
+		"title":           t.Title,
+		"subtitle":        t.Subtitle,
+		"description":     t.Description,
+		"longdescription": t.LongDescription,
+		"summary":         t.Summary,
+		"synopsis":        t.Synopsis,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addCredits adds all credit-related metadata
+func (b *CommandBuilder) addCredits(c *types.MetadataCredits) {
+
+	// Single value credits
+	fields := map[string]string{
+		"actor":     c.Actor,
+		"author":    c.Author,
+		"artist":    c.Artist,
+		"creator":   c.Creator,
+		"studio":    c.Studio,
+		"publisher": c.Publisher,
+		"producer":  c.Producer,
+		"performer": c.Performer,
+		"composer":  c.Composer,
+		"director":  c.Director,
+		"writer":    c.Writer,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+
+	// Array credits
+	b.addArrayMetadata("actor", c.Actors)
+	b.addArrayMetadata("composer", c.Composers)
+	b.addArrayMetadata("artist", c.Artists)
+	b.addArrayMetadata("studio", c.Studios)
+	b.addArrayMetadata("performer", c.Performers)
+	b.addArrayMetadata("producer", c.Producers)
+	b.addArrayMetadata("publisher", c.Publishers)
+	b.addArrayMetadata("director", c.Directors)
+	b.addArrayMetadata("writer", c.Writers)
+}
+
+// addCredits adds all date-related metadata
+func (b *CommandBuilder) addDates(d *types.MetadataDates) {
+
+	fields := map[string]string{
+		"creation_time":           d.Creation_Time,
+		"date":                    d.Date,
+		"originally_available_at": d.Originally_Available_At,
+		"release_date":            d.ReleaseDate,
+		"upload_date":             d.UploadDate,
+		"year":                    d.Year,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addShowInfo adds all show info related metadata
+func (b *CommandBuilder) addShowInfo(s *types.MetadataShowData) {
+
+	fields := map[string]string{
+		"episode_id":    s.Episode_ID,
+		"episode_sort":  s.Episode_Sort,
+		"season_number": s.Season_Number,
+		"season_title":  s.Season_Title,
+		"show":          s.Show,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addOtherMetadata adds other related metadata
+func (b *CommandBuilder) addOtherMetadata(o *types.MetadataOtherData) {
+
+	fields := map[string]string{
+		"genre":    o.Genre,
+		"hd_video": o.HD_Video,
+		"language": o.Language,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addArrayMetadata combines array values with existing metadata
+func (b *CommandBuilder) addArrayMetadata(key string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	existing, exists := b.metadataMap[key]
+	newValue := strings.Join(values, "; ")
+
+	if exists && existing != "" {
+		b.metadataMap[key] = existing + "; " + newValue
+	} else {
+		b.metadataMap[key] = newValue
+	}
 }
 package metadata
 
@@ -3737,143 +3891,6 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 		}
 	}
 	return newAddition, nil
-}
-package metadata
-
-import (
-	"Metarr/internal/types"
-	"strings"
-)
-
-// addCredits adds all credit-related metadata
-func (b *CommandBuilder) addTitlesDescs(t *types.MetadataTitlesDescs) {
-
-	if t.Title == "" && t.FallbackTitle != "" {
-		t.Title = t.FallbackTitle
-	}
-	if t.LongDescription == "" && t.Long_Description != "" {
-		t.LongDescription = t.Long_Description
-	}
-
-	fields := map[string]string{
-		"title":           t.Title,
-		"subtitle":        t.Subtitle,
-		"description":     t.Description,
-		"longdescription": t.LongDescription,
-		"summary":         t.Summary,
-		"synopsis":        t.Synopsis,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addCredits adds all credit-related metadata
-func (b *CommandBuilder) addCredits(c *types.MetadataCredits) {
-
-	// Single value credits
-	fields := map[string]string{
-		"actor":     c.Actor,
-		"author":    c.Author,
-		"artist":    c.Artist,
-		"creator":   c.Creator,
-		"studio":    c.Studio,
-		"publisher": c.Publisher,
-		"producer":  c.Producer,
-		"performer": c.Performer,
-		"composer":  c.Composer,
-		"director":  c.Director,
-		"writer":    c.Writer,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-
-	// Array credits
-	b.addArrayMetadata("actor", c.Actors)
-	b.addArrayMetadata("composer", c.Composers)
-	b.addArrayMetadata("artist", c.Artists)
-	b.addArrayMetadata("studio", c.Studios)
-	b.addArrayMetadata("performer", c.Performers)
-	b.addArrayMetadata("producer", c.Producers)
-	b.addArrayMetadata("publisher", c.Publishers)
-	b.addArrayMetadata("director", c.Directors)
-	b.addArrayMetadata("writer", c.Writers)
-}
-
-// addCredits adds all date-related metadata
-func (b *CommandBuilder) addDates(d *types.MetadataDates) {
-
-	fields := map[string]string{
-		"creation_time":           d.Creation_Time,
-		"date":                    d.Date,
-		"originally_available_at": d.Originally_Available_At,
-		"release_date":            d.ReleaseDate,
-		"upload_date":             d.UploadDate,
-		"year":                    d.Year,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addShowInfo adds all show info related metadata
-func (b *CommandBuilder) addShowInfo(s *types.MetadataShowData) {
-
-	fields := map[string]string{
-		"episode_id":    s.Episode_ID,
-		"episode_sort":  s.Episode_Sort,
-		"season_number": s.Season_Number,
-		"season_title":  s.Season_Title,
-		"show":          s.Show,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addOtherMetadata adds other related metadata
-func (b *CommandBuilder) addOtherMetadata(o *types.MetadataOtherData) {
-
-	fields := map[string]string{
-		"genre":    o.Genre,
-		"hd_video": o.HD_Video,
-		"language": o.Language,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addArrayMetadata combines array values with existing metadata
-func (b *CommandBuilder) addArrayMetadata(key string, values []string) {
-	if len(values) == 0 {
-		return
-	}
-
-	existing, exists := b.metadataMap[key]
-	newValue := strings.Join(values, "; ")
-
-	if exists && existing != "" {
-		b.metadataMap[key] = existing + "; " + newValue
-	} else {
-		b.metadataMap[key] = newValue
-	}
 }
 package metadata
 
@@ -4465,22 +4482,26 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		var processedData *types.FileData
 		var err error = fmt.Errorf("")
 
-		switch fileData.MetaFileType {
-		case enums.METAFILE_JSON:
-			logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-			processedData, err = reader.ProcessJSONFile(fileData)
+		if shouldProcessMeta() {
+			switch fileData.MetaFileType {
+			case enums.METAFILE_JSON:
+				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
+				processedData, err = reader.ProcessJSONFile(fileData)
 
-		case enums.METAFILE_NFO:
-			logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
-			processedData, err = reader.ProcessNFOFiles(fileData)
+			case enums.METAFILE_NFO:
+				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
+				processedData, err = reader.ProcessNFOFiles(fileData)
+			}
+			if err != nil {
+				logging.ErrorArray = append(logging.ErrorArray, err)
+				errMsg := fmt.Errorf("error processing metadata for file: %w", err)
+				logging.PrintE(0, errMsg.Error())
+				return
+			}
+			processedDataArray = append(processedDataArray, processedData)
+		} else {
+			processedDataArray = append(processedDataArray, fileData)
 		}
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			errMsg := fmt.Errorf("error processing metadata for file: %w", err)
-			logging.PrintE(0, errMsg.Error())
-			return
-		}
-		processedDataArray = append(processedDataArray, processedData)
 	}
 
 	// Goroutine to handle signals and cleanup
@@ -4679,6 +4700,28 @@ func cleanupTempFiles(files map[string]*types.FileData) error {
 	}
 	return errReturn
 }
+
+// shouldProcessMeta determines if metadatashould be processed
+func shouldProcessMeta() bool {
+	if config.IsSet(keys.SkipVideos) {
+		return false
+	}
+
+	response := false
+	if config.IsSet(keys.MReplacePfx) {
+		response = true
+	}
+	if config.IsSet(keys.MReplaceSfx) {
+		response = true
+	}
+	if config.IsSet(keys.MNewField) {
+		response = true
+	}
+	if config.IsSet(keys.FileDateFmt) {
+		response = true
+	}
+	return response
+}
 package transformations
 
 import (
@@ -4700,11 +4743,11 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 	var vidExt string
 
 	for _, fd := range dataArray {
-
-		metaBase, metaDir, metaPath := getMetafileData(fd)
-		metaExt := filepath.Ext(metaPath)
+		metaBase, metaDir, originalMPath := getMetafileData(fd)
+		metaExt := filepath.Ext(originalMPath)
 
 		videoBase := fd.FinalVideoBaseName
+		originalVPath := fd.FinalVideoPath
 		vidExt = filepath.Ext(fd.OriginalVideoPath)
 
 		renamedVideo := ""
@@ -4717,8 +4760,6 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 			renamedMeta = renameMeta(metaBase, style)
 		}
 
-		logging.PrintD(2, "\n\nRename replacements:\n\nVideo: %v\nMetafile\n\n: %v", renamedVideo, renamedMeta)
-
 		var err error
 		if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, style); err != nil {
 			return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
@@ -4727,14 +4768,16 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 		// Add the metatag to the front of the filenames
 		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
 
+		logging.PrintD(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
+
 		// Construct final output filepaths
 		renamedVideoOut := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
 		renamedMetaOut := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		fd.RenamedVideo = renamedVideoOut
-		fd.RenamedMeta = renamedMetaOut
+		fd.RenamedVideoPath = renamedVideoOut
+		fd.RenamedMetaPath = renamedMetaOut
 
-		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVideoOut, fd.FinalVideoPath, renamedMetaOut, metaPath)
+		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVideoOut, originalVPath, renamedMetaOut, originalMPath)
 
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
@@ -4752,11 +4795,11 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	// If no transformations are needed, return early
 	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
 		return videoBase
 	}
 
+	// Transformations
 	name := videoBase
 	if config.IsSet(keys.FilenameReplaceSfx) {
 		name = replaceSuffix(name)
@@ -4765,7 +4808,6 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	if style != enums.SKIP {
 		name = toNamingStyle(style, name)
 	}
-
 	return name
 }
 
@@ -4773,11 +4815,11 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	// If no transformations are needed, return early
 	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
 		return metaBase
 	}
 
+	// Transformations
 	name := metaBase
 	if config.IsSet(keys.FilenameReplaceSfx) {
 		name = replaceSuffix(name)
@@ -4786,7 +4828,6 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	if style != enums.SKIP {
 		name = toNamingStyle(style, name)
 	}
-
 	return name
 }
 package transformations
@@ -4966,8 +5007,8 @@ type FileData struct {
 	FinalVideoBaseName    string   `json:"-" xml:"-"`
 	FilenameMetaPrefix    string   `json:"-" xml:"-"`
 	FilenameDateTag       string   `json:"-" xml:"-"`
-	RenamedVideo          string   `json:"-"`
-	RenamedMeta           string   `json:"-"`
+	RenamedVideoPath      string   `json:"-"`
+	RenamedMetaPath       string   `json:"-"`
 	VideoFile             *os.File `json:"-" xml:"-"`
 	// JSON paths
 	JSONDirectory string `json:"-" xml:"-"`
@@ -5300,14 +5341,12 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 		if result != "" {
 			return // Stop if result is already set
 		}
-
 		classAttr := e.Attr("class")
 		idAttr := e.Attr("id")
 		text := strings.TrimSpace(e.Text)
 
-		// Check if element matches tags based on class, id, or tag type
+		// Check if element matches tags by class, id, etc.
 		for _, t := range tags {
-			// Check for <p> tags with specific IDs or for class/id matches
 			if (e.Name == "p" && strings.Contains(strings.ToLower(idAttr), t)) ||
 				strings.Contains(strings.ToLower(classAttr), t) ||
 				strings.Contains(strings.ToLower(idAttr), t) {
@@ -5318,7 +5357,6 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 						result, classAttr, idAttr, targetURL)
 					return
 				}
-
 				if tag != enums.WEBCLASS_DATE {
 					// For non-date tags, directly set result
 					result = text
@@ -5329,7 +5367,6 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 			}
 		}
 	})
-
 	err := c.Visit(targetURL)
 	if err != nil {
 		return "", fmt.Errorf("error visiting webpage (%s): %v", targetURL, err)
@@ -5672,6 +5709,7 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*types.FileData) (m
 package utils
 
 import (
+	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	logging "Metarr/internal/utils/logging"
 	"os"
@@ -5684,7 +5722,7 @@ import (
 func HasFileExtension(fileName string, extensions []string) bool {
 
 	if extensions == nil {
-		logging.PrintE(0, "NO EXTENSIONS PICKED.")
+		logging.PrintE(0, "No extensions picked.")
 		return false
 	}
 
@@ -5724,11 +5762,7 @@ func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
 		switch arg {
 		case enums.IN_ALL_EXTENSIONS:
-			videoExtensions = append(videoExtensions, ".mp4",
-				".mkv",
-				".avi",
-				".wmv",
-				".webm")
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
 
 		case enums.IN_MKV:
 			videoExtensions = append(videoExtensions, ".mkv")
@@ -5741,11 +5775,7 @@ func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
 		default:
 			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
-			videoExtensions = append(videoExtensions, ".mp4",
-				".mkv",
-				".avi",
-				".wmv",
-				".webm")
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
 		}
 	}
 
@@ -5772,13 +5802,17 @@ func GetDirStats(dir string) (vidCount, metaCount int) {
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			ext := strings.ToLower(filepath.Ext(entry.Name()))
-			switch ext {
-			case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
-				".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
-				".ts", ".vob", ".webm", ".wmv":
-				vidCount++
-			case ".json", ".nfo":
-				metaCount++
+
+			for _, entry := range consts.AllVidExtensions {
+				if ext == entry {
+					vidCount++
+					continue
+				}
+				switch ext {
+				case ".json", ".nfo":
+					metaCount++
+					continue
+				}
 			}
 		}
 	}
@@ -5855,68 +5889,74 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type FSFileWriter struct {
 	SkipVids  bool
-	VideoOut  string
-	VideoPath string
-	MetaOut   string
-	MetaPath  string
+	DestVideo string
+	SrcVideo  string
+	DestMeta  string
+	SrcMeta   string
+	muFs      sync.RWMutex
 }
 
-func NewFSFileWriter(skipVids bool, videoOut, videoPath, metaOut, metaPath string) *FSFileWriter {
+func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta string) *FSFileWriter {
+	same := 0
+	if destVideo != srcVideo {
+		same++
+	}
+	if destMeta != srcMeta {
+		same++
+	}
+
+	logging.PrintD(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+		skipVids, srcVideo, destVideo, srcMeta, destMeta, same)
 	return &FSFileWriter{
 		SkipVids:  skipVids,
-		VideoOut:  videoOut,
-		VideoPath: videoPath,
-		MetaOut:   metaOut,
-		MetaPath:  metaPath,
+		DestVideo: destVideo,
+		SrcVideo:  srcVideo,
+		DestMeta:  destMeta,
+		SrcMeta:   srcMeta,
 	}
 }
 
-// writeResults executes the final commands to write the transformed files
-// WRITES THE FINAL FILENAME TO THE MODEL IF NO ERROR
+// WriteResults executes the final commands to write the transformed files
 func (fs *FSFileWriter) WriteResults() error {
+	fs.muFs.Lock()
+	defer fs.muFs.Unlock()
 
-	switch fs.SkipVids {
-	case false:
-		if err := os.Rename(fs.VideoPath, fs.VideoOut); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.VideoPath, fs.VideoOut, err)
-		}
-		fallthrough
-
-	case true:
-		if err := os.Rename(fs.MetaPath, fs.MetaOut); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.MetaPath, fs.MetaOut, err)
+	if fs.SkipVids {
+		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 		}
 	}
+	if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
+		return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
+	}
 
-	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.VideoPath, fs.VideoOut,
-		fs.MetaPath, fs.MetaOut)
+	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
+		fs.SrcMeta, fs.DestMeta)
 	return nil
 }
 
-// moveFile moves files to specified location
+// MoveFile moves files to specified location
 func (fs *FSFileWriter) MoveFile() error {
+	fs.muFs.Lock()
+	defer fs.muFs.Unlock()
 
-	// Early return if move not specified
 	if !config.IsSet(keys.MoveOnComplete) {
 		return nil
 	}
 
-	videoSrc := fs.VideoOut
-	metaSrc := fs.MetaOut
-
-	// Verify at least one file exists to be moved
-	if videoSrc == "" && metaSrc == "" {
+	if fs.DestVideo == "" && fs.DestMeta == "" {
 		return fmt.Errorf("video and metafile source strings both empty")
 	}
 
 	dst := config.GetString(keys.MoveOnComplete)
 	dst = filepath.Clean(dst)
 
-	// Check destination directory exists
+	// Check destination directory
 	check, err := os.Stat(dst)
 	if err != nil {
 		return fmt.Errorf("unable to stat destination folder '%s': %w", dst, err)
@@ -5925,18 +5965,18 @@ func (fs *FSFileWriter) MoveFile() error {
 		return fmt.Errorf("destination path must be a folder: '%s'", dst)
 	}
 
-	// Move or copy video and metadata file
-	if videoSrc != "" {
-		videoBase := filepath.Base(videoSrc)
-		videoTarget := filepath.Join(dst, videoBase)
-		if err := fs.moveOrCopyFile(videoSrc, videoTarget); err != nil {
+	// Move/copy video and metadata file
+	if fs.DestVideo != "" {
+		destVBase := filepath.Base(fs.DestVideo)
+		destVTarget := filepath.Join(dst, destVBase)
+		if err := fs.moveOrCopyFile(fs.DestVideo, destVTarget); err != nil {
 			return fmt.Errorf("failed to move video file: %w", err)
 		}
 	}
-	if metaSrc != "" {
-		metaBase := filepath.Base(metaSrc)
-		metaTarget := filepath.Join(dst, metaBase)
-		if err := fs.moveOrCopyFile(metaSrc, metaTarget); err != nil {
+	if fs.DestMeta != "" {
+		destMBase := filepath.Base(fs.DestMeta)
+		destMTarget := filepath.Join(dst, destMBase)
+		if err := fs.moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
 			return fmt.Errorf("failed to move metadata file: %w", err)
 		}
 	}

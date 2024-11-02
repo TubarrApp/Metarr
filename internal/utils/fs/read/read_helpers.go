@@ -1,6 +1,7 @@
 package utils
 
 import (
+	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	logging "Metarr/internal/utils/logging"
 	"os"
@@ -13,7 +14,7 @@ import (
 func HasFileExtension(fileName string, extensions []string) bool {
 
 	if extensions == nil {
-		logging.PrintE(0, "NO EXTENSIONS PICKED.")
+		logging.PrintE(0, "No extensions picked.")
 		return false
 	}
 
@@ -53,11 +54,7 @@ func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
 		switch arg {
 		case enums.IN_ALL_EXTENSIONS:
-			videoExtensions = append(videoExtensions, ".mp4",
-				".mkv",
-				".avi",
-				".wmv",
-				".webm")
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
 
 		case enums.IN_MKV:
 			videoExtensions = append(videoExtensions, ".mkv")
@@ -70,11 +67,7 @@ func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
 		default:
 			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
-			videoExtensions = append(videoExtensions, ".mp4",
-				".mkv",
-				".avi",
-				".wmv",
-				".webm")
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
 		}
 	}
 
@@ -101,13 +94,17 @@ func GetDirStats(dir string) (vidCount, metaCount int) {
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			ext := strings.ToLower(filepath.Ext(entry.Name()))
-			switch ext {
-			case ".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
-				".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
-				".ts", ".vob", ".webm", ".wmv":
-				vidCount++
-			case ".json", ".nfo":
-				metaCount++
+
+			for _, entry := range consts.AllVidExtensions {
+				if ext == entry {
+					vidCount++
+					continue
+				}
+				switch ext {
+				case ".json", ".nfo":
+					metaCount++
+					continue
+				}
 			}
 		}
 	}
