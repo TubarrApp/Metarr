@@ -151,23 +151,9 @@ func main() {
 
 	// Setup logging
 	if directory != "" {
-		logFilePath := filepath.Join(directory, "metarr-log.txt")
-
-		logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		err = logging.SetupLogging(directory)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
-			os.Exit(1)
-		}
-		defer logFile.Close()
-
-		err = logging.SetupLogging(directory, logFile)
-		if err != nil {
-			fmt.Printf(`
-
-Notice: Log file was not created
-Reason: %s
-
-`, err)
+			fmt.Printf("\n\nNotice: Log file was not created\nReason: %s\n\n", err)
 		}
 	} else {
 		logging.PrintI("Directory and file strings were entered empty. Exiting...")

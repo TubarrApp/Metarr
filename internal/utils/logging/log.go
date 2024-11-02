@@ -3,9 +3,12 @@ package utils
 import (
 	"fmt"
 	"log"
-	"os"
+	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var ErrorArray []error
@@ -16,8 +19,16 @@ var Logger *log.Logger
 var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
 // SetupLogging creates and/or opens the log file
-func SetupLogging(targetDir string, logFile *os.File) error {
+func SetupLogging(targetDir string) error {
 
+	logFile := &lumberjack.Logger{
+		Filename:   filepath.Join(targetDir, "/metarr.log"), // Log file path
+		MaxSize:    1,                                       // Max size in MB before rotation
+		MaxBackups: 3,                                       // Number of backups to retain
+		Compress:   true,                                    // Gzip compression
+	}
+
+	// Assign lumberjack logger to standard log output
 	Logger = log.New(logFile, "", log.LstdFlags)
 	Loggable = true
 
@@ -26,72 +37,30 @@ func SetupLogging(targetDir string, logFile *os.File) error {
 }
 
 // Write writes error information to the log file
-func Write(tag, infoMsg string, err error, args ...interface{}) {
-
-	if Loggable {
-
-		var errMsg string
-		var info string
-
-		if err != nil {
-			if tag == "" {
-				errMsg = fmt.Sprintf(err.Error()+"\n", args...)
-			} else {
-				errMsg = fmt.Sprintf(tag+err.Error()+"\n", args...)
-			}
-			Logger.Print(stripAnsiCodes(errMsg))
-
-		} else if infoMsg != "" {
-			if tag == "" {
-				info = fmt.Sprintf(infoMsg+"\n", args...)
-			} else {
-				info = fmt.Sprintf(tag+infoMsg+"\n", args...)
-			}
-			Logger.Print(stripAnsiCodes(info))
+func Write(msg string, level int) {
+	// Do not add mutex, only called by callers which themselves use mutex
+	if Loggable && level < 2 {
+		if !strings.HasPrefix(msg, "\n") {
+			msg += "\n"
 		}
+		Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
 	}
 }
 
 // WriteArray writes an array of error information to the log file
-func WriteArray(tag string, infoMsg []string, err []error, args ...interface{}) {
+func WriteArray(msgs []string, args ...interface{}) {
 	if Loggable {
-
-		var errMsg, info string
-
-		if len(err) != 0 && err != nil {
-
-			var errOut string
-
-			for _, errValue := range err {
-				errOut += errValue.Error()
+		if len(msgs) != 0 {
+			var msg string
+			for i, entry := range msgs {
+				switch i {
+				case len(msgs) - 1:
+					msg += fmt.Sprintf(entry, args...)
+				default:
+					msg += fmt.Sprintf(entry+", ", args...)
+				}
+				Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
 			}
-
-			if tag == "" {
-				errMsg = fmt.Sprintf(errOut+"\n", args...)
-			} else {
-				errMsg = fmt.Sprintf(tag+errOut+"\n", args...)
-			}
-			Logger.Print(stripAnsiCodes(errMsg))
-
-		} else if len(infoMsg) != 0 && infoMsg != nil {
-
-			var infoOut string
-
-			for _, infoValue := range err {
-				infoOut += infoValue.Error()
-			}
-
-			if tag == "" {
-				info = fmt.Sprintf(infoOut+"\n", args...)
-			} else {
-				info = fmt.Sprintf(tag+infoOut+"\n", args...)
-			}
-			Logger.Print(stripAnsiCodes(info))
 		}
 	}
-}
-
-// stripAnsiCodes removes ANSI escape codes from a string
-func stripAnsiCodes(input string) string {
-	return ansiEscape.ReplaceAllString(input, "")
 }

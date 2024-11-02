@@ -288,7 +288,7 @@ func filenameReplaceSuffix(renamedVideo, renamedMeta string) (string, string) {
 	return trimmedVideo, trimmedMeta
 }
 
-// moveFile moves files to specified location, handling cross-device moves
+// moveFile moves files to specified location
 func moveFile(fd *types.FileData) error {
 	if fd == nil {
 		return fmt.Errorf("passed model is null")
@@ -344,8 +344,7 @@ func copyFile(src, dst string) error {
 	dst = filepath.Clean(dst)
 
 	if src == dst {
-		logging.PrintI("Source file '%s' and destination file '%s' are the same, nothing to do", src, dst)
-		return nil
+		return fmt.Errorf("entered source file '%s' and destination '%s' file as the same name and same path", src, dst)
 	}
 
 	logging.PrintI("Copying:\n'%s'\nto\n'%s'...", src, dst)
@@ -367,8 +366,7 @@ func copyFile(src, dst string) error {
 		if os.SameFile(sourceInfo, destInfo) {
 			return nil // Same file
 		}
-		logging.PrintI("Destination file already exists: %s", dst)
-		return nil
+		return fmt.Errorf("aborting move, destination file '%s' is equal to source file '%s'", dst, src)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("error checking destination file: %w", err)
 	}
@@ -388,7 +386,7 @@ func copyFile(src, dst string) error {
 	// Create destination file
 	destFile, err := os.Create(dst)
 	if err != nil {
-		return fmt.Errorf("failed to create destination file: %w", err)
+		return fmt.Errorf("failed to create destination file, do you have adequate permissions on the destination folder?: %w", err)
 	}
 	defer func() {
 		destFile.Close()
@@ -398,7 +396,7 @@ func copyFile(src, dst string) error {
 	}()
 
 	// Copy contents with buffer
-	bufferedSource := bufio.NewReaderSize(sourceFile, 4*1024*1024) // 1024 * 1024 is 1 MB
+	bufferedSource := bufio.NewReaderSize(sourceFile, 4*1024*1024) // 4MB: 1024 * 1024 is 1 MB
 	bufferedDest := bufio.NewWriterSize(destFile, 4*1024*1024)
 	defer bufferedDest.Flush()
 
@@ -415,7 +413,7 @@ func copyFile(src, dst string) error {
 
 	// Set same permissions as source
 	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
-		return fmt.Errorf("failed to set file permissions: %w", err)
+		logging.PrintI("Failed to set file permissions, is destination folder remote? (%v)", err)
 	}
 
 	// Verify destination file
@@ -439,9 +437,9 @@ func moveOrCopyFile(src, dst string) error {
 		return nil // Same file, nothing to do
 	}
 
-	// Try rename first
+	// Try rename (pure move) first
 	err := os.Rename(src, dst)
-	if err == nil {
+	if err == nil { // SUCCESS
 		return nil
 	}
 

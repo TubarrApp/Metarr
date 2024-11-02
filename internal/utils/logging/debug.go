@@ -37,8 +37,7 @@ func PrintE(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.RedError + format + tag + "\n")
 		}
 		fmt.Print(msg)
-
-		Write(consts.LogError, msg, nil)
+		Write(msg, l)
 	}
 
 	return msg
@@ -65,10 +64,8 @@ func PrintS(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.GreenSuccess + format + tag + "\n")
 		}
 		fmt.Print(msg)
-
-		Write(consts.LogSuccess, msg, nil)
+		Write(msg, l)
 	}
-
 	return msg
 }
 
@@ -93,10 +90,8 @@ func PrintD(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.YellowDebug + format + tag + "\n")
 		}
 		fmt.Print(msg)
-
-		Write(consts.LogSuccess, msg, nil)
+		Write(msg, l)
 	}
-
 	return msg
 }
 
@@ -112,7 +107,7 @@ func PrintI(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(consts.BlueInfo + format + "\n")
 	}
 	fmt.Print(msg)
-	Write(consts.LogInfo, msg, nil)
+	Write(msg, 0)
 
 	return msg
 }
@@ -129,7 +124,7 @@ func Print(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(format + "\n")
 	}
 	fmt.Print(msg)
-	Write(consts.LogBasic, msg, nil)
+	Write(msg, 0)
 
 	return msg
 }
