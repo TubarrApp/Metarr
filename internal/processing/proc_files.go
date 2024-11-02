@@ -84,7 +84,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		var processedData *types.FileData
 		var err error = fmt.Errorf("")
 
-		if shouldProcessMeta() {
+		if !config.IsSet(keys.SkipVideos) {
 			switch fileData.MetaFileType {
 			case enums.METAFILE_JSON:
 				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
