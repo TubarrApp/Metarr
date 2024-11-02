@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 type FSFileWriter struct {
@@ -19,6 +20,7 @@ type FSFileWriter struct {
 	VideoPath string
 	MetaOut   string
 	MetaPath  string
+	muFs      sync.RWMutex
 }
 
 func NewFSFileWriter(skipVids bool, videoOut, videoPath, metaOut, metaPath string) *FSFileWriter {
@@ -34,6 +36,8 @@ func NewFSFileWriter(skipVids bool, videoOut, videoPath, metaOut, metaPath strin
 // writeResults executes the final commands to write the transformed files
 // WRITES THE FINAL FILENAME TO THE MODEL IF NO ERROR
 func (fs *FSFileWriter) WriteResults() error {
+	fs.muFs.Lock()
+	defer fs.muFs.Unlock()
 
 	switch fs.SkipVids {
 	case false:
@@ -55,6 +59,8 @@ func (fs *FSFileWriter) WriteResults() error {
 
 // moveFile moves files to specified location
 func (fs *FSFileWriter) MoveFile() error {
+	fs.muFs.Lock()
+	defer fs.muFs.Unlock()
 
 	// Early return if move not specified
 	if !config.IsSet(keys.MoveOnComplete) {
