@@ -78,10 +78,6 @@ func cleanupTempFiles(files map[string]*types.FileData) error {
 
 // shouldProcessMeta determines if metadatashould be processed
 func shouldProcessMeta() bool {
-	if config.IsSet(keys.SkipVideos) {
-		return false
-	}
-
 	response := false
 	if config.IsSet(keys.MReplacePfx) {
 		response = true
