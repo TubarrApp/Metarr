@@ -381,13 +381,14 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 				if !metaOW && !metaPS {
 					promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue", addition.Field, existingValue, rw.File.Name())
 
-					reply, err := prompt.PromptMetaReplace(promptMsg, rw.File.Name(), &metaOW, &metaPS)
+					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 					if err != nil {
 						logging.PrintE(0, err.Error())
 					}
 					switch reply {
 					case "Y":
 						logging.PrintD(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, rw.File.Name())
+						config.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
 					case "y":
@@ -401,7 +402,8 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 
 					case "N":
 						logging.PrintD(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, rw.File.Name())
-						metaOW = true
+						config.Set(keys.MPreserve, true)
+						metaPS = true
 						fallthrough
 					case "n":
 						logging.PrintD(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, rw.File.Name())

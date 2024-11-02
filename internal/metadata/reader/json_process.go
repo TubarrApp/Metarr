@@ -24,6 +24,10 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 
 	logging.PrintD(2, "Beginning JSON file processing...")
 
+	if fd == nil {
+		return nil, fmt.Errorf("model passed in null")
+	}
+
 	// Function mutex
 	mu.Lock()
 	defer mu.Unlock()
@@ -50,11 +54,6 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 	}
 
 	logging.PrintD(3, "%v", data)
-
-	// Return early if user wants to skip videos
-	if config.GetBool(keys.SkipVideos) {
-		return fd, nil
-	}
 
 	// Make metadata adjustments per user selection
 	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file)

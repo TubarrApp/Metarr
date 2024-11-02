@@ -400,19 +400,21 @@ func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 				promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
 					addition.Field, content, rw.File.Name())
 
-				reply, err := prompt.PromptMetaReplace(promptMsg, rw.File.Name(), &metaOW, &metaPS)
+				reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 				if err != nil {
 					logging.PrintE(0, err.Error())
 				}
 
 				switch reply {
 				case "Y":
+					config.Set(keys.MOverwrite, true)
 					metaOW = true
 					fallthrough
 				case "y":
 					data = data[:startContent] + addition.Value + data[endIdx:]
 					newAddition = true
 				case "N":
+					config.Set(keys.MPreserve, true)
 					metaPS = true
 					fallthrough
 				case "n":

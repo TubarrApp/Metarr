@@ -14,7 +14,7 @@ var (
 	decisionMade  bool
 )
 
-// Initialize user input reader in a goroutine
+// InitUserInputReader initializes a user input reading function in a goroutine
 func InitUserInputReader() {
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
@@ -28,18 +28,18 @@ func InitUserInputReader() {
 // PromptMetaReplace displays a prompt message and waits for valid user input.
 // The option can be used to tell the program to overwrite all in the queue,
 // preserve all in the queue, or move through value by value
-func PromptMetaReplace(promptMsg, fileName string, overwriteAll, preserveAll *bool) (string, error) {
+func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 
 	logging.PrintD(3, "Entering PromptUser dialogue...")
 	ctx := context.Background()
 
 	if decisionMade {
 		// If overwriteAll, return "Y" without waiting
-		if *overwriteAll {
+		if ow {
 
 			logging.PrintD(3, "Overwrite all is set...")
 			return "Y", nil
-		} else if *preserveAll {
+		} else if ps {
 
 			logging.PrintD(3, "Preserve all is set...")
 			return "N", nil
@@ -53,7 +53,7 @@ func PromptMetaReplace(promptMsg, fileName string, overwriteAll, preserveAll *bo
 	select {
 	case response := <-userInputChan:
 		if response == "Y" {
-			*overwriteAll = true
+			ow = true
 		}
 		decisionMade = true
 		return response, nil

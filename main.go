@@ -172,15 +172,7 @@ func main() {
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
 
-	fieldOverwrite := config.GetBool(keys.MOverwrite)
-	fieldPreserve := config.GetBool(keys.MPreserve)
-
-	if fieldOverwrite && fieldPreserve {
-		fmt.Println()
-		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
-		fmt.Println()
-		os.Exit(1)
-	}
+	// Removed: prompt.SetMetaOverwritePreserve(config.GetBool(keys.MOverwrite), config.GetBool(keys.MPreserve))
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)

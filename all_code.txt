@@ -4482,7 +4482,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		var processedData *types.FileData
 		var err error = fmt.Errorf("")
 
-		if shouldProcessMeta() {
+		if !config.IsSet(keys.SkipVideos) || metaChanges() {
 			switch fileData.MetaFileType {
 			case enums.METAFILE_JSON:
 				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
@@ -4701,12 +4701,8 @@ func cleanupTempFiles(files map[string]*types.FileData) error {
 	return errReturn
 }
 
-// shouldProcessMeta determines if metadatashould be processed
-func shouldProcessMeta() bool {
-	if config.IsSet(keys.SkipVideos) {
-		return false
-	}
-
+// metaChanges determines if metadatashould be processed
+func metaChanges() bool {
 	response := false
 	if config.IsSet(keys.MReplacePfx) {
 		response = true
@@ -5926,13 +5922,17 @@ func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	if fs.SkipVids {
-		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
+	if !fs.SkipVids {
+		if fs.SrcVideo != fs.DestVideo && fs.SrcVideo != "" && fs.DestVideo != "" {
+			if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
+				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
+			}
 		}
 	}
-	if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
-		return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
+	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
+		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
+		}
 	}
 
 	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,

@@ -167,6 +167,9 @@ func execute() error {
 	// Filetype to output as
 	verifyOutputFiletype()
 
+	// Meta overwrite and preserve flags
+	verifyMetaOverwritePreserve()
+
 	// Ensure no video and metadata location conflicts
 	if err := checkFileDirs(); err != nil {
 		return err
@@ -268,6 +271,14 @@ func verifyFilePrefixes() {
 	}
 	if len(filePrefixes) > 0 {
 		viper.Set(keys.FilePrefixes, filePrefixes)
+	}
+}
+
+// verifyMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
+func verifyMetaOverwritePreserve() {
+	if GetBool(keys.MOverwrite) && GetBool(keys.MPreserve) {
+		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
+		os.Exit(1)
 	}
 }
 
