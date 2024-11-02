@@ -25,8 +25,8 @@ type FileData struct {
 	FinalVideoBaseName    string   `json:"-" xml:"-"`
 	FilenameMetaPrefix    string   `json:"-" xml:"-"`
 	FilenameDateTag       string   `json:"-" xml:"-"`
-	RenamedVideo          string   `json:"-"`
-	RenamedMeta           string   `json:"-"`
+	RenamedVideoPath      string   `json:"-"`
+	RenamedMetaPath       string   `json:"-"`
 	VideoFile             *os.File `json:"-" xml:"-"`
 	// JSON paths
 	JSONDirectory string `json:"-" xml:"-"`

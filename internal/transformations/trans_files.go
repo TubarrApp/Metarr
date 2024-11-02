@@ -20,10 +20,11 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 
 	for _, fd := range dataArray {
 
-		metaBase, metaDir, metaPath := getMetafileData(fd)
-		metaExt := filepath.Ext(metaPath)
+		metaBase, metaDir, originalMPath := getMetafileData(fd)
+		metaExt := filepath.Ext(originalMPath)
 
 		videoBase := fd.FinalVideoBaseName
+		originalVPath := fd.FinalVideoPath
 		vidExt = filepath.Ext(fd.OriginalVideoPath)
 
 		renamedVideo := ""
@@ -36,8 +37,6 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 			renamedMeta = renameMeta(metaBase, style)
 		}
 
-		logging.PrintD(2, "\n\nRename replacements:\n\nVideo: %v\nMetafile\n\n: %v", renamedVideo, renamedMeta)
-
 		var err error
 		if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, style); err != nil {
 			return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
@@ -46,14 +45,16 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 		// Add the metatag to the front of the filenames
 		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
 
+		logging.PrintD(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
+
 		// Construct final output filepaths
 		renamedVideoOut := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
 		renamedMetaOut := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		fd.RenamedVideo = renamedVideoOut
-		fd.RenamedMeta = renamedMetaOut
+		fd.RenamedVideoPath = renamedVideoOut
+		fd.RenamedMetaPath = renamedMetaOut
 
-		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVideoOut, fd.FinalVideoPath, renamedMetaOut, metaPath)
+		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVideoOut, originalVPath, renamedMetaOut, originalMPath)
 
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
@@ -71,11 +72,11 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	// If no transformations are needed, return early
 	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
 		return videoBase
 	}
 
+	// Transformations
 	name := videoBase
 	if config.IsSet(keys.FilenameReplaceSfx) {
 		name = replaceSuffix(name)
@@ -92,11 +93,11 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	// If no transformations are needed, return early
 	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
 		return metaBase
 	}
 
+	// Transformations
 	name := metaBase
 	if config.IsSet(keys.FilenameReplaceSfx) {
 		name = replaceSuffix(name)

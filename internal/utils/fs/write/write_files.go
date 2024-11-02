@@ -16,20 +16,30 @@ import (
 
 type FSFileWriter struct {
 	SkipVids  bool
-	VideoOut  string
-	VideoPath string
-	MetaOut   string
-	MetaPath  string
+	DestVideo string
+	SrcVideo  string
+	DestMeta  string
+	SrcMeta   string
 	muFs      sync.RWMutex
 }
 
-func NewFSFileWriter(skipVids bool, videoOut, videoPath, metaOut, metaPath string) *FSFileWriter {
+func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta string) *FSFileWriter {
+	same := 0
+	if destVideo != srcVideo {
+		same++
+	}
+	if destMeta != srcMeta {
+		same++
+	}
+
+	logging.PrintD(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+		skipVids, srcVideo, destVideo, srcMeta, destMeta, same)
 	return &FSFileWriter{
 		SkipVids:  skipVids,
-		VideoOut:  videoOut,
-		VideoPath: videoPath,
-		MetaOut:   metaOut,
-		MetaPath:  metaPath,
+		DestVideo: destVideo,
+		SrcVideo:  srcVideo,
+		DestMeta:  destMeta,
+		SrcMeta:   srcMeta,
 	}
 }
 
@@ -41,19 +51,19 @@ func (fs *FSFileWriter) WriteResults() error {
 
 	switch fs.SkipVids {
 	case false:
-		if err := os.Rename(fs.VideoPath, fs.VideoOut); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.VideoPath, fs.VideoOut, err)
+		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 		}
 		fallthrough
 
 	case true:
-		if err := os.Rename(fs.MetaPath, fs.MetaOut); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.MetaPath, fs.MetaOut, err)
+		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
 	}
 
-	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.VideoPath, fs.VideoOut,
-		fs.MetaPath, fs.MetaOut)
+	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
+		fs.SrcMeta, fs.DestMeta)
 	return nil
 }
 
@@ -67,11 +77,8 @@ func (fs *FSFileWriter) MoveFile() error {
 		return nil
 	}
 
-	videoSrc := fs.VideoOut
-	metaSrc := fs.MetaOut
-
 	// Verify at least one file exists to be moved
-	if videoSrc == "" && metaSrc == "" {
+	if fs.DestVideo == "" && fs.DestMeta == "" {
 		return fmt.Errorf("video and metafile source strings both empty")
 	}
 
@@ -88,17 +95,17 @@ func (fs *FSFileWriter) MoveFile() error {
 	}
 
 	// Move or copy video and metadata file
-	if videoSrc != "" {
-		videoBase := filepath.Base(videoSrc)
-		videoTarget := filepath.Join(dst, videoBase)
-		if err := fs.moveOrCopyFile(videoSrc, videoTarget); err != nil {
+	if fs.DestVideo != "" {
+		destVBase := filepath.Base(fs.DestVideo)
+		destVTarget := filepath.Join(dst, destVBase)
+		if err := fs.moveOrCopyFile(fs.DestVideo, destVTarget); err != nil {
 			return fmt.Errorf("failed to move video file: %w", err)
 		}
 	}
-	if metaSrc != "" {
-		metaBase := filepath.Base(metaSrc)
-		metaTarget := filepath.Join(dst, metaBase)
-		if err := fs.moveOrCopyFile(metaSrc, metaTarget); err != nil {
+	if fs.DestMeta != "" {
+		destMBase := filepath.Base(fs.DestMeta)
+		destMTarget := filepath.Join(dst, destMBase)
+		if err := fs.moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
 			return fmt.Errorf("failed to move metadata file: %w", err)
 		}
 	}
