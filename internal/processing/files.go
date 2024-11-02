@@ -8,7 +8,7 @@ import (
 	writer "Metarr/internal/metadata/writer"
 	"Metarr/internal/transformations"
 	"Metarr/internal/types"
-	fs "Metarr/internal/utils/fs"
+	fsRead "Metarr/internal/utils/fs/read"
 	logging "Metarr/internal/utils/logging"
 	"context"
 	"fmt"
@@ -35,9 +35,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	if openMeta != nil {
 		fileInfo, _ := openMeta.Stat()
 		if fileInfo.IsDir() {
-			metaMap, err = fs.GetMetadataFiles(openMeta)
+			metaMap, err = fsRead.GetMetadataFiles(openMeta)
 		} else {
-			metaMap, err = fs.GetSingleMetadataFile(openMeta)
+			metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
 		}
 		if err != nil {
 			logging.PrintE(0, "Error: %v", err)
@@ -48,9 +48,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	if openVideo != nil {
 		fileInfo, _ := openVideo.Stat()
 		if fileInfo.IsDir() {
-			videoMap, err = fs.GetVideoFiles(openVideo)
+			videoMap, err = fsRead.GetVideoFiles(openVideo)
 		} else if !skipVideos {
-			videoMap, err = fs.GetSingleVideoFile(openVideo)
+			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 		}
 		if err != nil {
 			logging.PrintE(0, "Error fetching video files: %v", err)
@@ -59,7 +59,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 		// Match video and metadata files
 		if !skipVideos {
-			matchedFiles, err = fs.MatchVideoWithMetadata(videoMap, metaMap)
+			matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap)
 			if err != nil {
 				logging.PrintE(0, "Error matching videos with metadata: %v", err)
 				os.Exit(1)

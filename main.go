@@ -4,7 +4,7 @@ import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/processing"
-	fs "Metarr/internal/utils/fs"
+	fsRead "Metarr/internal/utils/fs/read"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
 	"context"
@@ -160,7 +160,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := fs.InitFetchFilesVars(); err != nil {
+	if err := fsRead.InitFetchFilesVars(); err != nil {
 		logging.PrintE(0, "Failed to initialize variables to fetch files. Exiting...")
 		os.Exit(1)
 	}
