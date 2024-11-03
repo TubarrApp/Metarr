@@ -24,6 +24,7 @@ var startTime time.Time
 
 func init() {
 	startTime = time.Now()
+	logging.PrintI("Program started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
 }
 
 func main() {
@@ -184,5 +185,7 @@ func main() {
 	// Proceed to process files (videos, metadata files, etc...)
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
 
-	logging.PrintI("Time elapsed: %v", time.Since(startTime).Seconds())
+	endTime := time.Now()
+	logging.PrintI("Program finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.PrintI("Time elapsed: %v", endTime.Sub(startTime))
 }
