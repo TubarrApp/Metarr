@@ -28,8 +28,10 @@ func init() {
 
 func main() {
 
-	var err error
-	var directory string
+	var (
+		err       error
+		directory string
+	)
 
 	// TESTING FUNCTIONS
 	if config.GetBool(keys.Benchmarking) {
@@ -89,10 +91,12 @@ func main() {
 	config.Set(keys.Context, ctx)
 	defer cancel()
 
-	var openVideo *os.File
-	var inputVideoDir string
-	var inputVideo string
+	var (
+		inputVideoDir,
+		inputVideo string
 
+		openVideo *os.File
+	)
 	if config.IsSet(keys.VideoDir) {
 
 		inputVideoDir = config.GetString(keys.VideoDir)
@@ -117,10 +121,12 @@ func main() {
 	}
 	config.Set(keys.OpenVideo, openVideo)
 
-	var openJson *os.File
-	var inputMetaDir string
-	var inputMeta string
+	var (
+		inputMetaDir,
+		inputMeta string
 
+		openJson *os.File
+	)
 	if config.IsSet(keys.JsonDir) {
 
 		inputMetaDir = config.GetString(keys.JsonDir)

@@ -16,15 +16,19 @@ func FillNFO(fd *types.FileData) bool {
 	if ok := fillNFOTimestamps(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFOTitles(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFODescriptions(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFOCredits(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFOWebData(fd); ok {
 		filled = true
 	}

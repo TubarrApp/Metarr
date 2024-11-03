@@ -49,7 +49,6 @@ func HasPrefix(fileName string, prefixes []string) bool {
 func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
 	var videoExtensions []string
-
 	for _, arg := range convertFrom {
 
 		switch arg {

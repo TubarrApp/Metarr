@@ -16,9 +16,10 @@ import (
 
 // Variable cache
 var (
-	videoExtensions []string
-	inputPrefixes   []string
-	metaExtensions  = []string{".json", ".nfo"}
+	videoExtensions,
+	inputPrefixes []string
+
+	metaExtensions = []string{".json", ".nfo"}
 )
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops

@@ -11,12 +11,12 @@ func fillNFODescriptions(fd *types.FileData) bool {
 	var (
 		d = fd.MTitleDesc
 		n = fd.NFOData
-	)
 
-	fieldMap := map[string]*string{
-		consts.NDescription: &d.Description,
-		consts.NPlot:        &d.LongDescription,
-	}
+		fieldMap = map[string]*string{
+			consts.NDescription: &d.Description,
+			consts.NPlot:        &d.LongDescription,
+		}
+	)
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)

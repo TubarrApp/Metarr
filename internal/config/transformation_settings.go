@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	metaReplaceSuffixInput     []string
-	metaReplacePrefixInput     []string
-	metaNewFieldInput          []string
+	metaReplaceSuffixInput,
+	metaReplacePrefixInput,
+	metaNewFieldInput,
 	filenameReplaceSuffixInput []string
 )
 

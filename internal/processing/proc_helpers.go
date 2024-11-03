@@ -16,8 +16,10 @@ import (
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
 
-	var resourceMsg bool
-	var audioMemoryThreshold uint64 = config.GetUint64(keys.MinMemMB)
+	var (
+		resourceMsg          bool   = false
+		audioMemoryThreshold uint64 = config.GetUint64(keys.MinMemMB)
+	)
 
 	for {
 		// Fetch system resources and determine if processing can proceed
@@ -60,8 +62,10 @@ func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
 // cleanupTempFiles removes temporary files
 func cleanupTempFiles(files map[string]*types.FileData) error {
 
-	var errReturn error
-	var path string
+	var (
+		errReturn error
+		path      string
+	)
 
 	for _, data := range files {
 		path = data.TempOutputFilePath

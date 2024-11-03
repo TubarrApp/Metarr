@@ -17,17 +17,17 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 		w               = fd.MWebData
 		err             error
 		gotRelevantDate bool
-	)
 
-	fieldMap := map[string]*string{ // Order by importance
-		consts.JReleaseDate:         &t.ReleaseDate,
-		consts.JOriginallyAvailable: &t.Originally_Available_At,
-		consts.JDate:                &t.Date,
-		consts.JUploadDate:          &t.UploadDate,
-		consts.JReleaseYear:         &t.Year,
-		consts.JYear:                &t.Year,
-		consts.JCreationTime:        &t.Creation_Time,
-	}
+		fieldMap = map[string]*string{ // Order by importance
+			consts.JReleaseDate:         &t.ReleaseDate,
+			consts.JOriginallyAvailable: &t.Originally_Available_At,
+			consts.JDate:                &t.Date,
+			consts.JUploadDate:          &t.UploadDate,
+			consts.JReleaseYear:         &t.Year,
+			consts.JYear:                &t.Year,
+			consts.JCreationTime:        &t.Creation_Time,
+		}
+	)
 
 	if ok := unpackJSON("date", fieldMap, data); !ok {
 		logging.PrintE(1, "Failed to unpack date JSON, no dates currently exist in file?")

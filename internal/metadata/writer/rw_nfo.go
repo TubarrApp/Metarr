@@ -92,18 +92,16 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
-	var edited bool
-
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
 	}
 
 	var (
-		ok  bool
-		pfx []types.MetaReplacePrefix
-		sfx []types.MetaReplaceSuffix
-		new []types.MetaNewField
+		edited, ok bool
+		pfx        []types.MetaReplacePrefix
+		sfx        []types.MetaReplaceSuffix
+		new        []types.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {

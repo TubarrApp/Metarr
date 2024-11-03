@@ -11,8 +11,8 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 
 	var (
 		allFilled bool = true
+		ok        bool = false
 		meta      map[string]interface{}
-		ok        bool
 	)
 
 	if !fillWebpageDetails(fd, data) {
@@ -25,7 +25,7 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 		allFilled = false
 	}
 
-	if meta, ok := fillCredits(fd, data); !ok {
+	if meta, ok = fillCredits(fd, data); !ok {
 		logging.PrintI("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
@@ -47,7 +47,6 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 	} else if meta != nil {
 		data = meta
 	}
-
 	return data, allFilled
 }
 

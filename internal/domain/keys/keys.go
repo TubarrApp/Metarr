@@ -67,7 +67,7 @@ const (
 )
 
 // Contains the fields which accept multiple entries as string arrays
-var MultiEntryFields []string = []string{
+var MultiEntryFields = []string{
 	InputExts,
 	FilePrefixes,
 	MReplaceSfx,

@@ -17,19 +17,24 @@ import (
 	"sync/atomic"
 )
 
-var totalMetaFiles int32
-var totalVideoFiles int32
-var processedMetaFiles int32
-var processedVideoFiles int32
-var processedDataArray []*types.FileData
+var (
+	totalMetaFiles,
+	totalVideoFiles,
+	processedMetaFiles,
+	processedVideoFiles int32
+
+	processedDataArray []*types.FileData
+)
 
 // processFiles is the main program function to process folder entries
 func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
 	skipVideos := config.GetBool(keys.SkipVideos)
 
-	var videoMap, metaMap, matchedFiles map[string]*types.FileData
-	var err error
+	var (
+		videoMap, metaMap, matchedFiles map[string]*types.FileData
+		err                             error
+	)
 
 	// Process metadata, checking if it’s a directory or a single file
 	if openMeta != nil {
@@ -81,8 +86,10 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 	for _, fileData := range matchedFiles {
 
-		var processedData *types.FileData
-		var err error = fmt.Errorf("")
+		var (
+			processedData *types.FileData
+			err           error
+		)
 
 		if !config.IsSet(keys.SkipVideos) || metaChanges() {
 			switch fileData.MetaFileType {

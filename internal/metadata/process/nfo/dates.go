@@ -91,8 +91,10 @@ func fillNFOTimestamps(fd *types.FileData) bool {
 
 	logging.PrintD(3, "Passed web scrape attempt for date.")
 
-	var date string
-	var err error
+	var (
+		date string
+		err  error
+	)
 	if scrapedDate != "" {
 		date, err = helpers.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {

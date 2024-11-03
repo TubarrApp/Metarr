@@ -11,13 +11,13 @@ func fillNFOTitles(fd *types.FileData) bool {
 	var (
 		t = fd.MTitleDesc
 		n = fd.NFOData
-	)
 
-	fieldMap := map[string]*string{
-		consts.NTitle:         &t.Title,
-		consts.NOriginalTitle: &t.FallbackTitle,
-		consts.NTagline:       &t.Subtitle,
-	}
+		fieldMap = map[string]*string{
+			consts.NTitle:         &t.Title,
+			consts.NOriginalTitle: &t.FallbackTitle,
+			consts.NTagline:       &t.Subtitle,
+		}
+	)
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)

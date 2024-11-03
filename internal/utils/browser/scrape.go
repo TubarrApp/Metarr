@@ -21,8 +21,10 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 		c.SetCookies(targetURL, []*http.Cookie{cookie})
 	}
 
-	var result string
-	var tags []string
+	var (
+		result string
+		tags   []string
+	)
 
 	switch tag {
 	case enums.WEBCLASS_DATE:

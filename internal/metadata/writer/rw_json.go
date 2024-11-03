@@ -144,11 +144,12 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File) (bool, error) {
 
-	var edited bool
-	var ok bool
-	var pfx []types.MetaReplacePrefix
-	var sfx []types.MetaReplaceSuffix
-	var new []types.MetaNewField
+	var (
+		edited, ok bool
+		pfx        []types.MetaReplacePrefix
+		sfx        []types.MetaReplaceSuffix
+		new        []types.MetaNewField
+	)
 
 	if config.IsSet(keys.MReplacePfx) {
 		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)

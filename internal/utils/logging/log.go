@@ -11,12 +11,14 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var ErrorArray []error
-var Loggable bool = false
-var Logger *log.Logger
+var (
+	ErrorArray []error
+	Loggable   bool = false
+	Logger     *log.Logger
 
-// Regular expression to match ANSI escape codes
-var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	// Matches ANSI escape codes
+	ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+)
 
 // SetupLogging creates and/or opens the log file
 func SetupLogging(targetDir string) error {

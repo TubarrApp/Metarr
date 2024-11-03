@@ -55,19 +55,17 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 func WriteMetadata(m *types.FileData) error {
 
 	var (
-		originalVPath string = m.OriginalVideoPath
-		dir           string = m.VideoDirectory
+		originalVPath      string = m.OriginalVideoPath
+		dir                string = m.VideoDirectory
+		originalExt        string = filepath.Ext(originalVPath)
+		outputExt          string = config.GetString(keys.OutputFiletype)
+		tempOutputFilePath string
 	)
 
 	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
-
 	// Make temp output path with .mp4 extension
 	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
 
-	var tempOutputFilePath string
-	originalExt := filepath.Ext(originalVPath)
-
-	outputExt := config.GetString(keys.OutputFiletype)
 	if outputExt == "" {
 		outputExt = filepath.Ext(m.FinalVideoPath)
 		config.Set(keys.OutputFiletype, outputExt)

@@ -11,11 +11,11 @@ func fillNFOWebData(fd *types.FileData) bool {
 	var (
 		w  = fd.MWebData
 		nw = fd.NFOData.WebpageInfo
-	)
 
-	fieldMap := map[string]*string{
-		consts.NURL: &w.WebpageURL,
-	}
+		fieldMap = map[string]*string{
+			consts.NURL: &w.WebpageURL,
+		}
+	)
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)
