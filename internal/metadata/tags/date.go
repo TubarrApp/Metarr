@@ -174,7 +174,7 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 				}
 				return "", month, day, nil
 			} else if i == 20 || i == 19 { // Final guess year
-				logging.PrintI("Guessing date string '%s' as year", d)
+				logging.PrintI("Guessing date string '%s' as year after failed day-month check", d)
 				switch dateFmt {
 				case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
 					return d[2:4], "", "", nil

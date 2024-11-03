@@ -87,8 +87,10 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 	}
 
 	// Add new filename tag for files
-	logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
-	fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
+	if config.IsSet(keys.MFilenamePfx) {
+		logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
+		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
+	}
 
 	return fd, nil
 }

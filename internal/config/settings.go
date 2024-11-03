@@ -14,11 +14,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var metaReplaceSuffixInput []string
-var metaReplacePrefixInput []string
-var metaNewFieldInput []string
-var filenameReplaceSuffixInput []string
-
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
 	Short: "Metarr is a video and metatagging tool",
@@ -34,99 +29,26 @@ var rootCmd = &cobra.Command{
 // init sets the initial Viper settings
 func init() {
 
-	// Video directory
-	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
-	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
-	// Video file
-	rootCmd.PersistentFlags().StringP(keys.VideoFile, "V", ".", "Video file")
-	viper.BindPFlag(keys.VideoFile, rootCmd.PersistentFlags().Lookup(keys.VideoFile))
+	// Files and directories
+	initFilesDirs()
 
-	// JSON directory
-	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON directory")
-	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
-	// JSON file
-	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
-	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
+	// System resource related
+	initResourceRelated()
 
-	// Rename choice
-	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
-	viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle))
+	// Filtering
+	initFiltering()
 
-	// Concurrency limit
-	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
-	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
-
-	// CPU usage
-	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 100.0, "Max CPU usage")
-	viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU))
-
-	// Min memory
-	rootCmd.PersistentFlags().Uint64P(keys.MinMem, "m", 0, "Minimum RAM to start process")
-	viper.BindPFlag(keys.MinMem, rootCmd.PersistentFlags().Lookup(keys.MinMem))
-
-	// File extensions to convert
-	rootCmd.PersistentFlags().StringSliceP(keys.InputExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
-	viper.BindPFlag(keys.InputExts, rootCmd.PersistentFlags().Lookup(keys.InputExts))
-
-	// Only convert files with prefix
-	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
-	viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes))
-
-	// Hardware acceleration
-	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")
-	viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU))
-
-	// Debugging level
-	rootCmd.PersistentFlags().Uint16P(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
-	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
-
-	// Metadata replacement
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaNewFieldInput, "meta-add-field", nil, "Add new fields into metadata files (metatag:value)")
-
-	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")
-	viper.BindPFlag(keys.MDescDatePfx, rootCmd.PersistentFlags().Lookup(keys.MDescDatePfx))
-	rootCmd.PersistentFlags().Bool(keys.MDescDateSfx, false, "Adds the date to the end of the description field.")
-	viper.BindPFlag(keys.MDescDateSfx, rootCmd.PersistentFlags().Lookup(keys.MDescDateSfx))
+	// All file transformations
+	initAllFileTransformers()
 
 	// Filename transformations
-	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
-	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
+	initVideoTransformers()
 
-	rootCmd.PersistentFlags().StringSliceVar(&filenameReplaceSuffixInput, keys.InputFilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
-	viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx))
-
-	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
-	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
-
-	rootCmd.PersistentFlags().StringP(keys.MoveOnComplete, "o", "", "Move files to given directory on program completion")
-	viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete))
+	// Metadata and metafile manipulation
+	initMetaTransformers()
 
 	// Special functions
-	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
-	viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos))
-
-	rootCmd.PersistentFlags().Bool(keys.MOverwrite, false, "When adding new metadata fields, automatically overwrite existing fields with your new values")
-	viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite))
-
-	rootCmd.PersistentFlags().Bool(keys.MPreserve, false, "When adding new metadata fields, skip already existent fields")
-	viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve))
-
-	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
-	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
-
-	rootCmd.PersistentFlags().String(keys.GetLatest, "", "Grabs new videos released since the last stored URL in the grabbed-urls.txt folder (parameter should be the channel URL)")
-	viper.BindPFlag(keys.GetLatest, rootCmd.PersistentFlags().Lookup(keys.GetLatest))
-
-	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
-	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
-
-	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
-	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
-
-	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
-	viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking))
+	initProgramFunctions()
 }
 
 // Execute is the primary initializer of Viper
