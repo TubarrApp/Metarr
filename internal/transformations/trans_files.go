@@ -9,6 +9,7 @@ import (
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // FileRename formats the file names
@@ -31,7 +32,7 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 
 		if !skipVideos {
 			renamedVideo = renameVideo(videoBase, style)
-			renamedMeta = renamedVideo
+			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
 		} else {
 			renamedMeta = renameMeta(metaBase, style)
 		}
@@ -44,16 +45,21 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 		// Add the metatag to the front of the filenames
 		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
 
+		// Trim trailing spaces
+		renamedVideo = strings.TrimSpace(renamedVideo)
+		renamedMeta = strings.TrimSpace(renamedMeta)
+
 		logging.PrintD(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
 
 		// Construct final output filepaths
-		renamedVideoOut := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
-		renamedMetaOut := filepath.Join(metaDir, renamedMeta+metaExt)
+		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
+		renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		fd.RenamedVideoPath = renamedVideoOut
-		fd.RenamedMetaPath = renamedMetaOut
+		// Save into model. May want to save to FinalVideoPath (etc) instead, but currently saves to new field
+		fd.RenamedVideoPath = renamedVPath
+		fd.RenamedMetaPath = renamedMPath
 
-		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVideoOut, originalVPath, renamedMetaOut, originalMPath)
+		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVPath, originalVPath, renamedMPath, originalMPath)
 
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
@@ -82,7 +88,7 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	}
 
 	if style != enums.SKIP {
-		name = toNamingStyle(style, name)
+		name = applyNamingStyle(style, name)
 	}
 	return name
 }
@@ -102,7 +108,7 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	}
 
 	if style != enums.SKIP {
-		name = toNamingStyle(style, name)
+		name = applyNamingStyle(style, name)
 	}
 	return name
 }

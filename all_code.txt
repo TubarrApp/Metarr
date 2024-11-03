@@ -237,6 +237,9 @@ func execute() error {
 	// Filetype to output as
 	verifyOutputFiletype()
 
+	// Meta overwrite and preserve flags
+	verifyMetaOverwritePreserve()
+
 	// Ensure no video and metadata location conflicts
 	if err := checkFileDirs(); err != nil {
 		return err
@@ -338,6 +341,14 @@ func verifyFilePrefixes() {
 	}
 	if len(filePrefixes) > 0 {
 		viper.Set(keys.FilePrefixes, filePrefixes)
+	}
+}
+
+// verifyMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
+func verifyMetaOverwritePreserve() {
+	if GetBool(keys.MOverwrite) && GetBool(keys.MPreserve) {
+		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
+		os.Exit(1)
 	}
 }
 
@@ -2740,6 +2751,10 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 
 	logging.PrintD(2, "Beginning JSON file processing...")
 
+	if fd == nil {
+		return nil, fmt.Errorf("model passed in null")
+	}
+
 	// Function mutex
 	mu.Lock()
 	defer mu.Unlock()
@@ -2766,11 +2781,6 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 	}
 
 	logging.PrintD(3, "%v", data)
-
-	// Return early if user wants to skip videos
-	if config.GetBool(keys.SkipVideos) {
-		return fd, nil
-	}
 
 	// Make metadata adjustments per user selection
 	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file)
@@ -3846,13 +3856,14 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 				if !metaOW && !metaPS {
 					promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue", addition.Field, existingValue, rw.File.Name())
 
-					reply, err := prompt.PromptMetaReplace(promptMsg, rw.File.Name(), &metaOW, &metaPS)
+					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 					if err != nil {
 						logging.PrintE(0, err.Error())
 					}
 					switch reply {
 					case "Y":
 						logging.PrintD(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, rw.File.Name())
+						config.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
 					case "y":
@@ -3866,7 +3877,8 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 
 					case "N":
 						logging.PrintD(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, rw.File.Name())
-						metaOW = true
+						config.Set(keys.MPreserve, true)
+						metaPS = true
 						fallthrough
 					case "n":
 						logging.PrintD(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, rw.File.Name())
@@ -4294,19 +4306,21 @@ func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 				promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
 					addition.Field, content, rw.File.Name())
 
-				reply, err := prompt.PromptMetaReplace(promptMsg, rw.File.Name(), &metaOW, &metaPS)
+				reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 				if err != nil {
 					logging.PrintE(0, err.Error())
 				}
 
 				switch reply {
 				case "Y":
+					config.Set(keys.MOverwrite, true)
 					metaOW = true
 					fallthrough
 				case "y":
 					data = data[:startContent] + addition.Value + data[endIdx:]
 					newAddition = true
 				case "N":
+					config.Set(keys.MPreserve, true)
 					metaPS = true
 					fallthrough
 				case "n":
@@ -6525,7 +6539,7 @@ var (
 	decisionMade  bool
 )
 
-// Initialize user input reader in a goroutine
+// InitUserInputReader initializes a user input reading function in a goroutine
 func InitUserInputReader() {
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
@@ -6539,18 +6553,18 @@ func InitUserInputReader() {
 // PromptMetaReplace displays a prompt message and waits for valid user input.
 // The option can be used to tell the program to overwrite all in the queue,
 // preserve all in the queue, or move through value by value
-func PromptMetaReplace(promptMsg, fileName string, overwriteAll, preserveAll *bool) (string, error) {
+func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 
 	logging.PrintD(3, "Entering PromptUser dialogue...")
 	ctx := context.Background()
 
 	if decisionMade {
 		// If overwriteAll, return "Y" without waiting
-		if *overwriteAll {
+		if ow {
 
 			logging.PrintD(3, "Overwrite all is set...")
 			return "Y", nil
-		} else if *preserveAll {
+		} else if ps {
 
 			logging.PrintD(3, "Preserve all is set...")
 			return "N", nil
@@ -6564,7 +6578,7 @@ func PromptMetaReplace(promptMsg, fileName string, overwriteAll, preserveAll *bo
 	select {
 	case response := <-userInputChan:
 		if response == "Y" {
-			*overwriteAll = true
+			ow = true
 		}
 		decisionMade = true
 		return response, nil
@@ -6748,15 +6762,7 @@ func main() {
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
 
-	fieldOverwrite := config.GetBool(keys.MOverwrite)
-	fieldPreserve := config.GetBool(keys.MPreserve)
-
-	if fieldOverwrite && fieldPreserve {
-		fmt.Println()
-		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
-		fmt.Println()
-		os.Exit(1)
-	}
+	// Removed: prompt.SetMetaOverwritePreserve(config.GetBool(keys.MOverwrite), config.GetBool(keys.MPreserve))
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)

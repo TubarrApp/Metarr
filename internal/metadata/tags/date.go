@@ -8,151 +8,262 @@ import (
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
-// makeDateTag creates the date tag to affix to the filename
+// MakeDateTag attempts to create the date tag for files using metafile data
 func MakeDateTag(metadata map[string]interface{}, fileName string) (string, error) {
-
-	preferredDateFields := []string{
-		consts.JReleaseDate,
-		"releasedate", // Alias
-		"released_on", // Alias
-		consts.JOriginallyAvailable,
-		"originally_available", // Alias
-		"originallyavailable",  // Alias
-		consts.JDate,
-		consts.JUploadDate,
-		"uploaddate",  // Alias
-		"uploaded_on", // Alias
-		consts.JCreationTime,
-		"created_at", // Alias
-	}
-
 	dateFmt, ok := config.Get(keys.FileDateFmt).(enums.FilenameDateFormat)
 	if !ok {
-		return "", fmt.Errorf("grabbed value from Viper in makeDateTag but var type was not correct")
+		return "", fmt.Errorf("invalid date format configuration")
 	}
 
-	var gotDate bool = false
-	var date string = ""
-
-	for _, field := range preferredDateFields {
-		logging.PrintD(3, "Checking for date in field: %s", field)
-		if value, found := metadata[field]; found {
-			logging.PrintD(3, "Found date in field '%s' with value: %v (type: %T)", field, value, value)
-
-			if strVal, ok := value.(string); ok && strVal != "" && len(strVal) > 4 {
-				bef, _, _ := strings.Cut(strVal, "T")
-				date = bef
-				gotDate = true
-				logging.PrintD(3, "Extracted date string: %s", date)
-				break
-			}
-		}
-	}
-
-	if !gotDate {
+	date, found := extractDateFromMetadata(metadata)
+	if !found {
 		logging.PrintE(0, "No dates found in JSON file")
 		return "", nil
 	}
 
-	// Logging dates before and after replacing dashes for parsing
-	logging.PrintD(3, "Date before replacing dashes: %s", date)
-	date = strings.ReplaceAll(date, "-", "")
-	logging.PrintD(3, "Date after replacing dashes: %s (length: %d)", date, len(date))
-
-	logging.PrintD(1, "Entering case check for %v", fileName)
-
-	if len(date) >= 8 {
-		logging.PrintD(3, "Input date length >= 8: %d", date)
-		switch dateFmt {
-		case enums.FILEDATE_YYYY_MM_DD:
-			logging.PrintD(3, "Formatting as: yyyy-mm-dd")
-			date = date[:4] + "-" + date[4:6] + "-" + date[6:8]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_YY_MM_DD:
-			logging.PrintD(3, "Formatting as: yy-mm-dd")
-			date = date[2:4] + "-" + date[4:6] + "-" + date[6:8]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_YYYY_DD_MM:
-			logging.PrintD(3, "Formatting as: yyyy-dd-mm")
-			date = date[:4] + "-" + date[6:8] + "-" + date[4:6]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_YY_DD_MM:
-			logging.PrintD(3, "Formatting as: yy-dd-mm")
-			date = date[2:4] + "-" + date[6:8] + "-" + date[4:6]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_DD_MM_YYYY:
-			logging.PrintD(3, "Formatting as: dd-mm-yyyy")
-			date = date[6:8] + "-" + date[4:6] + "-" + date[:4]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_DD_MM_YY:
-			logging.PrintD(3, "Formatting as: dd-mm-yy")
-			date = date[6:8] + "-" + date[4:6] + "-" + date[2:4]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_MM_DD_YYYY:
-			logging.PrintD(3, "Formatting as: mm-dd-yyyy")
-			date = date[4:6] + "-" + date[6:8] + "-" + date[:4]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_MM_DD_YY:
-			logging.PrintD(3, "Formatting as: mm-dd-yy")
-			date = date[4:6] + "-" + date[6:8] + "-" + date[2:4]
-			logging.PrintD(3, "Date as %s", date)
-		}
-	} else if len(date) >= 6 {
-		logging.PrintD(3, "Input date length >= 6 and < 8: %d", date)
-		switch dateFmt {
-		case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
-			date = date[:2] + "-" + date[2:4] + "-" + date[4:6]
-
-		case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
-			date = date[:2] + "-" + date[4:6] + "-" + date[2:4]
-
-		case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
-			date = date[4:6] + "-" + date[2:4] + "-" + date[:2]
-
-		case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
-			date = date[2:4] + "-" + date[4:6] + "-" + date[:2]
-		}
-	} else if len(date) >= 4 {
-		logging.PrintD(3, "Input date length >= 4 and < 6: %d", date)
-		switch dateFmt {
-		case enums.FILEDATE_YYYY_MM_DD,
-			enums.FILEDATE_YY_MM_DD,
-			enums.FILEDATE_MM_DD_YYYY,
-			enums.FILEDATE_MM_DD_YY:
-
-			date = date[:2] + "-" + date[2:4]
-
-		case enums.FILEDATE_YYYY_DD_MM,
-			enums.FILEDATE_YY_DD_MM,
-			enums.FILEDATE_DD_MM_YYYY,
-			enums.FILEDATE_DD_MM_YY:
-
-			date = date[2:4] + "-" + date[:2]
-		}
+	year, month, day, err := parseDateComponents(date, dateFmt)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse date components: %w", err)
 	}
 
-	dateTag := "[" + date + "]"
-
-	logging.PrintD(1, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
-
-	if dateTag != "[]" {
-		if checkTagExists(dateTag, filepath.Base(fileName)) {
-			logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
-			dateTag = "[]"
-		}
-	} else {
-		logging.PrintD(3, "Constructed empty tag, skipping tag exists check for file '%s'", filepath.Base(fileName))
+	dateStr := formatDateString(year, month, day, dateFmt)
+	if dateStr == "" {
+		return "[]", nil
 	}
 
+	dateTag := "[" + dateStr + "]"
+	if checkTagExists(dateTag, filepath.Base(fileName)) {
+		logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
+		return "[]", nil
+	}
+
+	logging.PrintS(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
 	return dateTag, nil
+}
+
+// extractDateFromMetadata attempts to find a date in the metadata using predefined fields
+func extractDateFromMetadata(metadata map[string]interface{}) (string, bool) {
+	preferredDateFields := []string{
+		consts.JReleaseDate,
+		"releasedate",
+		"released_on",
+		consts.JOriginallyAvailable,
+		"originally_available",
+		"originallyavailable",
+		consts.JDate,
+		consts.JUploadDate,
+		"uploaddate",
+		"uploaded_on",
+		consts.JCreationTime, // Last resort, may give false positives
+		"created_at",
+	}
+
+	for _, field := range preferredDateFields {
+		if value, found := metadata[field]; found {
+			if strVal, ok := value.(string); ok && strVal != "" && len(strVal) > 4 {
+				if date, _, found := strings.Cut(strVal, "T"); found {
+					return date, true
+				}
+				return strVal, true
+			}
+		}
+	}
+	return "", false
+}
+
+// parseDateComponents extracts and validates year, month, and day from the date string
+func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+	date = strings.ReplaceAll(date, "-", "")
+	date = strings.TrimSpace(date)
+
+	year, month, day, err = getYearMonthDay(date, dateFmt)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return validateDateComponents(year, month, day)
+}
+
+// formatDateString formats the date as a hyphenated string
+func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) string {
+	var parts []string
+
+	switch dateFmt {
+	case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
+		parts = getNonEmpty(year, month, day)
+	case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
+		parts = getNonEmpty(year, day, month)
+	case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
+		parts = getNonEmpty(day, month, year)
+	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
+		parts = getNonEmpty(month, day, year)
+	}
+
+	return strings.Join(parts, "-")
+}
+
+// appendNonEmpty adds non-empty strings to the slice
+func getNonEmpty(values ...string) []string {
+	var parts []string
+	for _, v := range values {
+		if v != "" {
+			parts = append(parts, v)
+		}
+	}
+	return parts
+}
+
+// getYear returns the year digits from the date string
+func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+	d = strings.ReplaceAll(d, "-", "")
+	d = strings.TrimSpace(d)
+
+	if len(d) >= 8 {
+		switch dateFmt {
+		case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+			year = d[2:4]
+		default:
+			year = d[:4]
+		}
+		month = d[4:6]
+		day = d[6:8]
+
+		return year, month, day, nil
+	}
+	if len(d) >= 6 {
+		year = d[:2]
+		month = d[2:4]
+		day = d[4:6]
+
+		return year, month, day, nil
+	}
+	if len(d) == 4 { // Guess year or month-day
+
+		i, err := strconv.Atoi(d[:2])
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid date string '%s' threw error: %w", d, err)
+		}
+		j, err := strconv.Atoi(d[2:4])
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid date string '%s' threw error: %w", d, err)
+		}
+
+		if (i == 20 || i == 19) && j > 12 { // First guess year
+			logging.PrintI("Guessing date string '%s' as year", d)
+			switch dateFmt {
+			case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+				return d[2:4], "", "", nil
+			default:
+				return d[:4], "", "", nil
+			}
+		} else { // Second guess, month-date
+			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
+				if ddmm {
+					logging.PrintI("Guessing date string '%s' as day-month")
+					day = d[:2]
+					month = d[2:4]
+
+				} else if mmdd {
+					logging.PrintI("Guessing date string '%s' as month-day")
+					day = d[2:4]
+					month = d[:2]
+				}
+				return "", month, day, nil
+			} else if i == 20 || i == 19 { // Final guess year
+				logging.PrintI("Guessing date string '%s' as year", d)
+				switch dateFmt {
+				case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+					return d[2:4], "", "", nil
+				default:
+					return d[:4], "", "", nil
+				}
+			}
+		}
+	}
+
+	return "", "", "", fmt.Errorf("failed to parse year, month, and day from '%s'", d)
+}
+
+// validateDateComponents attempts to fix faulty date arrangements
+func validateDateComponents(year, month, day string) (string, string, string, error) {
+
+	if isValidMonth(month) && isValidDay(day, month, year) {
+		return year, month, day, nil
+	}
+
+	// Attempt swapping day and month
+	if isValidMonth(day) && isValidDay(month, day, year) {
+		return year, day, month, nil
+	}
+
+	// Fail check:
+	return "", "", "", fmt.Errorf("invalid date components: year=%s, month=%s, day=%s", year, month, day)
+}
+
+// isValidMonth checks if the month inputted is a valid month
+func isValidMonth(month string) bool {
+	m, err := strconv.Atoi(month)
+	if err != nil {
+		return false
+	}
+	return m >= 1 && m <= 12
+}
+
+// isValidDay checks if the day inputted is a valid day
+func isValidDay(day, month, year string) bool {
+	d, err := strconv.Atoi(day)
+	if err != nil {
+		return false
+	}
+
+	m, err := strconv.Atoi(month)
+	if err != nil {
+		return false
+	}
+
+	y, err := strconv.Atoi(year)
+	if err != nil {
+		return false
+	}
+
+	if d < 1 || d > 31 {
+		return false
+	}
+
+	// Months with 30 days
+	if m == 4 || m == 6 || m == 9 || m == 11 {
+		return d <= 30
+	}
+
+	// February
+	if m == 2 {
+		// Leap year check
+		isLeap := y%4 == 0 && (y%100 != 0 || y%400 == 0)
+		if isLeap {
+			return d <= 29
+		}
+		return d <= 28
+	}
+
+	return true
+}
+
+// maybeDayMonth guesses if the input is a DD-MM or MM-DD format
+func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
+	if i == 0 || i >= 31 || j == 0 || j >= 31 {
+		return false, false
+	}
+
+	switch {
+	case i <= 31 && j <= 12:
+		return ddmm, false
+	case j <= 31 && i <= 12:
+		return false, mmdd
+	default:
+		return false, false
+	}
 }

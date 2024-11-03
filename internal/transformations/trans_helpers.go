@@ -29,7 +29,7 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 }
 
 // Renaming conventions
-func toNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
+func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
 	case enums.SPACES:
