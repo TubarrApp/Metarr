@@ -68,7 +68,6 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 	}
 
 	credits := helpers.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
-
 	if credits != "" {
 		for _, value := range fieldMap {
 			if *value == "" {

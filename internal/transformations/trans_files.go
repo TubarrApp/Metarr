@@ -15,9 +15,9 @@ import (
 // FileRename formats the file names
 func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 
-	skipVideos := config.GetBool(keys.SkipVideos)
-
 	var vidExt string
+
+	skipVideos := config.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
 		metaBase, metaDir, originalMPath := getMetafileData(fd)

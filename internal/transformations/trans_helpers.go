@@ -62,7 +62,7 @@ func addTags(renamedVideo, renamedMeta string, m *types.FileData) (string, strin
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag
 func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (string, string, error) {
 
-	var contractionsMap map[string]string
+	contractionsMap := make(map[string]string, len(consts.ContractionsSpaced))
 
 	// Rename style map to use
 	switch style {

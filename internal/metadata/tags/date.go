@@ -102,13 +102,12 @@ func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat)
 	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
 		parts = getNonEmpty(month, day, year)
 	}
-
 	return strings.Join(parts, "-")
 }
 
 // appendNonEmpty adds non-empty strings to the slice
 func getNonEmpty(values ...string) []string {
-	var parts []string
+	parts := make([]string, len(values))
 	for _, v := range values {
 		if v != "" {
 			parts = append(parts, v)

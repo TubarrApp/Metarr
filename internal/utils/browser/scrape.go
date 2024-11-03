@@ -16,15 +16,13 @@ import (
 func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
 
 	c := colly.NewCollector()
-
 	for _, cookie := range cookies {
 		c.SetCookies(targetURL, []*http.Cookie{cookie})
 	}
 
-	var (
-		result string
-		tags   []string
-	)
+	var result string
+
+	tags := make([]string, 0, len(consts.WebDateTags))
 
 	switch tag {
 	case enums.WEBCLASS_DATE:
@@ -85,15 +83,15 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 
 // Check tag if it appears it could contain a date
 func looksLikeDate(s string) bool {
-	s = strings.TrimSpace(s)
-	if len(s) > 30 { // (Dates shouldn't be longer than this)
+	if len(s) > 30 { // (Dates probably not longer than this)
 		return false
 	}
 
+	s = strings.TrimSpace(s)
 	lowered := strings.ToLower(s)
 
 	// Check for month names
-	months := []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
+	months := [12]string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 	hasMonth := false
 	for _, month := range months {
 		if strings.Contains(lowered, month) {
@@ -109,7 +107,7 @@ func looksLikeDate(s string) bool {
 	hasDay := regexp.MustCompile(`\b\d{1,2}(st|nd|rd|th)?\b`).MatchString(s)
 
 	// Check for common date formats
-	datePatterns := []string{
+	datePatterns := [4]string{
 		`\d{1,2}[-/]\d{1,2}[-/]\d{2,4}`, // DD/MM/YYYY or MM/DD/YYYY
 		`\d{4}[-/]\d{1,2}[-/]\d{1,2}`,   // YYYY/MM/DD
 		`\w+\s+\d{1,2},?\s+\d{4}`,       // Month DD, YYYY

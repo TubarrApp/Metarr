@@ -183,10 +183,11 @@ func checkFileDirs() error {
 
 // verifyFilePrefixes checks and sets the file prefix filters
 func verifyFilePrefixes() {
-	var filePrefixes []string
 
-	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
-	for _, arg := range argInputPrefixes {
+	argsInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
+	filePrefixes := make([]string, 0, len(argsInputPrefixes))
+
+	for _, arg := range argsInputPrefixes {
 		if arg != "" {
 			filePrefixes = append(filePrefixes, arg)
 		}
@@ -217,9 +218,8 @@ func verifyDebugLevel() {
 
 // verifyInputFiletypes checks that the inputted filetypes are accepted
 func verifyInputFiletypes() {
-	var inputExts []enums.ConvertFromFiletype
-
 	argsInputExts := viper.GetStringSlice(keys.InputExts)
+	inputExts := make([]enums.ConvertFromFiletype, 0, len(argsInputExts))
 
 	for _, data := range argsInputExts {
 		switch data {

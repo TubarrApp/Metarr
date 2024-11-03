@@ -134,9 +134,10 @@ func validateNewMetafields() error {
 
 // setRenameFlag sets the rename style to apply
 func setRenameFlag() {
-	var renameFlag enums.ReplaceToStyle
 
+	var renameFlag enums.ReplaceToStyle
 	argRenameFlag := GetString(keys.RenameStyle)
+
 	switch argRenameFlag {
 	case "spaces", "space":
 		renameFlag = enums.SPACES
@@ -155,10 +156,7 @@ func setRenameFlag() {
 // initDateReplaceFormat initializes the user's preferred format for dates
 func initDateReplaceFormat() error {
 
-	var (
-		formatEnum enums.FilenameDateFormat
-	)
-
+	var formatEnum enums.FilenameDateFormat
 	dateFmt := GetString(keys.InputFileDatePfx)
 
 	if dateFmt == "" {
