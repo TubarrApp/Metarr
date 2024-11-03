@@ -20,6 +20,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 		consts.JPerformer: &c.Performer,
 		consts.JAuthor:    &c.Author,
 		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
+		consts.JChannel:   &c.Channel,
 		consts.JDirector:  &c.Director,
 		consts.JActor:     &c.Actor,
 		consts.JStudio:    &c.Studio,
@@ -108,6 +109,9 @@ func fillEmptyCredits(c *types.MetadataCredits) string {
 
 	case c.Actor != "":
 		return c.Actor
+
+	case c.Channel != "":
+		return c.Channel
 
 	case c.Performer != "":
 		return c.Performer

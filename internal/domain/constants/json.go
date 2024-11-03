@@ -4,6 +4,7 @@ const (
 	JActor     = "actor"
 	JAuthor    = "author"
 	JArtist    = "artist"
+	JChannel   = "channel"
 	JComposer  = "composer"
 	JCreator   = "creator"
 	JDirector  = "director"

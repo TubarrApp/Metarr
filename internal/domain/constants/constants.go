@@ -25,7 +25,7 @@ var (
 		"check-for-urls"}
 
 	// Credits tags, and nested elements
-	WebCreditsTags      = [...]string{"creator", "uploader", "uploaded-by", "uploaded_by", "claim-preview__title"}
+	WebCreditsTags      = [...]string{"creator", "uploader", "uploaded-by", "uploaded_by", "channel-name", "claim-preview__title"}
 	WebCreditsSelectors = map[string]string{
 		"claim-preview__title":               "truncated-text",
 		`script[type="application/ld+json"]`: "author.name",

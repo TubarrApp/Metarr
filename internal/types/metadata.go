@@ -40,6 +40,7 @@ type MetadataCredits struct {
 	Author     string `json:"author" xml:"author"`
 	Artist     string `json:"artist" xml:"artist"`
 	Artists    []string
+	Channel    string `json:"channel" xml:"channel"`
 	Creator    string `json:"creator" xml:"creator"`
 	Studio     string `json:"studio" xml:"studio"`
 	Studios    []string
