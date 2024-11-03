@@ -24,15 +24,18 @@ var (
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops
 func InitFetchFilesVars() error {
 
-	if inExts, ok := config.Get(keys.InputExtsEnum).([]enums.ConvertFromFiletype); ok {
-		videoExtensions = setVideoExtensions(inExts)
+	if inVExts, ok := config.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
+		logging.PrintD(2, "Received video extensions enum: %v", inVExts)
+		videoExtensions = setVideoExtensions(inVExts)
 	} else {
-		return fmt.Errorf("wrong type sent in. Received type %T", inExts)
+		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
 
-	if inMExts := setMetaExtensions(); len(inMExts) > 0 {
-		metaExtensions = append(metaExtensions, inMExts...)
-		logging.PrintD(2, "Setting meta extensions: %v", metaExtensions)
+	if inMExts, ok := config.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
+		logging.PrintD(2, "Received video extensions enum: %v", inMExts)
+		metaExtensions = setMetaExtensions(inMExts)
+	} else {
+		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
 
 	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))

@@ -37,7 +37,7 @@ type FileData struct {
 	NFODirectory string `json:"-" xml:"-"`
 	NFOFilePath  string `json:"-" xml:"-"`
 	// Meta type
-	MetaFileType enums.MetaFileTypeEnum `json:"-" xml:"-"`
+	MetaFileType enums.MetaFiletypeFound `json:"-" xml:"-"`
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
 	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`

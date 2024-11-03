@@ -46,45 +46,50 @@ func HasPrefix(fileName string, prefixes []string) bool {
 }
 
 // setVideoExtensions creates a list of extensions to filter
-func setVideoExtensions(convertFrom []enums.ConvertFromFiletype) []string {
+func setVideoExtensions(exts []enums.ConvertFromFiletype) []string {
 
 	videoExtensions := make([]string, 0, len(consts.AllVidExtensions))
-	for _, arg := range convertFrom {
 
+	for _, arg := range exts {
 		switch arg {
-		case enums.IN_ALL_EXTENSIONS:
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
-		case enums.IN_MKV:
+		case enums.VID_EXTS_MKV:
 			videoExtensions = append(videoExtensions, ".mkv")
-		case enums.IN_MP4:
+		case enums.VID_EXTS_MP4:
 			videoExtensions = append(videoExtensions, ".mp4")
-		case enums.IN_WEBM:
+		case enums.VID_EXTS_WEBM:
 			videoExtensions = append(videoExtensions, ".webm")
-
-		default:
-			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
+		case enums.VID_EXTS_ALL:
+			return consts.AllVidExtensions[:]
 		}
 	}
+
+	if len(videoExtensions) == 0 {
+		return consts.AllVidExtensions[:]
+	}
+
 	return videoExtensions
 }
 
 // setMetaExtensions creates a lists of meta extensions to filter
-func setMetaExtensions() []string {
+func setMetaExtensions(exts []enums.MetaFiletypeFilter) []string {
 
 	metaExtensions := make([]string, 0, len(consts.AllMetaExtensions))
-	for _, arg := range consts.AllMetaExtensions {
 
+	for _, arg := range exts {
 		switch arg {
-		case "json":
-			metaExtensions = append(metaExtensions, arg)
-		case "nfo":
-			metaExtensions = append(metaExtensions, arg)
-
-		default:
-			metaExtensions = append(metaExtensions, consts.AllMetaExtensions[:]...)
+		case enums.META_EXTS_JSON:
+			metaExtensions = append(metaExtensions, ".json")
+		case enums.META_EXTS_NFO:
+			metaExtensions = append(metaExtensions, ".nfo")
+		case enums.META_EXTS_ALL:
+			return consts.AllMetaExtensions[:]
 		}
 	}
+
+	if len(metaExtensions) == 0 {
+		return consts.AllMetaExtensions[:]
+	}
+
 	return metaExtensions
 }
 

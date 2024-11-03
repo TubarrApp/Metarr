@@ -6,7 +6,8 @@ const (
 	VideoFile               string = "video-file"
 	JsonDir                 string = "json-dir"
 	JsonFile                string = "json-file"
-	InputExts               string = "input-exts"
+	InputVideoExts          string = "input-video-exts"
+	InputMetaExts           string = "input-meta-exts"
 	FilePrefixes            string = "prefix"
 	Concurrency             string = "concurrency"
 	MaxCPU                  string = "max-cpu"
@@ -51,7 +52,8 @@ const (
 
 // Filter for files
 const (
-	InputExtsEnum string = "inputExtsEnum"
+	InputVExtsEnum string = "inputVideoExtsEnum"
+	InputMExtsEnum string = "inputMetaExtsEnum"
 )
 
 // Performance
@@ -68,7 +70,8 @@ const (
 
 // Contains the fields which accept multiple entries as string arrays
 var MultiEntryFields = []string{
-	InputExts,
+	InputVideoExts,
+	InputMetaExts,
 	FilePrefixes,
 	MReplaceSfx,
 	MReplacePfx,

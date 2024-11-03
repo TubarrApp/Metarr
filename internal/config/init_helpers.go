@@ -101,9 +101,13 @@ func initVideoTransformers() {
 
 // initFiltering initializes user flag settings for filtering files to work with
 func initFiltering() {
-	// File extensions to convert
-	rootCmd.PersistentFlags().StringSliceP(keys.InputExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
-	viper.BindPFlag(keys.InputExts, rootCmd.PersistentFlags().Lookup(keys.InputExts))
+	// Video file extensions to convert
+	rootCmd.PersistentFlags().StringSliceP(keys.InputVideoExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
+	viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts))
+
+	// Meta file extensions to convert
+	rootCmd.PersistentFlags().StringSlice(keys.InputMetaExts, []string{"all"}, "File extensions to convert (all, json, nfo)")
+	viper.BindPFlag(keys.InputMetaExts, rootCmd.PersistentFlags().Lookup(keys.InputMetaExts))
 
 	// Only convert files with prefix
 	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")

@@ -218,25 +218,45 @@ func verifyDebugLevel() {
 
 // verifyInputFiletypes checks that the inputted filetypes are accepted
 func verifyInputFiletypes() {
-	argsInputExts := viper.GetStringSlice(keys.InputExts)
-	inputExts := make([]enums.ConvertFromFiletype, 0, len(argsInputExts))
+	argsVInputExts := viper.GetStringSlice(keys.InputVideoExts)
+	inputVExts := make([]enums.ConvertFromFiletype, 0, len(argsVInputExts))
 
-	for _, data := range argsInputExts {
+	for _, data := range argsVInputExts {
 		switch data {
 		case "mkv":
-			inputExts = append(inputExts, enums.IN_MKV)
+			inputVExts = append(inputVExts, enums.VID_EXTS_MKV)
 		case "mp4":
-			inputExts = append(inputExts, enums.IN_MP4)
+			inputVExts = append(inputVExts, enums.VID_EXTS_MP4)
 		case "webm":
-			inputExts = append(inputExts, enums.IN_WEBM)
+			inputVExts = append(inputVExts, enums.VID_EXTS_WEBM)
 		default:
-			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+			inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
 		}
 	}
-	if len(inputExts) == 0 {
-		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	if len(inputVExts) == 0 {
+		inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
 	}
-	viper.Set(keys.InputExtsEnum, inputExts)
+	logging.PrintD(2, "Received video input extension filter: %v", inputVExts)
+	viper.Set(keys.InputVExtsEnum, inputVExts)
+
+	argsMInputExts := viper.GetStringSlice(keys.InputMetaExts)
+	inputMExts := make([]enums.MetaFiletypeFilter, 0, len(argsMInputExts))
+
+	for _, data := range argsMInputExts {
+		switch data {
+		case "json":
+			inputMExts = append(inputMExts, enums.META_EXTS_JSON)
+		case "nfo":
+			inputMExts = append(inputMExts, enums.META_EXTS_NFO)
+		default:
+			inputMExts = append(inputMExts, enums.META_EXTS_ALL)
+		}
+	}
+	if len(inputMExts) == 0 {
+		inputMExts = append(inputMExts, enums.META_EXTS_ALL)
+	}
+	logging.PrintD(2, "Received meta input extension filter: %v", inputMExts)
+	viper.Set(keys.InputMExtsEnum, inputMExts)
 }
 
 // verifyHWAcceleration checks and sets HW acceleration to use
