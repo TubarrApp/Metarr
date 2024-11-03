@@ -20,16 +20,13 @@ var (
 	muWriteCommand sync.Mutex
 )
 
-// MetadataMap holds all metadata key-value pairs
-type MetadataMap map[string]string
-
 // CommandBuilder handles FFmpeg command construction
 type CommandBuilder struct {
 	inputFile   string
 	outputFile  string
-	gpuAccel    []string
-	metadataMap MetadataMap
 	formatFlags []string
+	gpuAccel    []string
+	metadataMap map[string]string
 }
 
 // NewCommandBuilder creates a new FFmpeg command builder
@@ -37,7 +34,7 @@ func NewCommandBuilder(m *types.FileData, outputFile string) *CommandBuilder {
 	return &CommandBuilder{
 		inputFile:   m.OriginalVideoPath,
 		outputFile:  outputFile,
-		metadataMap: make(MetadataMap),
+		metadataMap: make(map[string]string),
 	}
 }
 
@@ -47,9 +44,7 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 	builder := NewCommandBuilder(m, outputFile)
 
 	builder.setGPUAcceleration()
-
 	builder.addAllMetadata(m)
-
 	builder.setFormatFlags()
 
 	// Return the fully appended argument string
@@ -59,8 +54,10 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 // WriteMetadata writes metadata to a single video file
 func WriteMetadata(m *types.FileData) error {
 
-	var originalVPath string = m.OriginalVideoPath
-	dir := m.VideoDirectory
+	var (
+		originalVPath string = m.OriginalVideoPath
+		dir           string = m.VideoDirectory
+	)
 
 	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
 
@@ -69,7 +66,13 @@ func WriteMetadata(m *types.FileData) error {
 
 	var tempOutputFilePath string
 	originalExt := filepath.Ext(originalVPath)
+
 	outputExt := config.GetString(keys.OutputFiletype)
+	if outputExt == "" {
+		outputExt = filepath.Ext(m.FinalVideoPath)
+		config.Set(keys.OutputFiletype, outputExt)
+	}
+
 	switch {
 	case outputExt != "":
 		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+outputExt)
@@ -136,8 +139,9 @@ func WriteMetadata(m *types.FileData) error {
 
 	fmt.Printf("Successfully renamed video from %s to %s\n", tempOutputFilePath, m.FinalVideoPath)
 
-	if filepath.Ext(originalVPath) != ".mp4" {
-		logging.PrintI("Removing original non-MP4 file: %s", originalVPath)
+	if filepath.Ext(originalVPath) != filepath.Ext(m.FinalVideoPath) {
+
+		logging.PrintI("Original file not type %s, removing '%s'", outputExt, originalVPath)
 
 		if config.GetBool(keys.NoFileOverwrite) {
 			if _, err := os.Stat(originalVPath); os.IsNotExist(err) {
@@ -187,33 +191,76 @@ func (b *CommandBuilder) addAllMetadata(m *types.FileData) {
 	b.addOtherMetadata(m.MOther)
 }
 
-// setFormatFlags sets format-specific encoding flags
+// setFormatFlags adds commands specific for the extension input and output
 func (b *CommandBuilder) setFormatFlags() {
-	ext := filepath.Ext(b.inputFile)
-	switch ext {
-	case ".mp4":
+	var (
+		inExt  string = filepath.Ext(b.inputFile)
+		outExt string = config.GetString(keys.OutputFiletype)
+	)
+	if outExt == "" {
+		outExt = inExt
+	}
+
+	logging.PrintI("Input extension set '%s' and output extension '%s'. File: %s", inExt, outExt, b.inputFile)
+
+	// Return early with straight copy if no extension change
+	if strings.TrimPrefix(inExt, ".") == strings.TrimPrefix(outExt, ".") {
 		b.formatFlags = consts.AVCodecCopy
-	case ".mkv":
-		flags := make([]string, 0)
-		flags = append(flags, consts.OutputExt...)
-		flags = append(flags, consts.VideoCodecCopy...)
+		return
+	}
+
+	flags := make([]string, 0)
+
+	// Set flags based on output format requirements
+	switch outExt {
+	case ".mp4":
+		flags = append(flags, "-f", outExt)
+		flags = append(flags, consts.VideoToH264Balanced...)
+		flags = append(flags, consts.PixelFmtYuv420p...)
 		flags = append(flags, consts.AudioToAAC...)
 		flags = append(flags, consts.AudioBitrate...)
-		b.formatFlags = flags
+
+	case ".mkv":
+		flags = append(flags, "-f", outExt)
+		// MKV is flexible, copy AV codec for supported formats
+		if inExt == ".mp4" || inExt == ".m4v" {
+			flags = append(flags, consts.VideoCodecCopy...)
+		} else {
+			flags = append(flags, consts.VideoToH264Balanced...)
+		}
+		flags = append(flags, consts.AudioToAAC...)
+		flags = append(flags, consts.AudioBitrate...)
+
 	case ".webm":
-		flags := make([]string, 0)
-		flags = append(flags, consts.OutputExt...)
+		flags = append(flags, "-f", outExt)
 		flags = append(flags, consts.VideoToH264Balanced...)
 		flags = append(flags, consts.PixelFmtYuv420p...)
 		flags = append(flags, consts.KeyframeBalanced...)
 		flags = append(flags, consts.AudioToAAC...)
 		flags = append(flags, consts.AudioBitrate...)
-		b.formatFlags = flags
+
+	default:
+		// Safe defaults for any other output format
+		flags = append(flags, "-f", outExt)
+		flags = append(flags, consts.VideoToH264Balanced...)
+		flags = append(flags, consts.PixelFmtYuv420p...)
+		flags = append(flags, consts.AudioToAAC...)
+		flags = append(flags, consts.AudioBitrate...)
 	}
+
+	b.formatFlags = flags
 }
 
 // buildFinalCommand assembles the final FFmpeg command
 func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
+
+	// MAP LENGTH LOGIC [KEEP CLOSE EYE ON THIS IF COMMANDS CHANGE]:
+	//
+	// GPU acceleration flags
+	// "-y", "i", input file, output file (+4)
+	// Length of metadata map, then * 2 to prefix "-metadata" to each entry
+	// Length of format flags
+	// Output file (+1)
 	args := make([]string, 0, len(b.gpuAccel)+4+len(b.metadataMap)*2+len(b.formatFlags)+1)
 
 	// Add GPU acceleration if present

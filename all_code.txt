@@ -2,71 +2,131 @@ package config
 
 import (
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
-	"strings"
+
+	"github.com/spf13/viper"
 )
 
-func AutoPreset(url string) {
-	if strings.Contains(url, "censored.tv") {
-		censoredTvPreset()
-	}
+// initFilesDirs initializes user flag settings for input files and directories
+func initFilesDirs() {
+	// Videos
+	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
+	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
+
+	rootCmd.PersistentFlags().StringP(keys.VideoFile, "V", ".", "Video file")
+	viper.BindPFlag(keys.VideoFile, rootCmd.PersistentFlags().Lookup(keys.VideoFile))
+
+	// JSON
+	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON directory")
+	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
+
+	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
+	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
 }
 
-func censoredTvPreset() {
-	var metaReplaceSuffix []types.MetaReplaceSuffix
+// initResourceRelated initializes user flag settings for parameters related to system hardware
+func initResourceRelated() {
+	// Concurrency limit
+	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
+	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
 
-	sfxArg1 := types.MetaReplaceSuffix{
-		Field:       "title",
-		Suffix:      " (1)",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg1)
+	// CPU usage
+	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 100.0, "Max CPU usage")
+	viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU))
 
-	sfxArg2 := types.MetaReplaceSuffix{
-		Field:       "fulltitle",
-		Suffix:      " (1)",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg2)
+	// Min memory
+	rootCmd.PersistentFlags().Uint64P(keys.MinMem, "m", 0, "Minimum RAM to start process")
+	viper.BindPFlag(keys.MinMem, rootCmd.PersistentFlags().Lookup(keys.MinMem))
 
-	sfxArg3 := types.MetaReplaceSuffix{
-		Field:       "id",
-		Suffix:      "-1",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg3)
+	// Hardware accelerated transcoding
+	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")
+	viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU))
+}
 
-	sfxArg4 := types.MetaReplaceSuffix{
-		Field:       "display_id",
-		Suffix:      "-1",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg4)
+// initAllFileTransformers initializes user flag settings for transformations applying to all files
+func initAllFileTransformers() {
+	// Prefix file with metafield
+	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
+	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
 
-	Set(keys.MReplaceSfx, metaReplaceSuffix)
+	// Prefix files with date tag
+	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
+	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
 
-	Set(keys.MOverwrite, true)
+	// Rename convention
+	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
+	viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle))
 
-	var newFields []types.MetaNewField
+	// Replace filename suffix
+	rootCmd.PersistentFlags().StringSliceVar(&filenameReplaceSuffixInput, keys.InputFilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
+	viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx))
 
-	creator := types.MetaNewField{
-		Field: "creator",
-		Value: "Atheism-is-Unstoppable",
-	}
-	newFields = append(newFields, creator)
+	// Backup files by renaming original files
+	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
+	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
 
-	Set(keys.MNewField, newFields)
+	// Output directory (can be external)
+	rootCmd.PersistentFlags().StringP(keys.MoveOnComplete, "o", "", "Move files to given directory on program completion")
+	viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete))
+}
 
-	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+// initMetaTransformers initializes user flag settings for manipulation of metadata
+func initMetaTransformers() {
+	// Metadata replacement & new additions
+	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
+	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
+	rootCmd.PersistentFlags().StringSliceVar(&metaNewFieldInput, "meta-add-field", nil, "Add new fields into metadata files (metatag:value)")
 
-	trimEnd := types.FilenameReplaceSuffix{
-		Suffix:      " 1",
-		Replacement: "",
-	}
-	filenameReplaceSuffix = append(filenameReplaceSuffix, trimEnd)
-	Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+	// Prefix or append description fields with dates
+	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")
+	viper.BindPFlag(keys.MDescDatePfx, rootCmd.PersistentFlags().Lookup(keys.MDescDatePfx))
 
-	Set(keys.FileDateFmt, "ymd")
+	rootCmd.PersistentFlags().Bool(keys.MDescDateSfx, false, "Adds the date to the end of the description field.")
+	viper.BindPFlag(keys.MDescDateSfx, rootCmd.PersistentFlags().Lookup(keys.MDescDateSfx))
+
+	// Overwrite or preserve metafields
+	rootCmd.PersistentFlags().Bool(keys.MOverwrite, false, "When adding new metadata fields, automatically overwrite existing fields with your new values")
+	viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite))
+
+	rootCmd.PersistentFlags().Bool(keys.MPreserve, false, "When adding new metadata fields, skip already existent fields")
+	viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve))
+}
+
+// initVideoTransformers initializes user flag settings for transformation of video files
+func initVideoTransformers() {
+	// Output extension type
+	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
+	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
+
+}
+
+// initFiltering initializes user flag settings for filtering files to work with
+func initFiltering() {
+	// File extensions to convert
+	rootCmd.PersistentFlags().StringSliceP(keys.InputExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
+	viper.BindPFlag(keys.InputExts, rootCmd.PersistentFlags().Lookup(keys.InputExts))
+
+	// Only convert files with prefix
+	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
+	viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes))
+}
+
+// initProgramFunctions initializes user flag settings for miscellaneous program features such as debug level
+func initProgramFunctions() {
+	// Debugging level
+	rootCmd.PersistentFlags().Uint16P(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
+	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
+
+	// Skip videos, only alter metafiles
+	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
+	viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos))
+
+	// Preset configurations for sites
+	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
+	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
+
+	// Output benchmarking files
+	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
+	viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking))
 }
 package config
 
@@ -84,11 +144,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var metaReplaceSuffixInput []string
-var metaReplacePrefixInput []string
-var metaNewFieldInput []string
-var filenameReplaceSuffixInput []string
-
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
 	Short: "Metarr is a video and metatagging tool",
@@ -104,99 +159,26 @@ var rootCmd = &cobra.Command{
 // init sets the initial Viper settings
 func init() {
 
-	// Video directory
-	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
-	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
-	// Video file
-	rootCmd.PersistentFlags().StringP(keys.VideoFile, "V", ".", "Video file")
-	viper.BindPFlag(keys.VideoFile, rootCmd.PersistentFlags().Lookup(keys.VideoFile))
+	// Files and directories
+	initFilesDirs()
 
-	// JSON directory
-	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON directory")
-	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
-	// JSON file
-	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
-	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
+	// System resource related
+	initResourceRelated()
 
-	// Rename choice
-	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
-	viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle))
+	// Filtering
+	initFiltering()
 
-	// Concurrency limit
-	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
-	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
-
-	// CPU usage
-	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 100.0, "Max CPU usage")
-	viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU))
-
-	// Min memory
-	rootCmd.PersistentFlags().Uint64P(keys.MinMem, "m", 0, "Minimum RAM to start process")
-	viper.BindPFlag(keys.MinMem, rootCmd.PersistentFlags().Lookup(keys.MinMem))
-
-	// File extensions to convert
-	rootCmd.PersistentFlags().StringSliceP(keys.InputExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
-	viper.BindPFlag(keys.InputExts, rootCmd.PersistentFlags().Lookup(keys.InputExts))
-
-	// Only convert files with prefix
-	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
-	viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes))
-
-	// Hardware acceleration
-	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")
-	viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU))
-
-	// Debugging level
-	rootCmd.PersistentFlags().Uint16P(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
-	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
-
-	// Metadata replacement
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaNewFieldInput, "meta-add-field", nil, "Add new fields into metadata files (metatag:value)")
-
-	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")
-	viper.BindPFlag(keys.MDescDatePfx, rootCmd.PersistentFlags().Lookup(keys.MDescDatePfx))
-	rootCmd.PersistentFlags().Bool(keys.MDescDateSfx, false, "Adds the date to the end of the description field.")
-	viper.BindPFlag(keys.MDescDateSfx, rootCmd.PersistentFlags().Lookup(keys.MDescDateSfx))
+	// All file transformations
+	initAllFileTransformers()
 
 	// Filename transformations
-	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
-	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
+	initVideoTransformers()
 
-	rootCmd.PersistentFlags().StringSliceVar(&filenameReplaceSuffixInput, keys.InputFilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
-	viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx))
-
-	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
-	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
-
-	rootCmd.PersistentFlags().StringP(keys.MoveOnComplete, "o", "", "Move files to given directory on program completion")
-	viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete))
+	// Metadata and metafile manipulation
+	initMetaTransformers()
 
 	// Special functions
-	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
-	viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos))
-
-	rootCmd.PersistentFlags().Bool(keys.MOverwrite, false, "When adding new metadata fields, automatically overwrite existing fields with your new values")
-	viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite))
-
-	rootCmd.PersistentFlags().Bool(keys.MPreserve, false, "When adding new metadata fields, skip already existent fields")
-	viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve))
-
-	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
-	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
-
-	rootCmd.PersistentFlags().String(keys.GetLatest, "", "Grabs new videos released since the last stored URL in the grabbed-urls.txt folder (parameter should be the channel URL)")
-	viper.BindPFlag(keys.GetLatest, rootCmd.PersistentFlags().Lookup(keys.GetLatest))
-
-	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
-	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
-
-	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
-	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
-
-	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
-	viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking))
+	initProgramFunctions()
 }
 
 // Execute is the primary initializer of Viper
@@ -267,10 +249,13 @@ func execute() error {
 
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-	jsonDirSet := viper.IsSet(keys.JsonDir)
-	videoFileSet := viper.IsSet(keys.VideoFile)
-	videoDirSet := viper.IsSet(keys.VideoDir)
+
+	var (
+		jsonFileSet  = viper.IsSet(keys.JsonFile)
+		jsonDirSet   = viper.IsSet(keys.JsonDir)
+		videoFileSet = viper.IsSet(keys.VideoFile)
+		videoDirSet  = viper.IsSet(keys.VideoDir)
+	)
 
 	if jsonFileSet {
 		if file, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
@@ -482,6 +467,78 @@ func verifyOutputFiletype() {
 package config
 
 import (
+	keys "Metarr/internal/domain/keys"
+	"Metarr/internal/types"
+	"strings"
+)
+
+// AutoPreset is a switch point for selecting from a range of presets.
+// These presets apply common fixes for video/meta files for specific
+// video sources.
+//
+// For example, censored.tv downloads through yt-dlp are often affixed
+// with "_1" when filenames are restricted. And titles are often
+// affixed with " (1)"
+func AutoPreset(url string) {
+	if strings.Contains(url, "censored.tv") {
+		censoredTvPreset()
+	}
+}
+
+// censoredTvPreset for censored.tv:
+//
+// Removes (1) from title fields
+// Removes -1 from id and display_id (probably inconsequential)
+// Removes the _1 suffix from restricted filenames
+func censoredTvPreset() {
+
+	var (
+		metaReplaceSuffix []types.MetaReplaceSuffix
+		sfx               types.MetaReplaceSuffix
+	)
+
+	sfx = types.MetaReplaceSuffix{
+		Field:       "title",
+		Suffix:      " (1)",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
+
+	sfx = types.MetaReplaceSuffix{
+		Field:       "fulltitle",
+		Suffix:      " (1)",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
+
+	sfx = types.MetaReplaceSuffix{
+		Field:       "id",
+		Suffix:      "-1",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
+
+	sfx = types.MetaReplaceSuffix{
+		Field:       "display_id",
+		Suffix:      "-1",
+		Replacement: "",
+	}
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
+
+	Set(keys.MReplaceSfx, metaReplaceSuffix)
+
+	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+
+	trimEnd := types.FilenameReplaceSuffix{
+		Suffix:      "_1",
+		Replacement: "",
+	}
+	filenameReplaceSuffix = append(filenameReplaceSuffix, trimEnd)
+	Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+}
+package config
+
+import (
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/types"
@@ -490,76 +547,71 @@ import (
 	"strings"
 )
 
+var (
+	metaReplaceSuffixInput     []string
+	metaReplacePrefixInput     []string
+	metaNewFieldInput          []string
+	filenameReplaceSuffixInput []string
+)
+
 // initTextReplace initializes text replacement functions
 func initTextReplace() error {
+
 	// Parse rename flag
-	var renameFlag enums.ReplaceToStyle
-
-	argRenameFlag := GetString(keys.RenameStyle)
-	switch argRenameFlag {
-	case "spaces", "space":
-		renameFlag = enums.SPACES
-		logging.Print("Rename style selected: %v", argRenameFlag)
-
-	case "underscores", "underscore":
-		renameFlag = enums.UNDERSCORES
-		logging.Print("Rename style selected: %v", argRenameFlag)
-
-	case "skip", "none":
-		renameFlag = enums.SKIP
-	default:
-		return fmt.Errorf("invalid rename flag entered")
-	}
-	Set(keys.Rename, renameFlag)
+	setRenameFlag()
 
 	// Add new field
-	errMsg := fmt.Errorf("invalid use of metadata addition, values must be written as (metatag:field:value)")
-	var metaNewField []types.MetaNewField
-
-	for _, value := range metaNewFieldInput {
-		parts := strings.SplitN(value, ":", 2)
-		if len(parts) < 2 {
-			return errMsg
-		}
-		// Append each parsed field-value pair to the metaNewField array
-		metaNewField = append(metaNewField, types.MetaNewField{
-			Field: parts[0],
-			Value: parts[1],
-		})
-	}
-	if len(metaNewField) > 0 {
-		logging.PrintI("Meta new fields to add: %v", metaNewField)
-		Set(keys.MNewField, metaNewField)
+	if err := validateNewMetafields(); err != nil {
+		return err
 	}
 
 	// Replace metafield value suffixes
-	errMsg = fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:field suffix:replacement)")
-	var metaReplaceSuffix []types.MetaReplaceSuffix
-
-	for _, tuple := range metaReplaceSuffixInput {
-		parts := strings.SplitN(tuple, ":", 3)
-		if len(parts) < 3 {
-			return errMsg
-		}
-		metaReplaceSuffix = append(metaReplaceSuffix, types.MetaReplaceSuffix{
-			Field:       parts[0],
-			Suffix:      parts[1],
-			Replacement: parts[2],
-		})
-	}
-	if len(metaReplaceSuffix) > 0 {
-		logging.PrintI("Meta replace suffixes: %v\n", metaReplaceSuffix)
-		Set(keys.MReplaceSfx, metaReplaceSuffix)
+	if err := validateMetaSuffixes(); err != nil {
+		return err
 	}
 
 	// Replace metafield value prefixes
-	errMsg = fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:field prefix:replacement)")
+	if err := validateMetaPrefixes(); err != nil {
+		return err
+	}
+
+	// Replace filename suffixes
+	if err := validateFilenameSuffixReplace(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
+func validateFilenameSuffixReplace() error {
+	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+
+	for _, pair := range filenameReplaceSuffixInput {
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) < 2 {
+			return fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
+		}
+		filenameReplaceSuffix = append(filenameReplaceSuffix, types.FilenameReplaceSuffix{
+			Suffix:      parts[0],
+			Replacement: parts[1],
+		})
+	}
+	if len(filenameReplaceSuffix) > 0 {
+		logging.PrintI("Meta replace suffixes: %v", filenameReplaceSuffix)
+		Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+	}
+	return nil
+}
+
+// validateMetaPrefixes checks if the input format for meta prefix alterations is valid
+func validateMetaPrefixes() error {
 	var metaReplacePrefix []types.MetaReplacePrefix
 
 	for _, tuple := range metaReplacePrefixInput {
 		parts := strings.SplitN(tuple, ":", 3)
 		if len(parts) < 3 {
-			return errMsg
+			return fmt.Errorf("invalid use of meta-replace-prefix, values must be written as (metatag:fieldprefix:replacement)")
 		}
 		metaReplacePrefix = append(metaReplacePrefix, types.MetaReplacePrefix{
 			Field:       parts[0],
@@ -571,35 +623,80 @@ func initTextReplace() error {
 		logging.PrintI("Meta replace prefixes: %v", metaReplacePrefix)
 		Set(keys.MReplacePfx, metaReplacePrefix)
 	}
+	return nil
+}
 
-	// Replace filename suffixes
-	errMsg = fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
-	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+// validateMetaSuffixes checks if the input format for meta suffix alterations is valid
+func validateMetaSuffixes() error {
+	var metaReplaceSuffix []types.MetaReplaceSuffix
 
-	for _, pair := range filenameReplaceSuffixInput {
-		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) < 2 {
-			return errMsg
+	for _, tuple := range metaReplaceSuffixInput {
+		parts := strings.SplitN(tuple, ":", 3)
+		if len(parts) < 3 {
+			return fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:fieldsuffix:replacement)")
 		}
-		filenameReplaceSuffix = append(filenameReplaceSuffix, types.FilenameReplaceSuffix{
-			Suffix:      parts[0],
-			Replacement: parts[1],
+		metaReplaceSuffix = append(metaReplaceSuffix, types.MetaReplaceSuffix{
+			Field:       parts[0],
+			Suffix:      parts[1],
+			Replacement: parts[2],
 		})
 	}
-	if len(filenameReplaceSuffix) > 0 {
-		logging.PrintI("Meta replace suffixes: %v", filenameReplaceSuffix)
-		Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+	if len(metaReplaceSuffix) > 0 {
+		logging.PrintI("Meta replace suffixes: %v\n", metaReplaceSuffix)
+		Set(keys.MReplaceSfx, metaReplaceSuffix)
 	}
-
 	return nil
+}
+
+// validateNewMetafields checks if the input format for metatag and field additions is valid
+func validateNewMetafields() error {
+	var metaNewField []types.MetaNewField
+
+	for _, value := range metaNewFieldInput {
+		parts := strings.SplitN(value, ":", 2)
+		if len(parts) < 2 {
+			return fmt.Errorf("invalid use of metadata addition, values must be written as (metatag:field)")
+		}
+		// Append each parsed field-value pair to the metaNewField array
+		metaNewField = append(metaNewField, types.MetaNewField{
+			Field: parts[0],
+			Value: parts[1],
+		})
+	}
+	if len(metaNewField) > 0 {
+		logging.PrintI("Meta new fields to add: %v", metaNewField)
+		Set(keys.MNewField, metaNewField)
+	}
+	return nil
+}
+
+// setRenameFlag sets the rename style to apply
+func setRenameFlag() {
+	var renameFlag enums.ReplaceToStyle
+
+	argRenameFlag := GetString(keys.RenameStyle)
+	switch argRenameFlag {
+	case "spaces", "space":
+		renameFlag = enums.SPACES
+		logging.Print("Rename style selected: %v", argRenameFlag)
+
+	case "underscores", "underscore":
+		renameFlag = enums.UNDERSCORES
+		logging.Print("Rename style selected: %v", argRenameFlag)
+	default:
+		logging.PrintD(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
+		renameFlag = enums.SKIP
+	}
+	Set(keys.Rename, renameFlag)
 }
 
 // initDateReplaceFormat initializes the user's preferred format for dates
 func initDateReplaceFormat() error {
 
-	dateFmt := GetString(keys.InputFileDatePfx)
-
-	var formatEnum enums.FilenameDateFormat
+	var (
+		dateFmt    = GetString(keys.InputFileDatePfx)
+		formatEnum enums.FilenameDateFormat
+	)
 
 	if dateFmt == "" {
 		formatEnum = enums.FILEDATE_SKIP
@@ -798,32 +895,36 @@ var ContractionsUnderscored map[string]string = map[string]string{
 }
 package domain
 
-// AV copy
+// AV codec copy
 var (
-	AVCodecCopy    = []string{"-codec", "copy"}
-	VideoCodecCopy = []string{"-c:v", "copy"}
+	AVCodecCopy = []string{"-codec", "copy"}
+)
+
+// Audio flags
+var (
 	AudioCodecCopy = []string{"-c:a", "copy"}
+	AudioToAAC     = []string{"-c:a", "aac"}
+	AudioBitrate   = []string{"-b:a", "256k"}
 )
 
+// Video flags
 var (
-	AudioToAAC          = []string{"-c:a", "aac"}
+	VideoCodecCopy      = []string{"-c:v", "copy"}
 	VideoToH264Balanced = []string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
-	AudioBitrate        = []string{"-b:a", "256k"}
+	PixelFmtYuv420p     = []string{"-pix_fmt", "yuv420p"}
+	KeyframeBalanced    = []string{"-g", "50", "-keyint_min", "30"}
 )
 
-var (
-	PixelFmtYuv420p  = []string{"-pix_fmt", "yuv420p"}
-	KeyframeBalanced = []string{"-g", "50", "-keyint_min", "30"}
-)
-
-var (
-	OutputExt = []string{"-f", "mp4"}
-)
-
+// GPU hardware flags
 var (
 	NvidiaAccel = []string{"-hwaccel", "nvdec"}
 	AMDAccel    = []string{"-hwaccel", "vulkan"}
 	IntelAccel  = []string{"-hwaccel", "qsv"}
+)
+
+// Extension I/O flags
+var (
+	OutputExt = []string{"-f", "mp4"}
 )
 package domain
 
@@ -1258,8 +1359,10 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 // FormatAllDates formats timestamps into a hyphenated form
 func FormatAllDates(fd *types.FileData) string {
 
-	var result string = ""
-	var ok bool = false
+	var (
+		result = ""
+		ok     = false
+	)
 
 	d := fd.MDates
 
@@ -1314,8 +1417,10 @@ import (
 // scrapeMeta gets cookies for a given URL and returns a grabbed string
 func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
 
-	var err error
-	data := ""
+	var (
+		err  error
+		data = ""
+	)
 
 	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
 	if err != nil {
@@ -1343,9 +1448,10 @@ import (
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-
-	c := fd.MCredits
-	w := fd.MWebData
+	var (
+		c = fd.MCredits
+		w = fd.MWebData
+	)
 
 	fieldMap := map[string]*string{
 		// Order by importance
@@ -1481,15 +1587,14 @@ import (
 
 // fillTimestamps grabs timestamp metadata from JSON
 func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+	var (
+		t               = fd.MDates
+		w               = fd.MWebData
+		err             error
+		gotRelevantDate bool
+	)
 
-	t := fd.MDates
-	w := fd.MWebData
-
-	var err error
-	var gotRelevantDate bool
-
-	fieldMap := map[string]*string{
-		// Order by importance
+	fieldMap := map[string]*string{ // Order by importance
 		consts.JReleaseDate:         &t.ReleaseDate,
 		consts.JOriginallyAvailable: &t.Originally_Available_At,
 		consts.JDate:                &t.Date,
@@ -1765,13 +1870,13 @@ import (
 
 // fillDescriptions grabs description data from JSON
 func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+	var (
+		d = fd.MTitleDesc
+		w = fd.MWebData
+		t = fd.MDates
+	)
 
-	d := fd.MTitleDesc
-	w := fd.MWebData
-	t := fd.MDates
-
-	fieldMap := map[string]*string{
-		// Order by importance
+	fieldMap := map[string]*string{ // Order by importance
 		consts.JLongDescription:  &d.LongDescription,
 		consts.JLong_Description: &d.Long_Description,
 		consts.JDescription:      &d.Description,
@@ -1916,9 +2021,11 @@ import (
 // Primary function to fill out meta fields before writing
 func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
-	allFilled := true
-	var meta map[string]interface{}
-	var ok bool
+	var (
+		allFilled bool = true
+		meta      map[string]interface{}
+		ok        bool
+	)
 
 	if !fillWebpageDetails(fd, data) {
 		logging.PrintI("No URL metadata found")
@@ -1994,9 +2101,11 @@ import (
 // fillTitles grabs the fulltitle ("title")
 func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 
-	printMap := make(map[string]string, len(data))
-	t := fd.MTitleDesc
-	w := fd.MWebData
+	var (
+		printMap = make(map[string]string, len(data))
+		t        = fd.MTitleDesc
+		w        = fd.MWebData
+	)
 
 	for key, value := range data {
 		if val, ok := value.(string); ok && val != "" {
@@ -2040,12 +2149,12 @@ import (
 // Grabs details necessary to scrape the web for missing metafields
 func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
 
-	w := fd.MWebData
-
-	priorityMap := []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
-	printMap := make(map[string]string, len(priorityMap))
-
-	var isFilled bool
+	var (
+		w           = fd.MWebData
+		priorityMap = []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
+		printMap    = make(map[string]string, len(priorityMap))
+		isFilled    bool
+	)
 
 	for _, wanted := range priorityMap {
 		for key, value := range data {
@@ -2121,9 +2230,10 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFOCredits(fd *types.FileData) bool {
-
-	c := fd.MCredits
-	n := fd.NFOData
+	var (
+		c = fd.MCredits
+		n = fd.NFOData
+	)
 
 	fieldMap := map[string]*string{
 		consts.NActors:            &c.Actor,
@@ -2255,10 +2365,11 @@ import (
 )
 
 func fillNFOTimestamps(fd *types.FileData) bool {
-
-	t := fd.MDates
-	w := fd.MWebData
-	n := fd.NFOData
+	var (
+		t = fd.MDates
+		w = fd.MWebData
+		n = fd.NFOData
+	)
 
 	fieldMap := map[string]*string{
 		consts.NAired:        &t.Date,
@@ -2389,9 +2500,10 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFODescriptions(fd *types.FileData) bool {
-
-	d := fd.MTitleDesc
-	n := fd.NFOData
+	var (
+		d = fd.MTitleDesc
+		n = fd.NFOData
+	)
 
 	fieldMap := map[string]*string{
 		consts.NDescription: &d.Description,
@@ -2629,9 +2741,10 @@ import (
 
 // fillNFOTitles attempts to fill in title info from NFO
 func fillNFOTitles(fd *types.FileData) bool {
-
-	t := fd.MTitleDesc
-	n := fd.NFOData
+	var (
+		t = fd.MTitleDesc
+		n = fd.NFOData
+	)
 
 	fieldMap := map[string]*string{
 		consts.NTitle:         &t.Title,
@@ -2705,9 +2818,10 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFOWebData(fd *types.FileData) bool {
-
-	w := fd.MWebData
-	nw := fd.NFOData.WebpageInfo
+	var (
+		w  = fd.MWebData
+		nw = fd.NFOData.WebpageInfo
+	)
 
 	fieldMap := map[string]*string{
 		consts.NURL: &w.WebpageURL,
@@ -2748,12 +2862,11 @@ var (
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
 func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
-
-	logging.PrintD(2, "Beginning JSON file processing...")
-
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
+
+	logging.PrintD(2, "Beginning JSON file processing...")
 
 	// Function mutex
 	mu.Lock()
@@ -2814,8 +2927,10 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 	}
 
 	// Add new filename tag for files
-	logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
-	fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
+	if config.IsSet(keys.MFilenamePfx) {
+		logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
+		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
+	}
 
 	return fd, nil
 }
@@ -2832,6 +2947,10 @@ import (
 
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
 func ProcessNFOFiles(fd *types.FileData) (*types.FileData, error) {
+	if fd == nil {
+		return nil, fmt.Errorf("model passed in null")
+	}
+
 	logging.PrintD(2, "Beginning NFO file processing...")
 
 	// Open the file
@@ -2886,153 +3005,264 @@ import (
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
-// makeDateTag creates the date tag to affix to the filename
+// MakeDateTag attempts to create the date tag for files using metafile data
 func MakeDateTag(metadata map[string]interface{}, fileName string) (string, error) {
-
-	preferredDateFields := []string{
-		consts.JReleaseDate,
-		"releasedate", // Alias
-		"released_on", // Alias
-		consts.JOriginallyAvailable,
-		"originally_available", // Alias
-		"originallyavailable",  // Alias
-		consts.JDate,
-		consts.JUploadDate,
-		"uploaddate",  // Alias
-		"uploaded_on", // Alias
-		consts.JCreationTime,
-		"created_at", // Alias
-	}
-
 	dateFmt, ok := config.Get(keys.FileDateFmt).(enums.FilenameDateFormat)
 	if !ok {
-		return "", fmt.Errorf("grabbed value from Viper in makeDateTag but var type was not correct")
+		return "", fmt.Errorf("invalid date format configuration")
 	}
 
-	var gotDate bool = false
-	var date string = ""
-
-	for _, field := range preferredDateFields {
-		logging.PrintD(3, "Checking for date in field: %s", field)
-		if value, found := metadata[field]; found {
-			logging.PrintD(3, "Found date in field '%s' with value: %v (type: %T)", field, value, value)
-
-			if strVal, ok := value.(string); ok && strVal != "" && len(strVal) > 4 {
-				bef, _, _ := strings.Cut(strVal, "T")
-				date = bef
-				gotDate = true
-				logging.PrintD(3, "Extracted date string: %s", date)
-				break
-			}
-		}
-	}
-
-	if !gotDate {
+	date, found := extractDateFromMetadata(metadata)
+	if !found {
 		logging.PrintE(0, "No dates found in JSON file")
 		return "", nil
 	}
 
-	// Logging dates before and after replacing dashes for parsing
-	logging.PrintD(3, "Date before replacing dashes: %s", date)
-	date = strings.ReplaceAll(date, "-", "")
-	logging.PrintD(3, "Date after replacing dashes: %s (length: %d)", date, len(date))
-
-	logging.PrintD(1, "Entering case check for %v", fileName)
-
-	if len(date) >= 8 {
-		logging.PrintD(3, "Input date length >= 8: %d", date)
-		switch dateFmt {
-		case enums.FILEDATE_YYYY_MM_DD:
-			logging.PrintD(3, "Formatting as: yyyy-mm-dd")
-			date = date[:4] + "-" + date[4:6] + "-" + date[6:8]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_YY_MM_DD:
-			logging.PrintD(3, "Formatting as: yy-mm-dd")
-			date = date[2:4] + "-" + date[4:6] + "-" + date[6:8]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_YYYY_DD_MM:
-			logging.PrintD(3, "Formatting as: yyyy-dd-mm")
-			date = date[:4] + "-" + date[6:8] + "-" + date[4:6]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_YY_DD_MM:
-			logging.PrintD(3, "Formatting as: yy-dd-mm")
-			date = date[2:4] + "-" + date[6:8] + "-" + date[4:6]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_DD_MM_YYYY:
-			logging.PrintD(3, "Formatting as: dd-mm-yyyy")
-			date = date[6:8] + "-" + date[4:6] + "-" + date[:4]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_DD_MM_YY:
-			logging.PrintD(3, "Formatting as: dd-mm-yy")
-			date = date[6:8] + "-" + date[4:6] + "-" + date[2:4]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_MM_DD_YYYY:
-			logging.PrintD(3, "Formatting as: mm-dd-yyyy")
-			date = date[4:6] + "-" + date[6:8] + "-" + date[:4]
-			logging.PrintD(3, "Date as %s", date)
-
-		case enums.FILEDATE_MM_DD_YY:
-			logging.PrintD(3, "Formatting as: mm-dd-yy")
-			date = date[4:6] + "-" + date[6:8] + "-" + date[2:4]
-			logging.PrintD(3, "Date as %s", date)
-		}
-	} else if len(date) >= 6 {
-		logging.PrintD(3, "Input date length >= 6 and < 8: %d", date)
-		switch dateFmt {
-		case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
-			date = date[:2] + "-" + date[2:4] + "-" + date[4:6]
-
-		case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
-			date = date[:2] + "-" + date[4:6] + "-" + date[2:4]
-
-		case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
-			date = date[4:6] + "-" + date[2:4] + "-" + date[:2]
-
-		case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
-			date = date[2:4] + "-" + date[4:6] + "-" + date[:2]
-		}
-	} else if len(date) >= 4 {
-		logging.PrintD(3, "Input date length >= 4 and < 6: %d", date)
-		switch dateFmt {
-		case enums.FILEDATE_YYYY_MM_DD,
-			enums.FILEDATE_YY_MM_DD,
-			enums.FILEDATE_MM_DD_YYYY,
-			enums.FILEDATE_MM_DD_YY:
-
-			date = date[:2] + "-" + date[2:4]
-
-		case enums.FILEDATE_YYYY_DD_MM,
-			enums.FILEDATE_YY_DD_MM,
-			enums.FILEDATE_DD_MM_YYYY,
-			enums.FILEDATE_DD_MM_YY:
-
-			date = date[2:4] + "-" + date[:2]
-		}
+	year, month, day, err := parseDateComponents(date, dateFmt)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse date components: %w", err)
 	}
 
-	dateTag := "[" + date + "]"
-
-	logging.PrintD(1, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
-
-	if dateTag != "[]" {
-		if checkTagExists(dateTag, filepath.Base(fileName)) {
-			logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
-			dateTag = "[]"
-		}
-	} else {
-		logging.PrintD(3, "Constructed empty tag, skipping tag exists check for file '%s'", filepath.Base(fileName))
+	dateStr := formatDateString(year, month, day, dateFmt)
+	if dateStr == "" {
+		return "[]", nil
 	}
 
+	dateTag := "[" + dateStr + "]"
+	if checkTagExists(dateTag, filepath.Base(fileName)) {
+		logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
+		return "[]", nil
+	}
+
+	logging.PrintS(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
 	return dateTag, nil
+}
+
+// extractDateFromMetadata attempts to find a date in the metadata using predefined fields
+func extractDateFromMetadata(metadata map[string]interface{}) (string, bool) {
+	preferredDateFields := []string{
+		consts.JReleaseDate,
+		"releasedate",
+		"released_on",
+		consts.JOriginallyAvailable,
+		"originally_available",
+		"originallyavailable",
+		consts.JDate,
+		consts.JUploadDate,
+		"uploaddate",
+		"uploaded_on",
+		consts.JCreationTime, // Last resort, may give false positives
+		"created_at",
+	}
+
+	for _, field := range preferredDateFields {
+		if value, found := metadata[field]; found {
+			if strVal, ok := value.(string); ok && strVal != "" && len(strVal) > 4 {
+				if date, _, found := strings.Cut(strVal, "T"); found {
+					return date, true
+				}
+				return strVal, true
+			}
+		}
+	}
+	return "", false
+}
+
+// parseDateComponents extracts and validates year, month, and day from the date string
+func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+	date = strings.ReplaceAll(date, "-", "")
+	date = strings.TrimSpace(date)
+
+	year, month, day, err = getYearMonthDay(date, dateFmt)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return validateDateComponents(year, month, day)
+}
+
+// formatDateString formats the date as a hyphenated string
+func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) string {
+	var parts []string
+
+	switch dateFmt {
+	case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
+		parts = getNonEmpty(year, month, day)
+	case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
+		parts = getNonEmpty(year, day, month)
+	case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
+		parts = getNonEmpty(day, month, year)
+	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
+		parts = getNonEmpty(month, day, year)
+	}
+
+	return strings.Join(parts, "-")
+}
+
+// appendNonEmpty adds non-empty strings to the slice
+func getNonEmpty(values ...string) []string {
+	var parts []string
+	for _, v := range values {
+		if v != "" {
+			parts = append(parts, v)
+		}
+	}
+	return parts
+}
+
+// getYear returns the year digits from the date string
+func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+	d = strings.ReplaceAll(d, "-", "")
+	d = strings.TrimSpace(d)
+
+	if len(d) >= 8 {
+		switch dateFmt {
+		case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+			year = d[2:4]
+		default:
+			year = d[:4]
+		}
+		month = d[4:6]
+		day = d[6:8]
+
+		return year, month, day, nil
+	}
+	if len(d) >= 6 {
+		year = d[:2]
+		month = d[2:4]
+		day = d[4:6]
+
+		return year, month, day, nil
+	}
+	if len(d) == 4 { // Guess year or month-day
+
+		i, err := strconv.Atoi(d[:2])
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid date string '%s' threw error: %w", d, err)
+		}
+		j, err := strconv.Atoi(d[2:4])
+		if err != nil {
+			return "", "", "", fmt.Errorf("invalid date string '%s' threw error: %w", d, err)
+		}
+
+		if (i == 20 || i == 19) && j > 12 { // First guess year
+			logging.PrintI("Guessing date string '%s' as year", d)
+			switch dateFmt {
+			case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+				return d[2:4], "", "", nil
+			default:
+				return d[:4], "", "", nil
+			}
+		} else { // Second guess, month-date
+			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
+				if ddmm {
+					logging.PrintI("Guessing date string '%s' as day-month")
+					day = d[:2]
+					month = d[2:4]
+
+				} else if mmdd {
+					logging.PrintI("Guessing date string '%s' as month-day")
+					day = d[2:4]
+					month = d[:2]
+				}
+				return "", month, day, nil
+			} else if i == 20 || i == 19 { // Final guess year
+				logging.PrintI("Guessing date string '%s' as year after failed day-month check", d)
+				switch dateFmt {
+				case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+					return d[2:4], "", "", nil
+				default:
+					return d[:4], "", "", nil
+				}
+			}
+		}
+	}
+
+	return "", "", "", fmt.Errorf("failed to parse year, month, and day from '%s'", d)
+}
+
+// validateDateComponents attempts to fix faulty date arrangements
+func validateDateComponents(year, month, day string) (string, string, string, error) {
+
+	if isValidMonth(month) && isValidDay(day, month, year) {
+		return year, month, day, nil
+	}
+
+	// Attempt swapping day and month
+	if isValidMonth(day) && isValidDay(month, day, year) {
+		return year, day, month, nil
+	}
+
+	// Fail check:
+	return "", "", "", fmt.Errorf("invalid date components: year=%s, month=%s, day=%s", year, month, day)
+}
+
+// isValidMonth checks if the month inputted is a valid month
+func isValidMonth(month string) bool {
+	m, err := strconv.Atoi(month)
+	if err != nil {
+		return false
+	}
+	return m >= 1 && m <= 12
+}
+
+// isValidDay checks if the day inputted is a valid day
+func isValidDay(day, month, year string) bool {
+	d, err := strconv.Atoi(day)
+	if err != nil {
+		return false
+	}
+
+	m, err := strconv.Atoi(month)
+	if err != nil {
+		return false
+	}
+
+	y, err := strconv.Atoi(year)
+	if err != nil {
+		return false
+	}
+
+	if d < 1 || d > 31 {
+		return false
+	}
+
+	// Months with 30 days
+	if m == 4 || m == 6 || m == 9 || m == 11 {
+		return d <= 30
+	}
+
+	// February
+	if m == 2 {
+		// Leap year check
+		isLeap := y%4 == 0 && (y%100 != 0 || y%400 == 0)
+		if isLeap {
+			return d <= 29
+		}
+		return d <= 28
+	}
+
+	return true
+}
+
+// maybeDayMonth guesses if the input is a DD-MM or MM-DD format
+func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
+	if i == 0 || i >= 31 || j == 0 || j >= 31 {
+		return false, false
+	}
+
+	switch {
+	case i <= 31 && j <= 12:
+		return ddmm, false
+	case j <= 31 && i <= 12:
+		return false, mmdd
+	default:
+		return false, false
+	}
 }
 package metadata
 
@@ -3049,7 +3279,6 @@ import (
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-
 	logging.PrintD(3, "Entering makeFilenameTag with data@ %v", metadata)
 
 	tagArray := config.GetStringSlice(keys.MFilenamePfx)
@@ -3083,13 +3312,11 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 			tag = "[]"
 		}
 	}
-
 	return tag
 }
 
 // checkTagExists checks if the constructed tag already exists in the filename
 func checkTagExists(tag, filename string) bool {
-
 	logging.PrintD(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
 
 	return strings.Contains(filename, tag)
@@ -3155,8 +3382,10 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 // WriteMetadata writes metadata to a single video file
 func WriteMetadata(m *types.FileData) error {
 
-	var originalVPath string = m.OriginalVideoPath
-	dir := m.VideoDirectory
+	var (
+		originalVPath string = m.OriginalVideoPath
+		dir           string = m.VideoDirectory
+	)
 
 	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
 
@@ -3283,33 +3512,71 @@ func (b *CommandBuilder) addAllMetadata(m *types.FileData) {
 	b.addOtherMetadata(m.MOther)
 }
 
-// setFormatFlags sets format-specific encoding flags
+// setFormatFlags adds commands specific for the extension input and output
 func (b *CommandBuilder) setFormatFlags() {
-	ext := filepath.Ext(b.inputFile)
-	switch ext {
-	case ".mp4":
+	var (
+		inExt  string = filepath.Ext(b.inputFile)
+		outExt string = strings.TrimPrefix(config.GetString(keys.OutputFiletype), ".")
+	)
+
+	// Return early with straight copy if no extension change
+	if inExt == outExt {
 		b.formatFlags = consts.AVCodecCopy
-	case ".mkv":
-		flags := make([]string, 0)
-		flags = append(flags, consts.OutputExt...)
-		flags = append(flags, consts.VideoCodecCopy...)
+		return
+	}
+
+	flags := make([]string, 0)
+
+	// Set flags based on output format requirements
+	switch outExt {
+	case ".mp4":
+		flags = append(flags, "-f", outExt)
+		flags = append(flags, consts.VideoToH264Balanced...)
+		flags = append(flags, consts.PixelFmtYuv420p...)
 		flags = append(flags, consts.AudioToAAC...)
 		flags = append(flags, consts.AudioBitrate...)
-		b.formatFlags = flags
+
+	case ".mkv":
+		flags = append(flags, "-f", outExt)
+		// MKV is flexible, copy AV codec for supported formats
+		if inExt == ".mp4" || inExt == ".m4v" {
+			flags = append(flags, consts.VideoCodecCopy...)
+		} else {
+			flags = append(flags, consts.VideoToH264Balanced...)
+		}
+		flags = append(flags, consts.AudioToAAC...)
+		flags = append(flags, consts.AudioBitrate...)
+
 	case ".webm":
-		flags := make([]string, 0)
-		flags = append(flags, consts.OutputExt...)
+		flags = append(flags, "-f", outExt)
 		flags = append(flags, consts.VideoToH264Balanced...)
 		flags = append(flags, consts.PixelFmtYuv420p...)
 		flags = append(flags, consts.KeyframeBalanced...)
 		flags = append(flags, consts.AudioToAAC...)
 		flags = append(flags, consts.AudioBitrate...)
-		b.formatFlags = flags
+
+	default:
+		// Safe defaults for any other output format
+		flags = append(flags, "-f", outExt)
+		flags = append(flags, consts.VideoToH264Balanced...)
+		flags = append(flags, consts.PixelFmtYuv420p...)
+		flags = append(flags, consts.AudioToAAC...)
+		flags = append(flags, consts.AudioBitrate...)
 	}
+
+	b.formatFlags = flags
 }
 
 // buildFinalCommand assembles the final FFmpeg command
 func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
+
+	// MAP LENGTH LOGIC [KEEP CLOSE EYE ON THIS IF COMMANDS CHANGE]:
+	//
+	// GPU acceleration flags
+	// "-y", "i", input file, output file (+4)
+	// Length of metadata map, then * 2 to prefix "-metadata" to each entry
+	// Length of format flags
+	// Output file (+1)
 	args := make([]string, 0, len(b.gpuAccel)+4+len(b.metadataMap)*2+len(b.formatFlags)+1)
 
 	// Add GPU acceleration if present
@@ -4743,6 +5010,7 @@ import (
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // FileRename formats the file names
@@ -4765,7 +5033,7 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 
 		if !skipVideos {
 			renamedVideo = renameVideo(videoBase, style)
-			renamedMeta = renamedVideo
+			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
 		} else {
 			renamedMeta = renameMeta(metaBase, style)
 		}
@@ -4778,16 +5046,21 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 		// Add the metatag to the front of the filenames
 		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
 
+		// Trim trailing spaces
+		renamedVideo = strings.TrimSpace(renamedVideo)
+		renamedMeta = strings.TrimSpace(renamedMeta)
+
 		logging.PrintD(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
 
 		// Construct final output filepaths
-		renamedVideoOut := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
-		renamedMetaOut := filepath.Join(metaDir, renamedMeta+metaExt)
+		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
+		renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		fd.RenamedVideoPath = renamedVideoOut
-		fd.RenamedMetaPath = renamedMetaOut
+		// Save into model. May want to save to FinalVideoPath (etc) instead, but currently saves to new field
+		fd.RenamedVideoPath = renamedVPath
+		fd.RenamedMetaPath = renamedMPath
 
-		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVideoOut, originalVPath, renamedMetaOut, originalMPath)
+		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVPath, originalVPath, renamedMPath, originalMPath)
 
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
@@ -4816,7 +5089,7 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	}
 
 	if style != enums.SKIP {
-		name = toNamingStyle(style, name)
+		name = applyNamingStyle(style, name)
 	}
 	return name
 }
@@ -4836,7 +5109,7 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	}
 
 	if style != enums.SKIP {
-		name = toNamingStyle(style, name)
+		name = applyNamingStyle(style, name)
 	}
 	return name
 }
@@ -4871,7 +5144,7 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 }
 
 // Renaming conventions
-func toNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
+func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
 	case enums.SPACES:

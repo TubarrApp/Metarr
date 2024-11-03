@@ -12,15 +12,14 @@ import (
 
 // fillTimestamps grabs timestamp metadata from JSON
 func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+	var (
+		t               = fd.MDates
+		w               = fd.MWebData
+		err             error
+		gotRelevantDate bool
+	)
 
-	t := fd.MDates
-	w := fd.MWebData
-
-	var err error
-	var gotRelevantDate bool
-
-	fieldMap := map[string]*string{
-		// Order by importance
+	fieldMap := map[string]*string{ // Order by importance
 		consts.JReleaseDate:         &t.ReleaseDate,
 		consts.JOriginallyAvailable: &t.Originally_Available_At,
 		consts.JDate:                &t.Date,

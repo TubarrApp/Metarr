@@ -10,8 +10,10 @@ import (
 // scrapeMeta gets cookies for a given URL and returns a grabbed string
 func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
 
-	var err error
-	data := ""
+	var (
+		err  error
+		data = ""
+	)
 
 	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
 	if err != nil {

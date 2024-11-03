@@ -8,9 +8,10 @@ import (
 
 // fillNFOTitles attempts to fill in title info from NFO
 func fillNFOTitles(fd *types.FileData) bool {
-
-	t := fd.MTitleDesc
-	n := fd.NFOData
+	var (
+		t = fd.MTitleDesc
+		n = fd.NFOData
+	)
 
 	fieldMap := map[string]*string{
 		consts.NTitle:         &t.Title,

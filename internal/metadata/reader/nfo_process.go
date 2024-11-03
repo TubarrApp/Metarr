@@ -11,6 +11,10 @@ import (
 
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
 func ProcessNFOFiles(fd *types.FileData) (*types.FileData, error) {
+	if fd == nil {
+		return nil, fmt.Errorf("model passed in null")
+	}
+
 	logging.PrintD(2, "Beginning NFO file processing...")
 
 	// Open the file

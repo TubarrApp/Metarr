@@ -119,49 +119,50 @@ func execute() error {
 
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-	jsonDirSet := viper.IsSet(keys.JsonDir)
-	videoFileSet := viper.IsSet(keys.VideoFile)
-	videoDirSet := viper.IsSet(keys.VideoDir)
+	var (
+		jsonFileSet  = viper.IsSet(keys.JsonFile)
+		jsonDirSet   = viper.IsSet(keys.JsonDir)
+		videoFileSet = viper.IsSet(keys.VideoFile)
+		videoDirSet  = viper.IsSet(keys.VideoDir)
+	)
 
 	if jsonFileSet {
-		if file, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
-			switch {
-			case file.IsDir():
-				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
-			case os.IsNotExist(err):
-				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
-			}
+		if _, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
+			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
+		}
+		// Check if it's actually a directory
+		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonFile)); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
 		}
 	}
+
 	if jsonDirSet {
-		if dir, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
-			switch {
-			case !dir.IsDir():
-				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
-			case os.IsNotExist(err):
-				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
-			}
+		if _, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
+		}
+		// Check if it's actually a file
+		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonDir)); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
 		}
 	}
+
 	if videoFileSet {
-		if file, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
-			switch {
-			case file.IsDir():
-				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
-			case os.IsNotExist(err):
-				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
-			}
+		if _, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
+			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
+		}
+		// Check if it's actually a directory
+		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoFile)); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
 		}
 	}
+
 	if videoDirSet {
-		if dir, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
-			switch {
-			case !dir.IsDir():
-				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
-			case os.IsNotExist(err):
-				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
-			}
+		if _, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
+		}
+		// Check if it's actually a file
+		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoDir)); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
 		}
 	}
 

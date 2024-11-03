@@ -1,27 +1,26 @@
 package domain
 
-// AV copy
+// AV codec copy
 var (
-	AVCodecCopy    = []string{"-codec", "copy"}
-	VideoCodecCopy = []string{"-c:v", "copy"}
+	AVCodecCopy = []string{"-codec", "copy"}
+)
+
+// Audio flags
+var (
 	AudioCodecCopy = []string{"-c:a", "copy"}
+	AudioToAAC     = []string{"-c:a", "aac"}
+	AudioBitrate   = []string{"-b:a", "256k"}
 )
 
+// Video flags
 var (
-	AudioToAAC          = []string{"-c:a", "aac"}
+	VideoCodecCopy      = []string{"-c:v", "copy"}
 	VideoToH264Balanced = []string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
-	AudioBitrate        = []string{"-b:a", "256k"}
+	PixelFmtYuv420p     = []string{"-pix_fmt", "yuv420p"}
+	KeyframeBalanced    = []string{"-g", "50", "-keyint_min", "30"}
 )
 
-var (
-	PixelFmtYuv420p  = []string{"-pix_fmt", "yuv420p"}
-	KeyframeBalanced = []string{"-g", "50", "-keyint_min", "30"}
-)
-
-var (
-	OutputExt = []string{"-f", "mp4"}
-)
-
+// GPU hardware flags
 var (
 	NvidiaAccel = []string{"-hwaccel", "nvdec"}
 	AMDAccel    = []string{"-hwaccel", "vulkan"}

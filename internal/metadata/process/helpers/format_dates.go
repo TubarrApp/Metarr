@@ -140,8 +140,10 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 // FormatAllDates formats timestamps into a hyphenated form
 func FormatAllDates(fd *types.FileData) string {
 
-	var result string = ""
-	var ok bool = false
+	var (
+		result = ""
+		ok     = false
+	)
 
 	d := fd.MDates
 

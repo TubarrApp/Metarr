@@ -9,9 +9,11 @@ import (
 // Primary function to fill out meta fields before writing
 func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
-	allFilled := true
-	var meta map[string]interface{}
-	var ok bool
+	var (
+		allFilled bool = true
+		meta      map[string]interface{}
+		ok        bool
+	)
 
 	if !fillWebpageDetails(fd, data) {
 		logging.PrintI("No URL metadata found")

@@ -21,12 +21,11 @@ var (
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
 func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
-
-	logging.PrintD(2, "Beginning JSON file processing...")
-
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
+
+	logging.PrintD(2, "Beginning JSON file processing...")
 
 	// Function mutex
 	mu.Lock()

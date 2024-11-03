@@ -8,9 +8,10 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFOWebData(fd *types.FileData) bool {
-
-	w := fd.MWebData
-	nw := fd.NFOData.WebpageInfo
+	var (
+		w  = fd.MWebData
+		nw = fd.NFOData.WebpageInfo
+	)
 
 	fieldMap := map[string]*string{
 		consts.NURL: &w.WebpageURL,

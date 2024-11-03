@@ -10,9 +10,10 @@ import (
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-
-	c := fd.MCredits
-	w := fd.MWebData
+	var (
+		c = fd.MCredits
+		w = fd.MWebData
+	)
 
 	fieldMap := map[string]*string{
 		// Order by importance

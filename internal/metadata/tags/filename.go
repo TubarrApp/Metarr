@@ -13,7 +13,6 @@ import (
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-
 	logging.PrintD(3, "Entering makeFilenameTag with data@ %v", metadata)
 
 	tagArray := config.GetStringSlice(keys.MFilenamePfx)
@@ -47,13 +46,11 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 			tag = "[]"
 		}
 	}
-
 	return tag
 }
 
 // checkTagExists checks if the constructed tag already exists in the filename
 func checkTagExists(tag, filename string) bool {
-
 	logging.PrintD(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
 
 	return strings.Contains(filename, tag)

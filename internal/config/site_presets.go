@@ -25,35 +25,39 @@ func AutoPreset(url string) {
 // Removes -1 from id and display_id (probably inconsequential)
 // Removes the _1 suffix from restricted filenames
 func censoredTvPreset() {
-	var metaReplaceSuffix []types.MetaReplaceSuffix
 
-	sfxArg1 := types.MetaReplaceSuffix{
+	var (
+		metaReplaceSuffix []types.MetaReplaceSuffix
+		sfx               types.MetaReplaceSuffix
+	)
+
+	sfx = types.MetaReplaceSuffix{
 		Field:       "title",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg1)
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfxArg2 := types.MetaReplaceSuffix{
+	sfx = types.MetaReplaceSuffix{
 		Field:       "fulltitle",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg2)
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfxArg3 := types.MetaReplaceSuffix{
+	sfx = types.MetaReplaceSuffix{
 		Field:       "id",
 		Suffix:      "-1",
 		Replacement: "",
 	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg3)
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfxArg4 := types.MetaReplaceSuffix{
+	sfx = types.MetaReplaceSuffix{
 		Field:       "display_id",
 		Suffix:      "-1",
 		Replacement: "",
 	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfxArg4)
+	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
 	Set(keys.MReplaceSfx, metaReplaceSuffix)
 
