@@ -23,6 +23,13 @@ var (
 	WebDateTags        = [...]string{"release-date", "upload-date", "date", "date-text", "text-date"}
 	WebDescriptionTags = [...]string{"description", "longdescription", "long-description", "summary", "synopsis",
 		"check-for-urls"}
-	WebCreditsTags = [...]string{"creator", "uploader", "uploaded-by", "uploaded_by"}
-	WebTitleTags   = [...]string{"video-title", "video-name"}
+
+	// Credits tags, and nested elements
+	WebCreditsTags      = [...]string{"creator", "uploader", "uploaded-by", "uploaded_by", "claim-preview__title"}
+	WebCreditsSelectors = map[string]string{
+		"claim-preview__title":               "truncated-text",
+		`script[type="application/ld+json"]`: "author.name",
+	}
+
+	WebTitleTags = [...]string{"video-title", "video-name"}
 )
