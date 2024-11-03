@@ -10,12 +10,11 @@ import (
 // Grabs details necessary to scrape the web for missing metafields
 func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
 
-	var (
-		w           = fd.MWebData
-		priorityMap = []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
-		printMap    = make(map[string]string, len(priorityMap))
-		isFilled    bool
-	)
+	var isFilled bool
+
+	w := fd.MWebData
+	priorityMap := []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
+	printMap := make(map[string]string, len(priorityMap))
 
 	for _, wanted := range priorityMap {
 		for key, value := range data {

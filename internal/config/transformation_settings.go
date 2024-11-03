@@ -156,9 +156,10 @@ func setRenameFlag() {
 func initDateReplaceFormat() error {
 
 	var (
-		dateFmt    = GetString(keys.InputFileDatePfx)
 		formatEnum enums.FilenameDateFormat
 	)
+
+	dateFmt := GetString(keys.InputFileDatePfx)
 
 	if dateFmt == "" {
 		formatEnum = enums.FILEDATE_SKIP

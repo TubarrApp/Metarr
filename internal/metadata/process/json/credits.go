@@ -10,26 +10,25 @@ import (
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-	var (
-		c = fd.MCredits
-		w = fd.MWebData
 
-		fieldMap = map[string]*string{
-			// Order by importance
-			consts.JCreator:   &c.Creator,
-			consts.JPerformer: &c.Performer,
-			consts.JAuthor:    &c.Author,
-			consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
-			consts.JDirector:  &c.Director,
-			consts.JActor:     &c.Actor,
-			consts.JStudio:    &c.Studio,
-			consts.JProducer:  &c.Producer,
-			consts.JWriter:    &c.Writer,
-			consts.JUploader:  &c.Uploader,
-			consts.JPublisher: &c.Publisher,
-			consts.JComposer:  &c.Composer,
-		}
-	)
+	c := fd.MCredits
+	w := fd.MWebData
+
+	fieldMap := map[string]*string{
+		// Order by importance
+		consts.JCreator:   &c.Creator,
+		consts.JPerformer: &c.Performer,
+		consts.JAuthor:    &c.Author,
+		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
+		consts.JDirector:  &c.Director,
+		consts.JActor:     &c.Actor,
+		consts.JStudio:    &c.Studio,
+		consts.JProducer:  &c.Producer,
+		consts.JWriter:    &c.Writer,
+		consts.JUploader:  &c.Uploader,
+		consts.JPublisher: &c.Publisher,
+		consts.JComposer:  &c.Composer,
+	}
 
 	dataFilled := unpackJSON("credits", fieldMap, data)
 

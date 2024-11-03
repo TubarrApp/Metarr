@@ -8,16 +8,15 @@ import (
 
 // fillNFOTitles attempts to fill in title info from NFO
 func fillNFOTitles(fd *types.FileData) bool {
-	var (
-		t = fd.MTitleDesc
-		n = fd.NFOData
 
-		fieldMap = map[string]*string{
-			consts.NTitle:         &t.Title,
-			consts.NOriginalTitle: &t.FallbackTitle,
-			consts.NTagline:       &t.Subtitle,
-		}
-	)
+	t := fd.MTitleDesc
+	n := fd.NFOData
+
+	fieldMap := map[string]*string{
+		consts.NTitle:         &t.Title,
+		consts.NOriginalTitle: &t.FallbackTitle,
+		consts.NTagline:       &t.Subtitle,
+	}
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)

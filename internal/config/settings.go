@@ -119,12 +119,11 @@ func execute() error {
 
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
-	var (
-		jsonFileSet  = viper.IsSet(keys.JsonFile)
-		jsonDirSet   = viper.IsSet(keys.JsonDir)
-		videoFileSet = viper.IsSet(keys.VideoFile)
-		videoDirSet  = viper.IsSet(keys.VideoDir)
-	)
+
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFileSet := viper.IsSet(keys.VideoFile)
+	videoDirSet := viper.IsSet(keys.VideoDir)
 
 	if jsonFileSet {
 		if _, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {

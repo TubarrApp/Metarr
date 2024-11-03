@@ -141,8 +141,8 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 func FormatAllDates(fd *types.FileData) string {
 
 	var (
-		result = ""
-		ok     = false
+		result string
+		ok     bool
 	)
 
 	d := fd.MDates

@@ -54,13 +54,12 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 // WriteMetadata writes metadata to a single video file
 func WriteMetadata(m *types.FileData) error {
 
-	var (
-		originalVPath      string = m.OriginalVideoPath
-		dir                string = m.VideoDirectory
-		originalExt        string = filepath.Ext(originalVPath)
-		outputExt          string = config.GetString(keys.OutputFiletype)
-		tempOutputFilePath string
-	)
+	var tempOutputFilePath string
+
+	originalVPath := m.OriginalVideoPath
+	dir := m.VideoDirectory
+	originalExt := filepath.Ext(originalVPath)
+	outputExt := config.GetString(keys.OutputFiletype)
 
 	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
 	// Make temp output path with .mp4 extension
@@ -191,10 +190,10 @@ func (b *CommandBuilder) addAllMetadata(m *types.FileData) {
 
 // setFormatFlags adds commands specific for the extension input and output
 func (b *CommandBuilder) setFormatFlags() {
-	var (
-		inExt  string = filepath.Ext(b.inputFile)
-		outExt string = config.GetString(keys.OutputFiletype)
-	)
+
+	inExt := filepath.Ext(b.inputFile)
+	outExt := config.GetString(keys.OutputFiletype)
+
 	if outExt == "" {
 		outExt = inExt
 	}

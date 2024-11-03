@@ -13,21 +13,19 @@ import (
 
 // fillDescriptions grabs description data from JSON
 func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-	var (
-		d = fd.MTitleDesc
-		w = fd.MWebData
-		t = fd.MDates
 
-		fieldMap = map[string]*string{ // Order by importance
-			consts.JLongDescription:  &d.LongDescription,
-			consts.JLong_Description: &d.Long_Description,
-			consts.JDescription:      &d.Description,
-			consts.JSynopsis:         &d.Synopsis,
-			consts.JSummary:          &d.Summary,
-			consts.JComment:          &d.Comment,
-		}
-	)
+	d := fd.MTitleDesc
+	w := fd.MWebData
+	t := fd.MDates
 
+	fieldMap := map[string]*string{ // Order by importance
+		consts.JLongDescription:  &d.LongDescription,
+		consts.JLong_Description: &d.Long_Description,
+		consts.JDescription:      &d.Description,
+		consts.JSynopsis:         &d.Synopsis,
+		consts.JSummary:          &d.Summary,
+		consts.JComment:          &d.Comment,
+	}
 	filled := unpackJSON("descriptions", fieldMap, data)
 
 	datePfx := config.GetBool(keys.MDescDatePfx)

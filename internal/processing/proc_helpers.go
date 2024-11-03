@@ -16,10 +16,8 @@ import (
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
 
-	var (
-		resourceMsg          bool   = false
-		audioMemoryThreshold uint64 = config.GetUint64(keys.MinMemMB)
-	)
+	var resourceMsg bool
+	audioMemoryThreshold := config.GetUint64(keys.MinMemMB)
 
 	for {
 		// Fetch system resources and determine if processing can proceed

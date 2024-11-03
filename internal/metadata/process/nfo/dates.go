@@ -10,11 +10,10 @@ import (
 )
 
 func fillNFOTimestamps(fd *types.FileData) bool {
-	var (
-		t = fd.MDates
-		w = fd.MWebData
-		n = fd.NFOData
-	)
+
+	t := fd.MDates
+	w := fd.MWebData
+	n := fd.NFOData
 
 	fieldMap := map[string]*string{
 		consts.NAired:        &t.Date,

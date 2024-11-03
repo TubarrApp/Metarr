@@ -18,7 +18,6 @@ import (
 var (
 	videoExtensions,
 	inputPrefixes []string
-
 	metaExtensions = []string{".json", ".nfo"}
 )
 

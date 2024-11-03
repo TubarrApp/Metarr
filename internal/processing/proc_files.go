@@ -32,8 +32,11 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	var (
-		videoMap, metaMap, matchedFiles map[string]*types.FileData
-		err                             error
+		videoMap,
+		metaMap,
+		matchedFiles map[string]*types.FileData
+
+		err error
 	)
 
 	// Process metadata, checking if it’s a directory or a single file

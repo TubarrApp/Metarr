@@ -8,10 +8,9 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFOCredits(fd *types.FileData) bool {
-	var (
-		c = fd.MCredits
-		n = fd.NFOData
-	)
+
+	c := fd.MCredits
+	n := fd.NFOData
 
 	fieldMap := map[string]*string{
 		consts.NActors:            &c.Actor,

@@ -12,7 +12,7 @@ func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
 
 	var (
 		err  error
-		data = ""
+		data string
 	)
 
 	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)

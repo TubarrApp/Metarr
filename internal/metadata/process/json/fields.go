@@ -10,10 +10,10 @@ import (
 func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	var (
-		allFilled bool = true
-		ok        bool = false
-		meta      map[string]interface{}
+		ok   bool
+		meta map[string]interface{}
 	)
+	allFilled := true
 
 	if !fillWebpageDetails(fd, data) {
 		logging.PrintI("No URL metadata found")
