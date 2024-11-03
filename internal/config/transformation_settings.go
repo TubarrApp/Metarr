@@ -47,7 +47,7 @@ func initTextReplace() error {
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
 func validateFilenameSuffixReplace() error {
-	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+	filenameReplaceSuffix := make([]types.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
@@ -68,7 +68,7 @@ func validateFilenameSuffixReplace() error {
 
 // validateMetaPrefixes checks if the input format for meta prefix alterations is valid
 func validateMetaPrefixes() error {
-	var metaReplacePrefix []types.MetaReplacePrefix
+	metaReplacePrefix := make([]types.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
 
 	for _, tuple := range metaReplacePrefixInput {
 		parts := strings.SplitN(tuple, ":", 3)
@@ -90,7 +90,7 @@ func validateMetaPrefixes() error {
 
 // validateMetaSuffixes checks if the input format for meta suffix alterations is valid
 func validateMetaSuffixes() error {
-	var metaReplaceSuffix []types.MetaReplaceSuffix
+	metaReplaceSuffix := make([]types.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
 
 	for _, tuple := range metaReplaceSuffixInput {
 		parts := strings.SplitN(tuple, ":", 3)
@@ -112,7 +112,7 @@ func validateMetaSuffixes() error {
 
 // validateNewMetafields checks if the input format for metatag and field additions is valid
 func validateNewMetafields() error {
-	var metaNewField []types.MetaNewField
+	metaNewField := make([]types.MetaNewField, 0, len(metaNewFieldInput))
 
 	for _, value := range metaNewFieldInput {
 		parts := strings.SplitN(value, ":", 2)

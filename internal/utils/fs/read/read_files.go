@@ -17,21 +17,26 @@ import (
 // Variable cache
 var (
 	videoExtensions,
+	metaExtensions,
 	inputPrefixes []string
-	metaExtensions = []string{".json", ".nfo"}
 )
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops
 func InitFetchFilesVars() error {
 
 	if inExts, ok := config.Get(keys.InputExtsEnum).([]enums.ConvertFromFiletype); ok {
-		videoExtensions = SetExtensions(inExts)
+		videoExtensions = setVideoExtensions(inExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inExts)
 	}
 
+	if inMExts := setMetaExtensions(); len(inMExts) > 0 {
+		metaExtensions = append(metaExtensions, inMExts...)
+		logging.PrintD(2, "Setting meta extensions: %v", metaExtensions)
+	}
+
 	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
-	metaExtensions = []string{".json", ".nfo"}
+	logging.PrintD(2, "Setting prefix filter: %v", inputPrefixes)
 
 	return nil
 }
@@ -48,7 +53,13 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 	videoFiles := make(map[string]*types.FileData, len(files))
 
 	for _, file := range files {
-		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) && HasPrefix(file.Name(), inputPrefixes) {
+		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
+
+			if config.IsSet(keys.FilePrefixes) {
+				if !HasPrefix(file.Name(), inputPrefixes) {
+					continue
+				}
+			}
 			filenameBase := filepath.Base(file.Name())
 
 			m := types.NewFileData()
@@ -81,9 +92,28 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 	metaFiles := make(map[string]*types.FileData, len(files))
 
 	for _, file := range files {
-		if !file.IsDir() && HasPrefix(file.Name(), inputPrefixes) {
+		if !file.IsDir() {
 			ext := filepath.Ext(file.Name())
-			if ext != ".json" && ext != ".nfo" {
+
+			logging.PrintD(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
+
+			if config.IsSet(keys.FilePrefixes) {
+				if !HasPrefix(file.Name(), inputPrefixes) {
+					continue
+				}
+			}
+
+			var match bool
+			for _, mExt := range metaExtensions {
+				if ext != mExt {
+					logging.PrintD(3, "Extension '%s' does not match '%s'", ext, mExt)
+					continue
+				}
+				logging.PrintS(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
+				match = true
+				break
+			}
+			if !match {
 				continue
 			}
 

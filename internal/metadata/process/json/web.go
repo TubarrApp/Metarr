@@ -13,7 +13,13 @@ func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
 	var isFilled bool
 
 	w := fd.MWebData
-	priorityMap := []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
+
+	priorityMap := [5]string{consts.JWebpageURL,
+		consts.JURL,
+		consts.JReferer,
+		consts.JWebpageDomain,
+		consts.JDomain}
+
 	printMap := make(map[string]string, len(priorityMap))
 
 	for _, wanted := range priorityMap {

@@ -250,51 +250,48 @@ func execute() error {
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
 
-	var (
-		jsonFileSet  = viper.IsSet(keys.JsonFile)
-		jsonDirSet   = viper.IsSet(keys.JsonDir)
-		videoFileSet = viper.IsSet(keys.VideoFile)
-		videoDirSet  = viper.IsSet(keys.VideoDir)
-	)
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFileSet := viper.IsSet(keys.VideoFile)
+	videoDirSet := viper.IsSet(keys.VideoDir)
 
 	if jsonFileSet {
-		if file, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
-			switch {
-			case file.IsDir():
-				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
-			case os.IsNotExist(err):
-				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
-			}
+		if _, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
+			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
+		}
+		// Check if it's actually a directory
+		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonFile)); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
 		}
 	}
+
 	if jsonDirSet {
-		if dir, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
-			switch {
-			case !dir.IsDir():
-				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
-			case os.IsNotExist(err):
-				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
-			}
+		if _, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
+		}
+		// Check if it's actually a file
+		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonDir)); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
 		}
 	}
+
 	if videoFileSet {
-		if file, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
-			switch {
-			case file.IsDir():
-				return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
-			case os.IsNotExist(err):
-				return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
-			}
+		if _, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
+			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
+		}
+		// Check if it's actually a directory
+		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoFile)); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
 		}
 	}
+
 	if videoDirSet {
-		if dir, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
-			switch {
-			case !dir.IsDir():
-				return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
-			case os.IsNotExist(err):
-				return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
-			}
+		if _, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
+		}
+		// Check if it's actually a file
+		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoDir)); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
 		}
 	}
 
@@ -316,10 +313,11 @@ func checkFileDirs() error {
 
 // verifyFilePrefixes checks and sets the file prefix filters
 func verifyFilePrefixes() {
-	var filePrefixes []string
 
-	argInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
-	for _, arg := range argInputPrefixes {
+	argsInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
+	filePrefixes := make([]string, 0, len(argsInputPrefixes))
+
+	for _, arg := range argsInputPrefixes {
 		if arg != "" {
 			filePrefixes = append(filePrefixes, arg)
 		}
@@ -350,9 +348,8 @@ func verifyDebugLevel() {
 
 // verifyInputFiletypes checks that the inputted filetypes are accepted
 func verifyInputFiletypes() {
-	var inputExts []enums.ConvertFromFiletype
-
 	argsInputExts := viper.GetStringSlice(keys.InputExts)
+	inputExts := make([]enums.ConvertFromFiletype, 0, len(argsInputExts))
 
 	for _, data := range argsInputExts {
 		switch data {
@@ -548,9 +545,9 @@ import (
 )
 
 var (
-	metaReplaceSuffixInput     []string
-	metaReplacePrefixInput     []string
-	metaNewFieldInput          []string
+	metaReplaceSuffixInput,
+	metaReplacePrefixInput,
+	metaNewFieldInput,
 	filenameReplaceSuffixInput []string
 )
 
@@ -672,9 +669,10 @@ func validateNewMetafields() error {
 
 // setRenameFlag sets the rename style to apply
 func setRenameFlag() {
-	var renameFlag enums.ReplaceToStyle
 
+	var renameFlag enums.ReplaceToStyle
 	argRenameFlag := GetString(keys.RenameStyle)
+
 	switch argRenameFlag {
 	case "spaces", "space":
 		renameFlag = enums.SPACES
@@ -693,10 +691,8 @@ func setRenameFlag() {
 // initDateReplaceFormat initializes the user's preferred format for dates
 func initDateReplaceFormat() error {
 
-	var (
-		dateFmt    = GetString(keys.InputFileDatePfx)
-		formatEnum enums.FilenameDateFormat
-	)
+	var formatEnum enums.FilenameDateFormat
+	dateFmt := GetString(keys.InputFileDatePfx)
 
 	if dateFmt == "" {
 		formatEnum = enums.FILEDATE_SKIP
@@ -785,8 +781,6 @@ func IsSet(key string) bool {
 }
 package domain
 
-import "fmt"
-
 // Colors
 const (
 	ColorReset  = "\033[0m"
@@ -799,10 +793,12 @@ const (
 	ColorWhite  = "\033[37m"
 )
 
-var RedError string = fmt.Sprintf("%v[ERROR] %v", ColorRed, ColorReset)
-var YellowDebug string = fmt.Sprintf("%v[DEBUG] %v", ColorYellow, ColorReset)
-var GreenSuccess string = fmt.Sprintf("%v[SUCCESS] %v", ColorGreen, ColorReset)
-var BlueInfo string = fmt.Sprintf("%v[Info] %v", ColorCyan, ColorReset)
+const (
+	RedError     string = ColorRed + "[ERROR] " + ColorReset
+	GreenSuccess string = ColorGreen + "[SUCCESS] " + ColorReset
+	YellowDebug  string = ColorYellow + "[DEBUG] " + ColorReset
+	BlueInfo     string = ColorCyan + "[Info] " + ColorReset
+)
 package domain
 
 // File prefix and suffix
@@ -812,119 +808,118 @@ const (
 )
 
 var (
-	AllVidExtensions = []string{".3gp", ".avi", ".f4v", ".flv", ".m4v", ".mkv",
-		".mov", ".mp4", ".mpeg", ".mpg", ".ogm", ".ogv",
-		".ts", ".vob", ".webm", ".wmv"}
+	AllVidExtensions = [16]string{".3gp", ".avi", ".f4v", ".flv", ".m4v",
+		".mkv", ".mov", ".mp4", ".mpeg", ".mpg",
+		".ogm", ".ogv", ".ts", ".vob", ".webm",
+		".wmv"}
 )
 
 // Webpage tags
 var (
-	WebDateTags        = []string{"release-date", "upload-date", "date", "date-text", "text-date"}
-	WebDescriptionTags = []string{"description", "longdescription", "long-description", "summary", "synopsis", "check-for-urls"}
-	WebCreditsTags     = []string{"creator", "uploader", "uploaded-by", "uploaded_by"}
-	WebTitleTags       = []string{"video-title", "video-name"}
+	// Ensure lengths match
+	WebDateTags        = [6]string{"release-date", "upload-date", "date", "date-text", "text-date"}
+	WebDescriptionTags = [6]string{"description", "longdescription", "long-description", "summary", "synopsis", "check-for-urls"}
+	WebCreditsTags     = [6]string{"creator", "uploader", "uploaded-by", "uploaded_by"}
+	WebTitleTags       = [6]string{"video-title", "video-name"}
 )
 package domain
 
-var ContractionsSpaced map[string]string = map[string]string{
-	"ain t":     "aint",
-	"can t":     "cant",
-	"don t":     "dont",
-	"didn t":    "didnt",
-	"hasn t":    "hasnt",
-	"haven t":   "havent",
-	"won t":     "wont",
-	"wouldn t":  "wouldnt",
-	"shouldn t": "shouldnt",
-	"couldn t":  "couldnt",
-	"wasn t":    "wasnt",
-	"weren t":   "werent",
-	"let s":     "lets",
-	"hadn t":    "hadnt",
-	"who s":     "whos",
-	"what s":    "whats",
-	"when s":    "whens",
-	"where s":   "wheres",
-	"why s":     "whys",
-	"how s":     "hows",
-	"there s":   "theres",
-	"that s":    "thats",
-	"it d":      "itd",
-	"she d":     "shed",
-	"she s":     "shes",
-	"he d":      "hed",
-	"he s":      "hes",
-	"it ll":     "itll",
-	"should ve": "shouldve",
-	"could ve":  "couldve",
-	"would ve":  "wouldve",
-}
+var (
+	ContractionsSpaced = map[string]string{
+		"ain t":     "aint",
+		"can t":     "cant",
+		"don t":     "dont",
+		"didn t":    "didnt",
+		"hasn t":    "hasnt",
+		"haven t":   "havent",
+		"won t":     "wont",
+		"wouldn t":  "wouldnt",
+		"shouldn t": "shouldnt",
+		"couldn t":  "couldnt",
+		"wasn t":    "wasnt",
+		"weren t":   "werent",
+		"let s":     "lets",
+		"hadn t":    "hadnt",
+		"who s":     "whos",
+		"what s":    "whats",
+		"when s":    "whens",
+		"where s":   "wheres",
+		"why s":     "whys",
+		"how s":     "hows",
+		"there s":   "theres",
+		"that s":    "thats",
+		"it d":      "itd",
+		"she d":     "shed",
+		"she s":     "shes",
+		"he d":      "hed",
+		"he s":      "hes",
+		"it ll":     "itll",
+		"should ve": "shouldve",
+		"could ve":  "couldve",
+		"would ve":  "wouldve",
+	}
 
-var ContractionsUnderscored map[string]string = map[string]string{
-	"ain_t":     "aint",
-	"can_t":     "cant",
-	"don_t":     "dont",
-	"didn_t":    "didnt",
-	"hasn_t":    "hasnt",
-	"haven_t":   "havent",
-	"won_t":     "wont",
-	"wouldn_t":  "wouldnt",
-	"shouldn_t": "shouldnt",
-	"couldn_t":  "couldnt",
-	"wasn_t":    "wasnt",
-	"weren_t":   "werent",
-	"let_s":     "lets",
-	"hadn_t":    "hadnt",
-	"who_s":     "whos",
-	"what_s":    "whats",
-	"when_s":    "whens",
-	"where_s":   "wheres",
-	"why_s":     "whys",
-	"how_s":     "hows",
-	"there_s":   "theres",
-	"that_s":    "thats",
-	"it_d":      "itd",
-	"she_d":     "shed",
-	"she_s":     "shes",
-	"he_d":      "hed",
-	"he_s":      "hes",
-	"it_ll":     "itll",
-	"should_ve": "shouldve",
-	"could_ve":  "couldve",
-	"would_ve":  "wouldve",
-}
+	ContractionsUnderscored = map[string]string{
+		"ain_t":     "aint",
+		"can_t":     "cant",
+		"don_t":     "dont",
+		"didn_t":    "didnt",
+		"hasn_t":    "hasnt",
+		"haven_t":   "havent",
+		"won_t":     "wont",
+		"wouldn_t":  "wouldnt",
+		"shouldn_t": "shouldnt",
+		"couldn_t":  "couldnt",
+		"wasn_t":    "wasnt",
+		"weren_t":   "werent",
+		"let_s":     "lets",
+		"hadn_t":    "hadnt",
+		"who_s":     "whos",
+		"what_s":    "whats",
+		"when_s":    "whens",
+		"where_s":   "wheres",
+		"why_s":     "whys",
+		"how_s":     "hows",
+		"there_s":   "theres",
+		"that_s":    "thats",
+		"it_d":      "itd",
+		"she_d":     "shed",
+		"she_s":     "shes",
+		"he_d":      "hed",
+		"he_s":      "hes",
+		"it_ll":     "itll",
+		"should_ve": "shouldve",
+		"could_ve":  "couldve",
+		"would_ve":  "wouldve",
+	}
+)
 package domain
 
 // AV codec copy
 var (
-	AVCodecCopy = []string{"-codec", "copy"}
+	AVCodecCopy = [2]string{"-codec", "copy"}
 )
 
 // Audio flags
 var (
-	AudioCodecCopy = []string{"-c:a", "copy"}
-	AudioToAAC     = []string{"-c:a", "aac"}
-	AudioBitrate   = []string{"-b:a", "256k"}
+	AudioCodecCopy = [2]string{"-c:a", "copy"}
+	AudioToAAC     = [2]string{"-c:a", "aac"}
+	AudioBitrate   = [2]string{"-b:a", "256k"}
 )
 
 // Video flags
 var (
-	VideoCodecCopy      = []string{"-c:v", "copy"}
-	VideoToH264Balanced = []string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
-	PixelFmtYuv420p     = []string{"-pix_fmt", "yuv420p"}
-	KeyframeBalanced    = []string{"-g", "50", "-keyint_min", "30"}
+	VideoCodecCopy      = [2]string{"-c:v", "copy"}
+	VideoToH264Balanced = [6]string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
+	PixelFmtYuv420p     = [2]string{"-pix_fmt", "yuv420p"}
+	KeyframeBalanced    = [4]string{"-g", "50", "-keyint_min", "30"}
 )
 
 // GPU hardware flags
 var (
-	NvidiaAccel = []string{"-hwaccel", "nvdec"}
-	AMDAccel    = []string{"-hwaccel", "vulkan"}
-	IntelAccel  = []string{"-hwaccel", "qsv"}
-)
-
-// Extension I/O flags
-var (
-	OutputExt = []string{"-f", "mp4"}
+	NvidiaAccel = [2]string{"-hwaccel", "nvdec"}
+	AMDAccel    = [2]string{"-hwaccel", "vulkan"}
+	IntelAccel  = [2]string{"-hwaccel", "qsv"}
 )
 package domain
 
@@ -1209,7 +1204,7 @@ const (
 )
 
 // Contains the fields which accept multiple entries as string arrays
-var MultiEntryFields []string = []string{
+var MultiEntryFields = []string{
 	InputExts,
 	FilePrefixes,
 	MReplaceSfx,
@@ -1360,8 +1355,8 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 func FormatAllDates(fd *types.FileData) string {
 
 	var (
-		result = ""
-		ok     = false
+		result string
+		ok     bool
 	)
 
 	d := fd.MDates
@@ -1419,7 +1414,7 @@ func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
 
 	var (
 		err  error
-		data = ""
+		data string
 	)
 
 	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
@@ -1448,10 +1443,9 @@ import (
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-	var (
-		c = fd.MCredits
-		w = fd.MWebData
-	)
+
+	c := fd.MCredits
+	w := fd.MWebData
 
 	fieldMap := map[string]*string{
 		// Order by importance
@@ -1507,7 +1501,6 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 	}
 
 	credits := helpers.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
-
 	if credits != "" {
 		for _, value := range fieldMap {
 			if *value == "" {
@@ -1588,11 +1581,12 @@ import (
 // fillTimestamps grabs timestamp metadata from JSON
 func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 	var (
-		t               = fd.MDates
-		w               = fd.MWebData
 		err             error
 		gotRelevantDate bool
 	)
+
+	t := fd.MDates
+	w := fd.MWebData
 
 	fieldMap := map[string]*string{ // Order by importance
 		consts.JReleaseDate:         &t.ReleaseDate,
@@ -1870,11 +1864,10 @@ import (
 
 // fillDescriptions grabs description data from JSON
 func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
-	var (
-		d = fd.MTitleDesc
-		w = fd.MWebData
-		t = fd.MDates
-	)
+
+	d := fd.MTitleDesc
+	w := fd.MWebData
+	t := fd.MDates
 
 	fieldMap := map[string]*string{ // Order by importance
 		consts.JLongDescription:  &d.LongDescription,
@@ -1884,7 +1877,6 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 		consts.JSummary:          &d.Summary,
 		consts.JComment:          &d.Comment,
 	}
-
 	filled := unpackJSON("descriptions", fieldMap, data)
 
 	datePfx := config.GetBool(keys.MDescDatePfx)
@@ -2022,10 +2014,10 @@ import (
 func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	var (
-		allFilled bool = true
-		meta      map[string]interface{}
-		ok        bool
+		ok   bool
+		meta map[string]interface{}
 	)
+	allFilled := true
 
 	if !fillWebpageDetails(fd, data) {
 		logging.PrintI("No URL metadata found")
@@ -2037,7 +2029,7 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 		allFilled = false
 	}
 
-	if meta, ok := fillCredits(fd, data); !ok {
+	if meta, ok = fillCredits(fd, data); !ok {
 		logging.PrintI("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
@@ -2059,7 +2051,6 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 	} else if meta != nil {
 		data = meta
 	}
-
 	return data, allFilled
 }
 
@@ -2101,11 +2092,10 @@ import (
 // fillTitles grabs the fulltitle ("title")
 func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 
-	var (
-		printMap = make(map[string]string, len(data))
-		t        = fd.MTitleDesc
-		w        = fd.MWebData
-	)
+	t := fd.MTitleDesc
+	w := fd.MWebData
+
+	printMap := make(map[string]string, len(data))
 
 	for key, value := range data {
 		if val, ok := value.(string); ok && val != "" {
@@ -2149,12 +2139,17 @@ import (
 // Grabs details necessary to scrape the web for missing metafields
 func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
 
-	var (
-		w           = fd.MWebData
-		priorityMap = []string{consts.JWebpageURL, consts.JURL, consts.JReferer, consts.JWebpageDomain, consts.JDomain}
-		printMap    = make(map[string]string, len(priorityMap))
-		isFilled    bool
-	)
+	var isFilled bool
+
+	w := fd.MWebData
+
+	priorityMap := [5]string{consts.JWebpageURL,
+		consts.JURL,
+		consts.JReferer,
+		consts.JWebpageDomain,
+		consts.JDomain}
+
+	printMap := make(map[string]string, len(priorityMap))
 
 	for _, wanted := range priorityMap {
 		for key, value := range data {
@@ -2230,10 +2225,9 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFOCredits(fd *types.FileData) bool {
-	var (
-		c = fd.MCredits
-		n = fd.NFOData
-	)
+
+	c := fd.MCredits
+	n := fd.NFOData
 
 	fieldMap := map[string]*string{
 		consts.NActors:            &c.Actor,
@@ -2365,11 +2359,10 @@ import (
 )
 
 func fillNFOTimestamps(fd *types.FileData) bool {
-	var (
-		t = fd.MDates
-		w = fd.MWebData
-		n = fd.NFOData
-	)
+
+	t := fd.MDates
+	w := fd.MWebData
+	n := fd.NFOData
 
 	fieldMap := map[string]*string{
 		consts.NAired:        &t.Date,
@@ -2446,8 +2439,10 @@ func fillNFOTimestamps(fd *types.FileData) bool {
 
 	logging.PrintD(3, "Passed web scrape attempt for date.")
 
-	var date string
-	var err error
+	var (
+		date string
+		err  error
+	)
 	if scrapedDate != "" {
 		date, err = helpers.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
@@ -2500,10 +2495,9 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFODescriptions(fd *types.FileData) bool {
-	var (
-		d = fd.MTitleDesc
-		n = fd.NFOData
-	)
+
+	d := fd.MTitleDesc
+	n := fd.NFOData
 
 	fieldMap := map[string]*string{
 		consts.NDescription: &d.Description,
@@ -2588,15 +2582,19 @@ func FillNFO(fd *types.FileData) bool {
 	if ok := fillNFOTimestamps(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFOTitles(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFODescriptions(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFOCredits(fd); ok {
 		filled = true
 	}
+
 	if ok := fillNFOWebData(fd); ok {
 		filled = true
 	}
@@ -2741,10 +2739,9 @@ import (
 
 // fillNFOTitles attempts to fill in title info from NFO
 func fillNFOTitles(fd *types.FileData) bool {
-	var (
-		t = fd.MTitleDesc
-		n = fd.NFOData
-	)
+
+	t := fd.MTitleDesc
+	n := fd.NFOData
 
 	fieldMap := map[string]*string{
 		consts.NTitle:         &t.Title,
@@ -2818,10 +2815,9 @@ import (
 
 // fillNFODescriptions attempts to fill in title info from NFO
 func fillNFOWebData(fd *types.FileData) bool {
-	var (
-		w  = fd.MWebData
-		nw = fd.NFOData.WebpageInfo
-	)
+
+	w := fd.MWebData
+	nw := fd.NFOData.WebpageInfo
 
 	fieldMap := map[string]*string{
 		consts.NURL: &w.WebpageURL,
@@ -3099,13 +3095,12 @@ func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat)
 	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
 		parts = getNonEmpty(month, day, year)
 	}
-
 	return strings.Join(parts, "-")
 }
 
 // appendNonEmpty adds non-empty strings to the slice
 func getNonEmpty(values ...string) []string {
-	var parts []string
+	parts := make([]string, len(values))
 	for _, v := range values {
 		if v != "" {
 			parts = append(parts, v)
@@ -3343,16 +3338,13 @@ var (
 	muWriteCommand sync.Mutex
 )
 
-// MetadataMap holds all metadata key-value pairs
-type MetadataMap map[string]string
-
 // CommandBuilder handles FFmpeg command construction
 type CommandBuilder struct {
 	inputFile   string
 	outputFile  string
-	gpuAccel    []string
-	metadataMap MetadataMap
 	formatFlags []string
+	gpuAccel    []string
+	metadataMap map[string]string
 }
 
 // NewCommandBuilder creates a new FFmpeg command builder
@@ -3360,7 +3352,7 @@ func NewCommandBuilder(m *types.FileData, outputFile string) *CommandBuilder {
 	return &CommandBuilder{
 		inputFile:   m.OriginalVideoPath,
 		outputFile:  outputFile,
-		metadataMap: make(MetadataMap),
+		metadataMap: make(map[string]string),
 	}
 }
 
@@ -3370,9 +3362,7 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 	builder := NewCommandBuilder(m, outputFile)
 
 	builder.setGPUAcceleration()
-
 	builder.addAllMetadata(m)
-
 	builder.setFormatFlags()
 
 	// Return the fully appended argument string
@@ -3382,19 +3372,22 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 // WriteMetadata writes metadata to a single video file
 func WriteMetadata(m *types.FileData) error {
 
-	var (
-		originalVPath string = m.OriginalVideoPath
-		dir           string = m.VideoDirectory
-	)
+	var tempOutputFilePath string
+
+	originalVPath := m.OriginalVideoPath
+	dir := m.VideoDirectory
+	originalExt := filepath.Ext(originalVPath)
+	outputExt := config.GetString(keys.OutputFiletype)
 
 	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
-
 	// Make temp output path with .mp4 extension
 	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
 
-	var tempOutputFilePath string
-	originalExt := filepath.Ext(originalVPath)
-	outputExt := config.GetString(keys.OutputFiletype)
+	if outputExt == "" {
+		outputExt = filepath.Ext(m.FinalVideoPath)
+		config.Set(keys.OutputFiletype, outputExt)
+	}
+
 	switch {
 	case outputExt != "":
 		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+outputExt)
@@ -3420,7 +3413,7 @@ func WriteMetadata(m *types.FileData) error {
 	command := exec.Command("ffmpeg", args...)
 	muWriteCommand.Unlock()
 
-	logging.PrintI("\n%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
+	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -3461,8 +3454,9 @@ func WriteMetadata(m *types.FileData) error {
 
 	fmt.Printf("Successfully renamed video from %s to %s\n", tempOutputFilePath, m.FinalVideoPath)
 
-	if filepath.Ext(originalVPath) != ".mp4" {
-		logging.PrintI("Removing original non-MP4 file: %s", originalVPath)
+	if filepath.Ext(originalVPath) != filepath.Ext(m.FinalVideoPath) {
+
+		logging.PrintI("Original file not type %s, removing '%s'", outputExt, originalVPath)
 
 		if config.GetBool(keys.NoFileOverwrite) {
 			if _, err := os.Stat(originalVPath); os.IsNotExist(err) {
@@ -3480,7 +3474,7 @@ func WriteMetadata(m *types.FileData) error {
 		}
 	}
 
-	logging.PrintS(0, "\nSuccessfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
+	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
 		m.FinalVideoPath,
 		m.MTitleDesc.Title)
 
@@ -3493,11 +3487,11 @@ func (b *CommandBuilder) setGPUAcceleration() {
 	if ok {
 		switch gpuFlag {
 		case enums.NVIDIA:
-			b.gpuAccel = consts.NvidiaAccel
+			b.gpuAccel = consts.NvidiaAccel[:]
 		case enums.AMD:
-			b.gpuAccel = consts.AMDAccel
+			b.gpuAccel = consts.AMDAccel[:]
 		case enums.INTEL:
-			b.gpuAccel = consts.IntelAccel
+			b.gpuAccel = consts.IntelAccel[:]
 		}
 	}
 }
@@ -3514,14 +3508,19 @@ func (b *CommandBuilder) addAllMetadata(m *types.FileData) {
 
 // setFormatFlags adds commands specific for the extension input and output
 func (b *CommandBuilder) setFormatFlags() {
-	var (
-		inExt  string = filepath.Ext(b.inputFile)
-		outExt string = strings.TrimPrefix(config.GetString(keys.OutputFiletype), ".")
-	)
+
+	inExt := filepath.Ext(b.inputFile)
+	outExt := config.GetString(keys.OutputFiletype)
+
+	if outExt == "" {
+		outExt = inExt
+	}
+
+	logging.PrintI("Input extension set '%s' and output extension '%s'. File: %s", inExt, outExt, b.inputFile)
 
 	// Return early with straight copy if no extension change
-	if inExt == outExt {
-		b.formatFlags = consts.AVCodecCopy
+	if strings.TrimPrefix(inExt, ".") == strings.TrimPrefix(outExt, ".") {
+		b.formatFlags = consts.AVCodecCopy[:]
 		return
 	}
 
@@ -3531,37 +3530,37 @@ func (b *CommandBuilder) setFormatFlags() {
 	switch outExt {
 	case ".mp4":
 		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced...)
-		flags = append(flags, consts.PixelFmtYuv420p...)
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.VideoToH264Balanced[:]...)
+		flags = append(flags, consts.PixelFmtYuv420p[:]...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 
 	case ".mkv":
 		flags = append(flags, "-f", outExt)
 		// MKV is flexible, copy AV codec for supported formats
 		if inExt == ".mp4" || inExt == ".m4v" {
-			flags = append(flags, consts.VideoCodecCopy...)
+			flags = append(flags, consts.VideoCodecCopy[:]...)
 		} else {
-			flags = append(flags, consts.VideoToH264Balanced...)
+			flags = append(flags, consts.VideoToH264Balanced[:]...)
 		}
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 
 	case ".webm":
 		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced...)
-		flags = append(flags, consts.PixelFmtYuv420p...)
-		flags = append(flags, consts.KeyframeBalanced...)
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.VideoToH264Balanced[:]...)
+		flags = append(flags, consts.PixelFmtYuv420p[:]...)
+		flags = append(flags, consts.KeyframeBalanced[:]...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 
 	default:
 		// Safe defaults for any other output format
 		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced...)
-		flags = append(flags, consts.PixelFmtYuv420p...)
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.VideoToH264Balanced[:]...)
+		flags = append(flags, consts.PixelFmtYuv420p[:]...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 	}
 
 	b.formatFlags = flags
@@ -3886,11 +3885,12 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File) (bool, error) {
 
-	var edited bool
-	var ok bool
-	var pfx []types.MetaReplacePrefix
-	var sfx []types.MetaReplaceSuffix
-	var new []types.MetaNewField
+	var (
+		edited, ok bool
+		pfx        []types.MetaReplacePrefix
+		sfx        []types.MetaReplaceSuffix
+		new        []types.MetaNewField
+	)
 
 	if config.IsSet(keys.MReplacePfx) {
 		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
@@ -4265,18 +4265,16 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
-	var edited bool
-
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
 	}
 
 	var (
-		ok  bool
-		pfx []types.MetaReplacePrefix
-		sfx []types.MetaReplaceSuffix
-		new []types.MetaNewField
+		edited, ok bool
+		pfx        []types.MetaReplacePrefix
+		sfx        []types.MetaReplaceSuffix
+		new        []types.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {
@@ -4696,19 +4694,27 @@ import (
 	"sync/atomic"
 )
 
-var totalMetaFiles int32
-var totalVideoFiles int32
-var processedMetaFiles int32
-var processedVideoFiles int32
-var processedDataArray []*types.FileData
+var (
+	totalMetaFiles,
+	totalVideoFiles,
+	processedMetaFiles,
+	processedVideoFiles int32
+
+	processedDataArray []*types.FileData
+)
 
 // processFiles is the main program function to process folder entries
 func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
 	skipVideos := config.GetBool(keys.SkipVideos)
 
-	var videoMap, metaMap, matchedFiles map[string]*types.FileData
-	var err error
+	var (
+		videoMap,
+		metaMap,
+		matchedFiles map[string]*types.FileData
+
+		err error
+	)
 
 	// Process metadata, checking if it’s a directory or a single file
 	if openMeta != nil {
@@ -4760,8 +4766,10 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 	for _, fileData := range matchedFiles {
 
-		var processedData *types.FileData
-		var err error = fmt.Errorf("")
+		var (
+			processedData *types.FileData
+			err           error
+		)
 
 		if !config.IsSet(keys.SkipVideos) || metaChanges() {
 			switch fileData.MetaFileType {
@@ -4923,7 +4931,7 @@ import (
 func sysResourceLoop(fileStr string) {
 
 	var resourceMsg bool
-	var audioMemoryThreshold uint64 = config.GetUint64(keys.MinMemMB)
+	audioMemoryThreshold := config.GetUint64(keys.MinMemMB)
 
 	for {
 		// Fetch system resources and determine if processing can proceed
@@ -4966,8 +4974,10 @@ func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
 // cleanupTempFiles removes temporary files
 func cleanupTempFiles(files map[string]*types.FileData) error {
 
-	var errReturn error
-	var path string
+	var (
+		errReturn error
+		path      string
+	)
 
 	for _, data := range files {
 		path = data.TempOutputFilePath
@@ -5016,9 +5026,9 @@ import (
 // FileRename formats the file names
 func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 
-	skipVideos := config.GetBool(keys.SkipVideos)
-
 	var vidExt string
+
+	skipVideos := config.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
 		metaBase, metaDir, originalMPath := getMetafileData(fd)
@@ -5177,7 +5187,7 @@ func addTags(renamedVideo, renamedMeta string, m *types.FileData) (string, strin
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag
 func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (string, string, error) {
 
-	var contractionsMap map[string]string
+	contractionsMap := make(map[string]string, len(consts.ContractionsSpaced))
 
 	// Rename style map to use
 	switch style {
@@ -5598,13 +5608,14 @@ import (
 func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
 
 	c := colly.NewCollector()
-
 	for _, cookie := range cookies {
 		c.SetCookies(targetURL, []*http.Cookie{cookie})
 	}
 
-	var result string
-	var tags []string
+	var (
+		result string
+		tags   [6]string
+	)
 
 	switch tag {
 	case enums.WEBCLASS_DATE:
@@ -5665,15 +5676,15 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 
 // Check tag if it appears it could contain a date
 func looksLikeDate(s string) bool {
-	s = strings.TrimSpace(s)
-	if len(s) > 30 { // (Dates shouldn't be longer than this)
+	if len(s) > 30 { // (Dates probably not longer than this)
 		return false
 	}
 
+	s = strings.TrimSpace(s)
 	lowered := strings.ToLower(s)
 
 	// Check for month names
-	months := []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
+	months := [12]string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 	hasMonth := false
 	for _, month := range months {
 		if strings.Contains(lowered, month) {
@@ -5689,7 +5700,7 @@ func looksLikeDate(s string) bool {
 	hasDay := regexp.MustCompile(`\b\d{1,2}(st|nd|rd|th)?\b`).MatchString(s)
 
 	// Check for common date formats
-	datePatterns := []string{
+	datePatterns := [4]string{
 		`\d{1,2}[-/]\d{1,2}[-/]\d{2,4}`, // DD/MM/YYYY or MM/DD/YYYY
 		`\d{4}[-/]\d{1,2}[-/]\d{1,2}`,   // YYYY/MM/DD
 		`\w+\s+\d{1,2},?\s+\d{4}`,       // Month DD, YYYY
@@ -5788,9 +5799,9 @@ import (
 
 // Variable cache
 var (
-	videoExtensions []string
-	inputPrefixes   []string
-	metaExtensions  = []string{".json", ".nfo"}
+	videoExtensions,
+	inputPrefixes []string
+	metaExtensions = [2]string{".json", ".nfo"}
 )
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops
@@ -5803,7 +5814,7 @@ func InitFetchFilesVars() error {
 	}
 
 	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
-	metaExtensions = []string{".json", ".nfo"}
+	metaExtensions = [2]string{".json", ".nfo"}
 
 	return nil
 }
@@ -6039,13 +6050,12 @@ func HasPrefix(fileName string, prefixes []string) bool {
 // setExtensions creates a list of extensions to filter
 func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
-	var videoExtensions []string
-
+	videoExtensions := make([]string, 1, len(consts.AllVidExtensions))
 	for _, arg := range convertFrom {
 
 		switch arg {
 		case enums.IN_ALL_EXTENSIONS:
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
 
 		case enums.IN_MKV:
 			videoExtensions = append(videoExtensions, ".mkv")
@@ -6058,7 +6068,7 @@ func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
 		default:
 			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
 		}
 	}
 
@@ -6068,8 +6078,7 @@ func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 // setPrefixFilter sets a list of prefixes to filter
 func SetPrefixFilter(inputPrefixFilters []string) []string {
 
-	var prefixFilters []string
-
+	prefixFilters := make([]string, len(inputPrefixFilters))
 	prefixFilters = append(prefixFilters, inputPrefixFilters...)
 
 	return prefixFilters
@@ -6222,7 +6231,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		}
 	}
 
-	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
+	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
 		fs.SrcMeta, fs.DestMeta)
 	return nil
 }
@@ -6599,12 +6608,14 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var ErrorArray []error
-var Loggable bool = false
-var Logger *log.Logger
+var (
+	ErrorArray []error
+	Loggable   bool = false
+	Logger     *log.Logger
 
-// Regular expression to match ANSI escape codes
-var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	// Matches ANSI escape codes
+	ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+)
 
 // SetupLogging creates and/or opens the log file
 func SetupLogging(targetDir string) error {
@@ -6891,8 +6902,10 @@ func init() {
 
 func main() {
 
-	var err error
-	var directory string
+	var (
+		err       error
+		directory string
+	)
 
 	// TESTING FUNCTIONS
 	if config.GetBool(keys.Benchmarking) {
@@ -6952,10 +6965,12 @@ func main() {
 	config.Set(keys.Context, ctx)
 	defer cancel()
 
-	var openVideo *os.File
-	var inputVideoDir string
-	var inputVideo string
+	var (
+		inputVideoDir,
+		inputVideo string
 
+		openVideo *os.File
+	)
 	if config.IsSet(keys.VideoDir) {
 
 		inputVideoDir = config.GetString(keys.VideoDir)
@@ -6980,10 +6995,12 @@ func main() {
 	}
 	config.Set(keys.OpenVideo, openVideo)
 
-	var openJson *os.File
-	var inputMetaDir string
-	var inputMeta string
+	var (
+		inputMetaDir,
+		inputMeta string
 
+		openJson *os.File
+	)
 	if config.IsSet(keys.JsonDir) {
 
 		inputMetaDir = config.GetString(keys.JsonDir)

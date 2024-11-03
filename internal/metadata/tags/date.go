@@ -30,8 +30,9 @@ func MakeDateTag(metadata map[string]interface{}, fileName string) (string, erro
 		return "", fmt.Errorf("failed to parse date components: %w", err)
 	}
 
-	dateStr := formatDateString(year, month, day, dateFmt)
-	if dateStr == "" {
+	dateStr, err := formatDateString(year, month, day, dateFmt)
+	if dateStr == "" || err != nil {
+		logging.PrintE(0, "Failed to create date string")
 		return "[]", nil
 	}
 
@@ -89,31 +90,39 @@ func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, m
 }
 
 // formatDateString formats the date as a hyphenated string
-func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) string {
-	var parts []string
+func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) (string, error) {
+	var parts [3]string
 
 	switch dateFmt {
 	case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
-		parts = getNonEmpty(year, month, day)
+		parts = [3]string{year, month, day}
 	case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
-		parts = getNonEmpty(year, day, month)
+		parts = [3]string{year, day, month}
 	case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
-		parts = getNonEmpty(day, month, year)
+		parts = [3]string{day, month, year}
 	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
-		parts = getNonEmpty(month, day, year)
+		parts = [3]string{month, day, year}
 	}
-	return strings.Join(parts, "-")
+
+	result := joinNonEmpty(parts)
+	if result == "" {
+		return "", fmt.Errorf("no valid date components found")
+	}
+	return result, nil
 }
 
-// appendNonEmpty adds non-empty strings to the slice
-func getNonEmpty(values ...string) []string {
-	parts := make([]string, len(values))
-	for _, v := range values {
-		if v != "" {
-			parts = append(parts, v)
+// joinNonEmpty joins non-empty strings from an array with hyphens
+func joinNonEmpty(parts [3]string) string {
+	nonEmpty := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			nonEmpty = append(nonEmpty, p)
 		}
 	}
-	return parts
+	if len(nonEmpty) == 0 {
+		return ""
+	}
+	return strings.Join(nonEmpty, "-")
 }
 
 // getYear returns the year digits from the date string

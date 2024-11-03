@@ -20,19 +20,20 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 		c.SetCookies(targetURL, []*http.Cookie{cookie})
 	}
 
-	var result string
-
-	tags := make([]string, 0, len(consts.WebDateTags))
+	var (
+		result string
+		tags   []string
+	)
 
 	switch tag {
 	case enums.WEBCLASS_DATE:
-		tags = consts.WebDateTags
+		tags = consts.WebDateTags[:]
 	case enums.WEBCLASS_DESCRIPTION:
-		tags = consts.WebDescriptionTags
+		tags = consts.WebDescriptionTags[:]
 	case enums.WEBCLASS_CREDITS:
-		tags = consts.WebCreditsTags
+		tags = consts.WebCreditsTags[:]
 	case enums.WEBCLASS_TITLE:
-		tags = consts.WebTitleTags
+		tags = consts.WebTitleTags[:]
 	default:
 		return "", fmt.Errorf("unsupported metadata tag: %v", tag)
 	}

@@ -45,39 +45,53 @@ func HasPrefix(fileName string, prefixes []string) bool {
 	return false
 }
 
-// setExtensions creates a list of extensions to filter
-func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
+// setVideoExtensions creates a list of extensions to filter
+func setVideoExtensions(convertFrom []enums.ConvertFromFiletype) []string {
 
-	var videoExtensions []string
+	videoExtensions := make([]string, 0, len(consts.AllVidExtensions))
 	for _, arg := range convertFrom {
 
 		switch arg {
 		case enums.IN_ALL_EXTENSIONS:
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
-
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
 		case enums.IN_MKV:
 			videoExtensions = append(videoExtensions, ".mkv")
-
 		case enums.IN_MP4:
 			videoExtensions = append(videoExtensions, ".mp4")
-
 		case enums.IN_WEBM:
 			videoExtensions = append(videoExtensions, ".webm")
 
 		default:
 			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions...)
+			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
 		}
 	}
-
 	return videoExtensions
+}
+
+// setMetaExtensions creates a lists of meta extensions to filter
+func setMetaExtensions() []string {
+
+	metaExtensions := make([]string, 0, len(consts.AllMetaExtensions))
+	for _, arg := range consts.AllMetaExtensions {
+
+		switch arg {
+		case "json":
+			metaExtensions = append(metaExtensions, arg)
+		case "nfo":
+			metaExtensions = append(metaExtensions, arg)
+
+		default:
+			metaExtensions = append(metaExtensions, consts.AllMetaExtensions[:]...)
+		}
+	}
+	return metaExtensions
 }
 
 // setPrefixFilter sets a list of prefixes to filter
 func SetPrefixFilter(inputPrefixFilters []string) []string {
 
-	var prefixFilters []string
-
+	prefixFilters := make([]string, 0, len(inputPrefixFilters))
 	prefixFilters = append(prefixFilters, inputPrefixFilters...)
 
 	return prefixFilters

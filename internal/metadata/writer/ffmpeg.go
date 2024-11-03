@@ -169,11 +169,11 @@ func (b *CommandBuilder) setGPUAcceleration() {
 	if ok {
 		switch gpuFlag {
 		case enums.NVIDIA:
-			b.gpuAccel = consts.NvidiaAccel
+			b.gpuAccel = consts.NvidiaAccel[:]
 		case enums.AMD:
-			b.gpuAccel = consts.AMDAccel
+			b.gpuAccel = consts.AMDAccel[:]
 		case enums.INTEL:
-			b.gpuAccel = consts.IntelAccel
+			b.gpuAccel = consts.IntelAccel[:]
 		}
 	}
 }
@@ -202,7 +202,7 @@ func (b *CommandBuilder) setFormatFlags() {
 
 	// Return early with straight copy if no extension change
 	if strings.TrimPrefix(inExt, ".") == strings.TrimPrefix(outExt, ".") {
-		b.formatFlags = consts.AVCodecCopy
+		b.formatFlags = consts.AVCodecCopy[:]
 		return
 	}
 
@@ -212,37 +212,37 @@ func (b *CommandBuilder) setFormatFlags() {
 	switch outExt {
 	case ".mp4":
 		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced...)
-		flags = append(flags, consts.PixelFmtYuv420p...)
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.VideoToH264Balanced[:]...)
+		flags = append(flags, consts.PixelFmtYuv420p[:]...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 
 	case ".mkv":
 		flags = append(flags, "-f", outExt)
 		// MKV is flexible, copy AV codec for supported formats
 		if inExt == ".mp4" || inExt == ".m4v" {
-			flags = append(flags, consts.VideoCodecCopy...)
+			flags = append(flags, consts.VideoCodecCopy[:]...)
 		} else {
-			flags = append(flags, consts.VideoToH264Balanced...)
+			flags = append(flags, consts.VideoToH264Balanced[:]...)
 		}
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 
 	case ".webm":
 		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced...)
-		flags = append(flags, consts.PixelFmtYuv420p...)
-		flags = append(flags, consts.KeyframeBalanced...)
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.VideoToH264Balanced[:]...)
+		flags = append(flags, consts.PixelFmtYuv420p[:]...)
+		flags = append(flags, consts.KeyframeBalanced[:]...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 
 	default:
 		// Safe defaults for any other output format
 		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced...)
-		flags = append(flags, consts.PixelFmtYuv420p...)
-		flags = append(flags, consts.AudioToAAC...)
-		flags = append(flags, consts.AudioBitrate...)
+		flags = append(flags, consts.VideoToH264Balanced[:]...)
+		flags = append(flags, consts.PixelFmtYuv420p[:]...)
+		flags = append(flags, consts.AudioToAAC[:]...)
+		flags = append(flags, consts.AudioBitrate[:]...)
 	}
 
 	b.formatFlags = flags
