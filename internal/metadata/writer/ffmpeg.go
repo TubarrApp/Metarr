@@ -96,7 +96,7 @@ func WriteMetadata(m *types.FileData) error {
 	command := exec.Command("ffmpeg", args...)
 	muWriteCommand.Unlock()
 
-	logging.PrintI("\n%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
+	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -157,7 +157,7 @@ func WriteMetadata(m *types.FileData) error {
 		}
 	}
 
-	logging.PrintS(0, "\nSuccessfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
+	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
 		m.FinalVideoPath,
 		m.MTitleDesc.Title)
 

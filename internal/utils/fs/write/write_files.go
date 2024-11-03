@@ -61,7 +61,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		}
 	}
 
-	logging.PrintD(1, "\n\nRename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
+	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
 		fs.SrcMeta, fs.DestMeta)
 	return nil
 }
