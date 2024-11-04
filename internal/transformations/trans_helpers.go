@@ -67,8 +67,8 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 	}
 
 	if style == enums.RENAMING_UNDERSCORES {
-		strings.ReplaceAll(renamedVideo, " ", "_")
-		strings.ReplaceAll(renamedMeta, " ", "_")
+		renamedVideo = strings.ReplaceAll(renamedVideo, " ", "_")
+		renamedMeta = strings.ReplaceAll(renamedMeta, " ", "_")
 	}
 
 	return renamedVideo, renamedMeta
