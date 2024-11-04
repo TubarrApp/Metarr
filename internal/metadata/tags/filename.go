@@ -3,11 +3,11 @@ package metadata
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
+	"Metarr/internal/domain/regex"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -35,7 +35,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	tag = strings.TrimSpace(tag)
 	tag = strings.ToValidUTF8(tag, "")
 
-	invalidChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	invalidChars := regex.InvalidCharsCompile()
 	tag = invalidChars.ReplaceAllString(tag, "")
 
 	logging.PrintD(1, "Made metatag '%s' from file '%s'", tag, file.Name())

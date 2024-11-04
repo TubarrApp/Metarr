@@ -1,13 +1,12 @@
 package transformations
 
 import (
-	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	"Metarr/internal/domain/regex"
 	"Metarr/internal/models"
 	presets "Metarr/internal/transformations/presets"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
-	"regexp"
 	"strings"
 	"unicode"
 )
@@ -77,14 +76,13 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag
 func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (string, string, error) {
 
-	contractionsMap := make(map[string]string, len(consts.ContractionsSpaced))
-
+	contractionsMap := make(map[string]*models.ContractionPattern)
 	// Rename style map to use
 	switch style {
 	case enums.RENAMING_SPACES:
-		contractionsMap = consts.ContractionsSpaced
+		contractionsMap = regex.ContractionMapSpacesCompile()
 	case enums.RENAMING_UNDERSCORES:
-		contractionsMap = consts.ContractionsUnderscored
+		contractionsMap = regex.ContractionMapUnderscoresCompile()
 	default:
 		// Skip or other unsupported parameter returns unchanged
 		return videoFilename, metaFilename, nil
@@ -92,9 +90,8 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 
 	// Function to replace contractions in a filename
 	replaceContractions := func(filename string) string {
-		for contraction, replacement := range contractionsMap {
-			re := regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`)
-			repIdx := re.FindStringIndex(strings.ToLower(filename))
+		for _, replacement := range contractionsMap {
+			repIdx := replacement.Regexp.FindStringIndex(strings.ToLower(filename))
 			if repIdx == nil {
 				continue
 			}
@@ -102,7 +99,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 			restoredReplacement := ""
 
 			// Match original case for each character in the replacement
-			for i, char := range replacement {
+			for i, char := range replacement.Replacement {
 				if i < len(originalContraction) && unicode.IsUpper(rune(originalContraction[i])) {
 					restoredReplacement += strings.ToUpper(string(char))
 				} else {

@@ -231,15 +231,6 @@ func execute() error {
 		return err
 	}
 
-	// Get presets
-	switch viper.GetString(keys.InputPreset) {
-	case "censoredtv":
-		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
-		censoredTvPreset()
-	default:
-		// Do nothing
-	}
-
 	if err := initTextReplace(); err != nil {
 		return err
 	}
@@ -484,78 +475,6 @@ func verifyOutputFiletype() {
 	default:
 		Set(keys.OutputFiletype, "")
 	}
-}
-package config
-
-import (
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	"strings"
-)
-
-// AutoPreset is a switch point for selecting from a range of presets.
-// These presets apply common fixes for video/meta files for specific
-// video sources.
-//
-// For example, censored.tv downloads through yt-dlp are often affixed
-// with "_1" when filenames are restricted. And titles are often
-// affixed with " (1)"
-func AutoPreset(url string) {
-	if strings.Contains(url, "censored.tv") {
-		censoredTvPreset()
-	}
-}
-
-// censoredTvPreset for censored.tv:
-//
-// Removes (1) from title fields
-// Removes -1 from id and display_id (probably inconsequential)
-// Removes the _1 suffix from restricted filenames
-func censoredTvPreset() {
-
-	var (
-		metaReplaceSuffix []*models.MetaReplaceSuffix
-		sfx               *models.MetaReplaceSuffix
-	)
-
-	sfx = &models.MetaReplaceSuffix{
-		Field:       "title",
-		Suffix:      " (1)",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
-
-	sfx = &models.MetaReplaceSuffix{
-		Field:       "fulltitle",
-		Suffix:      " (1)",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
-
-	sfx = &models.MetaReplaceSuffix{
-		Field:       "id",
-		Suffix:      "-1",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
-
-	sfx = &models.MetaReplaceSuffix{
-		Field:       "display_id",
-		Suffix:      "-1",
-		Replacement: "",
-	}
-	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
-
-	Set(keys.MReplaceSfx, metaReplaceSuffix)
-
-	var filenameReplaceSuffix []*models.FilenameReplaceSuffix
-
-	trimEnd := &models.FilenameReplaceSuffix{
-		Suffix:      "_1",
-		Replacement: "",
-	}
-	filenameReplaceSuffix = append(filenameReplaceSuffix, trimEnd)
-	Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
 }
 package config
 
@@ -2041,9 +1960,11 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 	)
 	allFilled := true
 
-	if !FillWebpageDetails(fd, data) {
-		logging.PrintI("No URL metadata found")
-		allFilled = false
+	if len(fd.MWebData.TryURLs) == 0 {
+		if !FillWebpageDetails(fd, data) {
+			logging.PrintI("No URL metadata found")
+			allFilled = false
+		}
 	}
 
 	if !fillTitles(fd, data) {
@@ -2882,6 +2803,7 @@ var (
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
 func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
+
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
@@ -2893,6 +2815,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	defer mu.Unlock()
 
 	filePath := fd.JSONFilePath
+	w := fd.MWebData
 
 	// Open the file
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
@@ -2916,12 +2839,14 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	logging.PrintD(3, "%v", data)
 
 	process.FillWebpageDetails(fd, data)
-	logging.PrintI("URLs grabbed: %s", fd.MWebData.TryURLs)
+	logging.PrintI("URLs grabbed: %s", w.TryURLs)
 
-	transformations.TryTransPresets(fd.MWebData.TryURLs)
+	if len(w.TryURLs) > 0 {
+		transformations.TryTransPresets(w.TryURLs, fd)
+	}
 
 	// Make metadata adjustments per user selection
-	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, fd.MWebData)
+	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, w)
 	if err != nil {
 		return nil, err
 	}
@@ -5312,12 +5237,12 @@ import (
 
 // CensoredTvTransformations adds preset transformations to
 // files for censored.tv videos
-func CensoredTvTransformations() {
+func CensoredTvTransformations(fd *models.FileData) {
 
 	logging.PrintI("Making preset censored.tv meta replacements")
 
 	censoredTvMSuffixes()
-	censoredTvFSuffixes()
+	censoredTvFSuffixes(fd)
 }
 
 // censoredTvMSuffixes adds meta suffix replacements
@@ -5333,7 +5258,7 @@ func censoredTvMSuffixes() {
 	if !flagSet {
 		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
-			logging.PrintE(0, "Got type %T", sfx)
+			logging.PrintE(2, "Got type %T, may be null", sfx)
 		}
 	}
 
@@ -5361,33 +5286,50 @@ func censoredTvMSuffixes() {
 }
 
 // censoredTvFSuffixes adds filename suffix replacements
-func censoredTvFSuffixes() {
+func censoredTvFSuffixes(fd *models.FileData) {
 
-	var (
-		sfx []*models.FilenameReplaceSuffix
-		ok  bool
-	)
+	var sfx []*models.FilenameReplaceSuffix
 
-	flagSet := config.IsSet(keys.MReplaceSfx)
+	v := fd.OriginalVideoBaseName
 
-	if !flagSet {
-		sfx, ok = config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if config.IsSet(keys.FilenameReplaceSfx) {
+		existingSfx, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok {
-			logging.PrintE(0, "Wrong type sent in, got %T", sfx)
+			logging.PrintE(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
+		} else {
+			sfx = existingSfx
 		}
 	}
 
-	for _, existingSuffix := range sfx {
-		if existingSuffix.Suffix != "_1" &&
-			existingSuffix.Replacement != "" {
+	logging.PrintD(3, "Retrieved file name: %s", v)
+	vExt := ""
+	if len(v) > 1 {
+		check := v[len(v)-2:]
+		logging.PrintD(3, "Got last element of file name: %s", check)
+		switch check {
+		case " 1", "_1":
+			vExt = check
+			logging.PrintD(2, "Found file name suffix: %s", vExt)
+		}
+	}
 
-			sfx = append(sfx, models.NewFilenameReplaceSuffix("_1", ""))
-			logging.PrintI("Set censored.tv filename suffix replacement.")
+	// Check if suffix is already present
+	alreadyExists := false
+	for _, existingSuffix := range sfx {
+		if existingSuffix.Suffix == vExt && existingSuffix.Replacement == "" {
+			alreadyExists = true
 			break
 		}
 	}
 
-	config.Set(keys.MReplaceSfx, sfx)
+	// Add suffix if it does not already exist
+	if !alreadyExists {
+		sfx = append(sfx, models.NewFilenameReplaceSuffix(vExt, ""))
+		logging.PrintI("Added filename suffix replacement '%s'", vExt)
+	}
+
+	config.Set(keys.FilenameReplaceSfx, sfx)
+	logging.PrintI("Total filename suffix replacements: %d", len(sfx))
 }
 package transformations
 
@@ -5424,8 +5366,12 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		if !skipVideos {
 			renamedVideo = renameVideo(videoBase, style)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
+
+			logging.PrintD(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
 		} else {
 			renamedMeta = renameMeta(metaBase, style)
+
+			logging.PrintD(2, "Renamed metafile to %s", renamedMeta)
 		}
 
 		var err error
@@ -5434,7 +5380,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		}
 
 		// Add the metatag to the front of the filenames
-		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
+		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd, style)
 
 		// Trim trailing spaces
 		renamedVideo = strings.TrimSpace(renamedVideo)
@@ -5468,14 +5414,20 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
+	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if !ok {
+		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+		return videoBase
+	}
+
+	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
 		return videoBase
 	}
 
 	// Transformations
 	name := videoBase
-	if config.IsSet(keys.FilenameReplaceSfx) {
-		name = replaceSuffix(name)
+	if len(suffixes) > 0 {
+		name = replaceSuffix(name, suffixes)
 	}
 
 	if style != enums.RENAMING_SKIP {
@@ -5488,14 +5440,20 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
+	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if !ok {
+		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+		return metaBase
+	}
+
+	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
 		return metaBase
 	}
 
 	// Transformations
 	name := metaBase
-	if config.IsSet(keys.FilenameReplaceSfx) {
-		name = replaceSuffix(name)
+	if len(suffixes) > 0 {
+		name = replaceSuffix(name, suffixes)
 	}
 
 	if style != enums.RENAMING_SKIP {
@@ -5506,26 +5464,23 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 package transformations
 
 import (
-	"Metarr/internal/config"
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/models"
 	presets "Metarr/internal/transformations/presets"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
 )
 
-func TryTransPresets(urls []string) (found bool) {
+func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
 
 	for _, url := range urls {
 		switch {
 		case strings.Contains(url, "censored.tv"):
-			presets.CensoredTvTransformations()
+			presets.CensoredTvTransformations(fd)
 			found = true
 		}
 	}
@@ -5562,7 +5517,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 }
 
 // addTags handles the tagging of the video files where necessary
-func addTags(renamedVideo, renamedMeta string, m *models.FileData) (string, string) {
+func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (string, string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
@@ -5572,6 +5527,11 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData) (string, stri
 	if len(m.FilenameDateTag) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedVideo)
 		renamedMeta = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedMeta)
+	}
+
+	if style == enums.RENAMING_UNDERSCORES {
+		renamedVideo = strings.ReplaceAll(renamedVideo, " ", "_")
+		renamedMeta = strings.ReplaceAll(renamedMeta, " ", "_")
 	}
 
 	return renamedVideo, renamedMeta
@@ -5629,42 +5589,29 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 }
 
 // replaceSuffix applies configured suffix replacements to a filename
-func replaceSuffix(filename string) string {
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok || suffixes == nil {
+func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
+
+	logging.PrintD(2, "Received filename %q", filename)
+
+	if suffixes == nil {
 		logging.PrintD(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	ext := getCompoundExtension(filename)
-	baseName := strings.TrimSuffix(filename, ext)
-
 	logging.PrintD(2, "Processing filename %q with suffixes: %v", filename, suffixes)
 
+	var result string
 	for _, suffix := range suffixes {
-		if strings.HasSuffix(baseName, suffix.Suffix) {
-			baseName = strings.TrimSuffix(baseName, suffix.Suffix) + suffix.Replacement
+		logging.PrintD(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
+
+		if strings.HasSuffix(filename, suffix.Suffix) {
+			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
 			logging.PrintD(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
 		}
 	}
 
-	result := baseName + ext
 	logging.PrintD(2, "Suffix replacement complete: %q -> %q", filename, result)
 	return result
-}
-
-// getCompoundExtension returns compound extensions like .info.json or regular extension
-func getCompoundExtension(filename string) string {
-	switch {
-	case strings.HasSuffix(filename, ".info.json"):
-		return ".info.json"
-	case strings.HasSuffix(filename, ".metadata.json"):
-		return ".metadata.json"
-	case strings.HasSuffix(filename, ".model.json"):
-		return ".model.json"
-	default:
-		return filepath.Ext(filename)
-	}
 }
 package utils
 

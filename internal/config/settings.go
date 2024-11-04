@@ -97,15 +97,6 @@ func execute() error {
 		return err
 	}
 
-	// Get presets
-	switch viper.GetString(keys.InputPreset) {
-	case "censoredtv":
-		logging.PrintI("Setting preset settings for videos retrieved from Censored.tv")
-		censoredTvPreset()
-	default:
-		// Do nothing
-	}
-
 	if err := initTextReplace(); err != nil {
 		return err
 	}

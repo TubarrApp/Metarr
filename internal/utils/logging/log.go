@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"Metarr/internal/domain/regex"
 	"fmt"
 	"log"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -17,7 +17,7 @@ var (
 	Logger     *log.Logger
 
 	// Matches ANSI escape codes
-	ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	ansiEscape = regex.AnsiEscapeCompile()
 )
 
 // SetupLogging creates and/or opens the log file

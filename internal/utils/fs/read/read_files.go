@@ -5,12 +5,12 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
+	"Metarr/internal/domain/regex"
 	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -212,8 +212,8 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 
-	specialChars := regexp.MustCompile(`[^\w\s-]`)
-	extraSpaces := regexp.MustCompile(`\s+`)
+	specialChars := regex.SpecialCharsCompile()
+	extraSpaces := regex.ExtraSpacesCompile()
 
 	// Pre-process metaFiles into a lookup map
 	metaLookup := make(map[string]*models.FileData, len(metaFiles))
