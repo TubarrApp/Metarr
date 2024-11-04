@@ -2,7 +2,7 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	attributes "Metarr/internal/utils/browser/presets/attributes"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"strconv"
 	"strings"
@@ -10,7 +10,7 @@ import (
 )
 
 // BitchuteComRules holds rules for scraping bitchute.com
-var BitchuteComRules = map[enums.WebClassTags][]attributes.SelectorRule{
+var BitchuteComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 
 		{Selector: "q-item__label ellipsis text-subtitle1 ellipsis", Process: strings.TrimSpace},

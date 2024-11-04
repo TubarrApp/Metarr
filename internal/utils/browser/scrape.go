@@ -5,7 +5,6 @@ import (
 	enums "Metarr/internal/domain/enums"
 	"Metarr/internal/models"
 	presets "Metarr/internal/utils/browser/presets"
-	attributes "Metarr/internal/utils/browser/presets/attributes"
 	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
@@ -125,7 +124,7 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 }
 
 // setupPresetScraping applies specific scraping rules for known sites
-func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]attributes.SelectorRule, result *string, url string) {
+func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]models.SelectorRule, result *string, url string) {
 	if result == nil {
 		return
 	}

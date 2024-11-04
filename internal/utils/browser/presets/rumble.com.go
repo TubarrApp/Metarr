@@ -2,12 +2,12 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	attributes "Metarr/internal/utils/browser/presets/attributes"
+	"Metarr/internal/models"
 	"strings"
 )
 
 // RumbleComRules holds rules for scraping rumble.com
-var RumbleComRules = map[enums.WebClassTags][]attributes.SelectorRule{
+var RumbleComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 
 		{Selector: ".media-subscribe-and-notify", Attr: "data-title", Process: strings.TrimSpace},

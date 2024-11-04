@@ -2,7 +2,7 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	atttributes "Metarr/internal/utils/browser/presets/attributes"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"strings"
 
@@ -10,7 +10,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-var CensoredTvRules = map[enums.WebClassTags][]atttributes.SelectorRule{
+var CensoredTvRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_DATE: {
 		{Selector: ".main-episode-player-container p.text-muted.text-right.text-date.mb-0", Process: strings.TrimSpace},
 		{Selector: ".text-date", Process: strings.TrimSpace},
