@@ -5,14 +5,14 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	"strings"
 )
 
 // fillDescriptions grabs description data from JSON
-func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	d := fd.MTitleDesc
 	w := fd.MWebData
@@ -91,7 +91,7 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 		return data, false
 	}
 
-	description := helpers.ScrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
+	description := browser.ScrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
 
 	// Infer remaining fields from description
 	if description != "" {
@@ -115,7 +115,7 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 }
 
 // fillEmptyDescriptions fills empty description fields by inference
-func fillEmptyDescriptions(want *string, d *types.MetadataTitlesDescs) bool {
+func fillEmptyDescriptions(want *string, d *models.MetadataTitlesDescs) bool {
 
 	filled := false
 	if want == nil {

@@ -3,13 +3,13 @@ package metadata
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
-func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	c := fd.MCredits
 	w := fd.MWebData
@@ -68,7 +68,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 		return data, false
 	}
 
-	credits := helpers.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
+	credits := browser.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
 	if credits != "" {
 		for _, value := range fieldMap {
 			if *value == "" {
@@ -91,7 +91,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 }
 
 // fillEmptyCredits attempts to fill empty fields by inference
-func fillEmptyCredits(c *types.MetadataCredits) string {
+func fillEmptyCredits(c *models.MetadataCredits) string {
 
 	// Order by importance
 	switch {

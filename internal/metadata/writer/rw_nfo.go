@@ -3,7 +3,7 @@ package metadata
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
 	"bufio"
@@ -18,7 +18,7 @@ import (
 
 type NFOFileRW struct {
 	mu    sync.RWMutex
-	Model *types.NFOData
+	Model *models.NFOData
 	Meta  string
 	File  *os.File
 }
@@ -32,7 +32,7 @@ func NewNFOFileRW(file *os.File) *NFOFileRW {
 }
 
 // DecodeMetadata decodes XML from a file into a map, stores, and returns it
-func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
+func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
@@ -57,7 +57,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 
 	// Single decode for the model
 	decoder := xml.NewDecoder(file)
-	var input *types.NFOData
+	var input *models.NFOData
 	if err := decoder.Decode(&input); err != nil {
 		return nil, fmt.Errorf("failed to decode XML: %w", err)
 	}
@@ -69,7 +69,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 }
 
 // RefreshMetadata reloads the metadata map from the file after updates
-func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
+func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 
 	rw.mu.RLock()
 	defer rw.mu.RUnlock()
@@ -99,25 +99,25 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
 
 	var (
 		edited, ok bool
-		pfx        []types.MetaReplacePrefix
-		sfx        []types.MetaReplaceSuffix
-		new        []types.MetaNewField
+		pfx        []models.MetaReplacePrefix
+		sfx        []models.MetaReplaceSuffix
+		new        []models.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+		pfx, ok = config.Get(keys.MReplacePfx).([]models.MetaReplacePrefix)
 		if !ok {
 			return false, fmt.Errorf("invalid prefix configuration")
 		}
 	}
 	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+		sfx, ok = config.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
 		if !ok {
 			return false, fmt.Errorf("invalid suffix configuration")
 		}
 	}
 	if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]types.MetaNewField)
+		new, ok = config.Get(keys.MNewField).([]models.MetaNewField)
 		if !ok {
 			return false, fmt.Errorf("invalid new field configuration")
 		}
@@ -234,7 +234,7 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 
 // replaceMetaSuffix applies suffix replacement to the fields in the xml data
 func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", sfx)
 	}
@@ -280,7 +280,7 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
 
 // replaceMetaPrefix applies Prefix replacement to the fields in the xml data
 func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplacePrefix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]models.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
 	}
@@ -326,7 +326,7 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
 
 // addNewField can insert a new field which does not yet exist into the metadata file
 func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
-	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
+	new, ok := config.Get(keys.MNewField).([]models.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
 	}

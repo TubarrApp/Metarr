@@ -2,12 +2,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	print "Metarr/internal/utils/print"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
-func fillNFOWebData(fd *types.FileData) bool {
+func fillNFOWebData(fd *models.FileData) bool {
 
 	w := fd.MWebData
 	nw := fd.NFOData.WebpageInfo

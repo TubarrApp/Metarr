@@ -6,8 +6,8 @@ import (
 	keys "Metarr/internal/domain/keys"
 	reader "Metarr/internal/metadata/reader"
 	writer "Metarr/internal/metadata/writer"
+	"Metarr/internal/models"
 	"Metarr/internal/transformations"
-	"Metarr/internal/types"
 	fsRead "Metarr/internal/utils/fs/read"
 	logging "Metarr/internal/utils/logging"
 	"context"
@@ -23,7 +23,7 @@ var (
 	processedMetaFiles,
 	processedVideoFiles int32
 
-	processedDataArray []*types.FileData
+	processedDataArray []*models.FileData
 )
 
 // processFiles is the main program function to process folder entries
@@ -34,7 +34,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	var (
 		videoMap,
 		metaMap,
-		matchedFiles map[string]*types.FileData
+		matchedFiles map[string]*models.FileData
 
 		err error
 	)
@@ -90,7 +90,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	for _, fileData := range matchedFiles {
 
 		var (
-			processedData *types.FileData
+			processedData *models.FileData
 			err           error
 		)
 
@@ -175,9 +175,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 }
 
 // processFile handles processing for both video and metadata files
-func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *types.FileData) {
+func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *models.FileData) {
 	wg.Add(1)
-	go func(fileName string, fileData *types.FileData) {
+	go func(fileName string, fileData *models.FileData) {
 
 		defer wg.Done()
 

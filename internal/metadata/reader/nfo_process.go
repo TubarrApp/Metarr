@@ -3,14 +3,14 @@ package metadata
 import (
 	nfo "Metarr/internal/metadata/process/nfo"
 	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
 )
 
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
-func ProcessNFOFiles(fd *types.FileData) (*types.FileData, error) {
+func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}

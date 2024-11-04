@@ -13,7 +13,7 @@ import (
 
 // GetBrowserCookies checks user browsers for cookies corresponding to
 // a given URL
-func GetBrowserCookies(url string) ([]*http.Cookie, error) {
+func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	baseURL, err := extractBaseDomain(url)
 	if err != nil {

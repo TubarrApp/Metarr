@@ -5,7 +5,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	backup "Metarr/internal/utils/fs/backup"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
@@ -30,7 +30,7 @@ type CommandBuilder struct {
 }
 
 // NewCommandBuilder creates a new FFmpeg command builder
-func NewCommandBuilder(m *types.FileData, outputFile string) *CommandBuilder {
+func NewCommandBuilder(m *models.FileData, outputFile string) *CommandBuilder {
 	return &CommandBuilder{
 		inputFile:   m.OriginalVideoPath,
 		outputFile:  outputFile,
@@ -39,7 +39,7 @@ func NewCommandBuilder(m *types.FileData, outputFile string) *CommandBuilder {
 }
 
 // buildCommand constructs the complete FFmpeg command
-func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
+func buildCommand(m *models.FileData, outputFile string) ([]string, error) {
 
 	builder := NewCommandBuilder(m, outputFile)
 
@@ -52,7 +52,7 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 }
 
 // WriteMetadata writes metadata to a single video file
-func WriteMetadata(m *types.FileData) error {
+func WriteMetadata(m *models.FileData) error {
 
 	var tempOutputFilePath string
 
@@ -168,18 +168,18 @@ func (b *CommandBuilder) setGPUAcceleration() {
 	gpuFlag, ok := config.Get(keys.GPUEnum).(enums.SysGPU)
 	if ok {
 		switch gpuFlag {
-		case enums.NVIDIA:
+		case enums.GPU_NVIDIA:
 			b.gpuAccel = consts.NvidiaAccel[:]
-		case enums.AMD:
+		case enums.GPU_AMD:
 			b.gpuAccel = consts.AMDAccel[:]
-		case enums.INTEL:
+		case enums.GPU_INTEL:
 			b.gpuAccel = consts.IntelAccel[:]
 		}
 	}
 }
 
 // addAllMetadata combines all metadata into a single map
-func (b *CommandBuilder) addAllMetadata(m *types.FileData) {
+func (b *CommandBuilder) addAllMetadata(m *models.FileData) {
 
 	b.addTitlesDescs(m.MTitleDesc)
 	b.addCredits(m.MCredits)

@@ -101,9 +101,13 @@ func initVideoTransformers() {
 
 // initFiltering initializes user flag settings for filtering files to work with
 func initFiltering() {
-	// File extensions to convert
-	rootCmd.PersistentFlags().StringSliceP(keys.InputExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
-	viper.BindPFlag(keys.InputExts, rootCmd.PersistentFlags().Lookup(keys.InputExts))
+	// Video file extensions to convert
+	rootCmd.PersistentFlags().StringSliceP(keys.InputVideoExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
+	viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts))
+
+	// Meta file extensions to convert
+	rootCmd.PersistentFlags().StringSlice(keys.InputMetaExts, []string{"all"}, "File extensions to convert (all, json, nfo)")
+	viper.BindPFlag(keys.InputMetaExts, rootCmd.PersistentFlags().Lookup(keys.InputMetaExts))
 
 	// Only convert files with prefix
 	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
@@ -348,25 +352,45 @@ func verifyDebugLevel() {
 
 // verifyInputFiletypes checks that the inputted filetypes are accepted
 func verifyInputFiletypes() {
-	argsInputExts := viper.GetStringSlice(keys.InputExts)
-	inputExts := make([]enums.ConvertFromFiletype, 0, len(argsInputExts))
+	argsVInputExts := viper.GetStringSlice(keys.InputVideoExts)
+	inputVExts := make([]enums.ConvertFromFiletype, 0, len(argsVInputExts))
 
-	for _, data := range argsInputExts {
+	for _, data := range argsVInputExts {
 		switch data {
 		case "mkv":
-			inputExts = append(inputExts, enums.IN_MKV)
+			inputVExts = append(inputVExts, enums.VID_EXTS_MKV)
 		case "mp4":
-			inputExts = append(inputExts, enums.IN_MP4)
+			inputVExts = append(inputVExts, enums.VID_EXTS_MP4)
 		case "webm":
-			inputExts = append(inputExts, enums.IN_WEBM)
+			inputVExts = append(inputVExts, enums.VID_EXTS_WEBM)
 		default:
-			inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+			inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
 		}
 	}
-	if len(inputExts) == 0 {
-		inputExts = append(inputExts, enums.IN_ALL_EXTENSIONS)
+	if len(inputVExts) == 0 {
+		inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
 	}
-	viper.Set(keys.InputExtsEnum, inputExts)
+	logging.PrintD(2, "Received video input extension filter: %v", inputVExts)
+	viper.Set(keys.InputVExtsEnum, inputVExts)
+
+	argsMInputExts := viper.GetStringSlice(keys.InputMetaExts)
+	inputMExts := make([]enums.MetaFiletypeFilter, 0, len(argsMInputExts))
+
+	for _, data := range argsMInputExts {
+		switch data {
+		case "json":
+			inputMExts = append(inputMExts, enums.META_EXTS_JSON)
+		case "nfo":
+			inputMExts = append(inputMExts, enums.META_EXTS_NFO)
+		default:
+			inputMExts = append(inputMExts, enums.META_EXTS_ALL)
+		}
+	}
+	if len(inputMExts) == 0 {
+		inputMExts = append(inputMExts, enums.META_EXTS_ALL)
+	}
+	logging.PrintD(2, "Received meta input extension filter: %v", inputMExts)
+	viper.Set(keys.InputMExtsEnum, inputMExts)
 }
 
 // verifyHWAcceleration checks and sets HW acceleration to use
@@ -582,7 +606,7 @@ func initTextReplace() error {
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
 func validateFilenameSuffixReplace() error {
-	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+	filenameReplaceSuffix := make([]types.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
@@ -603,7 +627,7 @@ func validateFilenameSuffixReplace() error {
 
 // validateMetaPrefixes checks if the input format for meta prefix alterations is valid
 func validateMetaPrefixes() error {
-	var metaReplacePrefix []types.MetaReplacePrefix
+	metaReplacePrefix := make([]types.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
 
 	for _, tuple := range metaReplacePrefixInput {
 		parts := strings.SplitN(tuple, ":", 3)
@@ -625,7 +649,7 @@ func validateMetaPrefixes() error {
 
 // validateMetaSuffixes checks if the input format for meta suffix alterations is valid
 func validateMetaSuffixes() error {
-	var metaReplaceSuffix []types.MetaReplaceSuffix
+	metaReplaceSuffix := make([]types.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
 
 	for _, tuple := range metaReplaceSuffixInput {
 		parts := strings.SplitN(tuple, ":", 3)
@@ -647,7 +671,7 @@ func validateMetaSuffixes() error {
 
 // validateNewMetafields checks if the input format for metatag and field additions is valid
 func validateNewMetafields() error {
-	var metaNewField []types.MetaNewField
+	metaNewField := make([]types.MetaNewField, 0, len(metaNewFieldInput))
 
 	for _, value := range metaNewFieldInput {
 		parts := strings.SplitN(value, ":", 2)
@@ -808,19 +832,31 @@ const (
 )
 
 var (
-	AllVidExtensions = [16]string{".3gp", ".avi", ".f4v", ".flv", ".m4v",
+	AllVidExtensions = [...]string{".3gp", ".avi", ".f4v", ".flv", ".m4v",
 		".mkv", ".mov", ".mp4", ".mpeg", ".mpg",
 		".ogm", ".ogv", ".ts", ".vob", ".webm",
 		".wmv"}
 )
 
+var (
+	AllMetaExtensions = [...]string{".json", ".nfo"}
+)
+
 // Webpage tags
 var (
 	// Ensure lengths match
-	WebDateTags        = [6]string{"release-date", "upload-date", "date", "date-text", "text-date"}
-	WebDescriptionTags = [6]string{"description", "longdescription", "long-description", "summary", "synopsis", "check-for-urls"}
-	WebCreditsTags     = [6]string{"creator", "uploader", "uploaded-by", "uploaded_by"}
-	WebTitleTags       = [6]string{"video-title", "video-name"}
+	WebDateTags        = [...]string{"release-date", "upload-date", "date", "date-text", "text-date"}
+	WebDescriptionTags = [...]string{"description", "longdescription", "long-description", "summary", "synopsis",
+		"check-for-urls"}
+
+	// Credits tags, and nested elements
+	WebCreditsTags      = [...]string{"creator", "uploader", "uploaded-by", "uploaded_by", "channel-name", "claim-preview__title"}
+	WebCreditsSelectors = map[string]string{
+		"claim-preview__title":               "truncated-text",
+		`script[type="application/ld+json"]`: "author.name",
+	}
+
+	WebTitleTags = [...]string{"video-title", "video-name"}
 )
 package domain
 
@@ -897,29 +933,29 @@ package domain
 
 // AV codec copy
 var (
-	AVCodecCopy = [2]string{"-codec", "copy"}
+	AVCodecCopy = [...]string{"-codec", "copy"}
 )
 
 // Audio flags
 var (
-	AudioCodecCopy = [2]string{"-c:a", "copy"}
-	AudioToAAC     = [2]string{"-c:a", "aac"}
-	AudioBitrate   = [2]string{"-b:a", "256k"}
+	AudioCodecCopy = [...]string{"-c:a", "copy"}
+	AudioToAAC     = [...]string{"-c:a", "aac"}
+	AudioBitrate   = [...]string{"-b:a", "256k"}
 )
 
 // Video flags
 var (
-	VideoCodecCopy      = [2]string{"-c:v", "copy"}
-	VideoToH264Balanced = [6]string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
-	PixelFmtYuv420p     = [2]string{"-pix_fmt", "yuv420p"}
-	KeyframeBalanced    = [4]string{"-g", "50", "-keyint_min", "30"}
+	VideoCodecCopy      = [...]string{"-c:v", "copy"}
+	VideoToH264Balanced = [...]string{"-c:v", "libx264", "-crf", "23", "-profile:v", "main"}
+	PixelFmtYuv420p     = [...]string{"-pix_fmt", "yuv420p"}
+	KeyframeBalanced    = [...]string{"-g", "50", "-keyint_min", "30"}
 )
 
 // GPU hardware flags
 var (
-	NvidiaAccel = [2]string{"-hwaccel", "nvdec"}
-	AMDAccel    = [2]string{"-hwaccel", "vulkan"}
-	IntelAccel  = [2]string{"-hwaccel", "qsv"}
+	NvidiaAccel = [...]string{"-hwaccel", "nvdec"}
+	AMDAccel    = [...]string{"-hwaccel", "vulkan"}
+	IntelAccel  = [...]string{"-hwaccel", "qsv"}
 )
 package domain
 
@@ -927,6 +963,7 @@ const (
 	JActor     = "actor"
 	JAuthor    = "author"
 	JArtist    = "artist"
+	JChannel   = "channel"
 	JComposer  = "composer"
 	JCreator   = "creator"
 	JDirector  = "director"
@@ -1057,30 +1094,38 @@ package domain
 type ConvertFromFiletype int
 
 const (
-	IN_ALL_EXTENSIONS ConvertFromFiletype = iota
-	IN_MKV            ConvertFromFiletype = iota
-	IN_MP4            ConvertFromFiletype = iota
-	IN_WEBM           ConvertFromFiletype = iota
-	IN_MKVWEBM        ConvertFromFiletype = iota
+	VID_EXTS_ALL ConvertFromFiletype = iota
+	VID_EXTS_MKV
+	VID_EXTS_MP4
+	VID_EXTS_WEBM
+)
+
+// MetaFiletypeFilter filters the metadata files to read from
+type MetaFiletypeFilter int
+
+const (
+	META_EXTS_ALL MetaFiletypeFilter = iota
+	META_EXTS_JSON
+	META_EXTS_NFO
 )
 
 // User system graphics hardware for transcoding
 type SysGPU int
 
 const (
-	NVIDIA      SysGPU = iota
-	AMD         SysGPU = iota
-	INTEL       SysGPU = iota
-	NO_HW_ACCEL SysGPU = iota
+	NVIDIA SysGPU = iota
+	AMD
+	INTEL
+	NO_HW_ACCEL
 )
 
 // Naming syle
 type ReplaceToStyle int
 
 const (
-	SPACES      ReplaceToStyle = iota
-	UNDERSCORES ReplaceToStyle = iota
-	SKIP        ReplaceToStyle = iota
+	SPACES ReplaceToStyle = iota
+	UNDERSCORES
+	SKIP
 )
 
 // Date formats
@@ -1088,45 +1133,45 @@ type FilenameDateFormat int
 
 const (
 	FILEDATE_YYYY_MM_DD FilenameDateFormat = iota
-	FILEDATE_YY_MM_DD   FilenameDateFormat = iota
-	FILEDATE_YYYY_DD_MM FilenameDateFormat = iota
-	FILEDATE_YY_DD_MM   FilenameDateFormat = iota
-	FILEDATE_DD_MM_YYYY FilenameDateFormat = iota
-	FILEDATE_DD_MM_YY   FilenameDateFormat = iota
-	FILEDATE_MM_DD_YYYY FilenameDateFormat = iota
-	FILEDATE_MM_DD_YY   FilenameDateFormat = iota
-	FILEDATE_SKIP       FilenameDateFormat = iota
+	FILEDATE_YY_MM_DD
+	FILEDATE_YYYY_DD_MM
+	FILEDATE_YY_DD_MM
+	FILEDATE_DD_MM_YYYY
+	FILEDATE_DD_MM_YY
+	FILEDATE_MM_DD_YYYY
+	FILEDATE_MM_DD_YY
+	FILEDATE_SKIP
 )
 
 // Web tags
-type MetaFileTypeEnum int
+type MetaFiletypeFound int
 
 const (
-	METAFILE_JSON MetaFileTypeEnum = iota
-	METAFILE_NFO  MetaFileTypeEnum = iota
-	WEBCLASS_XML  MetaFileTypeEnum = iota
+	METAFILE_JSON MetaFiletypeFound = iota
+	METAFILE_NFO
+	WEBCLASS_XML
 )
 
 // Viper variable types
 type ViperVarTypes int
 
 const (
-	VIPER_ANY          ViperVarTypes = iota
-	VIPER_BOOL         ViperVarTypes = iota
-	VIPER_INT          ViperVarTypes = iota
-	VIPER_STRING       ViperVarTypes = iota
-	VIPER_STRING_SLICE ViperVarTypes = iota
+	VIPER_ANY ViperVarTypes = iota
+	VIPER_BOOL
+	VIPER_INT
+	VIPER_STRING
+	VIPER_STRING_SLICE
 )
 
 // Web tags
 type WebClassTags int
 
 const (
-	WEBCLASS_DATE        WebClassTags = iota
-	WEBCLASS_TITLE       WebClassTags = iota
-	WEBCLASS_DESCRIPTION WebClassTags = iota
-	WEBCLASS_CREDITS     WebClassTags = iota
-	WEBCLASS_WEBINFO     WebClassTags = iota
+	WEBCLASS_DATE WebClassTags = iota
+	WEBCLASS_TITLE
+	WEBCLASS_DESCRIPTION
+	WEBCLASS_CREDITS
+	WEBCLASS_WEBINFO
 )
 
 // Presets
@@ -1143,7 +1188,8 @@ const (
 	VideoFile               string = "video-file"
 	JsonDir                 string = "json-dir"
 	JsonFile                string = "json-file"
-	InputExts               string = "input-exts"
+	InputVideoExts          string = "input-video-exts"
+	InputMetaExts           string = "input-meta-exts"
 	FilePrefixes            string = "prefix"
 	Concurrency             string = "concurrency"
 	MaxCPU                  string = "max-cpu"
@@ -1188,7 +1234,8 @@ const (
 
 // Filter for files
 const (
-	InputExtsEnum string = "inputExtsEnum"
+	InputVExtsEnum string = "inputVideoExtsEnum"
+	InputMExtsEnum string = "inputMetaExtsEnum"
 )
 
 // Performance
@@ -1205,7 +1252,8 @@ const (
 
 // Contains the fields which accept multiple entries as string arrays
 var MultiEntryFields = []string{
-	InputExts,
+	InputVideoExts,
+	InputMetaExts,
 	FilePrefixes,
 	MReplaceSfx,
 	MReplacePfx,
@@ -1424,7 +1472,7 @@ func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
 	for _, try := range w.TryURLs {
 		data, err = browser.ScrapeForMetadata(try, w.Cookies, find)
 		if err != nil {
-			logging.PrintE(0, "Failed to scrape '%s' for credits: %v", try, err)
+			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
 		} else {
 			break
 		}
@@ -1453,6 +1501,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 		consts.JPerformer: &c.Performer,
 		consts.JAuthor:    &c.Author,
 		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
+		consts.JChannel:   &c.Channel,
 		consts.JDirector:  &c.Director,
 		consts.JActor:     &c.Actor,
 		consts.JStudio:    &c.Studio,
@@ -1541,6 +1590,9 @@ func fillEmptyCredits(c *types.MetadataCredits) string {
 
 	case c.Actor != "":
 		return c.Actor
+
+	case c.Channel != "":
+		return c.Channel
 
 	case c.Performer != "":
 		return c.Performer
@@ -3023,8 +3075,9 @@ func MakeDateTag(metadata map[string]interface{}, fileName string) (string, erro
 		return "", fmt.Errorf("failed to parse date components: %w", err)
 	}
 
-	dateStr := formatDateString(year, month, day, dateFmt)
-	if dateStr == "" {
+	dateStr, err := formatDateString(year, month, day, dateFmt)
+	if dateStr == "" || err != nil {
+		logging.PrintE(0, "Failed to create date string")
 		return "[]", nil
 	}
 
@@ -3082,31 +3135,39 @@ func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, m
 }
 
 // formatDateString formats the date as a hyphenated string
-func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) string {
-	var parts []string
+func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) (string, error) {
+	var parts [3]string
 
 	switch dateFmt {
 	case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
-		parts = getNonEmpty(year, month, day)
+		parts = [3]string{year, month, day}
 	case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
-		parts = getNonEmpty(year, day, month)
+		parts = [3]string{year, day, month}
 	case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
-		parts = getNonEmpty(day, month, year)
+		parts = [3]string{day, month, year}
 	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
-		parts = getNonEmpty(month, day, year)
+		parts = [3]string{month, day, year}
 	}
-	return strings.Join(parts, "-")
+
+	result := joinNonEmpty(parts)
+	if result == "" {
+		return "", fmt.Errorf("no valid date components found")
+	}
+	return result, nil
 }
 
-// appendNonEmpty adds non-empty strings to the slice
-func getNonEmpty(values ...string) []string {
-	parts := make([]string, len(values))
-	for _, v := range values {
-		if v != "" {
-			parts = append(parts, v)
+// joinNonEmpty joins non-empty strings from an array with hyphens
+func joinNonEmpty(parts [3]string) string {
+	nonEmpty := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p != "" {
+			nonEmpty = append(nonEmpty, p)
 		}
 	}
-	return parts
+	if len(nonEmpty) == 0 {
+		return ""
+	}
+	return strings.Join(nonEmpty, "-")
 }
 
 // getYear returns the year digits from the date string
@@ -3474,7 +3535,7 @@ func WriteMetadata(m *types.FileData) error {
 		}
 	}
 
-	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
+	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", originalVPath,
 		m.FinalVideoPath,
 		m.MTitleDesc.Title)
 
@@ -4896,10 +4957,10 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
 				logging.PrintE(0, errMsg.Error())
 			} else {
-				logging.PrintS(0, "Successfully processed video %s\n", fileName)
+				logging.PrintS(0, "Successfully processed video %s", fileName)
 			}
 		} else {
-			logging.PrintS(0, "Successfully processed metadata for %s\n", fileName)
+			logging.PrintS(0, "Successfully processed metadata for %s", fileName)
 		}
 
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
@@ -5312,7 +5373,7 @@ type FileData struct {
 	NFODirectory string `json:"-" xml:"-"`
 	NFOFilePath  string `json:"-" xml:"-"`
 	// Meta type
-	MetaFileType enums.MetaFileTypeEnum `json:"-" xml:"-"`
+	MetaFileType enums.MetaFiletypeFound `json:"-" xml:"-"`
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
 	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
@@ -5385,6 +5446,7 @@ type MetadataCredits struct {
 	Author     string `json:"author" xml:"author"`
 	Artist     string `json:"artist" xml:"artist"`
 	Artists    []string
+	Channel    string `json:"channel" xml:"channel"`
 	Creator    string `json:"creator" xml:"creator"`
 	Studio     string `json:"studio" xml:"studio"`
 	Studios    []string
@@ -5515,6 +5577,8 @@ import (
 	_ "github.com/browserutils/kooky/browser/all"
 )
 
+// GetBrowserCookies checks user browsers for cookies corresponding to
+// a given URL
 func GetBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	baseURL, err := extractBaseDomain(url)
@@ -5593,128 +5657,463 @@ func keysFromMap(m map[string]bool) []string {
 package utils
 
 import (
+	enums "Metarr/internal/domain/enums"
+	presetModels "Metarr/internal/utils/browser/presets/models"
+	logging "Metarr/internal/utils/logging"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// BitchuteComRules holds rules for scraping bitchute.com
+var BitchuteComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+	enums.WEBCLASS_CREDITS: {
+
+		{Selector: "q-item__label ellipsis text-subtitle1 ellipsis", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_DATE: {
+		{
+			Selector: "span[data-v-3c3cf957]",
+			Attr:     "data-v-3c3cf957",
+			Process:  BitchuteComParseDate,
+		},
+	},
+	enums.WEBCLASS_DESCRIPTION: {
+
+		{Selector: `meta[name="description"]`, Attr: "content", Process: strings.TrimSpace},
+		{Selector: `meta[property="og:description"]`, Attr: "content", Process: strings.TrimSpace},
+		{
+			Selector: `meta[itemprop="name"]`,
+			Attr:     "content",
+			Process:  strings.TrimSpace,
+		},
+	},
+	enums.WEBCLASS_TITLE: {
+		{
+			Selector: `meta[itemprop="name"]`,
+			Attr:     "content",
+			Process:  strings.TrimSpace,
+		},
+	},
+}
+
+// BitchuteComParseDate attempts to parse dates like "9 hours ago" (etc.)
+func BitchuteComParseDate(date string) string {
+	date = strings.TrimSpace(date)
+
+	dateSplit := strings.Split(date, " ")
+
+	var (
+		unit  string
+		digit int
+		err   error
+	)
+
+	if len(dateSplit) >= 3 {
+		digit, err = strconv.Atoi(dateSplit[0])
+		if err != nil {
+			logging.PrintE(0, "Failed to convert string to digits: %v", err)
+		}
+		unit = strings.TrimSuffix(strings.ToLower(dateSplit[1]), "s") // handles both "hour" and "hours"
+
+		var duration time.Duration
+		now := time.Now()
+
+		switch unit {
+		case "second":
+			duration = time.Duration(digit) * time.Second
+			return now.Add(-duration).Format(time.RFC3339)
+		case "minute":
+			duration = time.Duration(digit) * time.Minute
+			return now.Add(-duration).Format(time.RFC3339)
+		case "hour":
+			duration = time.Duration(digit) * time.Hour
+			return now.Add(-duration).Format(time.RFC3339)
+		case "day":
+			duration = time.Duration(digit) * time.Hour * 24
+			return now.Add(-duration).Format(time.RFC3339)
+		case "week":
+			duration = time.Duration(digit) * time.Hour * 24 * 7
+			return now.Add(-duration).Format(time.RFC3339)
+		case "month":
+			return now.AddDate(0, -digit, 0).Format(time.RFC3339)
+		case "year":
+			return now.AddDate(-digit, 0, 0).Format(time.RFC3339)
+		default:
+			logging.PrintE(0, "Unknown time unit: %s", unit)
+			return ""
+		}
+	}
+	logging.PrintE(0, "Wrong date length passed in")
+	return ""
+}
+package utils
+
+import (
+	enums "Metarr/internal/domain/enums"
+	presetModels "Metarr/internal/utils/browser/presets/models"
+	logging "Metarr/internal/utils/logging"
+	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+)
+
+var CensoredTvRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+	enums.WEBCLASS_DATE: {
+		{Selector: ".main-episode-player-container p.text-muted.text-right.text-date.mb-0", Process: strings.TrimSpace},
+		{Selector: ".text-date", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_DESCRIPTION: {
+		{Selector: ".p-3 check-for-urls", Process: strings.TrimSpace},
+		{Selector: `meta[name="description"]`, Attr: "content", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_TITLE: {
+		{Selector: ".p-3 h4", Process: strings.TrimSpace},
+		{Selector: "[title]", Attr: "title", Process: strings.TrimSpace},
+	},
+}
+
+// censoredTvChannelName gets the channel name from the URL string
+func CensoredTvChannelName(url string) string {
+	if url == "" {
+		logging.PrintE(0, "url passed in empty")
+		return ""
+	}
+	urlSplit := strings.Split(url, "/")
+
+	var channel string
+	for i, seg := range urlSplit {
+		if strings.HasSuffix(seg, "shows") && len(urlSplit) > i+1 {
+			channel = urlSplit[i+1]
+		}
+	}
+
+	if channel == "" {
+		logging.PrintE(0, "failed to fill channel name from url, out of bounds?")
+	}
+	channel = strings.ReplaceAll(channel, "-", " ")
+
+	caser := cases.Title(language.English)
+	channel = caser.String(channel)
+
+	if strings.ToLower(channel) == "atheism is unstoppable" {
+		channel = "Atheism-is-Unstoppable"
+	}
+	return channel
+}
+package utils
+
+// SelectorRule holds rules for specific websites for use in scrapers
+type SelectorRule struct {
+	Selector string
+	Attr     string // empty for text content, otherwise attribute name
+	Process  func(string) string
+	JsonPath []string
+}
+package utils
+
+import (
+	enums "Metarr/internal/domain/enums"
+	presetModels "Metarr/internal/utils/browser/presets/models"
+	"strings"
+)
+
+// OdyseeComRules holds rules for scraping odysee.com
+var OdyseeComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+	enums.WEBCLASS_CREDITS: {
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"author", "name"},
+			Process:  strings.TrimSpace,
+		},
+	},
+	enums.WEBCLASS_DATE: {
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"uploadDate"},
+			Process:  strings.TrimSpace,
+		},
+		{Selector: `meta[property="og:video:release_date"]`, Attr: "content", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_DESCRIPTION: {
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"description"},
+			Process:  strings.TrimSpace,
+		},
+		{Selector: `meta[name="description"]`, Attr: "content", Process: strings.TrimSpace},
+		{Selector: `meta[property="og:description"]`, Attr: "content", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_TITLE: {
+
+		{Selector: "title", Process: strings.TrimSpace},
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"name"},
+			Process:  strings.TrimSpace,
+		},
+	},
+}
+package utils
+
+import (
+	enums "Metarr/internal/domain/enums"
+	presetModels "Metarr/internal/utils/browser/presets/models"
+	"strings"
+)
+
+// RumbleComRules holds rules for scraping rumble.com
+var RumbleComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+	enums.WEBCLASS_CREDITS: {
+
+		{Selector: ".media-subscribe-and-notify", Attr: "data-title", Process: strings.TrimSpace},
+		{Selector: ".media-by--a .media-heading-name", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_DATE: {
+		{Selector: "time", Attr: "datetime", Process: strings.TrimSpace},
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"uploadDate"},
+			Process:  strings.TrimSpace,
+		},
+	},
+	enums.WEBCLASS_DESCRIPTION: {
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"description"},
+			Process:  strings.TrimSpace,
+		},
+		{Selector: `meta[name="description"]`, Attr: "content", Process: strings.TrimSpace},
+		{Selector: `meta[property="og:description"]`, Attr: "content", Process: strings.TrimSpace},
+	},
+	enums.WEBCLASS_TITLE: {
+
+		{Selector: "title", Process: strings.TrimSpace},
+		{
+			Selector: "script[type='application/ld+json']",
+			JsonPath: []string{"name"},
+			Process:  strings.TrimSpace,
+		},
+	},
+}
+package utils
+
+import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	presets "Metarr/internal/utils/browser/presets"
+	presetModels "Metarr/internal/utils/browser/presets/models"
 	logging "Metarr/internal/utils/logging"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gocolly/colly"
 )
 
 // ScrapeForMetadata searches relevant URLs to try and fill missing metadata
-func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
-
-	c := colly.NewCollector()
-	for _, cookie := range cookies {
-		c.SetCookies(targetURL, []*http.Cookie{cookie})
-	}
-
+func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
+	// Define result and error variables
 	var (
-		result string
-		tags   [6]string
+		result      string
+		scrapeError error
 	)
 
-	switch tag {
-	case enums.WEBCLASS_DATE:
-		tags = consts.WebDateTags
-	case enums.WEBCLASS_DESCRIPTION:
-		tags = consts.WebDescriptionTags
-	case enums.WEBCLASS_CREDITS:
-		tags = consts.WebCreditsTags
-	case enums.WEBCLASS_TITLE:
-		tags = consts.WebTitleTags
+	// Initialize the collector
+	c := colly.NewCollector(
+		colly.AllowURLRevisit(),
+		colly.MaxDepth(1),
+		colly.Async(true),
+	)
+	c.SetRequestTimeout(15 * time.Second)
+
+	if len(cookies) > 0 {
+		c.SetCookies(url, cookies)
+	}
+
+	// Define preset scraping rules if the URL matches a known pattern
+	switch {
+	case strings.Contains(url, "bitchute.com"):
+
+		logging.PrintI("Using bitchute.com preset scraper")
+		setupPresetScraping(c, tag, presets.BitchuteComRules, &result, url)
+
+	case strings.Contains(url, "censored.tv"):
+
+		logging.PrintI("Using censored.tv preset scraper")
+		if tag == enums.WEBCLASS_CREDITS {
+			return presets.CensoredTvChannelName(url), nil
+		}
+		setupPresetScraping(c, tag, presets.CensoredTvRules, &result, url)
+
+	case strings.Contains(url, "rumble.com"):
+
+		logging.PrintI("Using rumble.com preset scraper")
+		setupPresetScraping(c, tag, presets.RumbleComRules, &result, url)
+
+	case strings.Contains(url, "odysee.com"):
+
+		logging.PrintI("Using odysee.com preset scraper")
+		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
+
 	default:
-		return "", fmt.Errorf("unsupported metadata tag: %v", tag)
+		// Regular scraping using predefined tags for non-preset sites
+		setupGenericScraping(c, tag, &result, url)
 	}
 
-	// Navigate to web page and scrape
-	c.OnHTML("*", func(e *colly.HTMLElement) {
-		if result != "" {
-			return // Stop if result is already set
-		}
-		classAttr := e.Attr("class")
-		idAttr := e.Attr("id")
-		text := strings.TrimSpace(e.Text)
-
-		// Check if element matches tags by class, id, etc.
-		for _, t := range tags {
-			if (e.Name == "p" && strings.Contains(strings.ToLower(idAttr), t)) ||
-				strings.Contains(strings.ToLower(classAttr), t) ||
-				strings.Contains(strings.ToLower(idAttr), t) {
-
-				if tag == enums.WEBCLASS_DATE && looksLikeDate(text) {
-					result = text
-					logging.PrintI("Colly grabbed '%s' from element with class '%s' and id '%s' for URL '%s'",
-						result, classAttr, idAttr, targetURL)
-					return
-				}
-				if tag != enums.WEBCLASS_DATE {
-					// For non-date tags, directly set result
-					result = text
-					logging.PrintI("Colly grabbed non-date '%s' from element with class '%s' and id '%s' for URL '%s'",
-						result, classAttr, idAttr, targetURL)
-					return
-				}
-			}
-		}
+	// Error handler
+	c.OnError(func(r *colly.Response, err error) {
+		scrapeError = fmt.Errorf("failed to scrape %s: %v", r.Request.URL, err)
 	})
-	err := c.Visit(targetURL)
-	if err != nil {
-		return "", fmt.Errorf("error visiting webpage (%s): %v", targetURL, err)
-	}
 
-	if result == "" {
-		return "", fmt.Errorf("%v not found in the content for URL (%s)", tag, targetURL)
+	// Attempt visit and wait for async scraping
+	if err := c.Visit(url); err != nil {
+		return "", fmt.Errorf("unable to visit given web page")
 	}
+	c.Wait()
 
-	logging.PrintD(2, "Returning with metadata '%s' for URL '%s'", result, targetURL)
+	if scrapeError != nil {
+		return "", scrapeError
+	}
 	return result, nil
 }
 
-// Check tag if it appears it could contain a date
-func looksLikeDate(s string) bool {
-	if len(s) > 30 { // (Dates probably not longer than this)
-		return false
+// setupPresetScraping applies specific scraping rules for known sites
+func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]presetModels.SelectorRule, result *string, url string) {
+	if result == nil {
+		return
 	}
+	if ruleSet, exists := rules[tag]; exists {
+		for _, rule := range ruleSet {
+			c.OnHTML(rule.Selector, func(h *colly.HTMLElement) {
+				if *result != "" {
+					return
+				}
+				var value string
+				if len(rule.JsonPath) > 0 {
+					if jsonVal, err := jsonExtractor([]byte(h.Text), rule.JsonPath); err == nil {
+						value = jsonVal
+					}
+				} else if rule.Attr != "" {
+					value = h.Attr(rule.Attr)
+				} else {
+					value = h.Text
+				}
 
-	s = strings.TrimSpace(s)
-	lowered := strings.ToLower(s)
-
-	// Check for month names
-	months := [12]string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
-	hasMonth := false
-	for _, month := range months {
-		if strings.Contains(lowered, month) {
-			hasMonth = true
-			break
+				if value != "" {
+					logging.PrintS(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
+					*result = rule.Process(value)
+				}
+			})
 		}
 	}
+}
 
-	// Check for year
-	hasYear := regexp.MustCompile(`\b\d{4}\b`).MatchString(s)
+// setupGenericScraping defines a generic scraping approach for non-preset sites
+func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *string, url string) {
+	if result == nil {
+		return
+	}
 
-	// Check for day
-	hasDay := regexp.MustCompile(`\b\d{1,2}(st|nd|rd|th)?\b`).MatchString(s)
+	var tags []string
 
-	// Check for common date formats
-	datePatterns := [4]string{
-		`\d{1,2}[-/]\d{1,2}[-/]\d{2,4}`, // DD/MM/YYYY or MM/DD/YYYY
-		`\d{4}[-/]\d{1,2}[-/]\d{1,2}`,   // YYYY/MM/DD
-		`\w+\s+\d{1,2},?\s+\d{4}`,       // Month DD, YYYY
-		`\d{1,2}\s+\w+\s+\d{4}`,         // DD Month YYYY
+	// Determine the appropriate tags based on the metadata being fetched
+	switch tag {
+	case enums.WEBCLASS_DATE:
+		tags = consts.WebDateTags[:]
+	case enums.WEBCLASS_DESCRIPTION:
+		tags = consts.WebDescriptionTags[:]
+	case enums.WEBCLASS_CREDITS:
+		tags = consts.WebCreditsTags[:]
+	case enums.WEBCLASS_TITLE:
+		tags = consts.WebTitleTags[:]
+	default:
+		return
+	}
+
+	// Set up the HTML scraper for each tag
+	c.OnHTML("*", func(e *colly.HTMLElement) {
+		if *result != "" {
+			return
+		}
+
+		classAttr := strings.ToLower(e.Attr("class"))
+		idAttr := strings.ToLower(e.Attr("id"))
+		text := strings.TrimSpace(e.Text)
+
+		if classAttr != "" {
+			logging.PrintD(2, "Checking element with class: '%s'", classAttr)
+		}
+
+		for _, t := range tags {
+			if (e.Name == "p" && strings.Contains(idAttr, t)) ||
+				strings.Contains(classAttr, t) ||
+				strings.Contains(idAttr, t) {
+
+				if tag == enums.WEBCLASS_DATE && !looksLikeDate(text) {
+					continue
+				}
+
+				*result = text
+				logging.PrintI("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
+					result, classAttr, idAttr, url)
+				return
+			}
+		}
+	})
+}
+
+// jsonExtractor helps extract values from nested JSON structures
+func jsonExtractor(data []byte, path []string) (string, error) {
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return "", err
+	}
+	current := result
+	for _, key := range path[:len(path)-1] {
+		if next, ok := current[key].(map[string]interface{}); ok {
+			current = next
+		} else {
+			return "", fmt.Errorf("invalid JSON path at %s", key)
+		}
+	}
+	if val, ok := current[path[len(path)-1]].(string); ok {
+		return val, nil
+	}
+	return "", fmt.Errorf("value at path is not a string")
+}
+
+// looksLikeDate validates if the text appears to be a date
+func looksLikeDate(text string) bool {
+	text = strings.TrimSpace(strings.ToLower(text))
+
+	// Common date patterns
+	datePatterns := []string{
+		`\d{4}-\d{2}-\d{2}`,       // YYYY-MM-DD
+		`\d{1,2}/\d{1,2}/\d{2,4}`, // M/D/YY or MM/DD/YYYY
+		`(?i)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2},?\s+\d{4}`, // Month DD, YYYY
 	}
 
 	for _, pattern := range datePatterns {
-		if regexp.MustCompile(pattern).MatchString(s) {
+		matched, err := regexp.MatchString(pattern, text)
+		if err == nil && matched {
 			return true
 		}
 	}
 
-	// If it has at least two of: month, day, year, it's probably a date
-	return (hasMonth && hasDay) || (hasMonth && hasYear) || (hasDay && hasYear)
+	// Additional date indicators
+	dateIndicators := []string{"uploaded", "published", "created", "date:", "on"}
+	for _, indicator := range dateIndicators {
+		if strings.Contains(text, indicator) {
+			return true
+		}
+	}
+
+	return false
 }
 package utils
 
@@ -5800,21 +6199,29 @@ import (
 // Variable cache
 var (
 	videoExtensions,
+	metaExtensions,
 	inputPrefixes []string
-	metaExtensions = [2]string{".json", ".nfo"}
 )
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops
 func InitFetchFilesVars() error {
 
-	if inExts, ok := config.Get(keys.InputExtsEnum).([]enums.ConvertFromFiletype); ok {
-		videoExtensions = SetExtensions(inExts)
+	if inVExts, ok := config.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
+		logging.PrintD(2, "Received video extensions enum: %v", inVExts)
+		videoExtensions = setVideoExtensions(inVExts)
 	} else {
-		return fmt.Errorf("wrong type sent in. Received type %T", inExts)
+		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
+	}
+
+	if inMExts, ok := config.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
+		logging.PrintD(2, "Received video extensions enum: %v", inMExts)
+		metaExtensions = setMetaExtensions(inMExts)
+	} else {
+		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
 
 	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
-	metaExtensions = [2]string{".json", ".nfo"}
+	logging.PrintD(2, "Setting prefix filter: %v", inputPrefixes)
 
 	return nil
 }
@@ -5831,7 +6238,13 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 	videoFiles := make(map[string]*types.FileData, len(files))
 
 	for _, file := range files {
-		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) && HasPrefix(file.Name(), inputPrefixes) {
+		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
+
+			if config.IsSet(keys.FilePrefixes) {
+				if !HasPrefix(file.Name(), inputPrefixes) {
+					continue
+				}
+			}
 			filenameBase := filepath.Base(file.Name())
 
 			m := types.NewFileData()
@@ -5864,9 +6277,28 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 	metaFiles := make(map[string]*types.FileData, len(files))
 
 	for _, file := range files {
-		if !file.IsDir() && HasPrefix(file.Name(), inputPrefixes) {
+		if !file.IsDir() {
 			ext := filepath.Ext(file.Name())
-			if ext != ".json" && ext != ".nfo" {
+
+			logging.PrintD(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
+
+			if config.IsSet(keys.FilePrefixes) {
+				if !HasPrefix(file.Name(), inputPrefixes) {
+					continue
+				}
+			}
+
+			var match bool
+			for _, mExt := range metaExtensions {
+				if ext != mExt {
+					logging.PrintD(3, "Extension '%s' does not match '%s'", ext, mExt)
+					continue
+				}
+				logging.PrintS(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
+				match = true
+				break
+			}
+			if !match {
 				continue
 			}
 
@@ -6047,38 +6479,58 @@ func HasPrefix(fileName string, prefixes []string) bool {
 	return false
 }
 
-// setExtensions creates a list of extensions to filter
-func SetExtensions(convertFrom []enums.ConvertFromFiletype) []string {
+// setVideoExtensions creates a list of extensions to filter
+func setVideoExtensions(exts []enums.ConvertFromFiletype) []string {
 
-	videoExtensions := make([]string, 1, len(consts.AllVidExtensions))
-	for _, arg := range convertFrom {
+	videoExtensions := make([]string, 0, len(consts.AllVidExtensions))
 
+	for _, arg := range exts {
 		switch arg {
-		case enums.IN_ALL_EXTENSIONS:
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
-
-		case enums.IN_MKV:
+		case enums.VID_EXTS_MKV:
 			videoExtensions = append(videoExtensions, ".mkv")
-
-		case enums.IN_MP4:
+		case enums.VID_EXTS_MP4:
 			videoExtensions = append(videoExtensions, ".mp4")
-
-		case enums.IN_WEBM:
+		case enums.VID_EXTS_WEBM:
 			videoExtensions = append(videoExtensions, ".webm")
-
-		default:
-			logging.PrintE(0, "Incorrect file format selected, reverting to default (convert from all)")
-			videoExtensions = append(videoExtensions, consts.AllVidExtensions[:]...)
+		case enums.VID_EXTS_ALL:
+			return consts.AllVidExtensions[:]
 		}
+	}
+
+	if len(videoExtensions) == 0 {
+		return consts.AllVidExtensions[:]
 	}
 
 	return videoExtensions
 }
 
+// setMetaExtensions creates a lists of meta extensions to filter
+func setMetaExtensions(exts []enums.MetaFiletypeFilter) []string {
+
+	metaExtensions := make([]string, 0, len(consts.AllMetaExtensions))
+
+	for _, arg := range exts {
+		switch arg {
+		case enums.META_EXTS_JSON:
+			metaExtensions = append(metaExtensions, ".json")
+		case enums.META_EXTS_NFO:
+			metaExtensions = append(metaExtensions, ".nfo")
+		case enums.META_EXTS_ALL:
+			return consts.AllMetaExtensions[:]
+		}
+	}
+
+	if len(metaExtensions) == 0 {
+		return consts.AllMetaExtensions[:]
+	}
+
+	return metaExtensions
+}
+
 // setPrefixFilter sets a list of prefixes to filter
 func SetPrefixFilter(inputPrefixFilters []string) []string {
 
-	prefixFilters := make([]string, len(inputPrefixFilters))
+	prefixFilters := make([]string, 0, len(inputPrefixFilters))
 	prefixFilters = append(prefixFilters, inputPrefixFilters...)
 
 	return prefixFilters
@@ -6898,6 +7350,7 @@ var startTime time.Time
 
 func init() {
 	startTime = time.Now()
+	logging.PrintI("Metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
 }
 
 func main() {
@@ -7058,5 +7511,7 @@ func main() {
 	// Proceed to process files (videos, metadata files, etc...)
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
 
-	logging.PrintI("Time elapsed: %v", time.Since(startTime).Seconds())
+	endTime := time.Now()
+	logging.PrintI("Metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.PrintI("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
 }

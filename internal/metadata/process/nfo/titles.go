@@ -2,12 +2,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 )
 
 // fillNFOTitles attempts to fill in title info from NFO
-func fillNFOTitles(fd *types.FileData) bool {
+func fillNFOTitles(fd *models.FileData) bool {
 
 	t := fd.MTitleDesc
 	n := fd.NFOData
@@ -50,7 +50,7 @@ func fillNFOTitles(fd *types.FileData) bool {
 }
 
 // unpackTitle unpacks common nested title elements to the model
-func unpackTitle(fd *types.FileData, titleData map[string]interface{}) bool {
+func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
 	t := fd.MTitleDesc
 	filled := false
 

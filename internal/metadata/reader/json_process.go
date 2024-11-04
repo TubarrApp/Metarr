@@ -8,7 +8,7 @@ import (
 	process "Metarr/internal/metadata/process/json"
 	tags "Metarr/internal/metadata/tags"
 	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -20,7 +20,7 @@ var (
 )
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
-func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
+func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}

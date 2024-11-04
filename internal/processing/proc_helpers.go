@@ -3,7 +3,7 @@ package processing
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -58,7 +58,7 @@ func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
 }
 
 // cleanupTempFiles removes temporary files
-func cleanupTempFiles(files map[string]*types.FileData) error {
+func cleanupTempFiles(files map[string]*models.FileData) error {
 
 	var (
 		errReturn error

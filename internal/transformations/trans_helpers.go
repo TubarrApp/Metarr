@@ -5,7 +5,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"path/filepath"
@@ -15,7 +15,7 @@ import (
 )
 
 // getMetafileData retrieves meta type specific data
-func getMetafileData(m *types.FileData) (string, string, string) {
+func getMetafileData(m *models.FileData) (string, string, string) {
 
 	switch m.MetaFileType {
 	case enums.METAFILE_JSON:
@@ -32,9 +32,9 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
-	case enums.SPACES:
+	case enums.RENAMING_SPACES:
 		output = strings.ReplaceAll(input, "_", " ")
-	case enums.UNDERSCORES:
+	case enums.RENAMING_UNDERSCORES:
 		output = strings.ReplaceAll(input, " ", "_")
 	default:
 		logging.PrintI("Skipping space or underscore renaming conventions...")
@@ -44,7 +44,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 }
 
 // addTags handles the tagging of the video files where necessary
-func addTags(renamedVideo, renamedMeta string, m *types.FileData) (string, string) {
+func addTags(renamedVideo, renamedMeta string, m *models.FileData) (string, string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
@@ -66,9 +66,9 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 
 	// Rename style map to use
 	switch style {
-	case enums.SPACES:
+	case enums.RENAMING_SPACES:
 		contractionsMap = consts.ContractionsSpaced
-	case enums.UNDERSCORES:
+	case enums.RENAMING_UNDERSCORES:
 		contractionsMap = consts.ContractionsUnderscored
 	default:
 		// Skip or other unsupported parameter returns unchanged
@@ -112,7 +112,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 
 // replaceSuffix applies configured suffix replacements to a filename
 func replaceSuffix(filename string) string {
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]types.FilenameReplaceSuffix)
+	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
 	if !ok || suffixes == nil {
 		logging.PrintD(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename

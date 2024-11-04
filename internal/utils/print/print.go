@@ -2,7 +2,7 @@ package print
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"reflect"
@@ -28,7 +28,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	output += consts.ColorYellow + "\nFile Information:\n" + consts.ColorReset
 	output += printStructFields(model)
 
-	if m, ok := model.(*types.FileData); ok {
+	if m, ok := model.(*models.FileData); ok {
 		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
 		output += printStructFields(m.MCredits)
 
@@ -46,7 +46,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 
 		output += consts.ColorYellow + "\nOther data:\n" + consts.ColorReset
 		output += printStructFields(m.MOther)
-	} else if n, ok := model.(*types.NFOData); ok {
+	} else if n, ok := model.(*models.NFOData); ok {
 		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
 		for _, actor := range n.Actors {
 			output += printStructFields(actor.Name)

@@ -3,13 +3,13 @@ package metadata
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	print "Metarr/internal/utils/print"
 )
 
 // fillTitles grabs the fulltitle ("title")
-func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
+func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 
 	t := fd.MTitleDesc
 	w := fd.MWebData
@@ -37,7 +37,7 @@ func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 		t.Title = t.FallbackTitle
 	}
 	if t.Title == "" {
-		title := helpers.ScrapeMeta(w, enums.WEBCLASS_TITLE)
+		title := browser.ScrapeMeta(w, enums.WEBCLASS_TITLE)
 		if title != "" {
 			t.Title = title
 		}

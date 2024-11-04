@@ -3,7 +3,7 @@ package config
 import (
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"strings"
@@ -47,14 +47,14 @@ func initTextReplace() error {
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
 func validateFilenameSuffixReplace() error {
-	filenameReplaceSuffix := make([]types.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
+	filenameReplaceSuffix := make([]models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
 		if len(parts) < 2 {
 			return fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
 		}
-		filenameReplaceSuffix = append(filenameReplaceSuffix, types.FilenameReplaceSuffix{
+		filenameReplaceSuffix = append(filenameReplaceSuffix, models.FilenameReplaceSuffix{
 			Suffix:      parts[0],
 			Replacement: parts[1],
 		})
@@ -68,14 +68,14 @@ func validateFilenameSuffixReplace() error {
 
 // validateMetaPrefixes checks if the input format for meta prefix alterations is valid
 func validateMetaPrefixes() error {
-	metaReplacePrefix := make([]types.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
+	metaReplacePrefix := make([]models.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
 
 	for _, tuple := range metaReplacePrefixInput {
 		parts := strings.SplitN(tuple, ":", 3)
 		if len(parts) < 3 {
 			return fmt.Errorf("invalid use of meta-replace-prefix, values must be written as (metatag:fieldprefix:replacement)")
 		}
-		metaReplacePrefix = append(metaReplacePrefix, types.MetaReplacePrefix{
+		metaReplacePrefix = append(metaReplacePrefix, models.MetaReplacePrefix{
 			Field:       parts[0],
 			Prefix:      parts[1],
 			Replacement: parts[2],
@@ -90,14 +90,14 @@ func validateMetaPrefixes() error {
 
 // validateMetaSuffixes checks if the input format for meta suffix alterations is valid
 func validateMetaSuffixes() error {
-	metaReplaceSuffix := make([]types.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
+	metaReplaceSuffix := make([]models.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
 
 	for _, tuple := range metaReplaceSuffixInput {
 		parts := strings.SplitN(tuple, ":", 3)
 		if len(parts) < 3 {
 			return fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:fieldsuffix:replacement)")
 		}
-		metaReplaceSuffix = append(metaReplaceSuffix, types.MetaReplaceSuffix{
+		metaReplaceSuffix = append(metaReplaceSuffix, models.MetaReplaceSuffix{
 			Field:       parts[0],
 			Suffix:      parts[1],
 			Replacement: parts[2],
@@ -112,7 +112,7 @@ func validateMetaSuffixes() error {
 
 // validateNewMetafields checks if the input format for metatag and field additions is valid
 func validateNewMetafields() error {
-	metaNewField := make([]types.MetaNewField, 0, len(metaNewFieldInput))
+	metaNewField := make([]models.MetaNewField, 0, len(metaNewFieldInput))
 
 	for _, value := range metaNewFieldInput {
 		parts := strings.SplitN(value, ":", 2)
@@ -120,7 +120,7 @@ func validateNewMetafields() error {
 			return fmt.Errorf("invalid use of metadata addition, values must be written as (metatag:field)")
 		}
 		// Append each parsed field-value pair to the metaNewField array
-		metaNewField = append(metaNewField, types.MetaNewField{
+		metaNewField = append(metaNewField, models.MetaNewField{
 			Field: parts[0],
 			Value: parts[1],
 		})
@@ -140,15 +140,15 @@ func setRenameFlag() {
 
 	switch argRenameFlag {
 	case "spaces", "space":
-		renameFlag = enums.SPACES
+		renameFlag = enums.RENAMING_SPACES
 		logging.Print("Rename style selected: %v", argRenameFlag)
 
 	case "underscores", "underscore":
-		renameFlag = enums.UNDERSCORES
+		renameFlag = enums.RENAMING_UNDERSCORES
 		logging.Print("Rename style selected: %v", argRenameFlag)
 	default:
 		logging.PrintD(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
-		renameFlag = enums.SKIP
+		renameFlag = enums.RENAMING_SKIP
 	}
 	Set(keys.Rename, renameFlag)
 }

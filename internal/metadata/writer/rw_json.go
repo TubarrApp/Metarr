@@ -3,7 +3,7 @@ package metadata
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	backup "Metarr/internal/utils/fs/backup"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
@@ -146,25 +146,25 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File) 
 
 	var (
 		edited, ok bool
-		pfx        []types.MetaReplacePrefix
-		sfx        []types.MetaReplaceSuffix
-		new        []types.MetaNewField
+		pfx        []models.MetaReplacePrefix
+		sfx        []models.MetaReplaceSuffix
+		new        []models.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+		pfx, ok = config.Get(keys.MReplacePfx).([]models.MetaReplacePrefix)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 		}
 	}
 	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+		sfx, ok = config.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
 		}
 	}
 	if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]types.MetaNewField)
+		new, ok = config.Get(keys.MNewField).([]models.MetaNewField)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
 		}
@@ -261,7 +261,7 @@ func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 // replaceMetaSuffix applies suffix replacement to the fields in the JSON data
 func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, error) {
 
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
 	}
@@ -301,7 +301,7 @@ func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, erro
 // replaceMetaPrefix applies prefix replacement to the fields in the JSON data
 func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, error) {
 
-	pfx, ok := config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+	pfx, ok := config.Get(keys.MReplacePfx).([]models.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 	}
@@ -334,7 +334,7 @@ func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, erro
 // addNewField can insert a new field which does not yet exist into the metadata file
 func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error) {
 
-	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
+	new, ok := config.Get(keys.MNewField).([]models.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", new)
 	}

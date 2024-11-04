@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"strconv"
@@ -138,7 +138,7 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 }
 
 // FormatAllDates formats timestamps into a hyphenated form
-func FormatAllDates(fd *types.FileData) string {
+func FormatAllDates(fd *models.FileData) string {
 
 	var (
 		result string

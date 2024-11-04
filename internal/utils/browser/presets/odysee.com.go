@@ -2,12 +2,12 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	presetModels "Metarr/internal/utils/browser/presets/models"
+	attributes "Metarr/internal/utils/browser/presets/attributes"
 	"strings"
 )
 
 // OdyseeComRules holds rules for scraping odysee.com
-var OdyseeComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+var OdyseeComRules = map[enums.WebClassTags][]attributes.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 		{
 			Selector: "script[type='application/ld+json']",

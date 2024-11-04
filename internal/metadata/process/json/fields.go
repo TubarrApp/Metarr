@@ -1,13 +1,13 @@
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
 
 // Primary function to fill out meta fields before writing
-func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	var (
 		ok   bool

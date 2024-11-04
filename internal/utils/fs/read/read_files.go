@@ -5,7 +5,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -45,7 +45,7 @@ func InitFetchFilesVars() error {
 }
 
 // GetVideoFiles fetches video files from a directory
-func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
+func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
 	if err != nil {
 		return nil, fmt.Errorf("error reading video directory: %w", err)
@@ -53,7 +53,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 
 	logging.Print("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
 
-	videoFiles := make(map[string]*types.FileData, len(files))
+	videoFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
 		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
@@ -65,7 +65,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 			}
 			filenameBase := filepath.Base(file.Name())
 
-			m := types.NewFileData()
+			m := models.NewFileData()
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
 			m.OriginalVideoBaseName = strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
 			m.VideoDirectory = videoDir.Name()
@@ -86,13 +86,13 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 }
 
 // GetMetadataFiles fetches metadata files from a directory
-func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
+func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	files, err := metaDir.ReadDir(-1)
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata directory: %w", err)
 	}
 
-	metaFiles := make(map[string]*types.FileData, len(files))
+	metaFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
 		if !file.IsDir() {
@@ -123,7 +123,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 			filenameBase := filepath.Base(file.Name())
 			baseName := strings.TrimSuffix(filenameBase, ext)
 
-			m := types.NewFileData()
+			m := models.NewFileData()
 			filePath := filepath.Join(metaDir.Name(), file.Name())
 
 			switch ext {
@@ -159,11 +159,11 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 }
 
 // GetSingleVideoFile handles a single video file
-func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) {
-	videoMap := make(map[string]*types.FileData, 1)
+func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error) {
+	videoMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(videoFile.Name())
 
-	videoData := types.NewFileData()
+	videoData := models.NewFileData()
 	videoData.OriginalVideoPath = videoFile.Name()
 	videoData.OriginalVideoBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
@@ -176,11 +176,11 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) 
 }
 
 // GetSingleMetadataFile handles a single metadata file
-func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error) {
-	metaMap := make(map[string]*types.FileData, 1)
+func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, error) {
+	metaMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(metaFile.Name())
 
-	fileData := types.NewFileData()
+	fileData := models.NewFileData()
 	ext := filepath.Ext(metaFile.Name())
 
 	switch ext {
@@ -207,16 +207,16 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
-func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*types.FileData) (map[string]*types.FileData, error) {
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
 	logging.PrintD(3, "Entering metadata and video file matching loop...")
 
-	matchedFiles := make(map[string]*types.FileData, len(videoFiles))
+	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 
 	specialChars := regexp.MustCompile(`[^\w\s-]`)
 	extraSpaces := regexp.MustCompile(`\s+`)
 
 	// Pre-process metaFiles into a lookup map
-	metaLookup := make(map[string]*types.FileData, len(metaFiles))
+	metaLookup := make(map[string]*models.FileData, len(metaFiles))
 	for metaName, metaData := range metaFiles {
 		baseKey := NormalizeFilename(TrimMetafileSuffixes(metaName, ""), specialChars, extraSpaces)
 		metaLookup[baseKey] = metaData

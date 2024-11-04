@@ -3,8 +3,9 @@ package utils
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	"Metarr/internal/models"
 	presets "Metarr/internal/utils/browser/presets"
-	presetModels "Metarr/internal/utils/browser/presets/models"
+	attributes "Metarr/internal/utils/browser/presets/attributes"
 	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
@@ -16,12 +17,36 @@ import (
 	"github.com/gocolly/colly"
 )
 
-// ScrapeForMetadata searches relevant URLs to try and fill missing metadata
-func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
-	// Define result and error variables
+// scrapeMeta gets cookies for a given URL and returns a grabbed string
+func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
+
+	var (
+		err  error
+		data string
+	)
+
+	w.Cookies, err = getBrowserCookies(w.WebpageURL)
+	if err != nil {
+		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+	}
+	for _, try := range w.TryURLs {
+		data, err = scrape(try, w.Cookies, find, false)
+		if err != nil {
+			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
+		} else {
+			break
+		}
+	}
+	return data
+}
+
+// scrape searches relevant URLs to try and fill missing metadata
+func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPresets bool) (string, error) {
+
 	var (
 		result      string
 		scrapeError error
+		custom      bool
 	)
 
 	// Initialize the collector
@@ -38,31 +63,35 @@ func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTag
 
 	// Define preset scraping rules if the URL matches a known pattern
 	switch {
-	case strings.Contains(url, "bitchute.com"):
+	case strings.Contains(url, "bitchute.com") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using bitchute.com preset scraper")
 		setupPresetScraping(c, tag, presets.BitchuteComRules, &result, url)
 
-	case strings.Contains(url, "censored.tv"):
+	case strings.Contains(url, "censored.tv") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using censored.tv preset scraper")
 		if tag == enums.WEBCLASS_CREDITS {
 			return presets.CensoredTvChannelName(url), nil
 		}
 		setupPresetScraping(c, tag, presets.CensoredTvRules, &result, url)
 
-	case strings.Contains(url, "rumble.com"):
+	case strings.Contains(url, "rumble.com") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using rumble.com preset scraper")
 		setupPresetScraping(c, tag, presets.RumbleComRules, &result, url)
 
-	case strings.Contains(url, "odysee.com"):
+	case strings.Contains(url, "odysee.com") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using odysee.com preset scraper")
 		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
 
 	default:
-		// Regular scraping using predefined tags for non-preset sites
+		logging.PrintI("Generic scrape attempt...")
 		setupGenericScraping(c, tag, &result, url)
 	}
 
@@ -78,13 +107,25 @@ func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTag
 	c.Wait()
 
 	if scrapeError != nil {
-		return "", scrapeError
+		switch result {
+		case "":
+			return "", scrapeError
+		default:
+			logging.PrintE(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
+			return result, nil
+		}
 	}
+
+	// If custom preset was used and failed, try again with default
+	if result == "" && custom {
+		return scrape(url, cookies, tag, true)
+	}
+
 	return result, nil
 }
 
 // setupPresetScraping applies specific scraping rules for known sites
-func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]presetModels.SelectorRule, result *string, url string) {
+func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]attributes.SelectorRule, result *string, url string) {
 	if result == nil {
 		return
 	}

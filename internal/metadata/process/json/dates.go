@@ -4,14 +4,15 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 	"strings"
 )
 
 // fillTimestamps grabs timestamp metadata from JSON
-func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 	var (
 		err             error
 		gotRelevantDate bool
@@ -98,7 +99,7 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 		return data, false
 	}
 
-	scrapedDate := helpers.ScrapeMeta(w, enums.WEBCLASS_DATE)
+	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
 	logging.PrintD(1, "Scraped date: %s", scrapedDate)
 
 	logging.PrintD(3, "Passed web scrape attempt for date.")
@@ -156,7 +157,7 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 }
 
 // fillEmptyTimestamps attempts to infer missing timestamps
-func fillEmptyTimestamps(t *types.MetadataDates) bool {
+func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	gotRelevantDate := false
 

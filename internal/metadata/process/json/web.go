@@ -2,13 +2,13 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
 
 // Grabs details necessary to scrape the web for missing metafields
-func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
+func fillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 	var isFilled bool
 

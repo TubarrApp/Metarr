@@ -2,7 +2,7 @@ package config
 
 import (
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	"strings"
 )
 
@@ -27,32 +27,32 @@ func AutoPreset(url string) {
 func censoredTvPreset() {
 
 	var (
-		metaReplaceSuffix []types.MetaReplaceSuffix
-		sfx               types.MetaReplaceSuffix
+		metaReplaceSuffix []models.MetaReplaceSuffix
+		sfx               models.MetaReplaceSuffix
 	)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = models.MetaReplaceSuffix{
 		Field:       "title",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = models.MetaReplaceSuffix{
 		Field:       "fulltitle",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = models.MetaReplaceSuffix{
 		Field:       "id",
 		Suffix:      "-1",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = models.MetaReplaceSuffix{
 		Field:       "display_id",
 		Suffix:      "-1",
 		Replacement: "",
@@ -61,9 +61,9 @@ func censoredTvPreset() {
 
 	Set(keys.MReplaceSfx, metaReplaceSuffix)
 
-	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+	var filenameReplaceSuffix []models.FilenameReplaceSuffix
 
-	trimEnd := types.FilenameReplaceSuffix{
+	trimEnd := models.FilenameReplaceSuffix{
 		Suffix:      "_1",
 		Replacement: "",
 	}

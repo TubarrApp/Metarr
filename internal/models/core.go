@@ -1,4 +1,4 @@
-package types
+package models
 
 import (
 	enums "Metarr/internal/domain/enums"

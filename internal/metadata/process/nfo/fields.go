@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 	"strings"
@@ -9,7 +9,7 @@ import (
 
 // FillNFO is the primary entrypoint for filling NFO metadata
 // from an open file's read content
-func FillNFO(fd *types.FileData) bool {
+func FillNFO(fd *models.FileData) bool {
 
 	var filled bool
 
@@ -122,7 +122,7 @@ func nestedLoop(content string) map[string]interface{} {
 }
 
 // unpackNFO unpacks an NFO map back to the model
-func unpackNFO(fd *types.FileData, data map[string]interface{}, fieldMap map[string]*string) {
+func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[string]*string) {
 	logging.PrintD(3, "Unpacking NFO map...")
 
 	// Access the top-level "movie" key

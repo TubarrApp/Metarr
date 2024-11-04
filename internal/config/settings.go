@@ -263,16 +263,16 @@ func verifyInputFiletypes() {
 func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
-		viper.Set(keys.GPUEnum, enums.NVIDIA)
+		viper.Set(keys.GPUEnum, enums.GPU_NVIDIA)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
 	case "amd":
-		viper.Set(keys.GPUEnum, enums.AMD)
+		viper.Set(keys.GPUEnum, enums.GPU_AMD)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
 	case "intel":
-		viper.Set(keys.GPUEnum, enums.INTEL)
+		viper.Set(keys.GPUEnum, enums.GPU_INTEL)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
 	default:
-		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
+		viper.Set(keys.GPUEnum, enums.GPU_NO_HW_ACCEL)
 	}
 }
 

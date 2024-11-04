@@ -4,12 +4,13 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
 
-func fillNFOTimestamps(fd *types.FileData) bool {
+func fillNFOTimestamps(fd *models.FileData) bool {
 
 	t := fd.MDates
 	w := fd.MWebData
@@ -85,7 +86,7 @@ func fillNFOTimestamps(fd *types.FileData) bool {
 		return false
 	}
 
-	scrapedDate := helpers.ScrapeMeta(w, enums.WEBCLASS_DATE)
+	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
 	logging.PrintD(1, "Scraped date: %s", scrapedDate)
 
 	logging.PrintD(3, "Passed web scrape attempt for date.")

@@ -23,19 +23,19 @@ const (
 type SysGPU int
 
 const (
-	NVIDIA SysGPU = iota
-	AMD
-	INTEL
-	NO_HW_ACCEL
+	GPU_NVIDIA SysGPU = iota
+	GPU_AMD
+	GPU_INTEL
+	GPU_NO_HW_ACCEL
 )
 
 // Naming syle
 type ReplaceToStyle int
 
 const (
-	SPACES ReplaceToStyle = iota
-	UNDERSCORES
-	SKIP
+	RENAMING_SPACES ReplaceToStyle = iota
+	RENAMING_UNDERSCORES
+	RENAMING_SKIP
 )
 
 // Date formats

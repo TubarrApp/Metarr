@@ -2,12 +2,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
-func fillNFOCredits(fd *types.FileData) bool {
+func fillNFOCredits(fd *models.FileData) bool {
 
 	c := fd.MCredits
 	n := fd.NFOData
@@ -76,7 +76,7 @@ func fillSingleCredits(entries []string, target *string) {
 	*target = out
 }
 
-func unpackCredits(fd *types.FileData, creditsData map[string]interface{}) bool {
+func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool {
 	c := fd.MCredits
 	filled := false
 

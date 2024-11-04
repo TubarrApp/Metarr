@@ -4,7 +4,7 @@ import (
 	"Metarr/internal/config"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	writefs "Metarr/internal/utils/fs/write"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
@@ -13,7 +13,7 @@ import (
 )
 
 // FileRename formats the file names
-func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
+func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
 
 	var vidExt string
 
@@ -77,7 +77,7 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
+	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
 		return videoBase
 	}
 
@@ -87,7 +87,7 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 		name = replaceSuffix(name)
 	}
 
-	if style != enums.SKIP {
+	if style != enums.RENAMING_SKIP {
 		name = applyNamingStyle(style, name)
 	}
 	return name
@@ -97,7 +97,7 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
+	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
 		return metaBase
 	}
 
@@ -107,7 +107,7 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 		name = replaceSuffix(name)
 	}
 
-	if style != enums.SKIP {
+	if style != enums.RENAMING_SKIP {
 		name = applyNamingStyle(style, name)
 	}
 	return name

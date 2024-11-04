@@ -1,12 +1,12 @@
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	"strings"
 )
 
 // addCredits adds all credit-related metadata
-func (b *CommandBuilder) addTitlesDescs(t *types.MetadataTitlesDescs) {
+func (b *CommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
 	if t.Title == "" && t.FallbackTitle != "" {
 		t.Title = t.FallbackTitle
@@ -32,7 +32,7 @@ func (b *CommandBuilder) addTitlesDescs(t *types.MetadataTitlesDescs) {
 }
 
 // addCredits adds all credit-related metadata
-func (b *CommandBuilder) addCredits(c *types.MetadataCredits) {
+func (b *CommandBuilder) addCredits(c *models.MetadataCredits) {
 
 	// Single value credits
 	fields := map[string]string{
@@ -68,7 +68,7 @@ func (b *CommandBuilder) addCredits(c *types.MetadataCredits) {
 }
 
 // addCredits adds all date-related metadata
-func (b *CommandBuilder) addDates(d *types.MetadataDates) {
+func (b *CommandBuilder) addDates(d *models.MetadataDates) {
 
 	fields := map[string]string{
 		"creation_time":           d.Creation_Time,
@@ -87,7 +87,7 @@ func (b *CommandBuilder) addDates(d *types.MetadataDates) {
 }
 
 // addShowInfo adds all show info related metadata
-func (b *CommandBuilder) addShowInfo(s *types.MetadataShowData) {
+func (b *CommandBuilder) addShowInfo(s *models.MetadataShowData) {
 
 	fields := map[string]string{
 		"episode_id":    s.Episode_ID,
@@ -105,7 +105,7 @@ func (b *CommandBuilder) addShowInfo(s *types.MetadataShowData) {
 }
 
 // addOtherMetadata adds other related metadata
-func (b *CommandBuilder) addOtherMetadata(o *types.MetadataOtherData) {
+func (b *CommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
 
 	fields := map[string]string{
 		"genre":    o.Genre,
