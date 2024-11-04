@@ -219,10 +219,10 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
 				logging.PrintE(0, errMsg.Error())
 			} else {
-				logging.PrintS(0, "Successfully processed video %s\n", fileName)
+				logging.PrintS(0, "Successfully processed video %s", fileName)
 			}
 		} else {
-			logging.PrintS(0, "Successfully processed metadata for %s\n", fileName)
+			logging.PrintS(0, "Successfully processed metadata for %s", fileName)
 		}
 
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)

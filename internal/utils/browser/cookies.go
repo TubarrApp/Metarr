@@ -11,6 +11,8 @@ import (
 	_ "github.com/browserutils/kooky/browser/all"
 )
 
+// GetBrowserCookies checks user browsers for cookies corresponding to
+// a given URL
 func GetBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	baseURL, err := extractBaseDomain(url)

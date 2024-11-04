@@ -156,7 +156,7 @@ func WriteMetadata(m *types.FileData) error {
 		}
 	}
 
-	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s\n\n", originalVPath,
+	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", originalVPath,
 		m.FinalVideoPath,
 		m.MTitleDesc.Title)
 

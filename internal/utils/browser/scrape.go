@@ -38,19 +38,27 @@ func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTag
 
 	// Define preset scraping rules if the URL matches a known pattern
 	switch {
+	case strings.Contains(url, "bitchute.com"):
+
+		logging.PrintI("Using bitchute.com preset scraper")
+		setupPresetScraping(c, tag, presets.BitchuteComRules, &result, url)
+
 	case strings.Contains(url, "censored.tv"):
 
 		logging.PrintI("Using censored.tv preset scraper")
-
 		if tag == enums.WEBCLASS_CREDITS {
 			return presets.CensoredTvChannelName(url), nil
 		}
 		setupPresetScraping(c, tag, presets.CensoredTvRules, &result, url)
 
+	case strings.Contains(url, "rumble.com"):
+
+		logging.PrintI("Using rumble.com preset scraper")
+		setupPresetScraping(c, tag, presets.RumbleComRules, &result, url)
+
 	case strings.Contains(url, "odysee.com"):
 
 		logging.PrintI("Using odysee.com preset scraper")
-
 		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
 
 	default:
@@ -77,9 +85,15 @@ func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTag
 
 // setupPresetScraping applies specific scraping rules for known sites
 func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]presetModels.SelectorRule, result *string, url string) {
+	if result == nil {
+		return
+	}
 	if ruleSet, exists := rules[tag]; exists {
 		for _, rule := range ruleSet {
 			c.OnHTML(rule.Selector, func(h *colly.HTMLElement) {
+				if *result != "" {
+					return
+				}
 				var value string
 				if len(rule.JsonPath) > 0 {
 					if jsonVal, err := jsonExtractor([]byte(h.Text), rule.JsonPath); err == nil {
@@ -102,6 +116,10 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 
 // setupGenericScraping defines a generic scraping approach for non-preset sites
 func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *string, url string) {
+	if result == nil {
+		return
+	}
+
 	var tags []string
 
 	// Determine the appropriate tags based on the metadata being fetched
@@ -120,9 +138,6 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 
 	// Set up the HTML scraper for each tag
 	c.OnHTML("*", func(e *colly.HTMLElement) {
-		if result == nil {
-			return
-		}
 		if *result != "" {
 			return
 		}

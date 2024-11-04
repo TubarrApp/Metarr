@@ -11,17 +11,17 @@ import (
 )
 
 var CensoredTvRules = map[enums.WebClassTags][]presetModels.SelectorRule{
-	enums.WEBCLASS_TITLE: {
-		{Selector: ".p-3 h4", Process: strings.TrimSpace},
-		{Selector: "[title]", Attr: "title", Process: strings.TrimSpace},
+	enums.WEBCLASS_DATE: {
+		{Selector: ".main-episode-player-container p.text-muted.text-right.text-date.mb-0", Process: strings.TrimSpace},
+		{Selector: ".text-date", Process: strings.TrimSpace},
 	},
 	enums.WEBCLASS_DESCRIPTION: {
 		{Selector: ".p-3 check-for-urls", Process: strings.TrimSpace},
 		{Selector: `meta[name="description"]`, Attr: "content", Process: strings.TrimSpace},
 	},
-	enums.WEBCLASS_DATE: {
-		{Selector: "p.text-muted.text-right.text-date.mb-0", Process: strings.TrimSpace},
-		{Selector: ".text-date", Process: strings.TrimSpace},
+	enums.WEBCLASS_TITLE: {
+		{Selector: ".p-3 h4", Process: strings.TrimSpace},
+		{Selector: "[title]", Attr: "title", Process: strings.TrimSpace},
 	},
 }
 
