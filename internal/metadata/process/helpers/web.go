@@ -22,7 +22,7 @@ func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
 	for _, try := range w.TryURLs {
 		data, err = browser.ScrapeForMetadata(try, w.Cookies, find)
 		if err != nil {
-			logging.PrintE(0, "Failed to scrape '%s' for credits: %v", try, err)
+			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
 		} else {
 			break
 		}

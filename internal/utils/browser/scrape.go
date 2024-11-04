@@ -3,6 +3,7 @@ package utils
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	presetScrape "Metarr/internal/utils/browser/site_presets"
 	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,17 @@ import (
 // ScrapeForMetadata searches relevant URLs to try and fill missing metadata
 func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
 
+	rtn, err, ok := presetScrape.WebScrapeSwitch(targetURL, cookies, tag)
+	if ok {
+		if err != nil {
+			logging.PrintE(0, err.Error())
+		}
+		if rtn != "" {
+			logging.PrintS(0, "Got data '%s' for URL '%s'", rtn, targetURL)
+			return rtn, nil
+		}
+	}
+
 	var (
 		tags        []string
 		selector    map[string]string
@@ -26,6 +38,7 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 	)
 
 	c := colly.NewCollector(
+		colly.AllowURLRevisit(),
 		colly.MaxDepth(1),
 		colly.Async(true),
 	)
