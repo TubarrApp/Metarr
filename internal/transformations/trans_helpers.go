@@ -134,7 +134,7 @@ func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) st
 
 	var result string
 	for _, suffix := range suffixes {
-		logging.PrintD(1, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
+		logging.PrintD(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
 
 		if strings.HasSuffix(filename, suffix.Suffix) {
 			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
