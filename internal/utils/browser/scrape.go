@@ -3,7 +3,8 @@ package utils
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	presetScrape "Metarr/internal/utils/browser/site_presets"
+	presets "Metarr/internal/utils/browser/presets"
+	presetModels "Metarr/internal/utils/browser/presets/models"
 	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
@@ -16,64 +17,113 @@ import (
 )
 
 // ScrapeForMetadata searches relevant URLs to try and fill missing metadata
-func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
-
-	rtn, err, ok := presetScrape.WebScrapeSwitch(targetURL, cookies, tag)
-	if ok {
-		if err != nil {
-			logging.PrintE(0, err.Error())
-		}
-		if rtn != "" {
-			logging.PrintS(0, "Got data '%s' for URL '%s'", rtn, targetURL)
-			return rtn, nil
-		}
-	}
-
+func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
+	// Define result and error variables
 	var (
-		tags        []string
-		selector    map[string]string
 		result      string
 		scrapeError error
-		resultChan  chan string
 	)
 
+	// Initialize the collector
 	c := colly.NewCollector(
 		colly.AllowURLRevisit(),
 		colly.MaxDepth(1),
 		colly.Async(true),
 	)
-
 	c.SetRequestTimeout(15 * time.Second)
 
 	if len(cookies) > 0 {
-		c.SetCookies(targetURL, cookies)
+		c.SetCookies(url, cookies)
 	}
 
-	switch tag {
-	case enums.WEBCLASS_DATE:
-		tags = consts.WebDateTags[:]
+	// Define preset scraping rules if the URL matches a known pattern
+	switch {
+	case strings.Contains(url, "censored.tv"):
 
-	case enums.WEBCLASS_DESCRIPTION:
-		tags = consts.WebDescriptionTags[:]
+		logging.PrintI("Using censored.tv preset scraper")
 
-	case enums.WEBCLASS_CREDITS:
-		tags = consts.WebCreditsTags[:]
-		selector = consts.WebCreditsSelectors
+		if tag == enums.WEBCLASS_CREDITS {
+			return presets.CensoredTvChannelName(url), nil
+		}
+		setupPresetScraping(c, tag, presets.CensoredTvRules, &result, url)
 
-	case enums.WEBCLASS_TITLE:
-		tags = consts.WebTitleTags[:]
+	case strings.Contains(url, "odysee.com"):
+
+		logging.PrintI("Using odysee.com preset scraper")
+
+		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
+
 	default:
-		return "", fmt.Errorf("unsupported metadata tag: %v", tag)
+		// Regular scraping using predefined tags for non-preset sites
+		setupGenericScraping(c, tag, &result, url)
 	}
 
-	// Set up error handler
+	// Error handler
 	c.OnError(func(r *colly.Response, err error) {
 		scrapeError = fmt.Errorf("failed to scrape %s: %v", r.Request.URL, err)
 	})
 
-	// Primary element scraping based on tags
+	// Attempt visit and wait for async scraping
+	if err := c.Visit(url); err != nil {
+		return "", fmt.Errorf("unable to visit given web page")
+	}
+	c.Wait()
+
+	if scrapeError != nil {
+		return "", scrapeError
+	}
+	return result, nil
+}
+
+// setupPresetScraping applies specific scraping rules for known sites
+func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]presetModels.SelectorRule, result *string, url string) {
+	if ruleSet, exists := rules[tag]; exists {
+		for _, rule := range ruleSet {
+			c.OnHTML(rule.Selector, func(h *colly.HTMLElement) {
+				var value string
+				if len(rule.JsonPath) > 0 {
+					if jsonVal, err := jsonExtractor([]byte(h.Text), rule.JsonPath); err == nil {
+						value = jsonVal
+					}
+				} else if rule.Attr != "" {
+					value = h.Attr(rule.Attr)
+				} else {
+					value = h.Text
+				}
+
+				if value != "" {
+					logging.PrintS(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
+					*result = rule.Process(value)
+				}
+			})
+		}
+	}
+}
+
+// setupGenericScraping defines a generic scraping approach for non-preset sites
+func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *string, url string) {
+	var tags []string
+
+	// Determine the appropriate tags based on the metadata being fetched
+	switch tag {
+	case enums.WEBCLASS_DATE:
+		tags = consts.WebDateTags[:]
+	case enums.WEBCLASS_DESCRIPTION:
+		tags = consts.WebDescriptionTags[:]
+	case enums.WEBCLASS_CREDITS:
+		tags = consts.WebCreditsTags[:]
+	case enums.WEBCLASS_TITLE:
+		tags = consts.WebTitleTags[:]
+	default:
+		return
+	}
+
+	// Set up the HTML scraper for each tag
 	c.OnHTML("*", func(e *colly.HTMLElement) {
-		if result != "" {
+		if result == nil {
+			return
+		}
+		if *result != "" {
 			return
 		}
 
@@ -94,93 +144,33 @@ func ScrapeForMetadata(targetURL string, cookies []*http.Cookie, tag enums.WebCl
 					continue
 				}
 
-				result = text
+				*result = text
 				logging.PrintI("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
-					result, classAttr, idAttr, targetURL)
+					result, classAttr, idAttr, url)
 				return
 			}
 		}
 	})
-
-	// Nested search if rudimentary tag search fails
-	if selector != nil {
-		resultChan = tryNestedScrape(c, selector)
-	}
-
-	// Visit with retries
-	maxRetries := 3
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		if err := c.Visit(targetURL); err != nil {
-			return "", err
-		}
-		c.Wait() // Wait for async requests to complete
-
-		// Check for nested scrape result
-		if resultChan != nil {
-			select {
-			case result = <-resultChan:
-				if result != "" {
-					return result, nil
-				}
-			default:
-			}
-		}
-
-		// Got result from regular scraping
-		if result != "" {
-			logging.PrintD(2, "Successfully scraped metadata '%s' for URL '%s'", result, targetURL)
-			return result, nil
-		}
-
-		if attempt < maxRetries-1 {
-			time.Sleep(time.Second * time.Duration(attempt+1))
-			logging.PrintD(1, "Retry attempt %d for URL '%s'", attempt+1, targetURL)
-		}
-	}
-
-	if scrapeError != nil {
-		return "", scrapeError
-	}
-
-	return "", fmt.Errorf("%v not found in the content for URL (%s)", tag, targetURL)
 }
 
-// tryNestedScrape attempts to find content in nested elements
-func tryNestedScrape(c *colly.Collector, selector map[string]string) chan string {
-	resultChan := make(chan string, 1)
-
-	if selector != nil {
-		fmt.Println()
-		logging.PrintD(2, "Have selectors: %v", selector)
-
-		for outer, inner := range selector {
-			c.OnHTML(outer, func(e *colly.HTMLElement) {
-				if strings.Contains(outer, "script") {
-					// Handle JSON content
-					var schema struct {
-						Author struct {
-							Name string `json:"name"`
-						} `json:"author"`
-					}
-					if err := json.Unmarshal([]byte(e.Text), &schema); err == nil {
-						resultChan <- schema.Author.Name
-						logging.PrintI("Found JSON content: '%s'", schema.Author.Name)
-					}
-				} else {
-					// Handle DOM elements
-					e.ForEach("."+inner, func(_ int, inner *colly.HTMLElement) {
-						if title := inner.Attr("title"); title != "" {
-							resultChan <- strings.TrimSpace(title)
-						} else {
-							resultChan <- strings.TrimSpace(inner.Text)
-						}
-						logging.PrintI("Found content: '%s'", inner.Text)
-					})
-				}
-			})
+// jsonExtractor helps extract values from nested JSON structures
+func jsonExtractor(data []byte, path []string) (string, error) {
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return "", err
+	}
+	current := result
+	for _, key := range path[:len(path)-1] {
+		if next, ok := current[key].(map[string]interface{}); ok {
+			current = next
+		} else {
+			return "", fmt.Errorf("invalid JSON path at %s", key)
 		}
 	}
-	return resultChan
+	if val, ok := current[path[len(path)-1]].(string); ok {
+		return val, nil
+	}
+	return "", fmt.Errorf("value at path is not a string")
 }
 
 // looksLikeDate validates if the text appears to be a date
