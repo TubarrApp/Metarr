@@ -54,7 +54,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 }
 
 // addTags handles the tagging of the video files where necessary
-func addTags(renamedVideo, renamedMeta string, m *models.FileData) (string, string) {
+func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (string, string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
@@ -64,6 +64,11 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData) (string, stri
 	if len(m.FilenameDateTag) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedVideo)
 		renamedMeta = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedMeta)
+	}
+
+	if style == enums.RENAMING_UNDERSCORES {
+		strings.ReplaceAll(renamedVideo, " ", "_")
+		strings.ReplaceAll(renamedMeta, " ", "_")
 	}
 
 	return renamedVideo, renamedMeta

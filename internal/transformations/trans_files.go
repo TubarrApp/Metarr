@@ -47,7 +47,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		}
 
 		// Add the metatag to the front of the filenames
-		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd)
+		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd, style)
 
 		// Trim trailing spaces
 		renamedVideo = strings.TrimSpace(renamedVideo)
