@@ -91,7 +91,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
+func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, wd *models.MetadataWebData) (bool, error) {
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
@@ -99,25 +99,25 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
 
 	var (
 		edited, ok bool
-		pfx        []models.MetaReplacePrefix
-		sfx        []models.MetaReplaceSuffix
-		new        []models.MetaNewField
+		pfx        []*models.MetaReplacePrefix
+		sfx        []*models.MetaReplaceSuffix
+		new        []*models.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]models.MetaReplacePrefix)
+		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
 		if !ok {
 			return false, fmt.Errorf("invalid prefix configuration")
 		}
 	}
 	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
+		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
 			return false, fmt.Errorf("invalid suffix configuration")
 		}
 	}
 	if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]models.MetaNewField)
+		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
 		if !ok {
 			return false, fmt.Errorf("invalid new field configuration")
 		}
@@ -234,7 +234,7 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 
 // replaceMetaSuffix applies suffix replacement to the fields in the xml data
 func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]models.MetaReplaceSuffix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", sfx)
 	}
@@ -280,7 +280,7 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
 
 // replaceMetaPrefix applies Prefix replacement to the fields in the xml data
 func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]models.MetaReplacePrefix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
 	}
@@ -326,7 +326,7 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
 
 // addNewField can insert a new field which does not yet exist into the metadata file
 func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
-	new, ok := config.Get(keys.MNewField).([]models.MetaNewField)
+	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
 	}

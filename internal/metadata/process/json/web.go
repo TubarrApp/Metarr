@@ -8,7 +8,7 @@ import (
 )
 
 // Grabs details necessary to scrape the web for missing metafields
-func fillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
+func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 	var isFilled bool
 

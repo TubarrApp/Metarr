@@ -1,18 +1,28 @@
 package transformations
 
 import (
-	"Metarr/internal/config"
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/models"
+	presets "Metarr/internal/transformations/presets"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
 )
+
+func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
+
+	for _, url := range urls {
+		switch {
+		case strings.Contains(url, "censored.tv"):
+			presets.CensoredTvTransformations(fd)
+			found = true
+		}
+	}
+	return found
+}
 
 // getMetafileData retrieves meta type specific data
 func getMetafileData(m *models.FileData) (string, string, string) {
@@ -111,40 +121,27 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 }
 
 // replaceSuffix applies configured suffix replacements to a filename
-func replaceSuffix(filename string) string {
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
-	if !ok || suffixes == nil {
+func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
+
+	logging.PrintD(2, "Received filename %q", filename)
+
+	if suffixes == nil {
 		logging.PrintD(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	ext := getCompoundExtension(filename)
-	baseName := strings.TrimSuffix(filename, ext)
-
 	logging.PrintD(2, "Processing filename %q with suffixes: %v", filename, suffixes)
 
+	var result string
 	for _, suffix := range suffixes {
-		if strings.HasSuffix(baseName, suffix.Suffix) {
-			baseName = strings.TrimSuffix(baseName, suffix.Suffix) + suffix.Replacement
+		logging.PrintD(1, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
+
+		if strings.HasSuffix(filename, suffix.Suffix) {
+			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
 			logging.PrintD(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
 		}
 	}
 
-	result := baseName + ext
 	logging.PrintD(2, "Suffix replacement complete: %q -> %q", filename, result)
 	return result
-}
-
-// getCompoundExtension returns compound extensions like .info.json or regular extension
-func getCompoundExtension(filename string) string {
-	switch {
-	case strings.HasSuffix(filename, ".info.json"):
-		return ".info.json"
-	case strings.HasSuffix(filename, ".metadata.json"):
-		return ".metadata.json"
-	case strings.HasSuffix(filename, ".model.json"):
-		return ".model.json"
-	default:
-		return filepath.Ext(filename)
-	}
 }

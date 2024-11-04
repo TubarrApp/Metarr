@@ -124,7 +124,7 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 }
 
 // setupPresetScraping applies specific scraping rules for known sites
-func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]models.SelectorRule, result *string, url string) {
+func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]*models.SelectorRule, result *string, url string) {
 	if result == nil {
 		return
 	}

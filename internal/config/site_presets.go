@@ -27,32 +27,32 @@ func AutoPreset(url string) {
 func censoredTvPreset() {
 
 	var (
-		metaReplaceSuffix []models.MetaReplaceSuffix
-		sfx               models.MetaReplaceSuffix
+		metaReplaceSuffix []*models.MetaReplaceSuffix
+		sfx               *models.MetaReplaceSuffix
 	)
 
-	sfx = models.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "title",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = models.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "fulltitle",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = models.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "id",
 		Suffix:      "-1",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = models.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "display_id",
 		Suffix:      "-1",
 		Replacement: "",
@@ -61,9 +61,9 @@ func censoredTvPreset() {
 
 	Set(keys.MReplaceSfx, metaReplaceSuffix)
 
-	var filenameReplaceSuffix []models.FilenameReplaceSuffix
+	var filenameReplaceSuffix []*models.FilenameReplaceSuffix
 
-	trimEnd := models.FilenameReplaceSuffix{
+	trimEnd := &models.FilenameReplaceSuffix{
 		Suffix:      "_1",
 		Replacement: "",
 	}

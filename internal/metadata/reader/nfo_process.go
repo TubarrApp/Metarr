@@ -39,7 +39,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 		fd.NFOData = data
 	}
 
-	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file)
+	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd.MWebData)
 	if err != nil {
 		logging.PrintE(0, "Encountered issue making meta edits: %v", err)
 	}

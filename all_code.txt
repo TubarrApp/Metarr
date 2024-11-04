@@ -397,16 +397,16 @@ func verifyInputFiletypes() {
 func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
-		viper.Set(keys.GPUEnum, enums.NVIDIA)
+		viper.Set(keys.GPUEnum, enums.GPU_NVIDIA)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
 	case "amd":
-		viper.Set(keys.GPUEnum, enums.AMD)
+		viper.Set(keys.GPUEnum, enums.GPU_AMD)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
 	case "intel":
-		viper.Set(keys.GPUEnum, enums.INTEL)
+		viper.Set(keys.GPUEnum, enums.GPU_INTEL)
 		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
 	default:
-		viper.Set(keys.GPUEnum, enums.NO_HW_ACCEL)
+		viper.Set(keys.GPUEnum, enums.GPU_NO_HW_ACCEL)
 	}
 }
 
@@ -489,7 +489,7 @@ package config
 
 import (
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	"strings"
 )
 
@@ -514,32 +514,32 @@ func AutoPreset(url string) {
 func censoredTvPreset() {
 
 	var (
-		metaReplaceSuffix []types.MetaReplaceSuffix
-		sfx               types.MetaReplaceSuffix
+		metaReplaceSuffix []*models.MetaReplaceSuffix
+		sfx               *models.MetaReplaceSuffix
 	)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "title",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "fulltitle",
 		Suffix:      " (1)",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "id",
 		Suffix:      "-1",
 		Replacement: "",
 	}
 	metaReplaceSuffix = append(metaReplaceSuffix, sfx)
 
-	sfx = types.MetaReplaceSuffix{
+	sfx = &models.MetaReplaceSuffix{
 		Field:       "display_id",
 		Suffix:      "-1",
 		Replacement: "",
@@ -548,9 +548,9 @@ func censoredTvPreset() {
 
 	Set(keys.MReplaceSfx, metaReplaceSuffix)
 
-	var filenameReplaceSuffix []types.FilenameReplaceSuffix
+	var filenameReplaceSuffix []*models.FilenameReplaceSuffix
 
-	trimEnd := types.FilenameReplaceSuffix{
+	trimEnd := &models.FilenameReplaceSuffix{
 		Suffix:      "_1",
 		Replacement: "",
 	}
@@ -562,7 +562,7 @@ package config
 import (
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"strings"
@@ -606,14 +606,14 @@ func initTextReplace() error {
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
 func validateFilenameSuffixReplace() error {
-	filenameReplaceSuffix := make([]types.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
+	filenameReplaceSuffix := make([]*models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
 		if len(parts) < 2 {
 			return fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
 		}
-		filenameReplaceSuffix = append(filenameReplaceSuffix, types.FilenameReplaceSuffix{
+		filenameReplaceSuffix = append(filenameReplaceSuffix, &models.FilenameReplaceSuffix{
 			Suffix:      parts[0],
 			Replacement: parts[1],
 		})
@@ -627,14 +627,14 @@ func validateFilenameSuffixReplace() error {
 
 // validateMetaPrefixes checks if the input format for meta prefix alterations is valid
 func validateMetaPrefixes() error {
-	metaReplacePrefix := make([]types.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
+	metaReplacePrefix := make([]*models.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
 
 	for _, tuple := range metaReplacePrefixInput {
 		parts := strings.SplitN(tuple, ":", 3)
 		if len(parts) < 3 {
 			return fmt.Errorf("invalid use of meta-replace-prefix, values must be written as (metatag:fieldprefix:replacement)")
 		}
-		metaReplacePrefix = append(metaReplacePrefix, types.MetaReplacePrefix{
+		metaReplacePrefix = append(metaReplacePrefix, &models.MetaReplacePrefix{
 			Field:       parts[0],
 			Prefix:      parts[1],
 			Replacement: parts[2],
@@ -649,14 +649,14 @@ func validateMetaPrefixes() error {
 
 // validateMetaSuffixes checks if the input format for meta suffix alterations is valid
 func validateMetaSuffixes() error {
-	metaReplaceSuffix := make([]types.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
+	metaReplaceSuffix := make([]*models.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
 
 	for _, tuple := range metaReplaceSuffixInput {
 		parts := strings.SplitN(tuple, ":", 3)
 		if len(parts) < 3 {
 			return fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:fieldsuffix:replacement)")
 		}
-		metaReplaceSuffix = append(metaReplaceSuffix, types.MetaReplaceSuffix{
+		metaReplaceSuffix = append(metaReplaceSuffix, &models.MetaReplaceSuffix{
 			Field:       parts[0],
 			Suffix:      parts[1],
 			Replacement: parts[2],
@@ -671,7 +671,7 @@ func validateMetaSuffixes() error {
 
 // validateNewMetafields checks if the input format for metatag and field additions is valid
 func validateNewMetafields() error {
-	metaNewField := make([]types.MetaNewField, 0, len(metaNewFieldInput))
+	metaNewField := make([]*models.MetaNewField, 0, len(metaNewFieldInput))
 
 	for _, value := range metaNewFieldInput {
 		parts := strings.SplitN(value, ":", 2)
@@ -679,7 +679,7 @@ func validateNewMetafields() error {
 			return fmt.Errorf("invalid use of metadata addition, values must be written as (metatag:field)")
 		}
 		// Append each parsed field-value pair to the metaNewField array
-		metaNewField = append(metaNewField, types.MetaNewField{
+		metaNewField = append(metaNewField, &models.MetaNewField{
 			Field: parts[0],
 			Value: parts[1],
 		})
@@ -699,15 +699,15 @@ func setRenameFlag() {
 
 	switch argRenameFlag {
 	case "spaces", "space":
-		renameFlag = enums.SPACES
+		renameFlag = enums.RENAMING_SPACES
 		logging.Print("Rename style selected: %v", argRenameFlag)
 
 	case "underscores", "underscore":
-		renameFlag = enums.UNDERSCORES
+		renameFlag = enums.RENAMING_UNDERSCORES
 		logging.Print("Rename style selected: %v", argRenameFlag)
 	default:
 		logging.PrintD(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
-		renameFlag = enums.SKIP
+		renameFlag = enums.RENAMING_SKIP
 	}
 	Set(keys.Rename, renameFlag)
 }
@@ -1113,19 +1113,19 @@ const (
 type SysGPU int
 
 const (
-	NVIDIA SysGPU = iota
-	AMD
-	INTEL
-	NO_HW_ACCEL
+	GPU_NVIDIA SysGPU = iota
+	GPU_AMD
+	GPU_INTEL
+	GPU_NO_HW_ACCEL
 )
 
 // Naming syle
 type ReplaceToStyle int
 
 const (
-	SPACES ReplaceToStyle = iota
-	UNDERSCORES
-	SKIP
+	RENAMING_SPACES ReplaceToStyle = iota
+	RENAMING_UNDERSCORES
+	RENAMING_SKIP
 )
 
 // Date formats
@@ -1263,7 +1263,7 @@ var MultiEntryFields = []string{
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"strconv"
@@ -1400,7 +1400,7 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 }
 
 // FormatAllDates formats timestamps into a hyphenated form
-func FormatAllDates(fd *types.FileData) string {
+func FormatAllDates(fd *models.FileData) string {
 
 	var (
 		result string
@@ -1451,46 +1451,15 @@ func FormatAllDates(fd *types.FileData) string {
 package metadata
 
 import (
+	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 )
 
-// scrapeMeta gets cookies for a given URL and returns a grabbed string
-func ScrapeMeta(w *types.MetadataWebData, find enums.WebClassTags) string {
-
-	var (
-		err  error
-		data string
-	)
-
-	w.Cookies, err = browser.GetBrowserCookies(w.WebpageURL)
-	if err != nil {
-		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
-	}
-	for _, try := range w.TryURLs {
-		data, err = browser.ScrapeForMetadata(try, w.Cookies, find)
-		if err != nil {
-			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
-		} else {
-			break
-		}
-	}
-	return data
-}
-package metadata
-
-import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
-	logging "Metarr/internal/utils/logging"
-)
-
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
-func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	c := fd.MCredits
 	w := fd.MWebData
@@ -1549,7 +1518,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 		return data, false
 	}
 
-	credits := helpers.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
+	credits := browser.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
 	if credits != "" {
 		for _, value := range fieldMap {
 			if *value == "" {
@@ -1572,7 +1541,7 @@ func fillCredits(fd *types.FileData, data map[string]interface{}) (map[string]in
 }
 
 // fillEmptyCredits attempts to fill empty fields by inference
-func fillEmptyCredits(c *types.MetadataCredits) string {
+func fillEmptyCredits(c *models.MetadataCredits) string {
 
 	// Order by importance
 	switch {
@@ -1624,14 +1593,15 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 	"strings"
 )
 
 // fillTimestamps grabs timestamp metadata from JSON
-func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 	var (
 		err             error
 		gotRelevantDate bool
@@ -1718,7 +1688,7 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 		return data, false
 	}
 
-	scrapedDate := helpers.ScrapeMeta(w, enums.WEBCLASS_DATE)
+	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
 	logging.PrintD(1, "Scraped date: %s", scrapedDate)
 
 	logging.PrintD(3, "Passed web scrape attempt for date.")
@@ -1776,7 +1746,7 @@ func fillTimestamps(fd *types.FileData, data map[string]interface{}) (map[string
 }
 
 // fillEmptyTimestamps attempts to infer missing timestamps
-func fillEmptyTimestamps(t *types.MetadataDates) bool {
+func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	gotRelevantDate := false
 
@@ -1908,14 +1878,14 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	"strings"
 )
 
 // fillDescriptions grabs description data from JSON
-func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	d := fd.MTitleDesc
 	w := fd.MWebData
@@ -1994,7 +1964,7 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 		return data, false
 	}
 
-	description := helpers.ScrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
+	description := browser.ScrapeMeta(w, enums.WEBCLASS_DESCRIPTION)
 
 	// Infer remaining fields from description
 	if description != "" {
@@ -2018,7 +1988,7 @@ func fillDescriptions(fd *types.FileData, data map[string]interface{}) (map[stri
 }
 
 // fillEmptyDescriptions fills empty description fields by inference
-func fillEmptyDescriptions(want *string, d *types.MetadataTitlesDescs) bool {
+func fillEmptyDescriptions(want *string, d *models.MetadataTitlesDescs) bool {
 
 	filled := false
 	if want == nil {
@@ -2057,13 +2027,13 @@ func fillEmptyDescriptions(want *string, d *types.MetadataTitlesDescs) bool {
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
 
 // Primary function to fill out meta fields before writing
-func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	var (
 		ok   bool
@@ -2071,7 +2041,7 @@ func FillMetaFields(fd *types.FileData, data map[string]interface{}) (map[string
 	)
 	allFilled := true
 
-	if !fillWebpageDetails(fd, data) {
+	if !FillWebpageDetails(fd, data) {
 		logging.PrintI("No URL metadata found")
 		allFilled = false
 	}
@@ -2136,13 +2106,13 @@ package metadata
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	print "Metarr/internal/utils/print"
 )
 
 // fillTitles grabs the fulltitle ("title")
-func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
+func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 
 	t := fd.MTitleDesc
 	w := fd.MWebData
@@ -2170,7 +2140,7 @@ func fillTitles(fd *types.FileData, data map[string]interface{}) bool {
 		t.Title = t.FallbackTitle
 	}
 	if t.Title == "" {
-		title := helpers.ScrapeMeta(w, enums.WEBCLASS_TITLE)
+		title := browser.ScrapeMeta(w, enums.WEBCLASS_TITLE)
 		if title != "" {
 			t.Title = title
 		}
@@ -2183,13 +2153,13 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
 
 // Grabs details necessary to scrape the web for missing metafields
-func fillWebpageDetails(fd *types.FileData, data map[string]interface{}) bool {
+func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 	var isFilled bool
 
@@ -2271,12 +2241,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
-func fillNFOCredits(fd *types.FileData) bool {
+func fillNFOCredits(fd *models.FileData) bool {
 
 	c := fd.MCredits
 	n := fd.NFOData
@@ -2345,7 +2315,7 @@ func fillSingleCredits(entries []string, target *string) {
 	*target = out
 }
 
-func unpackCredits(fd *types.FileData, creditsData map[string]interface{}) bool {
+func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool {
 	c := fd.MCredits
 	filled := false
 
@@ -2405,12 +2375,13 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	browser "Metarr/internal/utils/browser"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 )
 
-func fillNFOTimestamps(fd *types.FileData) bool {
+func fillNFOTimestamps(fd *models.FileData) bool {
 
 	t := fd.MDates
 	w := fd.MWebData
@@ -2486,7 +2457,7 @@ func fillNFOTimestamps(fd *types.FileData) bool {
 		return false
 	}
 
-	scrapedDate := helpers.ScrapeMeta(w, enums.WEBCLASS_DATE)
+	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
 	logging.PrintD(1, "Scraped date: %s", scrapedDate)
 
 	logging.PrintD(3, "Passed web scrape attempt for date.")
@@ -2541,12 +2512,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	print "Metarr/internal/utils/print"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
-func fillNFODescriptions(fd *types.FileData) bool {
+func fillNFODescriptions(fd *models.FileData) bool {
 
 	d := fd.MTitleDesc
 	n := fd.NFOData
@@ -2619,7 +2590,7 @@ func fillNFODescriptions(fd *types.FileData) bool {
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	print "Metarr/internal/utils/print"
 	"strings"
@@ -2627,7 +2598,7 @@ import (
 
 // FillNFO is the primary entrypoint for filling NFO metadata
 // from an open file's read content
-func FillNFO(fd *types.FileData) bool {
+func FillNFO(fd *models.FileData) bool {
 
 	var filled bool
 
@@ -2740,7 +2711,7 @@ func nestedLoop(content string) map[string]interface{} {
 }
 
 // unpackNFO unpacks an NFO map back to the model
-func unpackNFO(fd *types.FileData, data map[string]interface{}, fieldMap map[string]*string) {
+func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[string]*string) {
 	logging.PrintD(3, "Unpacking NFO map...")
 
 	// Access the top-level "movie" key
@@ -2785,12 +2756,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 )
 
 // fillNFOTitles attempts to fill in title info from NFO
-func fillNFOTitles(fd *types.FileData) bool {
+func fillNFOTitles(fd *models.FileData) bool {
 
 	t := fd.MTitleDesc
 	n := fd.NFOData
@@ -2833,7 +2804,7 @@ func fillNFOTitles(fd *types.FileData) bool {
 }
 
 // unpackTitle unpacks common nested title elements to the model
-func unpackTitle(fd *types.FileData, titleData map[string]interface{}) bool {
+func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
 	t := fd.MTitleDesc
 	filled := false
 
@@ -2861,12 +2832,12 @@ package metadata
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	print "Metarr/internal/utils/print"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
-func fillNFOWebData(fd *types.FileData) bool {
+func fillNFOWebData(fd *models.FileData) bool {
 
 	w := fd.MWebData
 	nw := fd.NFOData.WebpageInfo
@@ -2897,7 +2868,8 @@ import (
 	process "Metarr/internal/metadata/process/json"
 	tags "Metarr/internal/metadata/tags"
 	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	"Metarr/internal/transformations"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -2909,7 +2881,7 @@ var (
 )
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
-func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
+func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
@@ -2943,8 +2915,13 @@ func ProcessJSONFile(fd *types.FileData) (*types.FileData, error) {
 
 	logging.PrintD(3, "%v", data)
 
+	process.FillWebpageDetails(fd, data)
+	logging.PrintI("URLs grabbed: %s", fd.MWebData.TryURLs)
+
+	transformations.TryTransPresets(fd.MWebData.TryURLs)
+
 	// Make metadata adjustments per user selection
-	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file)
+	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, fd.MWebData)
 	if err != nil {
 		return nil, err
 	}
@@ -2987,14 +2964,14 @@ package metadata
 import (
 	nfo "Metarr/internal/metadata/process/nfo"
 	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
 )
 
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
-func ProcessNFOFiles(fd *types.FileData) (*types.FileData, error) {
+func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
@@ -3023,7 +3000,7 @@ func ProcessNFOFiles(fd *types.FileData) (*types.FileData, error) {
 		fd.NFOData = data
 	}
 
-	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file)
+	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd.MWebData)
 	if err != nil {
 		logging.PrintE(0, "Encountered issue making meta edits: %v", err)
 	}
@@ -3384,7 +3361,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	backup "Metarr/internal/utils/fs/backup"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
@@ -3409,7 +3386,7 @@ type CommandBuilder struct {
 }
 
 // NewCommandBuilder creates a new FFmpeg command builder
-func NewCommandBuilder(m *types.FileData, outputFile string) *CommandBuilder {
+func NewCommandBuilder(m *models.FileData, outputFile string) *CommandBuilder {
 	return &CommandBuilder{
 		inputFile:   m.OriginalVideoPath,
 		outputFile:  outputFile,
@@ -3418,7 +3395,7 @@ func NewCommandBuilder(m *types.FileData, outputFile string) *CommandBuilder {
 }
 
 // buildCommand constructs the complete FFmpeg command
-func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
+func buildCommand(m *models.FileData, outputFile string) ([]string, error) {
 
 	builder := NewCommandBuilder(m, outputFile)
 
@@ -3431,7 +3408,7 @@ func buildCommand(m *types.FileData, outputFile string) ([]string, error) {
 }
 
 // WriteMetadata writes metadata to a single video file
-func WriteMetadata(m *types.FileData) error {
+func WriteMetadata(m *models.FileData) error {
 
 	var tempOutputFilePath string
 
@@ -3547,18 +3524,18 @@ func (b *CommandBuilder) setGPUAcceleration() {
 	gpuFlag, ok := config.Get(keys.GPUEnum).(enums.SysGPU)
 	if ok {
 		switch gpuFlag {
-		case enums.NVIDIA:
+		case enums.GPU_NVIDIA:
 			b.gpuAccel = consts.NvidiaAccel[:]
-		case enums.AMD:
+		case enums.GPU_AMD:
 			b.gpuAccel = consts.AMDAccel[:]
-		case enums.INTEL:
+		case enums.GPU_INTEL:
 			b.gpuAccel = consts.IntelAccel[:]
 		}
 	}
 }
 
 // addAllMetadata combines all metadata into a single map
-func (b *CommandBuilder) addAllMetadata(m *types.FileData) {
+func (b *CommandBuilder) addAllMetadata(m *models.FileData) {
 
 	b.addTitlesDescs(m.MTitleDesc)
 	b.addCredits(m.MCredits)
@@ -3666,12 +3643,12 @@ func fieldFormatter(value string) string {
 package metadata
 
 import (
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	"strings"
 )
 
 // addCredits adds all credit-related metadata
-func (b *CommandBuilder) addTitlesDescs(t *types.MetadataTitlesDescs) {
+func (b *CommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
 	if t.Title == "" && t.FallbackTitle != "" {
 		t.Title = t.FallbackTitle
@@ -3697,7 +3674,7 @@ func (b *CommandBuilder) addTitlesDescs(t *types.MetadataTitlesDescs) {
 }
 
 // addCredits adds all credit-related metadata
-func (b *CommandBuilder) addCredits(c *types.MetadataCredits) {
+func (b *CommandBuilder) addCredits(c *models.MetadataCredits) {
 
 	// Single value credits
 	fields := map[string]string{
@@ -3733,7 +3710,7 @@ func (b *CommandBuilder) addCredits(c *types.MetadataCredits) {
 }
 
 // addCredits adds all date-related metadata
-func (b *CommandBuilder) addDates(d *types.MetadataDates) {
+func (b *CommandBuilder) addDates(d *models.MetadataDates) {
 
 	fields := map[string]string{
 		"creation_time":           d.Creation_Time,
@@ -3752,7 +3729,7 @@ func (b *CommandBuilder) addDates(d *types.MetadataDates) {
 }
 
 // addShowInfo adds all show info related metadata
-func (b *CommandBuilder) addShowInfo(s *types.MetadataShowData) {
+func (b *CommandBuilder) addShowInfo(s *models.MetadataShowData) {
 
 	fields := map[string]string{
 		"episode_id":    s.Episode_ID,
@@ -3770,7 +3747,7 @@ func (b *CommandBuilder) addShowInfo(s *types.MetadataShowData) {
 }
 
 // addOtherMetadata adds other related metadata
-func (b *CommandBuilder) addOtherMetadata(o *types.MetadataOtherData) {
+func (b *CommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
 
 	fields := map[string]string{
 		"genre":    o.Genre,
@@ -3805,7 +3782,7 @@ package metadata
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	backup "Metarr/internal/utils/fs/backup"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
@@ -3944,29 +3921,29 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File) (bool, error) {
+func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, wd *models.MetadataWebData) (bool, error) {
 
 	var (
 		edited, ok bool
-		pfx        []types.MetaReplacePrefix
-		sfx        []types.MetaReplaceSuffix
-		new        []types.MetaNewField
+		pfx        []*models.MetaReplacePrefix
+		sfx        []*models.MetaReplaceSuffix
+		new        []*models.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 		}
 	}
 	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
 		}
 	}
 	if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]types.MetaNewField)
+		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
 		}
@@ -4063,9 +4040,9 @@ func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 // replaceMetaSuffix applies suffix replacement to the fields in the JSON data
 func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, error) {
 
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
+		logging.PrintE(0, "Could not retrieve suffixes in private meta replace function, wrong type: '%T'", sfx)
 	}
 
 	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", data)
@@ -4103,7 +4080,7 @@ func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, erro
 // replaceMetaPrefix applies prefix replacement to the fields in the JSON data
 func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, error) {
 
-	pfx, ok := config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+	pfx, ok := config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 	}
@@ -4136,9 +4113,9 @@ func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, erro
 // addNewField can insert a new field which does not yet exist into the metadata file
 func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error) {
 
-	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
+	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
 	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", new)
+		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
 	}
 	metaOW := config.GetBool(keys.MOverwrite)
 	metaPS := config.GetBool(keys.MPreserve)
@@ -4237,7 +4214,7 @@ package metadata
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	prompt "Metarr/internal/utils/prompt"
 	"bufio"
@@ -4252,7 +4229,7 @@ import (
 
 type NFOFileRW struct {
 	mu    sync.RWMutex
-	Model *types.NFOData
+	Model *models.NFOData
 	Meta  string
 	File  *os.File
 }
@@ -4266,7 +4243,7 @@ func NewNFOFileRW(file *os.File) *NFOFileRW {
 }
 
 // DecodeMetadata decodes XML from a file into a map, stores, and returns it
-func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
+func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
@@ -4291,7 +4268,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 
 	// Single decode for the model
 	decoder := xml.NewDecoder(file)
-	var input *types.NFOData
+	var input *models.NFOData
 	if err := decoder.Decode(&input); err != nil {
 		return nil, fmt.Errorf("failed to decode XML: %w", err)
 	}
@@ -4303,7 +4280,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*types.NFOData, error) {
 }
 
 // RefreshMetadata reloads the metadata map from the file after updates
-func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
+func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 
 	rw.mu.RLock()
 	defer rw.mu.RUnlock()
@@ -4325,7 +4302,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*types.NFOData, error) {
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
+func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, wd *models.MetadataWebData) (bool, error) {
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
@@ -4333,25 +4310,25 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File) (bool, error) {
 
 	var (
 		edited, ok bool
-		pfx        []types.MetaReplacePrefix
-		sfx        []types.MetaReplaceSuffix
-		new        []types.MetaNewField
+		pfx        []*models.MetaReplacePrefix
+		sfx        []*models.MetaReplaceSuffix
+		new        []*models.MetaNewField
 	)
 
 	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]types.MetaReplacePrefix)
+		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
 		if !ok {
 			return false, fmt.Errorf("invalid prefix configuration")
 		}
 	}
 	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
 			return false, fmt.Errorf("invalid suffix configuration")
 		}
 	}
 	if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]types.MetaNewField)
+		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
 		if !ok {
 			return false, fmt.Errorf("invalid new field configuration")
 		}
@@ -4468,7 +4445,7 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 
 // replaceMetaSuffix applies suffix replacement to the fields in the xml data
 func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplaceSuffix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", sfx)
 	}
@@ -4514,7 +4491,7 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
 
 // replaceMetaPrefix applies Prefix replacement to the fields in the xml data
 func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]types.MetaReplacePrefix)
+	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplacePrefix)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
 	}
@@ -4560,7 +4537,7 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
 
 // addNewField can insert a new field which does not yet exist into the metadata file
 func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
-	new, ok := config.Get(keys.MNewField).([]types.MetaNewField)
+	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
 	}
@@ -4736,6 +4713,260 @@ func (rw *NFOFileRW) flattenField(s string) string {
 
 	return rtn
 }
+package models
+
+import (
+	enums "Metarr/internal/domain/enums"
+	"os"
+)
+
+func NewFileData() *FileData {
+	return &FileData{
+		MTitleDesc: &MetadataTitlesDescs{},
+		MCredits:   &MetadataCredits{},
+		MDates:     &MetadataDates{},
+		MShowData:  &MetadataShowData{},
+		MWebData:   &MetadataWebData{},
+		MOther:     &MetadataOtherData{},
+	}
+}
+
+type FileData struct {
+	VideoDirectory        string   `json:"-" xml:"-"`
+	OriginalVideoPath     string   `json:"-" xml:"-"`
+	OriginalVideoBaseName string   `json:"-" xml:"-"`
+	TempOutputFilePath    string   `json:"-" xml:"-"`
+	FinalVideoPath        string   `json:"-" xml:"-"`
+	FinalVideoBaseName    string   `json:"-" xml:"-"`
+	FilenameMetaPrefix    string   `json:"-" xml:"-"`
+	FilenameDateTag       string   `json:"-" xml:"-"`
+	RenamedVideoPath      string   `json:"-"`
+	RenamedMetaPath       string   `json:"-"`
+	VideoFile             *os.File `json:"-" xml:"-"`
+	// JSON paths
+	JSONDirectory string `json:"-" xml:"-"`
+	JSONFilePath  string `json:"-" xml:"-"`
+	JSONBaseName  string `json:"-" xml:"-"`
+	// NFO paths
+	NFOBaseName  string `json:"-" xml:"-"`
+	NFODirectory string `json:"-" xml:"-"`
+	NFOFilePath  string `json:"-" xml:"-"`
+	// Meta type
+	MetaFileType enums.MetaFiletypeFound `json:"-" xml:"-"`
+	// Metadata
+	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
+	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
+	MDates     *MetadataDates       `json:"meta_dates" xml:"dates"`
+	MShowData  *MetadataShowData    `json:"meta_show_data" xml:"show"`
+	MWebData   *MetadataWebData     `json:"meta_web_data" xml:"web"`
+	MOther     *MetadataOtherData   `json:"meta_other_data" xml:"other"`
+
+	JSONFileRW JSONFileRW
+	NFOFileRW  NFOFileRW
+	NFOData    *NFOData
+}
+package models
+
+import "os"
+
+// Metadata read/write interface
+type JSONFileRW interface {
+	DecodeMetadata(file *os.File) (map[string]interface{}, error)
+	RefreshMetadata() (map[string]interface{}, error)
+	WriteMetadata(fieldMap map[string]*string) (map[string]interface{}, error)
+	MakeMetaEdits(data map[string]interface{}, file *os.File, wd *MetadataWebData) (bool, error)
+}
+
+// Metadata read/write interface
+type NFOFileRW interface {
+	DecodeMetadata(file *os.File) (*NFOData, error)
+	RefreshMetadata() (*NFOData, error)
+	MakeMetaEdits(data string, file *os.File, wd *MetadataWebData) (bool, error)
+}
+package models
+
+import (
+	enums "Metarr/internal/domain/enums"
+	"net/http"
+)
+
+func NewMetaReplaceSuffix(f, s, r string) *MetaReplaceSuffix {
+	return &MetaReplaceSuffix{
+		Field:       f,
+		Suffix:      s,
+		Replacement: r,
+	}
+}
+
+type MetaReplaceSuffix struct {
+	Field       string
+	Suffix      string
+	Replacement string
+}
+
+type MetaReplacePrefix struct {
+	Field       string
+	Prefix      string
+	Replacement string
+}
+
+type MetaNewField struct {
+	Field string
+	Value string
+}
+
+type FilenameDatePrefix struct {
+	YearLength  int
+	MonthLength int
+	DayLength   int
+	Order       enums.FilenameDateFormat
+}
+
+func NewFilenameReplaceSuffix(s, r string) *FilenameReplaceSuffix {
+	return &FilenameReplaceSuffix{
+		Suffix:      s,
+		Replacement: r,
+	}
+}
+
+type FilenameReplaceSuffix struct {
+	Suffix      string
+	Replacement string
+}
+
+type MetadataCredits struct {
+	Actor      string `json:"actor" xml:"actor"`
+	Actors     []string
+	Author     string `json:"author" xml:"author"`
+	Artist     string `json:"artist" xml:"artist"`
+	Artists    []string
+	Channel    string `json:"channel" xml:"channel"`
+	Creator    string `json:"creator" xml:"creator"`
+	Studio     string `json:"studio" xml:"studio"`
+	Studios    []string
+	Publisher  string `json:"publisher" xml:"publisher"`
+	Publishers []string
+	Producer   string `json:"producer" xml:"producer"`
+	Producers  []string
+	Performer  string `json:"performer" xml:"performer"`
+	Performers []string
+	Uploader   string `json:"uploader" xml:"uploader"`
+	Composer   string `json:"composer" xml:"composer"`
+	Composers  []string
+	Director   string `json:"director" xml:"director"`
+	Directors  []string
+	Writer     string `json:"writer" xml:"writer"`
+	Writers    []string
+}
+
+type MetadataTitlesDescs struct {
+	Title            string `json:"fulltitle" xml:"title"`
+	FallbackTitle    string `json:"title" xml:"originaltitle"`
+	Subtitle         string `json:"subtitle" xml:"subtitle"`
+	Description      string `json:"description" xml:"description"`
+	LongDescription  string `json:"longdescription" xml:"plot"`
+	Long_Description string `json:"long_description" xml:"long_description"`
+	Synopsis         string `json:"synopsis" xml:"synopsis"`
+	Summary          string `json:"summary" xml:"summary"`
+	Comment          string `json:"comment" xml:"comment"`
+}
+
+type MetadataDates struct {
+	FormattedDate           string `json:"-" xml:"-"`
+	UploadDate              string `json:"upload_date" xml:"upload_date"`
+	ReleaseDate             string `json:"release_date" xml:"release_date"`
+	Date                    string `json:"date" xml:"date"`
+	Year                    string `json:"year" xml:"year"`
+	Originally_Available_At string `json:"originally_available_at" xml:"originally_available_at"`
+	Creation_Time           string `json:"creation_time" xml:"creation_time"`
+	StringDate              string `json:"-"`
+}
+
+type MetadataWebData struct {
+	WebpageURL string         `json:"webpage_url" xml:"webpage_url"`
+	VideoURL   string         `json:"url" xml:"url"`
+	Domain     string         `json:"webpage_url_domain" xml:"domain"`
+	Referer    string         `json:"referer" xml:"referer"`
+	Cookies    []*http.Cookie `json:"-" xml:"-"`
+	TryURLs    []string       `json:"-"`
+}
+
+type MetadataShowData struct {
+	Show          string `json:"show" xml:"show"`
+	Episode_ID    string `json:"episode_id" xml:"episode_id"`
+	Episode_Sort  string `json:"episode_sort" xml:"episode_sort"`
+	Season_Number string `json:"season_number" xml:"season_number"`
+	Season_Title  string `json:"season_title" xml:"seasontitle"`
+}
+
+type MetadataOtherData struct {
+	Language string `json:"language" xml:"language"`
+	Genre    string `json:"genre" xml:"genre"`
+	HD_Video string `json:"hd_video" xml:"hd_video"`
+}
+package models
+
+import "encoding/xml"
+
+// NFOData represents the complete NFO file structure
+type NFOData struct {
+	XMLName     xml.Name    `xml:"movie"`
+	Title       Title       `xml:"title"`
+	Plot        string      `xml:"plot"`
+	Description string      `xml:"description"`
+	Actors      []Person    `xml:"cast>actor"`
+	Directors   []string    `xml:"director"`
+	Producers   []string    `xml:"producer"`
+	Publishers  []string    `xml:"publisher"`
+	Writers     []string    `xml:"writer"`
+	Studios     []string    `xml:"studio"`
+	Year        string      `xml:"year"`
+	Premiered   string      `xml:"premiered"`
+	ReleaseDate string      `xml:"releasedate"`
+	ShowInfo    ShowInfo    `xml:"showinfo"`
+	WebpageInfo WebpageInfo `xml:"web"`
+}
+
+// Title represents nested title information
+type Title struct {
+	Main      string `xml:"main"`
+	Original  string `xml:"original"`
+	Sort      string `xml:"sort"`
+	Sub       string `xml:"sub"`
+	PlainText string `xml:",chardata"` // For non-nested titles
+}
+
+// Person represents a credited person with optional role
+type Person struct {
+	Name  string `xml:"name"`
+	Role  string `xml:"role"`
+	Order int    `xml:"order"`
+	Thumb string `xml:"thumb"`
+}
+
+// ShowInfo represents TV show specific information
+type ShowInfo struct {
+	Show         string `xml:"show"`
+	SeasonNumber string `xml:"season>number"`
+	EpisodeID    string `xml:"episode>number"`
+	EpisodeTitle string `xml:"episode>title"`
+}
+
+// ShowInfo represents TV show specific information
+type WebpageInfo struct {
+	URL    string `xml:"url"`
+	Fanart string `xml:"fanart"`
+	Thumb  string `xml:"thumb"`
+}
+package models
+
+// SelectorRule holds rules for specific websites for use in scrapers
+type SelectorRule struct {
+	Selector string
+	Attr     string // empty for text content, otherwise attribute name
+	Process  func(string) string
+	JsonPath []string
+}
 package processing
 
 import (
@@ -4744,8 +4975,8 @@ import (
 	keys "Metarr/internal/domain/keys"
 	reader "Metarr/internal/metadata/reader"
 	writer "Metarr/internal/metadata/writer"
+	"Metarr/internal/models"
 	"Metarr/internal/transformations"
-	"Metarr/internal/types"
 	fsRead "Metarr/internal/utils/fs/read"
 	logging "Metarr/internal/utils/logging"
 	"context"
@@ -4761,7 +4992,7 @@ var (
 	processedMetaFiles,
 	processedVideoFiles int32
 
-	processedDataArray []*types.FileData
+	processedDataArray []*models.FileData
 )
 
 // processFiles is the main program function to process folder entries
@@ -4772,7 +5003,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	var (
 		videoMap,
 		metaMap,
-		matchedFiles map[string]*types.FileData
+		matchedFiles map[string]*models.FileData
 
 		err error
 	)
@@ -4828,7 +5059,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	for _, fileData := range matchedFiles {
 
 		var (
-			processedData *types.FileData
+			processedData *models.FileData
 			err           error
 		)
 
@@ -4913,9 +5144,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 }
 
 // processFile handles processing for both video and metadata files
-func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *types.FileData) {
+func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *models.FileData) {
 	wg.Add(1)
-	go func(fileName string, fileData *types.FileData) {
+	go func(fileName string, fileData *models.FileData) {
 
 		defer wg.Done()
 
@@ -4978,7 +5209,7 @@ package processing
 import (
 	"Metarr/internal/config"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -5033,7 +5264,7 @@ func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
 }
 
 // cleanupTempFiles removes temporary files
-func cleanupTempFiles(files map[string]*types.FileData) error {
+func cleanupTempFiles(files map[string]*models.FileData) error {
 
 	var (
 		errReturn error
@@ -5073,10 +5304,98 @@ func metaChanges() bool {
 package transformations
 
 import (
+	config "Metarr/internal/config"
+	keys "Metarr/internal/domain/keys"
+	"Metarr/internal/models"
+	logging "Metarr/internal/utils/logging"
+)
+
+// CensoredTvTransformations adds preset transformations to
+// files for censored.tv videos
+func CensoredTvTransformations() {
+
+	logging.PrintI("Making preset censored.tv meta replacements")
+
+	censoredTvMSuffixes()
+	censoredTvFSuffixes()
+}
+
+// censoredTvMSuffixes adds meta suffix replacements
+func censoredTvMSuffixes() {
+
+	var (
+		sfx []*models.MetaReplaceSuffix
+		ok  bool
+	)
+
+	flagSet := config.IsSet(keys.MReplaceSfx)
+
+	if !flagSet {
+		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
+		if !ok {
+			logging.PrintE(0, "Got type %T", sfx)
+		}
+	}
+
+	var new []*models.MetaReplaceSuffix
+	new = append(new, models.NewMetaReplaceSuffix("title", " (1)", ""))
+	new = append(new, models.NewMetaReplaceSuffix("fulltitle", " (1)", ""))
+	new = append(new, models.NewMetaReplaceSuffix("id", "-1", ""))
+	new = append(new, models.NewMetaReplaceSuffix("display_id", "-1", ""))
+
+	for _, newSuffix := range new {
+		exists := false
+		for _, existingSuffix := range sfx {
+			if existingSuffix.Field == newSuffix.Field {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			logging.PrintI("Adding new censored.tv meta suffix replacement: %v", newSuffix)
+			sfx = append(sfx, newSuffix)
+		}
+	}
+
+	config.Set(keys.MReplaceSfx, sfx)
+}
+
+// censoredTvFSuffixes adds filename suffix replacements
+func censoredTvFSuffixes() {
+
+	var (
+		sfx []*models.FilenameReplaceSuffix
+		ok  bool
+	)
+
+	flagSet := config.IsSet(keys.MReplaceSfx)
+
+	if !flagSet {
+		sfx, ok = config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+		if !ok {
+			logging.PrintE(0, "Wrong type sent in, got %T", sfx)
+		}
+	}
+
+	for _, existingSuffix := range sfx {
+		if existingSuffix.Suffix != "_1" &&
+			existingSuffix.Replacement != "" {
+
+			sfx = append(sfx, models.NewFilenameReplaceSuffix("_1", ""))
+			logging.PrintI("Set censored.tv filename suffix replacement.")
+			break
+		}
+	}
+
+	config.Set(keys.MReplaceSfx, sfx)
+}
+package transformations
+
+import (
 	"Metarr/internal/config"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	writefs "Metarr/internal/utils/fs/write"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
@@ -5085,7 +5404,7 @@ import (
 )
 
 // FileRename formats the file names
-func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
+func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
 
 	var vidExt string
 
@@ -5149,7 +5468,7 @@ func FileRename(dataArray []*types.FileData, style enums.ReplaceToStyle) error {
 func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
+	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
 		return videoBase
 	}
 
@@ -5159,7 +5478,7 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 		name = replaceSuffix(name)
 	}
 
-	if style != enums.SKIP {
+	if style != enums.RENAMING_SKIP {
 		name = applyNamingStyle(style, name)
 	}
 	return name
@@ -5169,7 +5488,7 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.SKIP {
+	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
 		return metaBase
 	}
 
@@ -5179,7 +5498,7 @@ func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 		name = replaceSuffix(name)
 	}
 
-	if style != enums.SKIP {
+	if style != enums.RENAMING_SKIP {
 		name = applyNamingStyle(style, name)
 	}
 	return name
@@ -5191,7 +5510,8 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
+	presets "Metarr/internal/transformations/presets"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"path/filepath"
@@ -5200,8 +5520,20 @@ import (
 	"unicode"
 )
 
+func TryTransPresets(urls []string) (found bool) {
+
+	for _, url := range urls {
+		switch {
+		case strings.Contains(url, "censored.tv"):
+			presets.CensoredTvTransformations()
+			found = true
+		}
+	}
+	return found
+}
+
 // getMetafileData retrieves meta type specific data
-func getMetafileData(m *types.FileData) (string, string, string) {
+func getMetafileData(m *models.FileData) (string, string, string) {
 
 	switch m.MetaFileType {
 	case enums.METAFILE_JSON:
@@ -5218,9 +5550,9 @@ func getMetafileData(m *types.FileData) (string, string, string) {
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
-	case enums.SPACES:
+	case enums.RENAMING_SPACES:
 		output = strings.ReplaceAll(input, "_", " ")
-	case enums.UNDERSCORES:
+	case enums.RENAMING_UNDERSCORES:
 		output = strings.ReplaceAll(input, " ", "_")
 	default:
 		logging.PrintI("Skipping space or underscore renaming conventions...")
@@ -5230,7 +5562,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 }
 
 // addTags handles the tagging of the video files where necessary
-func addTags(renamedVideo, renamedMeta string, m *types.FileData) (string, string) {
+func addTags(renamedVideo, renamedMeta string, m *models.FileData) (string, string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
@@ -5252,9 +5584,9 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 
 	// Rename style map to use
 	switch style {
-	case enums.SPACES:
+	case enums.RENAMING_SPACES:
 		contractionsMap = consts.ContractionsSpaced
-	case enums.UNDERSCORES:
+	case enums.RENAMING_UNDERSCORES:
 		contractionsMap = consts.ContractionsUnderscored
 	default:
 		// Skip or other unsupported parameter returns unchanged
@@ -5298,7 +5630,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 
 // replaceSuffix applies configured suffix replacements to a filename
 func replaceSuffix(filename string) string {
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]types.FilenameReplaceSuffix)
+	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 	if !ok || suffixes == nil {
 		logging.PrintD(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
@@ -5334,236 +5666,6 @@ func getCompoundExtension(filename string) string {
 		return filepath.Ext(filename)
 	}
 }
-package types
-
-import (
-	enums "Metarr/internal/domain/enums"
-	"os"
-)
-
-func NewFileData() *FileData {
-	return &FileData{
-		MTitleDesc: &MetadataTitlesDescs{},
-		MCredits:   &MetadataCredits{},
-		MDates:     &MetadataDates{},
-		MShowData:  &MetadataShowData{},
-		MWebData:   &MetadataWebData{},
-		MOther:     &MetadataOtherData{},
-	}
-}
-
-type FileData struct {
-	VideoDirectory        string   `json:"-" xml:"-"`
-	OriginalVideoPath     string   `json:"-" xml:"-"`
-	OriginalVideoBaseName string   `json:"-" xml:"-"`
-	TempOutputFilePath    string   `json:"-" xml:"-"`
-	FinalVideoPath        string   `json:"-" xml:"-"`
-	FinalVideoBaseName    string   `json:"-" xml:"-"`
-	FilenameMetaPrefix    string   `json:"-" xml:"-"`
-	FilenameDateTag       string   `json:"-" xml:"-"`
-	RenamedVideoPath      string   `json:"-"`
-	RenamedMetaPath       string   `json:"-"`
-	VideoFile             *os.File `json:"-" xml:"-"`
-	// JSON paths
-	JSONDirectory string `json:"-" xml:"-"`
-	JSONFilePath  string `json:"-" xml:"-"`
-	JSONBaseName  string `json:"-" xml:"-"`
-	// NFO paths
-	NFOBaseName  string `json:"-" xml:"-"`
-	NFODirectory string `json:"-" xml:"-"`
-	NFOFilePath  string `json:"-" xml:"-"`
-	// Meta type
-	MetaFileType enums.MetaFiletypeFound `json:"-" xml:"-"`
-	// Metadata
-	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
-	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
-	MDates     *MetadataDates       `json:"meta_dates" xml:"dates"`
-	MShowData  *MetadataShowData    `json:"meta_show_data" xml:"show"`
-	MWebData   *MetadataWebData     `json:"meta_web_data" xml:"web"`
-	MOther     *MetadataOtherData   `json:"meta_other_data" xml:"other"`
-
-	JSONFileRW JSONFileRW
-	NFOFileRW  NFOFileRW
-	NFOData    *NFOData
-}
-package types
-
-import "os"
-
-// Metadata read/write interface
-type JSONFileRW interface {
-	DecodeMetadata(file *os.File) (map[string]interface{}, error)
-	RefreshMetadata() (map[string]interface{}, error)
-	WriteMetadata(fieldMap map[string]*string) (map[string]interface{}, error)
-	MakeMetaEdits(data map[string]interface{}, file *os.File) (bool, error)
-}
-
-// Metadata read/write interface
-type NFOFileRW interface {
-	DecodeMetadata(file *os.File) (*NFOData, error)
-	RefreshMetadata() (*NFOData, error)
-	MakeMetaEdits(data string, file *os.File) (bool, error)
-}
-package types
-
-import (
-	enums "Metarr/internal/domain/enums"
-	"net/http"
-)
-
-type MetaReplaceSuffix struct {
-	Field       string
-	Suffix      string
-	Replacement string
-}
-
-type MetaReplacePrefix struct {
-	Field       string
-	Prefix      string
-	Replacement string
-}
-
-type MetaNewField struct {
-	Field string
-	Value string
-}
-
-type FilenameDatePrefix struct {
-	YearLength  int
-	MonthLength int
-	DayLength   int
-	Order       enums.FilenameDateFormat
-}
-
-type FilenameReplaceSuffix struct {
-	Suffix      string
-	Replacement string
-}
-
-type MetadataCredits struct {
-	Actor      string `json:"actor" xml:"actor"`
-	Actors     []string
-	Author     string `json:"author" xml:"author"`
-	Artist     string `json:"artist" xml:"artist"`
-	Artists    []string
-	Channel    string `json:"channel" xml:"channel"`
-	Creator    string `json:"creator" xml:"creator"`
-	Studio     string `json:"studio" xml:"studio"`
-	Studios    []string
-	Publisher  string `json:"publisher" xml:"publisher"`
-	Publishers []string
-	Producer   string `json:"producer" xml:"producer"`
-	Producers  []string
-	Performer  string `json:"performer" xml:"performer"`
-	Performers []string
-	Uploader   string `json:"uploader" xml:"uploader"`
-	Composer   string `json:"composer" xml:"composer"`
-	Composers  []string
-	Director   string `json:"director" xml:"director"`
-	Directors  []string
-	Writer     string `json:"writer" xml:"writer"`
-	Writers    []string
-}
-
-type MetadataTitlesDescs struct {
-	Title            string `json:"fulltitle" xml:"title"`
-	FallbackTitle    string `json:"title" xml:"originaltitle"`
-	Subtitle         string `json:"subtitle" xml:"subtitle"`
-	Description      string `json:"description" xml:"description"`
-	LongDescription  string `json:"longdescription" xml:"plot"`
-	Long_Description string `json:"long_description" xml:"long_description"`
-	Synopsis         string `json:"synopsis" xml:"synopsis"`
-	Summary          string `json:"summary" xml:"summary"`
-	Comment          string `json:"comment" xml:"comment"`
-}
-
-type MetadataDates struct {
-	FormattedDate           string `json:"-" xml:"-"`
-	UploadDate              string `json:"upload_date" xml:"upload_date"`
-	ReleaseDate             string `json:"release_date" xml:"release_date"`
-	Date                    string `json:"date" xml:"date"`
-	Year                    string `json:"year" xml:"year"`
-	Originally_Available_At string `json:"originally_available_at" xml:"originally_available_at"`
-	Creation_Time           string `json:"creation_time" xml:"creation_time"`
-	StringDate              string `json:"-"`
-}
-
-type MetadataWebData struct {
-	WebpageURL string         `json:"webpage_url" xml:"webpage_url"`
-	VideoURL   string         `json:"url" xml:"url"`
-	Domain     string         `json:"webpage_url_domain" xml:"domain"`
-	Referer    string         `json:"referer" xml:"referer"`
-	Cookies    []*http.Cookie `json:"-" xml:"-"`
-	TryURLs    []string       `json:"-"`
-}
-
-type MetadataShowData struct {
-	Show          string `json:"show" xml:"show"`
-	Episode_ID    string `json:"episode_id" xml:"episode_id"`
-	Episode_Sort  string `json:"episode_sort" xml:"episode_sort"`
-	Season_Number string `json:"season_number" xml:"season_number"`
-	Season_Title  string `json:"season_title" xml:"seasontitle"`
-}
-
-type MetadataOtherData struct {
-	Language string `json:"language" xml:"language"`
-	Genre    string `json:"genre" xml:"genre"`
-	HD_Video string `json:"hd_video" xml:"hd_video"`
-}
-package types
-
-import "encoding/xml"
-
-// NFOData represents the complete NFO file structure
-type NFOData struct {
-	XMLName     xml.Name    `xml:"movie"`
-	Title       Title       `xml:"title"`
-	Plot        string      `xml:"plot"`
-	Description string      `xml:"description"`
-	Actors      []Person    `xml:"cast>actor"`
-	Directors   []string    `xml:"director"`
-	Producers   []string    `xml:"producer"`
-	Publishers  []string    `xml:"publisher"`
-	Writers     []string    `xml:"writer"`
-	Studios     []string    `xml:"studio"`
-	Year        string      `xml:"year"`
-	Premiered   string      `xml:"premiered"`
-	ReleaseDate string      `xml:"releasedate"`
-	ShowInfo    ShowInfo    `xml:"showinfo"`
-	WebpageInfo WebpageInfo `xml:"web"`
-}
-
-// Title represents nested title information
-type Title struct {
-	Main      string `xml:"main"`
-	Original  string `xml:"original"`
-	Sort      string `xml:"sort"`
-	Sub       string `xml:"sub"`
-	PlainText string `xml:",chardata"` // For non-nested titles
-}
-
-// Person represents a credited person with optional role
-type Person struct {
-	Name  string `xml:"name"`
-	Role  string `xml:"role"`
-	Order int    `xml:"order"`
-	Thumb string `xml:"thumb"`
-}
-
-// ShowInfo represents TV show specific information
-type ShowInfo struct {
-	Show         string `xml:"show"`
-	SeasonNumber string `xml:"season>number"`
-	EpisodeID    string `xml:"episode>number"`
-	EpisodeTitle string `xml:"episode>title"`
-}
-
-// ShowInfo represents TV show specific information
-type WebpageInfo struct {
-	URL    string `xml:"url"`
-	Fanart string `xml:"fanart"`
-	Thumb  string `xml:"thumb"`
-}
 package utils
 
 import (
@@ -5577,9 +5679,19 @@ import (
 	_ "github.com/browserutils/kooky/browser/all"
 )
 
+var (
+	allStores  []kooky.CookieStore
+	allCookies []*http.Cookie
+)
+
+func initializeCookies() {
+	allStores = kooky.FindAllCookieStores()
+	allCookies = []*http.Cookie{}
+}
+
 // GetBrowserCookies checks user browsers for cookies corresponding to
 // a given URL
-func GetBrowserCookies(url string) ([]*http.Cookie, error) {
+func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	baseURL, err := extractBaseDomain(url)
 	if err != nil {
@@ -5587,8 +5699,10 @@ func GetBrowserCookies(url string) ([]*http.Cookie, error) {
 	}
 
 	// Find all cookie stores
-	allStores := kooky.FindAllCookieStores()
-	allCookies := []*http.Cookie{}
+	if allStores == nil || allCookies == nil || len(allCookies) == 0 {
+		initializeCookies()
+	}
+
 	attemptedBrowsers := make(map[string]bool, len(allStores))
 
 	for _, store := range allStores {
@@ -5658,7 +5772,7 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	presetModels "Metarr/internal/utils/browser/presets/models"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"strconv"
 	"strings"
@@ -5666,7 +5780,7 @@ import (
 )
 
 // BitchuteComRules holds rules for scraping bitchute.com
-var BitchuteComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+var BitchuteComRules = map[enums.WebClassTags][]*models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 
 		{Selector: "q-item__label ellipsis text-subtitle1 ellipsis", Process: strings.TrimSpace},
@@ -5751,7 +5865,7 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	presetModels "Metarr/internal/utils/browser/presets/models"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"strings"
 
@@ -5759,7 +5873,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-var CensoredTvRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+var CensoredTvRules = map[enums.WebClassTags][]*models.SelectorRule{
 	enums.WEBCLASS_DATE: {
 		{Selector: ".main-episode-player-container p.text-muted.text-right.text-date.mb-0", Process: strings.TrimSpace},
 		{Selector: ".text-date", Process: strings.TrimSpace},
@@ -5804,23 +5918,14 @@ func CensoredTvChannelName(url string) string {
 }
 package utils
 
-// SelectorRule holds rules for specific websites for use in scrapers
-type SelectorRule struct {
-	Selector string
-	Attr     string // empty for text content, otherwise attribute name
-	Process  func(string) string
-	JsonPath []string
-}
-package utils
-
 import (
 	enums "Metarr/internal/domain/enums"
-	presetModels "Metarr/internal/utils/browser/presets/models"
+	"Metarr/internal/models"
 	"strings"
 )
 
 // OdyseeComRules holds rules for scraping odysee.com
-var OdyseeComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+var OdyseeComRules = map[enums.WebClassTags][]*models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 		{
 			Selector: "script[type='application/ld+json']",
@@ -5859,12 +5964,12 @@ package utils
 
 import (
 	enums "Metarr/internal/domain/enums"
-	presetModels "Metarr/internal/utils/browser/presets/models"
+	"Metarr/internal/models"
 	"strings"
 )
 
 // RumbleComRules holds rules for scraping rumble.com
-var RumbleComRules = map[enums.WebClassTags][]presetModels.SelectorRule{
+var RumbleComRules = map[enums.WebClassTags][]*models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 
 		{Selector: ".media-subscribe-and-notify", Attr: "data-title", Process: strings.TrimSpace},
@@ -5902,8 +6007,8 @@ package utils
 import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
+	"Metarr/internal/models"
 	presets "Metarr/internal/utils/browser/presets"
-	presetModels "Metarr/internal/utils/browser/presets/models"
 	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
@@ -5915,12 +6020,36 @@ import (
 	"github.com/gocolly/colly"
 )
 
-// ScrapeForMetadata searches relevant URLs to try and fill missing metadata
-func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTags) (string, error) {
-	// Define result and error variables
+// scrapeMeta gets cookies for a given URL and returns a grabbed string
+func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
+
+	var (
+		err  error
+		data string
+	)
+
+	w.Cookies, err = getBrowserCookies(w.WebpageURL)
+	if err != nil {
+		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+	}
+	for _, try := range w.TryURLs {
+		data, err = scrape(try, w.Cookies, find, false)
+		if err != nil {
+			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
+		} else {
+			break
+		}
+	}
+	return data
+}
+
+// scrape searches relevant URLs to try and fill missing metadata
+func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPresets bool) (string, error) {
+
 	var (
 		result      string
 		scrapeError error
+		custom      bool
 	)
 
 	// Initialize the collector
@@ -5937,31 +6066,35 @@ func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTag
 
 	// Define preset scraping rules if the URL matches a known pattern
 	switch {
-	case strings.Contains(url, "bitchute.com"):
+	case strings.Contains(url, "bitchute.com") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using bitchute.com preset scraper")
 		setupPresetScraping(c, tag, presets.BitchuteComRules, &result, url)
 
-	case strings.Contains(url, "censored.tv"):
+	case strings.Contains(url, "censored.tv") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using censored.tv preset scraper")
 		if tag == enums.WEBCLASS_CREDITS {
 			return presets.CensoredTvChannelName(url), nil
 		}
 		setupPresetScraping(c, tag, presets.CensoredTvRules, &result, url)
 
-	case strings.Contains(url, "rumble.com"):
+	case strings.Contains(url, "rumble.com") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using rumble.com preset scraper")
 		setupPresetScraping(c, tag, presets.RumbleComRules, &result, url)
 
-	case strings.Contains(url, "odysee.com"):
+	case strings.Contains(url, "odysee.com") && !skipPresets:
 
+		custom = true
 		logging.PrintI("Using odysee.com preset scraper")
 		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
 
 	default:
-		// Regular scraping using predefined tags for non-preset sites
+		logging.PrintI("Generic scrape attempt...")
 		setupGenericScraping(c, tag, &result, url)
 	}
 
@@ -5977,13 +6110,25 @@ func ScrapeForMetadata(url string, cookies []*http.Cookie, tag enums.WebClassTag
 	c.Wait()
 
 	if scrapeError != nil {
-		return "", scrapeError
+		switch result {
+		case "":
+			return "", scrapeError
+		default:
+			logging.PrintE(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
+			return result, nil
+		}
 	}
+
+	// If custom preset was used and failed, try again with default
+	if result == "" && custom {
+		return scrape(url, cookies, tag, true)
+	}
+
 	return result, nil
 }
 
 // setupPresetScraping applies specific scraping rules for known sites
-func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]presetModels.SelectorRule, result *string, url string) {
+func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]*models.SelectorRule, result *string, url string) {
 	if result == nil {
 		return
 	}
@@ -6187,7 +6332,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -6227,7 +6372,7 @@ func InitFetchFilesVars() error {
 }
 
 // GetVideoFiles fetches video files from a directory
-func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
+func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
 	if err != nil {
 		return nil, fmt.Errorf("error reading video directory: %w", err)
@@ -6235,7 +6380,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 
 	logging.Print("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
 
-	videoFiles := make(map[string]*types.FileData, len(files))
+	videoFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
 		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
@@ -6247,7 +6392,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 			}
 			filenameBase := filepath.Base(file.Name())
 
-			m := types.NewFileData()
+			m := models.NewFileData()
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
 			m.OriginalVideoBaseName = strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
 			m.VideoDirectory = videoDir.Name()
@@ -6268,13 +6413,13 @@ func GetVideoFiles(videoDir *os.File) (map[string]*types.FileData, error) {
 }
 
 // GetMetadataFiles fetches metadata files from a directory
-func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
+func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	files, err := metaDir.ReadDir(-1)
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata directory: %w", err)
 	}
 
-	metaFiles := make(map[string]*types.FileData, len(files))
+	metaFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
 		if !file.IsDir() {
@@ -6305,7 +6450,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 			filenameBase := filepath.Base(file.Name())
 			baseName := strings.TrimSuffix(filenameBase, ext)
 
-			m := types.NewFileData()
+			m := models.NewFileData()
 			filePath := filepath.Join(metaDir.Name(), file.Name())
 
 			switch ext {
@@ -6341,11 +6486,11 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*types.FileData, error) {
 }
 
 // GetSingleVideoFile handles a single video file
-func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) {
-	videoMap := make(map[string]*types.FileData, 1)
+func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error) {
+	videoMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(videoFile.Name())
 
-	videoData := types.NewFileData()
+	videoData := models.NewFileData()
 	videoData.OriginalVideoPath = videoFile.Name()
 	videoData.OriginalVideoBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
@@ -6358,11 +6503,11 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*types.FileData, error) 
 }
 
 // GetSingleMetadataFile handles a single metadata file
-func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error) {
-	metaMap := make(map[string]*types.FileData, 1)
+func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, error) {
+	metaMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(metaFile.Name())
 
-	fileData := types.NewFileData()
+	fileData := models.NewFileData()
 	ext := filepath.Ext(metaFile.Name())
 
 	switch ext {
@@ -6389,16 +6534,16 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*types.FileData, error
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
-func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*types.FileData) (map[string]*types.FileData, error) {
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
 	logging.PrintD(3, "Entering metadata and video file matching loop...")
 
-	matchedFiles := make(map[string]*types.FileData, len(videoFiles))
+	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 
 	specialChars := regexp.MustCompile(`[^\w\s-]`)
 	extraSpaces := regexp.MustCompile(`\s+`)
 
 	// Pre-process metaFiles into a lookup map
-	metaLookup := make(map[string]*types.FileData, len(metaFiles))
+	metaLookup := make(map[string]*models.FileData, len(metaFiles))
 	for metaName, metaData := range metaFiles {
 		baseKey := NormalizeFilename(TrimMetafileSuffixes(metaName, ""), specialChars, extraSpaces)
 		metaLookup[baseKey] = metaData
@@ -7119,7 +7264,7 @@ package print
 
 import (
 	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/types"
+	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"reflect"
@@ -7145,7 +7290,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	output += consts.ColorYellow + "\nFile Information:\n" + consts.ColorReset
 	output += printStructFields(model)
 
-	if m, ok := model.(*types.FileData); ok {
+	if m, ok := model.(*models.FileData); ok {
 		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
 		output += printStructFields(m.MCredits)
 
@@ -7163,7 +7308,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 
 		output += consts.ColorYellow + "\nOther data:\n" + consts.ColorReset
 		output += printStructFields(m.MOther)
-	} else if n, ok := model.(*types.NFOData); ok {
+	} else if n, ok := model.(*models.NFOData); ok {
 		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
 		for _, actor := range n.Actors {
 			output += printStructFields(actor.Name)

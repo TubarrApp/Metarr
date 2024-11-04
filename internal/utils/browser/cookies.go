@@ -11,6 +11,16 @@ import (
 	_ "github.com/browserutils/kooky/browser/all"
 )
 
+var (
+	allStores  []kooky.CookieStore
+	allCookies []*http.Cookie
+)
+
+func initializeCookies() {
+	allStores = kooky.FindAllCookieStores()
+	allCookies = []*http.Cookie{}
+}
+
 // GetBrowserCookies checks user browsers for cookies corresponding to
 // a given URL
 func getBrowserCookies(url string) ([]*http.Cookie, error) {
@@ -21,8 +31,10 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 	}
 
 	// Find all cookie stores
-	allStores := kooky.FindAllCookieStores()
-	allCookies := []*http.Cookie{}
+	if allStores == nil || allCookies == nil || len(allCookies) == 0 {
+		initializeCookies()
+	}
+
 	attemptedBrowsers := make(map[string]bool, len(allStores))
 
 	for _, store := range allStores {

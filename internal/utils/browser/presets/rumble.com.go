@@ -7,7 +7,7 @@ import (
 )
 
 // RumbleComRules holds rules for scraping rumble.com
-var RumbleComRules = map[enums.WebClassTags][]models.SelectorRule{
+var RumbleComRules = map[enums.WebClassTags][]*models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 
 		{Selector: ".media-subscribe-and-notify", Attr: "data-title", Process: strings.TrimSpace},

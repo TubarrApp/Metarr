@@ -15,7 +15,7 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 	)
 	allFilled := true
 
-	if !fillWebpageDetails(fd, data) {
+	if !FillWebpageDetails(fd, data) {
 		logging.PrintI("No URL metadata found")
 		allFilled = false
 	}

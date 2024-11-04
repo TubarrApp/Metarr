@@ -9,6 +9,7 @@ import (
 	tags "Metarr/internal/metadata/tags"
 	writer "Metarr/internal/metadata/writer"
 	"Metarr/internal/models"
+	"Metarr/internal/transformations"
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
@@ -21,6 +22,7 @@ var (
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
 func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
+
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
@@ -32,6 +34,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	defer mu.Unlock()
 
 	filePath := fd.JSONFilePath
+	w := fd.MWebData
 
 	// Open the file
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
@@ -54,8 +57,15 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 
 	logging.PrintD(3, "%v", data)
 
+	process.FillWebpageDetails(fd, data)
+	logging.PrintI("URLs grabbed: %s", w.TryURLs)
+
+	if len(w.TryURLs) > 0 {
+		transformations.TryTransPresets(w.TryURLs, fd)
+	}
+
 	// Make metadata adjustments per user selection
-	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file)
+	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, w)
 	if err != nil {
 		return nil, err
 	}

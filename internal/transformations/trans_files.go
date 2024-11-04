@@ -33,8 +33,12 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		if !skipVideos {
 			renamedVideo = renameVideo(videoBase, style)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
+
+			logging.PrintD(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
 		} else {
 			renamedMeta = renameMeta(metaBase, style)
+
+			logging.PrintD(2, "Renamed metafile to %s", renamedMeta)
 		}
 
 		var err error
@@ -77,14 +81,20 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
+	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if !ok {
+		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+		return videoBase
+	}
+
+	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
 		return videoBase
 	}
 
 	// Transformations
 	name := videoBase
-	if config.IsSet(keys.FilenameReplaceSfx) {
-		name = replaceSuffix(name)
+	if len(suffixes) > 0 {
+		name = replaceSuffix(name, suffixes)
 	}
 
 	if style != enums.RENAMING_SKIP {
@@ -97,14 +107,20 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) && style == enums.RENAMING_SKIP {
+	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if !ok {
+		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+		return metaBase
+	}
+
+	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
 		return metaBase
 	}
 
 	// Transformations
 	name := metaBase
-	if config.IsSet(keys.FilenameReplaceSfx) {
-		name = replaceSuffix(name)
+	if len(suffixes) > 0 {
+		name = replaceSuffix(name, suffixes)
 	}
 
 	if style != enums.RENAMING_SKIP {
