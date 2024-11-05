@@ -170,7 +170,7 @@ func initDateReplaceFormat() error {
 	// Trim whitespace for more robust validation
 	dateFmt = strings.TrimSpace(dateFmt)
 
-	if dateFmt == "" {
+	if dateFmt == "" || len(dateFmt) == 0 {
 		formatEnum = enums.FILEDATE_SKIP
 	} else if len(dateFmt) != 3 {
 		return fmt.Errorf("invalid date format entered, please enter three characters (where 'Y' is yyyy and 'y' is yy)")
@@ -192,8 +192,6 @@ func initDateReplaceFormat() error {
 			formatEnum = enums.FILEDATE_MM_DD_YYYY
 		case "mdy":
 			formatEnum = enums.FILEDATE_MM_DD_YY
-		case "":
-			formatEnum = enums.FILEDATE_SKIP
 		default:
 			return fmt.Errorf("invalid date format entered, please enter three characters (where capital Y is yyyy and y is yy)")
 		}

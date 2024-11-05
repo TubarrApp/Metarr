@@ -98,31 +98,35 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 			if repIdx == nil {
 				continue
 			}
+
+			var b strings.Builder
+			b.Grow(len(replacement.Replacement))
 			originalContraction := filename[repIdx[0]:repIdx[1]]
-			restoredReplacement := ""
 
 			// Match original case for each character in the replacement
 			for i, char := range replacement.Replacement {
 				if i < len(originalContraction) && unicode.IsUpper(rune(originalContraction[i])) {
-					restoredReplacement += strings.ToUpper(string(char))
+					b.WriteString(strings.ToUpper(string(char)))
 				} else {
-					restoredReplacement += string(char)
+					b.WriteString(string(char))
 				}
 			}
+
 			// Replace in filename with adjusted case
-			filename = filename[:repIdx[0]] + restoredReplacement + filename[repIdx[1]:]
+			filename = filename[:repIdx[0]] + b.String() + filename[repIdx[1]:]
+			b.Reset()
 		}
+
 		logging.PrintD(2, "Made contraction replacements for file '%s'", filename)
 		return filename
 	}
+
 	// Replace contractions in both filenames
-	videoFilename = replaceContractions(videoFilename)
 	videoFilename = strings.TrimSpace(videoFilename)
-
-	metaFilename = replaceContractions(metaFilename)
 	metaFilename = strings.TrimSpace(metaFilename)
-
-	return videoFilename, metaFilename, nil
+	return replaceContractions(videoFilename),
+		replaceContractions(metaFilename),
+		nil
 }
 
 // replaceSuffix applies configured suffix replacements to a filename.

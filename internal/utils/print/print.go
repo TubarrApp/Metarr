@@ -6,6 +6,7 @@ import (
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -17,74 +18,81 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
-	output := "\n\n================= " + consts.ColorCyan + "Printing metadata fields for:" + consts.ColorReset + " '" + consts.ColorReset + filename + "' =================\n"
+	var b strings.Builder
+	b.Grow(2048)
+
+	// Helper function to add sections
+	addSection := func(title string, content string) {
+		b.WriteString(consts.ColorYellow + "\n" + title + ":\n" + consts.ColorReset)
+		b.WriteString(content)
+	}
+
+	// Header
+	b.WriteString("\n\n================= ")
+	b.WriteString(consts.ColorCyan + "Printing metadata fields for: " + consts.ColorReset)
+	b.WriteString("'" + consts.ColorReset + filename + "'")
+	b.WriteString(" =================\n")
 
 	if taskName != "" {
 		str := fmt.Sprintf("'"+taskName+"'", args...)
-		output += "\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n"
+		b.WriteString("\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n")
 	}
 
 	// Add fields from the struct
-	output += consts.ColorYellow + "\nFile Information:\n" + consts.ColorReset
-	output += printStructFields(model)
+	addSection("File Information", printStructFields(model))
 
 	if m, ok := model.(*models.FileData); ok {
-		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
-		output += printStructFields(m.MCredits)
 
-		output += consts.ColorYellow + "\nTitles and descriptions:\n" + consts.ColorReset
-		output += printStructFields(m.MTitleDesc)
+		addSection("Credits", printStructFields(m.MCredits))
+		addSection("Titles and descriptions", printStructFields(m.MTitleDesc))
+		addSection("Dates and timestamps", printStructFields(m.MDates))
+		addSection("Webpage data", printStructFields(m.MWebData))
+		addSection("Show data", printStructFields(m.MShowData))
+		addSection("Other data", printStructFields(m.MOther))
 
-		output += consts.ColorYellow + "\nDates and timestamps:\n" + consts.ColorReset
-		output += printStructFields(m.MDates)
-
-		output += consts.ColorYellow + "\nWebpage data:\n" + consts.ColorReset
-		output += printStructFields(m.MWebData)
-
-		output += consts.ColorYellow + "\nShow data:\n" + consts.ColorReset
-		output += printStructFields(m.MShowData)
-
-		output += consts.ColorYellow + "\nOther data:\n" + consts.ColorReset
-		output += printStructFields(m.MOther)
 	} else if n, ok := model.(*models.NFOData); ok {
-		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
+		// Credits section
+		b.WriteString(consts.ColorYellow + "\nCredits:\n" + consts.ColorReset)
+
+		// Handle each slice type separately
 		for _, actor := range n.Actors {
-			output += printStructFields(actor.Name)
+			b.WriteString(printStructFields(actor.Name))
 		}
 		for _, director := range n.Directors {
-			output += printStructFields(director)
+			b.WriteString(printStructFields(director))
 		}
 		for _, producer := range n.Producers {
-			output += printStructFields(producer)
+			b.WriteString(printStructFields(producer))
 		}
 		for _, publisher := range n.Publishers {
-			output += printStructFields(publisher)
+			b.WriteString(printStructFields(publisher))
 		}
 		for _, studio := range n.Studios {
-			output += printStructFields(studio)
+			b.WriteString(printStructFields(studio))
 		}
 		for _, writer := range n.Writers {
-			output += printStructFields(writer)
+			b.WriteString(printStructFields(writer))
 		}
 
-		output += consts.ColorYellow + "\nTitles and descriptions:\n" + consts.ColorReset
-		output += printStructFields(n.Title)
-		output += printStructFields(n.Description)
-		output += printStructFields(n.Plot)
+		addSection("Titles and descriptions", printStructFields(n.Title)+
+			printStructFields(n.Description)+
+			printStructFields(n.Plot))
 
-		output += consts.ColorYellow + "\nWebpage data:\n" + consts.ColorReset
-		output += printStructFields(n.WebpageInfo)
+		addSection("Webpage data", printStructFields(n.WebpageInfo))
 
-		output += consts.ColorYellow + "\nShow data:\n" + consts.ColorReset
-		output += printStructFields(n.ShowInfo.Show)
-		output += printStructFields(n.ShowInfo.EpisodeID)
-		output += printStructFields(n.ShowInfo.EpisodeTitle)
-		output += printStructFields(n.ShowInfo.SeasonNumber)
+		addSection("Show data", printStructFields(n.ShowInfo.Show)+
+			printStructFields(n.ShowInfo.EpisodeID)+
+			printStructFields(n.ShowInfo.EpisodeTitle)+
+			printStructFields(n.ShowInfo.SeasonNumber))
 	}
 
-	output += "\n\n================= " + consts.ColorYellow + "End metadata fields for:" + consts.ColorReset + " '" + filename + "' =================\n\n"
+	// Footer
+	b.WriteString("\n\n================= ")
+	b.WriteString(consts.ColorYellow + "End metadata fields for: " + consts.ColorReset)
+	b.WriteString("'" + filename + "'")
+	b.WriteString(" =================\n\n")
 
-	logging.Print(output)
+	logging.Print(b.String())
 }
 
 // Function to print the fields of a struct using reflection
@@ -101,7 +109,9 @@ func printStructFields(s interface{}) string {
 	}
 
 	typ := val.Type()
-	output := ""
+
+	var b strings.Builder
+	b.Grow(val.NumField() * 1024)
 
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)      // Get field metadata
@@ -109,7 +119,7 @@ func printStructFields(s interface{}) string {
 
 		// Skip zero or empty fields
 		if fieldValue.IsZero() {
-			output += field.Name + consts.ColorRed + " [empty]\n" + consts.ColorReset
+			b.WriteString(field.Name + consts.ColorRed + " [empty]\n" + consts.ColorReset)
 			continue
 		}
 
@@ -117,10 +127,10 @@ func printStructFields(s interface{}) string {
 		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string
 
 		// Append the field name and value in key-value format
-		output += fmt.Sprintf("%s: %s\n", fieldName, fieldValueStr)
+		b.WriteString(fmt.Sprintf("%s: %s\n", fieldName, fieldValueStr))
 	}
 
-	return output
+	return b.String()
 }
 
 // Print out the fetched fields

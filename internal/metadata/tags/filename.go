@@ -5,7 +5,6 @@ import (
 	keys "Metarr/internal/domain/keys"
 	"Metarr/internal/domain/regex"
 	logging "Metarr/internal/utils/logging"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,25 +12,38 @@ import (
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-	logging.PrintD(3, "Entering makeFilenameTag with data@ %v", metadata)
+	logging.PrintD(3, "Entering makeFilenameTag with data %v", metadata)
 
-	tagArray := config.GetStringSlice(keys.MFilenamePfx)
-	tag := "["
+	tagFields := config.GetStringSlice(keys.MFilenamePfx)
+	if len(tagFields) == 0 {
+		return "[]"
+	}
 
-	for field, value := range metadata {
-		for i, data := range tagArray {
+	var b strings.Builder
+	b.Grow(len(metadata) + len("[2006-02-01]"))
+	b.WriteString("[")
 
-			if field == data {
-				tag += fmt.Sprintf(value.(string))
-				logging.PrintD(3, "Added metafield %v data %v to prefix tag (Tag so far: %s)", field, data, tag)
+	written := false
+	for _, field := range tagFields {
 
-				if i != len(tagArray)-1 {
-					tag += "_"
+		if value, exists := metadata[field]; exists {
+			if strVal, ok := value.(string); ok && strVal != "" {
+
+				if written {
+					b.WriteString("_")
 				}
+
+				b.WriteString(strVal)
+				written = true
+
+				logging.PrintD(3, "Added metafield %v to prefix tag (Tag so far: %s)", field, b.String())
 			}
 		}
 	}
-	tag += "]"
+
+	b.WriteString("]")
+
+	tag := b.String()
 	tag = strings.TrimSpace(tag)
 	tag = strings.ToValidUTF8(tag, "")
 

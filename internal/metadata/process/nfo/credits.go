@@ -4,6 +4,7 @@ import (
 	consts "Metarr/internal/domain/constants"
 	"Metarr/internal/models"
 	logging "Metarr/internal/utils/logging"
+	"strings"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
@@ -58,22 +59,24 @@ func fillNFOCredits(fd *models.FileData) bool {
 // filled arrays
 func fillSingleCredits(entries []string, target *string) {
 
-	if target == nil || *target != "" {
-		logging.PrintD(1, "Target string is nil or not empty, skipping...")
+	if target == nil {
+		logging.PrintD(1, "Target string is nil, skipping...")
+		return
 	}
 
-	var out string
+	if *target != "" {
+		logging.PrintD(1, "Target string is not empty, skipping...")
+		return
+	}
 
-	for i, entry := range entries {
+	filtered := make([]string, 0, len(entries))
+	for _, entry := range entries {
 		if entry != "" {
-			out += entry
-			if i != len(entries)-1 {
-				out += ", "
-			}
+			filtered = append(filtered, entry)
 		}
 	}
 
-	*target = out
+	*target = strings.Join(filtered, ", ")
 }
 
 func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool {

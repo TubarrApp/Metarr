@@ -2,7 +2,6 @@ package utils
 
 import (
 	"Metarr/internal/domain/regex"
-	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
@@ -40,7 +39,7 @@ func SetupLogging(targetDir string) error {
 
 // Write writes error information to the log file
 func Write(msg string, level int) {
-	// Do not add mutex, only called by callers which themselves use mutex
+	// Do not add mutex
 	if Loggable && level < 2 {
 		if !strings.HasPrefix(msg, "\n") {
 			msg += "\n"
@@ -52,17 +51,12 @@ func Write(msg string, level int) {
 // WriteArray writes an array of error information to the log file
 func WriteArray(msgs []string, args ...interface{}) {
 	if Loggable {
-		if len(msgs) != 0 {
-			var msg string
-			for i, entry := range msgs {
-				switch i {
-				case len(msgs) - 1:
-					msg += fmt.Sprintf(entry, args...)
-				default:
-					msg += fmt.Sprintf(entry+", ", args...)
-				}
-				Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
-			}
+
+		if ansiEscape == nil {
+			ansiEscape = regex.AnsiEscapeCompile()
 		}
+		out := strings.Join(msgs, ", ")
+
+		Logger.Print(ansiEscape.ReplaceAllString(out, ""))
 	}
 }
