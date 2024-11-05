@@ -35,6 +35,7 @@ type ReplaceToStyle int
 const (
 	RENAMING_SPACES ReplaceToStyle = iota
 	RENAMING_UNDERSCORES
+	RENAMING_FIXES_ONLY
 	RENAMING_SKIP
 )
 

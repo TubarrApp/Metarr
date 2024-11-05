@@ -11,6 +11,8 @@ import (
 	"unicode"
 )
 
+// TryTransPresets checks if any URLs in the video metadata have a known match.
+// Applies preset transformations for those which match.
 func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
 
 	for _, url := range urls {
@@ -23,7 +25,7 @@ func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
 	return found
 }
 
-// getMetafileData retrieves meta type specific data
+// getMetafileData retrieves meta type specific data.
 func getMetafileData(m *models.FileData) (string, string, string) {
 
 	switch m.MetaFileType {
@@ -37,7 +39,7 @@ func getMetafileData(m *models.FileData) (string, string, string) {
 	}
 }
 
-// Renaming conventions
+// applyNamingStyle applies renaming conventions.
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
@@ -52,7 +54,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 	return output
 }
 
-// addTags handles the tagging of the video files where necessary
+// addTags handles the tagging of the video files where necessary.
 func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (string, string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
@@ -73,7 +75,7 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 	return renamedVideo, renamedMeta
 }
 
-// fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag
+// fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
 func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (string, string, error) {
 
 	contractionsMap := make(map[string]*models.ContractionPattern)
@@ -83,8 +85,9 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 		contractionsMap = regex.ContractionMapSpacesCompile()
 	case enums.RENAMING_UNDERSCORES:
 		contractionsMap = regex.ContractionMapUnderscoresCompile()
+	case enums.RENAMING_FIXES_ONLY:
+		contractionsMap = regex.ContractionMapAllCompile()
 	default:
-		// Skip or other unsupported parameter returns unchanged
 		return videoFilename, metaFilename, nil
 	}
 
@@ -122,7 +125,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 	return videoFilename, metaFilename, nil
 }
 
-// replaceSuffix applies configured suffix replacements to a filename
+// replaceSuffix applies configured suffix replacements to a filename.
 func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
 
 	logging.PrintD(2, "Received filename %q", filename)

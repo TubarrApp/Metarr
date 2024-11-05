@@ -138,6 +138,9 @@ func setRenameFlag() {
 	var renameFlag enums.ReplaceToStyle
 	argRenameFlag := GetString(keys.RenameStyle)
 
+	// Trim whitespace for more robust validation
+	argRenameFlag = strings.TrimSpace(argRenameFlag)
+
 	switch argRenameFlag {
 	case "spaces", "space":
 		renameFlag = enums.RENAMING_SPACES
@@ -146,6 +149,11 @@ func setRenameFlag() {
 	case "underscores", "underscore":
 		renameFlag = enums.RENAMING_UNDERSCORES
 		logging.Print("Rename style selected: %v", argRenameFlag)
+
+	case "fixes-only", "fixesonly":
+		renameFlag = enums.RENAMING_FIXES_ONLY
+		logging.Print("Rename style selected: %v", argRenameFlag)
+
 	default:
 		logging.PrintD(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RENAMING_SKIP
@@ -158,6 +166,9 @@ func initDateReplaceFormat() error {
 
 	var formatEnum enums.FilenameDateFormat
 	dateFmt := GetString(keys.InputFileDatePfx)
+
+	// Trim whitespace for more robust validation
+	dateFmt = strings.TrimSpace(dateFmt)
 
 	if dateFmt == "" {
 		formatEnum = enums.FILEDATE_SKIP

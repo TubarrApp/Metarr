@@ -13,8 +13,41 @@ var (
 	SpecialChars              *regexp.Regexp
 	ContractionMapSpaced      map[string]*models.ContractionPattern
 	ContractionMapUnderscored map[string]*models.ContractionPattern
+	ContractionMapAll         map[string]*models.ContractionPattern
 )
 
+// ContractionMapAllCompile compiles the regex pattern for spaced AND underscored contractions and returns
+// a model containing the regex and the replacement
+func ContractionMapAllCompile() map[string]*models.ContractionPattern {
+	if ContractionMapAll == nil {
+		ContractionMapAll = make(map[string]*models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
+
+		// Spaced map
+		for contraction, replacement := range consts.ContractionsSpaced {
+
+			ContractionMapAll[contraction] = &models.ContractionPattern{
+				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+				Replacement: replacement,
+			}
+			ContractionMapAll[contraction].Replacement = replacement
+		}
+
+		// Underscored map
+		for contraction, replacement := range consts.ContractionsUnderscored {
+
+			ContractionMapAll[contraction] = &models.ContractionPattern{
+				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+				Replacement: replacement,
+			}
+			ContractionMapAll[contraction].Replacement = replacement
+		}
+	}
+
+	return ContractionMapAll
+}
+
+// ContractionMapSpacesCompile compiles the regex pattern for spaced contractions and returns
+// a model containing the regex and the replacement
 func ContractionMapSpacesCompile() map[string]*models.ContractionPattern {
 	if ContractionMapSpaced == nil {
 		ContractionMapSpaced = make(map[string]*models.ContractionPattern, len(consts.ContractionsSpaced))
@@ -31,6 +64,8 @@ func ContractionMapSpacesCompile() map[string]*models.ContractionPattern {
 	return ContractionMapSpaced
 }
 
+// ContractionMapUnderscoresCompile compiles the regex pattern for underscored contractions and returns
+// a model containing the regex and the replacement
 func ContractionMapUnderscoresCompile() map[string]*models.ContractionPattern {
 	if ContractionMapUnderscored == nil {
 		ContractionMapUnderscored = make(map[string]*models.ContractionPattern, len(consts.ContractionsUnderscored))
@@ -47,6 +82,7 @@ func ContractionMapUnderscoresCompile() map[string]*models.ContractionPattern {
 	return ContractionMapUnderscored
 }
 
+// AnsiEscapeCompile compiles regex for ANSI escape codes
 func AnsiEscapeCompile() *regexp.Regexp {
 	if AnsiEscape == nil {
 		AnsiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -54,6 +90,7 @@ func AnsiEscapeCompile() *regexp.Regexp {
 	return AnsiEscape
 }
 
+// ExtraSpacesCompile compiles regex for extra spaces
 func ExtraSpacesCompile() *regexp.Regexp {
 	if ExtraSpaces == nil {
 		ExtraSpaces = regexp.MustCompile(`\s+`)
@@ -61,6 +98,7 @@ func ExtraSpacesCompile() *regexp.Regexp {
 	return ExtraSpaces
 }
 
+// InvalidCharsCompile compiles regex for invalid characters
 func InvalidCharsCompile() *regexp.Regexp {
 	if InvalidChars == nil {
 		regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
@@ -68,6 +106,7 @@ func InvalidCharsCompile() *regexp.Regexp {
 	return InvalidChars
 }
 
+// SpecialCharsCompile compiles regex for special characters
 func SpecialCharsCompile() *regexp.Regexp {
 	if SpecialChars == nil {
 		SpecialChars = regexp.MustCompile(`[^\w\s-]`)

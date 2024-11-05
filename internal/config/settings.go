@@ -111,64 +111,71 @@ func execute() error {
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
 
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFile := strings.TrimSpace(viper.GetString(keys.VideoFile))
 	videoFileSet := viper.IsSet(keys.VideoFile)
+
+	videoDir := strings.TrimSpace(viper.GetString(keys.VideoDir))
 	videoDirSet := viper.IsSet(keys.VideoDir)
 
+	jsonFile := strings.TrimSpace(viper.GetString(keys.JsonFile))
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+
+	jsonDir := strings.TrimSpace(viper.GetString(keys.JsonDir))
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+
+	// Validate configuration
 	if jsonFileSet {
-		if _, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
-			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
+		if jsonDirSet {
+			return fmt.Errorf("cannot set both the JSON file and the JSON directory")
 		}
-		// Check if it's actually a directory
-		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonFile)); fileInfo.IsDir() {
-			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
-		}
-	}
-
-	if jsonDirSet {
-		if _, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
-			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
-		}
-		// Check if it's actually a file
-		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonDir)); !fileInfo.IsDir() {
-			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
+		if videoDirSet {
+			return fmt.Errorf("cannot set singular metadata file for whole video directory")
 		}
 	}
-
 	if videoFileSet {
-		if _, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
-			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
+		if videoDirSet {
+			return fmt.Errorf("cannot set singular video file AND video directory")
 		}
-		// Check if it's actually a directory
-		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoFile)); fileInfo.IsDir() {
-			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
-		}
-	}
-
-	if videoDirSet {
-		if _, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
-			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
-		}
-		// Check if it's actually a file
-		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoDir)); !fileInfo.IsDir() {
-			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
-		}
-	}
-
-	if jsonFileSet && jsonDirSet {
-		return fmt.Errorf("cannot set both the JSON file and the JSON directory")
-	}
-	if jsonFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular metadata file for whole video directory")
-	}
-	if videoFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular video file AND video directory")
-	}
-
-	if videoFileSet {
 		viper.Set(keys.SingleFile, true)
 	}
+
+	// Check files and dirs exist
+	if viper.IsSet(keys.JsonFile) {
+		if _, err := os.Stat(jsonFile); err != nil {
+			return fmt.Errorf("file '%s' does not exist", jsonFile)
+		}
+		if fileInfo, _ := os.Stat(jsonFile); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", jsonFile)
+		}
+	}
+
+	if viper.IsSet(keys.JsonDir) {
+		if _, err := os.Stat(jsonDir); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", jsonDir)
+		}
+		if fileInfo, _ := os.Stat(jsonDir); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", jsonDir)
+		}
+	}
+
+	if viper.IsSet(keys.VideoFile) {
+		if _, err := os.Stat(videoFile); err != nil {
+			return fmt.Errorf("file '%s' does not exist", videoFile)
+		}
+		if fileInfo, _ := os.Stat(videoFile); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", videoFile)
+		}
+	}
+
+	if viper.IsSet(keys.VideoDir) {
+		if _, err := os.Stat(videoDir); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", videoDir)
+		}
+		if fileInfo, _ := os.Stat(videoDir); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", videoDir)
+		}
+	}
+
 	return nil
 }
 
