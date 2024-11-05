@@ -42,10 +42,6 @@ type FileData struct {
 	NFODirectory string `json:"-" xml:"-"`
 	NFOFilePath  string `json:"-" xml:"-"`
 
-	// Misc
-	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`
-	MetaAlreadyExists bool                    `json:"-" xml:"-"`
-
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
 	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
@@ -58,4 +54,15 @@ type FileData struct {
 	// File writers
 	JSONFileRW JSONFileRW
 	NFOFileRW  NFOFileRW
+
+	// Own transformations
+	ModelMSfxReplace    []*MetaReplaceSuffix
+	ModelMPfxReplace    []*MetaReplacePrefix
+	ModelMNewField      []*MetaNewField
+	ModelFileSfxReplace []*FilenameReplaceSuffix
+
+	// Misc
+	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`
+	MetaAlreadyExists bool                    `json:"-" xml:"-"`
+	ModelMOverwrite   bool
 }

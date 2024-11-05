@@ -68,7 +68,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Make metadata adjustments per user selection
-	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, w)
+	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, fd)
 	if err != nil {
 		return nil, err
 	}

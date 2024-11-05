@@ -26,7 +26,7 @@ var (
 	processedDataArray []*models.FileData
 )
 
-// processFiles is the main program function to process folder entries
+// ProcessFiles is the main program function to process folder entries
 func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
 	skipVideos := config.GetBool(keys.SkipVideos)
@@ -52,6 +52,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			os.Exit(1)
 		}
 	}
+
 	// Process video files, checking if it’s a directory or a single file
 	if openVideo != nil {
 		fileInfo, _ := openVideo.Stat()

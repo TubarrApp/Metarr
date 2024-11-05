@@ -13,12 +13,12 @@ func CensoredTvTransformations(fd *models.FileData) {
 
 	logging.PrintI("Making preset censored.tv meta replacements")
 
-	censoredTvMSuffixes()
+	censoredTvMSuffixes(fd)
 	censoredTvFSuffixes(fd)
 }
 
 // censoredTvMSuffixes adds meta suffix replacements
-func censoredTvMSuffixes() {
+func censoredTvMSuffixes(fd *models.FileData) {
 
 	var (
 		sfx []*models.MetaReplaceSuffix
@@ -27,14 +27,14 @@ func censoredTvMSuffixes() {
 
 	flagSet := config.IsSet(keys.MReplaceSfx)
 
-	if !flagSet {
+	if flagSet {
 		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
 			logging.PrintE(2, "Got type %T, may be null", sfx)
 		}
 	}
 
-	var new []*models.MetaReplaceSuffix
+	var new = make([]*models.MetaReplaceSuffix, 0, 4)
 	new = append(new, models.NewMetaReplaceSuffix("title", " (1)", ""))
 	new = append(new, models.NewMetaReplaceSuffix("fulltitle", " (1)", ""))
 	new = append(new, models.NewMetaReplaceSuffix("id", "-1", ""))
@@ -53,8 +53,7 @@ func censoredTvMSuffixes() {
 			sfx = append(sfx, newSuffix)
 		}
 	}
-
-	config.Set(keys.MReplaceSfx, sfx)
+	fd.ModelMSfxReplace = sfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements
@@ -100,6 +99,6 @@ func censoredTvFSuffixes(fd *models.FileData) {
 		logging.PrintI("Added filename suffix replacement '%s'", vExt)
 	}
 
-	config.Set(keys.FilenameReplaceSfx, sfx)
+	fd.ModelFileSfxReplace = sfx
 	logging.PrintI("Total filename suffix replacements: %d", len(sfx))
 }

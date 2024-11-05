@@ -78,7 +78,7 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 	return errReturn
 }
 
-// metaChanges determines if metadatashould be processed
+// metaChanges determines if metadata should be processed
 func metaChanges() bool {
 	response := false
 	if config.IsSet(keys.MReplacePfx) {

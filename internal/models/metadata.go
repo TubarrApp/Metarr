@@ -50,27 +50,28 @@ type FilenameReplaceSuffix struct {
 }
 
 type MetadataCredits struct {
-	Actor      string `json:"actor" xml:"actor"`
+	Actor     string `json:"actor" xml:"actor"`
+	Author    string `json:"author" xml:"author"`
+	Artist    string `json:"artist" xml:"artist"`
+	Channel   string `json:"channel" xml:"channel"`
+	Creator   string `json:"creator" xml:"creator"`
+	Studio    string `json:"studio" xml:"studio"`
+	Publisher string `json:"publisher" xml:"publisher"`
+	Producer  string `json:"producer" xml:"producer"`
+	Performer string `json:"performer" xml:"performer"`
+	Uploader  string `json:"uploader" xml:"uploader"`
+	Composer  string `json:"composer" xml:"composer"`
+	Director  string `json:"director" xml:"director"`
+	Writer    string `json:"writer" xml:"writer"`
+
 	Actors     []string
-	Author     string `json:"author" xml:"author"`
-	Artist     string `json:"artist" xml:"artist"`
 	Artists    []string
-	Channel    string `json:"channel" xml:"channel"`
-	Creator    string `json:"creator" xml:"creator"`
-	Studio     string `json:"studio" xml:"studio"`
 	Studios    []string
-	Publisher  string `json:"publisher" xml:"publisher"`
 	Publishers []string
-	Producer   string `json:"producer" xml:"producer"`
 	Producers  []string
-	Performer  string `json:"performer" xml:"performer"`
 	Performers []string
-	Uploader   string `json:"uploader" xml:"uploader"`
-	Composer   string `json:"composer" xml:"composer"`
 	Composers  []string
-	Director   string `json:"director" xml:"director"`
 	Directors  []string
-	Writer     string `json:"writer" xml:"writer"`
 	Writers    []string
 }
 

@@ -30,12 +30,12 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		renamedMeta := ""
 
 		if !skipVideos {
-			renamedVideo = renameVideo(videoBase, style)
+			renamedVideo = renameVideo(videoBase, style, fd)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
 
 			logging.PrintD(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
 		} else {
-			renamedMeta = renameMeta(metaBase, style)
+			renamedMeta = renameMeta(metaBase, style, fd)
 
 			logging.PrintD(2, "Renamed metafile to %s", renamedMeta)
 		}
@@ -85,13 +85,15 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 }
 
 // Performs name transformations for video files
-func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
+func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
 	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok {
+	if !ok && len(fd.ModelFileSfxReplace) == 0 {
 		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
 		return videoBase
+	} else {
+		suffixes = fd.ModelFileSfxReplace
 	}
 
 	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
@@ -111,13 +113,15 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
 }
 
 // Performs name transformations for metafiles
-func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
+func renameMeta(metaBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
 	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok {
+	if !ok && len(fd.ModelFileSfxReplace) == 0 {
 		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
 		return metaBase
+	} else {
+		suffixes = fd.ModelFileSfxReplace
 	}
 
 	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {

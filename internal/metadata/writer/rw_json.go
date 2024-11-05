@@ -142,7 +142,7 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, wd *models.MetadataWebData) (bool, error) {
+func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (bool, error) {
 
 	var (
 		edited, ok bool
@@ -151,19 +151,30 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		new        []*models.MetaNewField
 	)
 
-	if config.IsSet(keys.MReplacePfx) {
+	if len(fd.ModelMPfxReplace) != 0 {
+		logging.PrintI("Model for file '%s' applying preset meta prefix replacements", fd.OriginalVideoBaseName)
+		pfx = fd.ModelMPfxReplace
+	} else if config.IsSet(keys.MReplacePfx) {
 		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 		}
 	}
-	if config.IsSet(keys.MReplaceSfx) {
+
+	if len(fd.ModelMSfxReplace) != 0 {
+		logging.PrintI("Model for file '%s' applying preset meta suffix replacements", fd.OriginalVideoBaseName)
+		sfx = fd.ModelMSfxReplace
+	} else if config.IsSet(keys.MReplaceSfx) {
 		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
 		}
 	}
-	if config.IsSet(keys.MNewField) {
+
+	if len(fd.ModelMNewField) != 0 {
+		logging.PrintI("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
+		new = fd.ModelMNewField
+	} else if config.IsSet(keys.MNewField) {
 		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
@@ -193,7 +204,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 	logging.PrintD(3, "After meta suffix replace: %v", data)
 
 	if len(new) > 0 {
-		newField, err := rw.addNewMetaField(data)
+		newField, err := rw.addNewMetaField(data, fd.ModelMOverwrite)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -332,14 +343,24 @@ func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, erro
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error) {
+func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool) (bool, error) {
+
+	var (
+		metaOW,
+		metaPS bool
+	)
 
 	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
 	if !ok {
 		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
 	}
-	metaOW := config.GetBool(keys.MOverwrite)
-	metaPS := config.GetBool(keys.MPreserve)
+
+	if !config.IsSet(keys.MOverwrite) && !config.IsSet(keys.MPreserve) {
+		metaOW = modelOW
+	} else {
+		metaOW = config.GetBool(keys.MOverwrite)
+		metaPS = config.GetBool(keys.MPreserve)
+	}
 
 	if len(new) == 0 {
 		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)

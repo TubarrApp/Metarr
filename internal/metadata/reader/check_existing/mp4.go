@@ -12,8 +12,13 @@ import (
 
 // MP4MetaMatches checks FFprobe captured metadata from the video against the metafile
 func MP4MetaMatches(fd *models.FileData) bool {
-	// Run ffprobe once to get all metadata
-	cmd := exec.Command(
+
+	c := fd.MCredits
+	d := fd.MDates
+	t := fd.MTitleDesc
+
+	// FFprobe command fetches metadata from the video file
+	command := exec.Command(
 		"ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
@@ -21,51 +26,54 @@ func MP4MetaMatches(fd *models.FileData) bool {
 		fd.OriginalVideoPath,
 	)
 
-	output, err := cmd.Output()
+	logging.PrintI("Made command for FFprobe:\n\n%v", command.String())
+
+	output, err := command.Output()
 	if err != nil {
-		logging.PrintE(0, "Error running ffprobe command: %v. Will process video.", err)
+		logging.PrintE(0, "Error running FFprobe command: %v. Will process video.", err)
 		return false
 	}
 
 	// Parse JSON output
 	var ffData ffprobeOutput
+
 	if err := json.Unmarshal(output, &ffData); err != nil {
-		logging.PrintE(0, "Error parsing ffprobe output: %v. Will process video.", err)
+		logging.PrintE(0, "Error parsing FFprobe output: %v. Will process video.", err)
 		return false
 	}
 
-	// Create map of metadata to check
+	// Map of metadata to check
 	fieldMap := map[string]struct {
 		existing string
 		new      string
 	}{
 		consts.JDescription: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Description),
-			new:      strings.TrimSpace(fd.MTitleDesc.Description),
+			new:      strings.TrimSpace(t.Description),
 		},
 		consts.JSynopsis: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Synopsis),
-			new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
+			new:      strings.TrimSpace(t.Synopsis),
 		},
 		consts.JFallbackTitle: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Title),
-			new:      strings.TrimSpace(fd.MTitleDesc.Title),
+			new:      strings.TrimSpace(t.Title),
 		},
 		consts.JCreationTime: {
 			existing: safeGetDatePart(ffData.Format.Tags.CreationTime),
-			new:      safeGetDatePart(fd.MDates.Creation_Time),
+			new:      safeGetDatePart(d.Creation_Time),
 		},
 		consts.JDate: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Date),
-			new:      strings.TrimSpace(fd.MDates.Date),
+			new:      strings.TrimSpace(d.Date),
 		},
 		consts.JArtist: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Artist),
-			new:      strings.TrimSpace(fd.MCredits.Artist),
+			new:      strings.TrimSpace(c.Artist),
 		},
 		consts.JComposer: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Composer),
-			new:      strings.TrimSpace(fd.MCredits.Composer),
+			new:      strings.TrimSpace(c.Composer),
 		},
 	}
 

@@ -49,21 +49,26 @@ func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
+	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
+		fs.SrcMeta, fs.DestMeta)
+
 	if !fs.SkipVids {
 		if fs.SrcVideo != fs.DestVideo && fs.SrcVideo != "" && fs.DestVideo != "" {
 			if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
 				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 			}
+		} else {
+			logging.PrintD(2, "Video source and destination files are equal, not moving/renaming...")
 		}
 	}
 	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
+	} else {
+		logging.PrintD(2, "Metadata source and destination files are equal, not moving/renaming...")
 	}
 
-	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
-		fs.SrcMeta, fs.DestMeta)
 	return nil
 }
 
