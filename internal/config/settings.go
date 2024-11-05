@@ -92,6 +92,9 @@ func execute() error {
 	// Meta overwrite and preserve flags
 	verifyMetaOverwritePreserve()
 
+	// Verify user metafile purge settings
+	verifyPurgeMetafiles()
+
 	// Ensure no video and metadata location conflicts
 	if err := checkFileDirs(); err != nil {
 		return err
@@ -348,4 +351,31 @@ func verifyOutputFiletype() {
 	default:
 		Set(keys.OutputFiletype, "")
 	}
+}
+
+// verifyPurgeMetafiles checks and sets the type of metafile purge to perform
+func verifyPurgeMetafiles() {
+	if !viper.IsSet(keys.MetaPurge) {
+		return
+	}
+
+	var e enums.PurgeMetafiles
+	purgeType := viper.GetString(keys.MetaPurge)
+
+	purgeType = strings.TrimSpace(purgeType)
+	purgeType = strings.ToLower(purgeType)
+	purgeType = strings.ReplaceAll(purgeType, ".", "")
+
+	switch purgeType {
+	case "all":
+		e = enums.PURGEMETA_ALL
+	case "json":
+		e = enums.PURGEMETA_JSON
+	case "nfo":
+		e = enums.PURGEMETA_NFO
+	default:
+		e = enums.PURGEMETA_NONE
+	}
+
+	viper.Set(keys.MetaPurgeEnum, e)
 }

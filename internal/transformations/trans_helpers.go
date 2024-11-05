@@ -26,7 +26,7 @@ func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
 }
 
 // getMetafileData retrieves meta type specific data.
-func getMetafileData(m *models.FileData) (string, string, string) {
+func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 
 	switch m.MetaFileType {
 	case enums.METAFILE_JSON:

@@ -74,6 +74,16 @@ const (
 	VIPER_STRING_SLICE
 )
 
+// Purge metafile types
+type PurgeMetafiles int
+
+const (
+	PURGEMETA_ALL PurgeMetafiles = iota
+	PURGEMETA_JSON
+	PURGEMETA_NFO
+	PURGEMETA_NONE
+)
+
 // Web tags
 type WebClassTags int
 

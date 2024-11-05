@@ -140,6 +140,7 @@ func setRenameFlag() {
 
 	// Trim whitespace for more robust validation
 	argRenameFlag = strings.TrimSpace(argRenameFlag)
+	argRenameFlag = strings.ToLower(argRenameFlag)
 
 	switch argRenameFlag {
 	case "spaces", "space":

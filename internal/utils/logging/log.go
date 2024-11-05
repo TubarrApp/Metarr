@@ -44,6 +44,11 @@ func Write(msg string, level int) {
 		if !strings.HasPrefix(msg, "\n") {
 			msg += "\n"
 		}
+
+		if ansiEscape == nil {
+			ansiEscape = regex.AnsiEscapeCompile()
+		}
+
 		Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
 	}
 }

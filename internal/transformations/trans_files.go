@@ -16,7 +16,6 @@ import (
 func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
 
 	var vidExt string
-
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
@@ -68,8 +67,16 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
 		}
+
+		var deletedMeta bool
+		if config.IsSet(keys.MetaPurge) {
+			if err, deletedMeta = fsWriter.DeleteMetafile(renamedMPath); err != nil {
+				logging.PrintE(0, "Failed to purge metafile: %v", err)
+			}
+		}
+
 		if config.IsSet(keys.MoveOnComplete) {
-			if err := fsWriter.MoveFile(); err != nil {
+			if err := fsWriter.MoveFile(deletedMeta); err != nil {
 				logging.PrintE(0, "Failed to move to destination folder: %v", err)
 			}
 		}

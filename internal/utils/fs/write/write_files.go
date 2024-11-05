@@ -2,6 +2,7 @@ package utils
 
 import (
 	"Metarr/internal/config"
+	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
 	logging "Metarr/internal/utils/logging"
 	"bufio"
@@ -67,7 +68,7 @@ func (fs *FSFileWriter) WriteResults() error {
 }
 
 // MoveFile moves files to specified location
-func (fs *FSFileWriter) MoveFile() error {
+func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
@@ -99,11 +100,14 @@ func (fs *FSFileWriter) MoveFile() error {
 			return fmt.Errorf("failed to move video file: %w", err)
 		}
 	}
-	if fs.DestMeta != "" {
-		destMBase := filepath.Base(fs.DestMeta)
-		destMTarget := filepath.Join(dst, destMBase)
-		if err := fs.moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
-			return fmt.Errorf("failed to move metadata file: %w", err)
+
+	if !noMeta {
+		if fs.DestMeta != "" {
+			destMBase := filepath.Base(fs.DestMeta)
+			destMTarget := filepath.Join(dst, destMBase)
+			if err := fs.moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
+				return fmt.Errorf("failed to move metadata file: %w", err)
+			}
 		}
 	}
 	return nil
@@ -255,4 +259,60 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 		return nil
 	}
 	return fmt.Errorf("failed to move file: %w", err)
+}
+
+// DeleteJSON safely removes JSON metadata files once file operations are complete
+func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
+
+	if !config.IsSet(keys.MetaPurgeEnum) {
+		return fmt.Errorf("meta purge enum not set"), false
+	}
+
+	e, ok := config.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
+	if !ok {
+		return fmt.Errorf("wrong type for purge metafile enum. Got %T", e), false
+	}
+
+	ext := filepath.Ext(file)
+	ext = strings.ToLower(ext)
+
+	switch e {
+	case enums.PURGEMETA_ALL:
+		// Continue
+	case enums.PURGEMETA_JSON:
+		if ext != ".json" {
+			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+			return nil, false
+		}
+	case enums.PURGEMETA_NFO:
+		if ext != ".nfo" {
+			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+			return nil, false
+		}
+	case enums.PURGEMETA_NONE:
+		return fmt.Errorf("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
+	default:
+		return fmt.Errorf("support not added for this metafile purge enum yet, exiting function"), false
+	}
+
+	fileInfo, err := os.Stat(file)
+	if err != nil {
+		return err, false
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("metafile '%s' is a directory, not a file", file), false
+	}
+
+	if !fileInfo.Mode().IsRegular() {
+		return fmt.Errorf("metafile '%s' is not a regular file", file), false
+	}
+
+	if err := os.Remove(file); err != nil {
+		return fmt.Errorf("unable to delete JSON file: %w", err), false
+	}
+
+	logging.PrintS(0, "Successfully deleted metafile. Bye bye '%s'!", file)
+
+	return nil, true
 }
