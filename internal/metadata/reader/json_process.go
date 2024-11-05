@@ -6,6 +6,7 @@ import (
 	keys "Metarr/internal/domain/keys"
 	helpers "Metarr/internal/metadata/process/helpers"
 	process "Metarr/internal/metadata/process/json"
+	check "Metarr/internal/metadata/reader/check_existing"
 	tags "Metarr/internal/metadata/tags"
 	writer "Metarr/internal/metadata/writer"
 	"Metarr/internal/models"
@@ -13,6 +14,8 @@ import (
 	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -101,5 +104,36 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
 	}
 
+	// Check if metadata is already existent in target file
+	if filetypeMetaCheckSwitch(fd) {
+		logging.PrintI("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
+		fd.MetaAlreadyExists = true
+	}
+
 	return fd, nil
+}
+
+func filetypeMetaCheckSwitch(fd *models.FileData) bool {
+
+	var outExt string
+
+	outFlagSet := config.IsSet(keys.OutputFiletype)
+	if outFlagSet {
+		outExt = config.GetString(keys.OutputFiletype)
+	}
+	currentExt := filepath.Ext(fd.OriginalVideoPath)
+	currentExt = strings.TrimSpace(currentExt)
+
+	if outFlagSet && outExt != "" && outExt != currentExt {
+		logging.PrintI("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
+		return false
+	}
+
+	// Run metadata checks in all other cases
+	switch currentExt {
+	case ".mp4":
+		return check.MP4MetaMatches(fd)
+	default:
+		return false
+	}
 }

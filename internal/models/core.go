@@ -17,27 +17,35 @@ func NewFileData() *FileData {
 }
 
 type FileData struct {
+	// Files & dirs
 	VideoDirectory        string   `json:"-" xml:"-"`
 	OriginalVideoPath     string   `json:"-" xml:"-"`
 	OriginalVideoBaseName string   `json:"-" xml:"-"`
 	TempOutputFilePath    string   `json:"-" xml:"-"`
 	FinalVideoPath        string   `json:"-" xml:"-"`
 	FinalVideoBaseName    string   `json:"-" xml:"-"`
-	FilenameMetaPrefix    string   `json:"-" xml:"-"`
-	FilenameDateTag       string   `json:"-" xml:"-"`
-	RenamedVideoPath      string   `json:"-"`
-	RenamedMetaPath       string   `json:"-"`
 	VideoFile             *os.File `json:"-" xml:"-"`
+
+	// Transformations
+	FilenameMetaPrefix string `json:"-" xml:"-"`
+	FilenameDateTag    string `json:"-" xml:"-"`
+	RenamedVideoPath   string `json:"-" xml:"-"`
+	RenamedMetaPath    string `json:"-" xml:"-"`
+
 	// JSON paths
 	JSONDirectory string `json:"-" xml:"-"`
 	JSONFilePath  string `json:"-" xml:"-"`
 	JSONBaseName  string `json:"-" xml:"-"`
+
 	// NFO paths
 	NFOBaseName  string `json:"-" xml:"-"`
 	NFODirectory string `json:"-" xml:"-"`
 	NFOFilePath  string `json:"-" xml:"-"`
-	// Meta type
-	MetaFileType enums.MetaFiletypeFound `json:"-" xml:"-"`
+
+	// Misc
+	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`
+	MetaAlreadyExists bool                    `json:"-" xml:"-"`
+
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
 	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
@@ -45,8 +53,9 @@ type FileData struct {
 	MShowData  *MetadataShowData    `json:"meta_show_data" xml:"show"`
 	MWebData   *MetadataWebData     `json:"meta_web_data" xml:"web"`
 	MOther     *MetadataOtherData   `json:"meta_other_data" xml:"other"`
+	NFOData    *NFOData
 
+	// File writers
 	JSONFileRW JSONFileRW
 	NFOFileRW  NFOFileRW
-	NFOData    *NFOData
 }

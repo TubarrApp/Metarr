@@ -54,8 +54,24 @@ func buildCommand(m *models.FileData, outputFile string) ([]string, error) {
 // WriteMetadata writes metadata to a single video file
 func WriteMetadata(m *models.FileData) error {
 
-	var tempOutputFilePath string
+	if m.MetaAlreadyExists {
 
+		logging.PrintI("Metadata already exists in the file, skipping processing...")
+		origPath := m.OriginalVideoPath
+		m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+
+		// Set the final video path based on output extension
+		outputExt := config.GetString(keys.OutputFiletype)
+		if outputExt == "" {
+			outputExt = filepath.Ext(m.OriginalVideoPath)
+			config.Set(keys.OutputFiletype, outputExt)
+		}
+
+		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + outputExt
+		return nil
+	}
+
+	var tempOutputFilePath string
 	originalVPath := m.OriginalVideoPath
 	dir := m.VideoDirectory
 	originalExt := filepath.Ext(originalVPath)

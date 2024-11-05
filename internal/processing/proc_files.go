@@ -212,16 +212,18 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 			logging.PrintI("Processing metadata file: %s", fileName)
 		}
 
-		if isVideoFile && !skipVideos {
-			err := writer.WriteMetadata(fileData)
-			if err != nil {
+		switch {
+		case isVideoFile && !skipVideos:
+
+			if err := writer.WriteMetadata(fileData); err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
 				logging.PrintE(0, errMsg.Error())
 			} else {
 				logging.PrintS(0, "Successfully processed video %s", fileName)
 			}
-		} else {
+
+		default:
 			logging.PrintS(0, "Successfully processed metadata for %s", fileName)
 		}
 
