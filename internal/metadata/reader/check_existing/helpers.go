@@ -1,6 +1,9 @@
 package metadata
 
-import "strings"
+import (
+	logging "Metarr/internal/utils/logging"
+	"strings"
+)
 
 type ffprobeFormat struct {
 	Tags ffprobeTags `json:"tags"`
@@ -27,4 +30,9 @@ func safeGetDatePart(timeStr string) string {
 		return parts[0]
 	}
 	return timeStr
+}
+
+func printArray(s []string) {
+	str := strings.Join(s, ", ")
+	logging.PrintI("FFprobe captured %s", str)
 }

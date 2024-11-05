@@ -90,8 +90,3 @@ func MP4MetaMatches(fd *models.FileData) bool {
 
 	return matches
 }
-
-func printArray(s []string) {
-	str := strings.Join(s, ", ")
-	logging.PrintI("FFprobe captured %s", str)
-}
