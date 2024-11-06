@@ -279,9 +279,21 @@ func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
 // calculateCommandCapacity determines the total length needed for the command
 func calculateCommandCapacity(b *ffCommandBuilder) int {
-	return len(b.gpuAccel) +
-		3 +
-		(len(b.metadataMap) * 2) +
-		len(b.formatFlags) +
-		1
+	const (
+		inputFlags   = 2 // "-y", "-i"
+		inputFiles   = 1 // input file
+		formatFlag   = 1 // "-codec"
+		outputFiles  = 1 // output file
+		metadataFlag = 1 // "-metadata" for each metadata entry
+		keyValuePair = 1 // "key=value" for each metadata entry
+	)
+
+	totalCapacity := len(b.gpuAccel) + // GPU acceleration flags if any
+		inputFlags + inputFiles + // Input related flags and file
+		(len(b.metadataMap) * (metadataFlag + keyValuePair)) + // Metadata entries
+		len(b.formatFlags) + // Format flags (like -codec copy)
+		outputFiles
+
+	logging.PrintD(3, "Total command capacity calculated as: %d", totalCapacity)
+	return totalCapacity
 }
