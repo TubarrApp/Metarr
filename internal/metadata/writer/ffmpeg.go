@@ -30,11 +30,14 @@ func ExecuteVideo(fd *models.FileData) error {
 	origPath := fd.OriginalVideoPath
 	origExt := filepath.Ext(origPath)
 
-	if outExt = config.GetString(keys.OutputFiletype); outExt == "" {
-		outExt = origExt
-		config.Set(keys.OutputFiletype, outExt)
+	if config.IsSet(keys.OutputFiletype) {
+		outExt = config.GetString(keys.OutputFiletype)
+		if outExt == "" {
+			outExt = origExt
+		}
 	} else {
 		outExt = origExt
+		config.Set(keys.OutputFiletype, outExt)
 	}
 
 	fmt.Printf("\nWriting metadata for file: %s\n", origPath)

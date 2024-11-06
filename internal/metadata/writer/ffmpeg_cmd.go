@@ -41,6 +41,16 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	return b.buildFinalCommand()
 }
 
+// addAllMetadata combines all metadata into a single map
+func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
+
+	b.addTitlesDescs(fd.MTitleDesc)
+	b.addCredits(fd.MCredits)
+	b.addDates(fd.MDates)
+	b.addShowInfo(fd.MShowData)
+	b.addOtherMetadata(fd.MOther)
+}
+
 // addCredits adds all credit-related metadata
 func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
@@ -187,16 +197,6 @@ func (b *ffCommandBuilder) setGPUAcceleration() {
 			}
 		}
 	}
-}
-
-// addAllMetadata combines all metadata into a single map
-func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
-
-	b.addTitlesDescs(fd.MTitleDesc)
-	b.addCredits(fd.MCredits)
-	b.addDates(fd.MDates)
-	b.addShowInfo(fd.MShowData)
-	b.addOtherMetadata(fd.MOther)
 }
 
 // setFormatFlags adds commands specific for the extension input and output
