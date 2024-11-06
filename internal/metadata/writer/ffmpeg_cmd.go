@@ -261,20 +261,9 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 // buildFinalCommand assembles the final FFmpeg command
 func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
-	// MAP LENGTH LOGIC:
-	//
-	// GPU acceleration flags
-	// "-y", "i", input file, output file (+4)
-	// Length of metadata map, then * 2 to prefix "-metadata" to each entry
-	// Length of format flags
-	// Output file (+1)
+	args := make([]string, 0, calculateCommandCapacity(b))
 
-	args := make([]string, 0, len(b.gpuAccel)+4+len(b.metadataMap)*2+len(b.formatFlags)+1)
-
-	// Add GPU acceleration if present
 	args = append(args, b.gpuAccel...)
-
-	// Add input file
 	args = append(args, "-y", "-i", b.inputFile)
 
 	// Add all -metadata commands
@@ -282,11 +271,17 @@ func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, strings.TrimSpace(value)))
 	}
 
-	// Add format flags
 	args = append(args, b.formatFlags...)
-
-	// Add output file
 	args = append(args, b.outputFile)
 
 	return args, nil
+}
+
+// calculateCommandCapacity determines the total length needed for the command
+func calculateCommandCapacity(b *ffCommandBuilder) int {
+	return len(b.gpuAccel) +
+		3 +
+		(len(b.metadataMap) * 2) +
+		len(b.formatFlags) +
+		1
 }
