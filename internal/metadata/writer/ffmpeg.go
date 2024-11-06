@@ -35,7 +35,6 @@ func ExecuteVideo(fd *models.FileData) error {
 		config.Set(keys.OutputFiletype, outExt)
 	} else {
 		outExt = origExt
-
 	}
 
 	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
