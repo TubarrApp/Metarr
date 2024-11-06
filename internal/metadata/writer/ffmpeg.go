@@ -32,6 +32,9 @@ func ExecuteVideo(fd *models.FileData) error {
 
 	if config.IsSet(keys.OutputFiletype) {
 		outExt = config.GetString(keys.OutputFiletype)
+		if outExt == "" {
+			outExt = origExt
+		}
 	} else {
 		outExt = origExt
 		config.Set(keys.OutputFiletype, outExt)
