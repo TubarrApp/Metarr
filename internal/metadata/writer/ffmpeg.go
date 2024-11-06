@@ -22,7 +22,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	}
 
 	var (
-		tempOutputFilePath,
+		tmpOutPath,
 		outExt string
 	)
 
@@ -30,34 +30,32 @@ func ExecuteVideo(fd *models.FileData) error {
 	origPath := fd.OriginalVideoPath
 	origExt := filepath.Ext(origPath)
 
-	if config.IsSet(keys.OutputFiletype) {
-		outExt = config.GetString(keys.OutputFiletype)
-		if outExt == "" {
-			outExt = origExt
-		}
-	} else {
+	if outExt = config.GetString(keys.OutputFiletype); outExt == "" {
 		outExt = origExt
 		config.Set(keys.OutputFiletype, outExt)
+	} else {
+		outExt = origExt
+
 	}
 
 	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
 
 	// Make temp output path
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-	tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
+	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
 	logging.PrintD(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
 
 	// Add temp path to data struct
-	fd.TempOutputFilePath = tempOutputFilePath
+	fd.TempOutputFilePath = tmpOutPath
 
 	defer func() {
-		if _, err := os.Stat(tempOutputFilePath); err == nil {
-			os.Remove(tempOutputFilePath)
+		if _, err := os.Stat(tmpOutPath); err == nil {
+			os.Remove(tmpOutPath)
 		}
 	}()
 
 	// Build FFmpeg command
-	builder := newFfCommandBuilder(fd, tempOutputFilePath)
+	builder := newFfCommandBuilder(fd, tmpOutPath)
 	args, err := builder.buildCommand(fd, outExt)
 	if err != nil {
 		return err
@@ -103,7 +101,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	}
 
 	//
-	err = os.Rename(tempOutputFilePath, fd.FinalVideoPath)
+	err = os.Rename(tmpOutPath, fd.FinalVideoPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
