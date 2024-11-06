@@ -178,8 +178,6 @@ func main() {
 
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Removed: prompt.SetMetaOverwritePreserve(config.GetBool(keys.MOverwrite), config.GetBool(keys.MPreserve))
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)

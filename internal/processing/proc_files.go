@@ -213,7 +213,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		}
 
 		if isVideoFile && !skipVideos {
-			err := writer.WriteMetadata(fileData)
+			err := writer.ExecuteVideo(fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)

@@ -32,7 +32,7 @@ func BackupFile(file *os.File) error {
 	}
 
 	// Copy the content of the original file to the backup file
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, 4*1024*1024)
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
@@ -50,16 +50,16 @@ func generateBackupFilename(originalFilePath string) string {
 }
 
 // RenameToBackup renames the passed in file
-func RenameToBackup(filename string) error {
+func RenameToBackup(filename string) (backupName string, err error) {
 
 	if filename == "" {
 		logging.PrintE(0, "filename was passed in to backup empty")
 	}
 
-	backupName := generateBackupFilename(filename)
+	backupName = generateBackupFilename(filename)
 
 	if err := os.Rename(filename, backupName); err != nil {
-		return fmt.Errorf("failed to backup filename '%s' to '%s'", filename, backupName)
+		return "", fmt.Errorf("failed to backup filename '%s' to '%s'", filename, backupName)
 	}
-	return nil
+	return backupName, nil
 }

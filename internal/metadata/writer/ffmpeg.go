@@ -13,11 +13,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
-)
-
-var (
-	muWriteCommand sync.Mutex
 )
 
 // CommandBuilder handles FFmpeg command construction
@@ -30,70 +25,58 @@ type CommandBuilder struct {
 }
 
 // NewCommandBuilder creates a new FFmpeg command builder
-func NewCommandBuilder(m *models.FileData, outputFile string) *CommandBuilder {
+func NewCommandBuilder(fd *models.FileData, outputFile string) *CommandBuilder {
 	return &CommandBuilder{
-		inputFile:   m.OriginalVideoPath,
+		inputFile:   fd.OriginalVideoPath,
 		outputFile:  outputFile,
 		metadataMap: make(map[string]string),
 	}
 }
 
 // buildCommand constructs the complete FFmpeg command
-func buildCommand(m *models.FileData, outputFile string) ([]string, error) {
+func buildCommand(fd *models.FileData, outputFile string) ([]string, error) {
 
-	builder := NewCommandBuilder(m, outputFile)
+	builder := NewCommandBuilder(fd, outputFile)
 
 	builder.setGPUAcceleration()
-	builder.addAllMetadata(m)
+	builder.addAllMetadata(fd)
 	builder.setFormatFlags()
 
 	// Return the fully appended argument string
 	return builder.buildFinalCommand()
 }
 
-// WriteMetadata writes metadata to a single video file
-func WriteMetadata(m *models.FileData) error {
+// ExecuteVideo writes metadata to a single video file
+func ExecuteVideo(fd *models.FileData) error {
 
-	if m.MetaAlreadyExists {
-
-		logging.PrintI("Metadata already exists in the file, skipping processing...")
-		origPath := m.OriginalVideoPath
-		m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-
-		// Set the final video path based on output extension
-		outputExt := config.GetString(keys.OutputFiletype)
-		if outputExt == "" {
-			outputExt = filepath.Ext(m.OriginalVideoPath)
-			config.Set(keys.OutputFiletype, outputExt)
-		}
-
-		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + outputExt
+	if dontProcess(fd) {
 		return nil
 	}
 
 	var tempOutputFilePath string
-	originalVPath := m.OriginalVideoPath
-	dir := m.VideoDirectory
-	originalExt := filepath.Ext(originalVPath)
-	outputExt := config.GetString(keys.OutputFiletype)
 
-	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
+	dir := fd.VideoDirectory
+	origPath := fd.OriginalVideoPath
+	origExt := filepath.Ext(origPath)
+	outExt := config.GetString(keys.OutputFiletype)
+
+	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
+
 	// Make temp output path with .mp4 extension
-	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
+	fileBase := strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
-	if outputExt == "" {
-		outputExt = filepath.Ext(m.FinalVideoPath)
-		config.Set(keys.OutputFiletype, outputExt)
+	if outExt == "" {
+		// Set blank output file extension to just be the original file extension
+		outExt = origExt
+		config.Set(keys.OutputFiletype, outExt)
+		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+origExt+origExt)
+	} else {
+		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
 	}
 
-	switch {
-	case outputExt != "":
-		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+outputExt)
-	default:
-		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+originalExt)
-	}
+	logging.PrintD(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
 
-	m.TempOutputFilePath = tempOutputFilePath // Add to video file data struct
+	fd.TempOutputFilePath = tempOutputFilePath // Add to video file data struct
 
 	defer func() {
 		if _, err := os.Stat(tempOutputFilePath); err == nil {
@@ -101,80 +84,107 @@ func WriteMetadata(m *models.FileData) error {
 		}
 	}()
 
-	muWriteCommand.Lock()
-	args, err := buildCommand(m, tempOutputFilePath)
+	// Build FFmpeg command
+	args, err := buildCommand(fd, tempOutputFilePath)
 	if err != nil {
-		muWriteCommand.Unlock()
 		return err
 	}
 
 	command := exec.Command("ffmpeg", args...)
-	muWriteCommand.Unlock()
-
-	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
+	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 
-	origPath := originalVPath
-	m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+	// Set final video path and base name in model
+	fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+	fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
 
-	switch {
-	case outputExt != "":
-		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + outputExt
-	default:
-		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + originalExt
-	}
-
-	fmt.Printf("\n\nVideo file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s\n\n", originalVPath,
-		m.JSONFilePath,
-		m.FinalVideoPath,
-		m.TempOutputFilePath)
+	logging.PrintI("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
+		fd.JSONFilePath,
+		fd.FinalVideoPath,
+		fd.TempOutputFilePath)
 
 	// Run the ffmpeg command
-	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, m.FinalVideoBaseName, consts.ColorReset)
+	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
-		return fmt.Errorf("failed to run ffmpeg command: %w", err)
+		return fmt.Errorf("failed to run FFmpeg command: %w", err)
 	}
 
-	// Rename temporary file to overwrite the original video file:
-	// First check overwrite rules
-	if config.GetBool(keys.NoFileOverwrite) && originalVPath == m.FinalVideoPath {
-		if err := backup.RenameToBackup(originalVPath); err != nil {
-			return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+	// Rename temporary file to overwrite the original video file
+	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
+		logging.PrintI("Original file not type %s, removing '%s'", outExt, origPath)
+
+	} else if config.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+		if err := makeBackup(origPath); err != nil {
+			return err
 		}
 	}
-	err = os.Rename(tempOutputFilePath, m.FinalVideoPath)
+
+	// Delete original after potential backup ops
+	err = os.Remove(origPath)
 	if err != nil {
-		return fmt.Errorf("failed to overwrite original file: %w", err)
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		return fmt.Errorf("failed to remove original file (%s). Error: %v", origPath, err)
 	}
 
-	fmt.Printf("Successfully renamed video from %s to %s\n", tempOutputFilePath, m.FinalVideoPath)
+	//
+	err = os.Rename(tempOutputFilePath, fd.FinalVideoPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
 
-	if filepath.Ext(originalVPath) != filepath.Ext(m.FinalVideoPath) {
+	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
+		fd.FinalVideoPath,
+		fd.MTitleDesc.Title)
 
-		logging.PrintI("Original file not type %s, removing '%s'", outputExt, originalVPath)
+	return nil
+}
 
-		if config.GetBool(keys.NoFileOverwrite) {
-			if _, err := os.Stat(originalVPath); os.IsNotExist(err) {
-				logging.PrintI("File does not exist, safe to proceed overwriting: %s", originalVPath)
-			} else {
-				if err := backup.RenameToBackup(originalVPath); err != nil {
-					return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
-				}
-			}
-			err = os.Remove(originalVPath)
-			if err != nil {
-				logging.ErrorArray = append(logging.ErrorArray, err)
-				return fmt.Errorf("failed to remove original file (%s). Error: %v", originalVPath, err)
-			}
+// dontProcess determines whether the program should process this video (meta already exists and file extensions are unchanged)
+func dontProcess(fd *models.FileData) (dontProcess bool) {
+	if fd.MetaAlreadyExists {
+
+		logging.PrintI("Metadata already exists in the file, skipping processing...")
+		origPath := fd.OriginalVideoPath
+		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+
+		// Set the final video path based on output extension
+		outExt := config.GetString(keys.OutputFiletype)
+		if outExt == "" {
+			outExt = filepath.Ext(fd.OriginalVideoPath)
+			config.Set(keys.OutputFiletype, outExt)
 		}
+
+		fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
+		return true
+	}
+	return dontProcess
+}
+
+// makeBackup performs the backup
+func makeBackup(origPath string) error {
+
+	origInfo, err := os.Stat(origPath)
+	if os.IsNotExist(err) {
+		logging.PrintI("File does not exist, safe to proceed overwriting: %s", origPath)
+		return nil
 	}
 
-	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", originalVPath,
-		m.FinalVideoPath,
-		m.MTitleDesc.Title)
+	backupPath, err := backup.RenameToBackup(origPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+	}
+
+	backInfo, err := os.Stat(backupPath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("backup file was not created, aborting")
+	}
+
+	if origInfo.Size() != backInfo.Size() {
+		return fmt.Errorf("backup file size does not match original, aborting")
+	}
 
 	return nil
 }
@@ -195,13 +205,13 @@ func (b *CommandBuilder) setGPUAcceleration() {
 }
 
 // addAllMetadata combines all metadata into a single map
-func (b *CommandBuilder) addAllMetadata(m *models.FileData) {
+func (b *CommandBuilder) addAllMetadata(fd *models.FileData) {
 
-	b.addTitlesDescs(m.MTitleDesc)
-	b.addCredits(m.MCredits)
-	b.addDates(m.MDates)
-	b.addShowInfo(m.MShowData)
-	b.addOtherMetadata(m.MOther)
+	b.addTitlesDescs(fd.MTitleDesc)
+	b.addCredits(fd.MCredits)
+	b.addDates(fd.MDates)
+	b.addShowInfo(fd.MShowData)
+	b.addOtherMetadata(fd.MOther)
 }
 
 // setFormatFlags adds commands specific for the extension input and output
@@ -267,13 +277,14 @@ func (b *CommandBuilder) setFormatFlags() {
 // buildFinalCommand assembles the final FFmpeg command
 func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
 
-	// MAP LENGTH LOGIC [KEEP CLOSE EYE ON THIS IF COMMANDS CHANGE]:
+	// MAP LENGTH LOGIC:
 	//
 	// GPU acceleration flags
 	// "-y", "i", input file, output file (+4)
 	// Length of metadata map, then * 2 to prefix "-metadata" to each entry
 	// Length of format flags
 	// Output file (+1)
+
 	args := make([]string, 0, len(b.gpuAccel)+4+len(b.metadataMap)*2+len(b.formatFlags)+1)
 
 	// Add GPU acceleration if present
@@ -284,7 +295,7 @@ func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
 
 	// Add all -metadata commands
 	for key, value := range b.metadataMap {
-		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, fieldFormatter(value)))
+		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, strings.TrimSpace(value)))
 	}
 
 	// Add format flags
@@ -294,9 +305,4 @@ func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
 	args = append(args, b.outputFile)
 
 	return args, nil
-}
-
-// fieldFormatter cleans field values
-func fieldFormatter(value string) string {
-	return strings.TrimSpace(value)
 }
