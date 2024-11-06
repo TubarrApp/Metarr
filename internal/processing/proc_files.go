@@ -26,7 +26,7 @@ var (
 	processedDataArray []*models.FileData
 )
 
-// ProcessFiles is the main program function to process folder entries
+// processFiles is the main program function to process folder entries
 func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
 	skipVideos := config.GetBool(keys.SkipVideos)
@@ -52,7 +52,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			os.Exit(1)
 		}
 	}
-
 	// Process video files, checking if it’s a directory or a single file
 	if openVideo != nil {
 		fileInfo, _ := openVideo.Stat()
@@ -213,18 +212,16 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 			logging.PrintI("Processing metadata file: %s", fileName)
 		}
 
-		switch {
-		case isVideoFile && !skipVideos:
-
-			if err := writer.WriteMetadata(fileData); err != nil {
+		if isVideoFile && !skipVideos {
+			err := writer.WriteMetadata(fileData)
+			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
 				logging.PrintE(0, errMsg.Error())
 			} else {
 				logging.PrintS(0, "Successfully processed video %s", fileName)
 			}
-
-		default:
+		} else {
 			logging.PrintS(0, "Successfully processed metadata for %s", fileName)
 		}
 
