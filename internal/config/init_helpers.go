@@ -8,6 +8,7 @@ import (
 
 // initFilesDirs initializes user flag settings for input files and directories
 func initFilesDirs() {
+
 	// Videos
 	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
 	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
@@ -21,10 +22,15 @@ func initFilesDirs() {
 
 	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
 	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
+
+	// Cookies
+	rootCmd.PersistentFlags().String(keys.CookiePath, "", "Specify cookie location")
+	viper.BindPFlag(keys.CookiePath, rootCmd.PersistentFlags().Lookup(keys.CookiePath))
 }
 
 // initResourceRelated initializes user flag settings for parameters related to system hardware
 func initResourceRelated() {
+
 	// Concurrency limit
 	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
 	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
@@ -44,6 +50,7 @@ func initResourceRelated() {
 
 // initAllFileTransformers initializes user flag settings for transformations applying to all files
 func initAllFileTransformers() {
+
 	// Prefix file with metafield
 	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
 	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
@@ -71,6 +78,7 @@ func initAllFileTransformers() {
 
 // initMetaTransformers initializes user flag settings for manipulation of metadata
 func initMetaTransformers() {
+
 	// Metadata replacement & new additions
 	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
 	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
@@ -96,14 +104,15 @@ func initMetaTransformers() {
 
 // initVideoTransformers initializes user flag settings for transformation of video files
 func initVideoTransformers() {
+
 	// Output extension type
 	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
 	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
-
 }
 
 // initFiltering initializes user flag settings for filtering files to work with
 func initFiltering() {
+
 	// Video file extensions to convert
 	rootCmd.PersistentFlags().StringSliceP(keys.InputVideoExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
 	viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts))
@@ -119,6 +128,7 @@ func initFiltering() {
 
 // initProgramFunctions initializes user flag settings for miscellaneous program features such as debug level
 func initProgramFunctions() {
+
 	// Debugging level
 	rootCmd.PersistentFlags().Uint16P(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
 	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))

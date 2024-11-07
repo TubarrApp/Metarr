@@ -262,16 +262,27 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
 	args := make([]string, 0, calculateCommandCapacity(b))
-	args = append(args, b.gpuAccel...)
-	args = append(args, "-y", "-i", b.inputFile)
+
+	if len(b.gpuAccel) > 0 {
+		args = append(args, b.gpuAccel...)
+	}
+
+	if b.inputFile != "" {
+		args = append(args, "-y", "-i", b.inputFile)
+	}
 
 	// Add all -metadata commands
 	for key, value := range b.metadataMap {
 		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, strings.TrimSpace(value)))
 	}
 
-	args = append(args, b.formatFlags...)
-	args = append(args, b.outputFile)
+	if len(b.formatFlags) > 0 {
+		args = append(args, b.formatFlags...)
+	}
+
+	if b.outputFile != "" {
+		args = append(args, b.outputFile)
+	}
 
 	return args, nil
 }

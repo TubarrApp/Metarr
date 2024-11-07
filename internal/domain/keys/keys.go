@@ -9,6 +9,8 @@ const (
 	JsonFile  string = "json-file"
 	MetaPurge string = "purge-metafile"
 
+	CookiePath string = "cookie-file"
+
 	InputMetaExts  string = "input-meta-exts"
 	InputVideoExts string = "input-video-exts"
 	FilePrefixes   string = "prefix"

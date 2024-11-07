@@ -88,6 +88,10 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
+	if !config.IsSet(keys.FilenameReplaceSfx) {
+		return videoBase
+	}
+
 	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 	if !ok && len(fd.ModelFileSfxReplace) == 0 {
 		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
@@ -115,6 +119,10 @@ func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileDa
 // Performs name transformations for metafiles
 func renameMeta(metaBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
+
+	if !config.IsSet(keys.FilenameReplaceSfx) {
+		return metaBase
+	}
 
 	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 	if !ok && len(fd.ModelFileSfxReplace) == 0 {
