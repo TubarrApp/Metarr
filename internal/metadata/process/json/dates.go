@@ -163,6 +163,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	// Infer from originally available date
 	if t.Originally_Available_At != "" && len(t.Originally_Available_At) >= 6 {
+
 		gotRelevantDate = true
 		if t.Creation_Time == "" {
 			if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
@@ -188,6 +189,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			}
 		}
 	}
+
 	// Infer from release date
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
 		gotRelevantDate = true
@@ -279,6 +281,35 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	}
 	if len(t.Year) > 4 {
 		t.Year = t.Year[:4]
+	}
+
+	// Try to fix accidentally using upload date if another date is available
+	if len(t.Year) == 4 && !strings.HasPrefix(t.Creation_Time, t.Year) && len(t.Creation_Time) >= 4 {
+
+		logging.PrintD(1, "Creation time does not match year tag, seeing if other dates are available...")
+
+		switch {
+		case strings.HasPrefix(t.Originally_Available_At, t.Year):
+			t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.Originally_Available_At)
+
+		case strings.HasPrefix(t.ReleaseDate, t.Year):
+			t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.ReleaseDate)
+
+		case strings.HasPrefix(t.Date, t.Year):
+			t.Creation_Time = t.Date + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.Date)
+
+		case strings.HasPrefix(t.FormattedDate, t.Year):
+			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.FormattedDate)
+
+		default:
+			logging.PrintD(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
+			t.Creation_Time = t.Year + t.Creation_Time[4:]
+			logging.PrintD(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
+		}
 	}
 	return gotRelevantDate
 }
