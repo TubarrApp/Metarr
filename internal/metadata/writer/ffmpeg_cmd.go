@@ -51,7 +51,7 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 	b.addOtherMetadata(fd.MOther)
 }
 
-// addCredits adds all credit-related metadata
+// addTitlesDescs adds all title/description-related metadata
 func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
 	if t.Title == "" && t.FallbackTitle != "" {
@@ -113,7 +113,7 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 	b.addArrayMetadata("writer", c.Writers)
 }
 
-// addCredits adds all date-related metadata
+// addDates adds all date-related metadata
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 
 	fields := map[string]string{
@@ -281,18 +281,18 @@ func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 func calculateCommandCapacity(b *ffCommandBuilder) int {
 	const (
 		inputFlags   = 2 // "-y", "-i"
-		inputFiles   = 1 // input file
+		inputFile    = 1 // input file
 		formatFlag   = 1 // "-codec"
-		outputFiles  = 1 // output file
+		outputFile   = 1 // output file
 		metadataFlag = 1 // "-metadata" for each metadata entry
 		keyValuePair = 1 // "key=value" for each metadata entry
 	)
 
 	totalCapacity := len(b.gpuAccel) + // GPU acceleration flags if any
-		inputFlags + inputFiles + // Input related flags and file
+		inputFlags + inputFile + // Input related flags and file
 		(len(b.metadataMap) * (metadataFlag + keyValuePair)) + // Metadata entries
 		len(b.formatFlags) + // Format flags (like -codec copy)
-		outputFiles
+		outputFile
 
 	logging.PrintD(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
