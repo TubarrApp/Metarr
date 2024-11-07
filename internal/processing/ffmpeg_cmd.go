@@ -1,4 +1,4 @@
-package metadata
+package processing
 
 import (
 	"Metarr/internal/config"
@@ -21,7 +21,7 @@ type ffCommandBuilder struct {
 	metadataMap map[string]string
 }
 
-// NewffCommandBuilder creates a new FFmpeg command builder
+// newFfCommandBuilder creates a new FFmpeg command builder
 func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuilder {
 	return &ffCommandBuilder{
 		inputFile:   fd.OriginalVideoPath,
@@ -262,7 +262,6 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
 	args := make([]string, 0, calculateCommandCapacity(b))
-
 	args = append(args, b.gpuAccel...)
 	args = append(args, "-y", "-i", b.inputFile)
 

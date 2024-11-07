@@ -5,7 +5,6 @@ import (
 	enums "Metarr/internal/domain/enums"
 	keys "Metarr/internal/domain/keys"
 	reader "Metarr/internal/metadata/reader"
-	writer "Metarr/internal/metadata/writer"
 	"Metarr/internal/models"
 	"Metarr/internal/transformations"
 	fsRead "Metarr/internal/utils/fs/read"
@@ -213,7 +212,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		}
 
 		if isVideoFile && !skipVideos {
-			err := writer.ExecuteVideo(fileData)
+			err := executeVideo(fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)

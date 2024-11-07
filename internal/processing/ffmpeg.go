@@ -1,4 +1,4 @@
-package metadata
+package processing
 
 import (
 	"Metarr/internal/config"
@@ -14,8 +14,8 @@ import (
 	"strings"
 )
 
-// ExecuteVideo writes metadata to a single video file
-func ExecuteVideo(fd *models.FileData) error {
+// executeVideo writes metadata to a single video file
+func executeVideo(fd *models.FileData) error {
 
 	if dontProcess(fd) {
 		return nil
@@ -129,6 +129,7 @@ func dontProcess(fd *models.FileData) (dontProcess bool) {
 			config.Set(keys.OutputFiletype, outExt)
 		}
 
+		// Save final video path into model
 		fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
 		return true
 	}
