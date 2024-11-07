@@ -151,7 +151,19 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		logging.PrintE(0, "Failed to cleanup temp files: %v", err)
 	}
 
-	replaceToStyle := config.Get(keys.Rename).(enums.ReplaceToStyle)
+	var (
+		replaceToStyle enums.ReplaceToStyle
+		ok             bool
+	)
+
+	if config.IsSet(keys.Rename) {
+		if replaceToStyle, ok = config.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
+			logging.PrintE(0, "Received wrong type for rename style. Got %T", replaceToStyle)
+		} else {
+			logging.PrintD(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
+		}
+	}
+
 	inputVideoDir := config.GetString(keys.JsonDir)
 
 	err = transformations.FileRename(processedDataArray, replaceToStyle)

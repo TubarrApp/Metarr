@@ -88,62 +88,62 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) {
-		return videoBase
-	}
+	if config.IsSet(keys.FilenameReplaceSfx) {
 
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok && len(fd.ModelFileSfxReplace) == 0 {
-		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-		return videoBase
-	} else {
-		suffixes = fd.ModelFileSfxReplace
-	}
+		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+		if !ok && len(fd.ModelFileSfxReplace) == 0 {
+			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			return videoBase
+		} else {
+			suffixes = fd.ModelFileSfxReplace
+		}
 
-	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-		return videoBase
-	}
+		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+			return videoBase
+		}
 
-	// Transformations
-	name := videoBase
-	if len(suffixes) > 0 {
-		name = replaceSuffix(name, suffixes)
+		// Transformations
+		if len(suffixes) > 0 {
+			videoBase = replaceSuffix(videoBase, suffixes)
+		}
 	}
 
 	if style != enums.RENAMING_SKIP {
-		name = applyNamingStyle(style, name)
+		videoBase = applyNamingStyle(style, videoBase)
+	} else {
+		logging.PrintD(1, "No naming style selected, skipping rename style")
 	}
-	return name
+	return videoBase
 }
 
 // Performs name transformations for metafiles
 func renameMeta(metaBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	if !config.IsSet(keys.FilenameReplaceSfx) {
-		return metaBase
-	}
+	if config.IsSet(keys.FilenameReplaceSfx) {
 
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok && len(fd.ModelFileSfxReplace) == 0 {
-		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-		return metaBase
-	} else {
-		suffixes = fd.ModelFileSfxReplace
-	}
+		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+		if !ok && len(fd.ModelFileSfxReplace) == 0 {
+			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			return metaBase
+		} else {
+			suffixes = fd.ModelFileSfxReplace
+		}
 
-	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-		return metaBase
-	}
+		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+			return metaBase
+		}
 
-	// Transformations
-	name := metaBase
-	if len(suffixes) > 0 {
-		name = replaceSuffix(name, suffixes)
+		// Transformations
+		if len(suffixes) > 0 {
+			metaBase = replaceSuffix(metaBase, suffixes)
+		}
 	}
 
 	if style != enums.RENAMING_SKIP {
-		name = applyNamingStyle(style, name)
+		metaBase = applyNamingStyle(style, metaBase)
+	} else {
+		logging.PrintD(1, "No naming style selected, skipping rename style")
 	}
-	return name
+	return metaBase
 }
