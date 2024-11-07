@@ -1,11 +1,11 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"os/exec"
 	"strings"
 )

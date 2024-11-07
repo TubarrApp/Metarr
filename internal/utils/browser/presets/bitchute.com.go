@@ -1,9 +1,9 @@
 package utils
 
 import (
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 	"time"

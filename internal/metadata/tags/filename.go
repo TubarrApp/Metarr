@@ -1,10 +1,10 @@
 package metadata
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/domain/regex"
-	logging "Metarr/internal/utils/logging"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/regex"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"

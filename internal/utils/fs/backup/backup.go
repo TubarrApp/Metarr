@@ -1,10 +1,10 @@
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"io"
+	consts "metarr/internal/domain/constants"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"

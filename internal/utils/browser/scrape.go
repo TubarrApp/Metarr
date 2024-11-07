@@ -1,13 +1,13 @@
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	presets "Metarr/internal/utils/browser/presets"
-	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	presets "metarr/internal/utils/browser/presets"
+	logging "metarr/internal/utils/logging"
 	"net/http"
 	"regexp"
 	"strings"

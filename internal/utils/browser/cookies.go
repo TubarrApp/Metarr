@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"net/http"
 	"net/url"
 	"strings"

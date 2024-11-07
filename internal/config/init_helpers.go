@@ -1,7 +1,7 @@
 package config
 
 import (
-	keys "Metarr/internal/domain/keys"
+	keys "metarr/internal/domain/keys"
 
 	"github.com/spf13/viper"
 )

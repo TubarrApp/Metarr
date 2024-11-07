@@ -1,14 +1,14 @@
 package utils
 
 import (
-	"Metarr/internal/config"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
 	"bufio"
 	"bytes"
 	"fmt"
 	"io"
+	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"

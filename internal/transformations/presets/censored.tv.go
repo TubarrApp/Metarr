@@ -1,10 +1,10 @@
 package transformations
 
 import (
-	config "Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	config "metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 )
 
 // CensoredTvTransformations adds preset transformations to

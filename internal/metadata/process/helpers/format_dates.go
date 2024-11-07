@@ -1,9 +1,9 @@
 package metadata
 
 import (
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 

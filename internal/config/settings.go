@@ -1,11 +1,11 @@
 package config
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
 
@@ -16,7 +16,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
-	Short: "Metarr is a video and metatagging tool",
+	Short: "metarr is a video and metatagging tool",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Lookup("help").Changed {
 			return nil // Stop further execution if help is invoked

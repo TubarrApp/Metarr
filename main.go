@@ -1,15 +1,15 @@
 package main
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/processing"
-	fsRead "Metarr/internal/utils/fs/read"
-	logging "Metarr/internal/utils/logging"
-	prompt "Metarr/internal/utils/prompt"
 	"context"
 	"fmt"
 	"log"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/processing"
+	fsRead "metarr/internal/utils/fs/read"
+	logging "metarr/internal/utils/logging"
+	prompt "metarr/internal/utils/prompt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -24,7 +24,7 @@ var startTime time.Time
 
 func init() {
 	startTime = time.Now()
-	logging.PrintI("Metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.PrintI("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
 }
 
 func main() {
@@ -184,6 +184,6 @@ func main() {
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
 
 	endTime := time.Now()
-	logging.PrintI("Metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.PrintI("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
 	logging.PrintI("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
 }

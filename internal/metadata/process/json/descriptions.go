@@ -1,13 +1,13 @@
 package metadata
 
 import (
-	"Metarr/internal/config"
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
 	"strings"
 )
 

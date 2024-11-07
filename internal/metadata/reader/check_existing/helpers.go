@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	logging "Metarr/internal/utils/logging"
+	logging "metarr/internal/utils/logging"
 	"strings"
 )
 

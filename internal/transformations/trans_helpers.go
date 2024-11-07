@@ -1,12 +1,12 @@
 package transformations
 
 import (
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/domain/regex"
-	"Metarr/internal/models"
-	presets "Metarr/internal/transformations/presets"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/regex"
+	"metarr/internal/models"
+	presets "metarr/internal/transformations/presets"
+	logging "metarr/internal/utils/logging"
 	"strings"
 	"unicode"
 )
@@ -173,6 +173,8 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 	prevString := ""
 
 	// Keep replacing until no more changes occur
+	// fixes accidental double spaces or double underscores
+	// in the "s" contractions
 	for f != prevString {
 		prevString = f
 

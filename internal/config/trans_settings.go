@@ -1,11 +1,11 @@
 package config
 
 import (
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strings"
 )
 

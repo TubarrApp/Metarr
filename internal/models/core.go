@@ -1,7 +1,7 @@
 package models
 
 import (
-	enums "Metarr/internal/domain/enums"
+	enums "metarr/internal/domain/enums"
 	"os"
 )
 

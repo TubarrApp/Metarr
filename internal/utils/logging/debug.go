@@ -1,9 +1,9 @@
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	keys "Metarr/internal/domain/keys"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	keys "metarr/internal/domain/keys"
 	"path/filepath"
 	"runtime"
 	"sync"

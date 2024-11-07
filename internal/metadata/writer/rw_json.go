@@ -1,16 +1,16 @@
 package metadata
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	backup "Metarr/internal/utils/fs/backup"
-	logging "Metarr/internal/utils/logging"
-	prompt "Metarr/internal/utils/prompt"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	backup "metarr/internal/utils/fs/backup"
+	logging "metarr/internal/utils/logging"
+	prompt "metarr/internal/utils/prompt"
 	"os"
 	"strings"
 	"sync"

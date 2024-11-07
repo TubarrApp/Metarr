@@ -1,10 +1,10 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 )
 
 // Grabs details necessary to scrape the web for missing metafields

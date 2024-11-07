@@ -1,13 +1,13 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	helpers "metarr/internal/metadata/process/helpers"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 )
 
 func fillNFOTimestamps(fd *models.FileData) bool {

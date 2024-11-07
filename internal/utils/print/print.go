@@ -1,10 +1,10 @@
 package print
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"reflect"
 	"strings"
 	"sync"

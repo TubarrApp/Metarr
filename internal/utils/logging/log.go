@@ -1,8 +1,8 @@
 package utils
 
 import (
-	"Metarr/internal/domain/regex"
 	"log"
+	"metarr/internal/domain/regex"
 	"path/filepath"
 	"strings"
 	"time"

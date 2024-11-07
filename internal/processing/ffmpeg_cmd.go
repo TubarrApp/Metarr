@@ -1,13 +1,13 @@
 package processing
 
 import (
-	"Metarr/internal/config"
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"path/filepath"
 	"strings"
 )

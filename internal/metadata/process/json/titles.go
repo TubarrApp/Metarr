@@ -1,11 +1,11 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	print "metarr/internal/utils/print"
 )
 
 // fillTitles grabs the fulltitle ("title")

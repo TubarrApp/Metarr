@@ -1,9 +1,9 @@
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	logging "Metarr/internal/utils/logging"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"regexp"

@@ -1,10 +1,10 @@
 package utils
 
 import (
-	logging "Metarr/internal/utils/logging"
 	"bufio"
 	"context"
 	"fmt"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
 )

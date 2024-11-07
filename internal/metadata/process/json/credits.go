@@ -1,11 +1,11 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)

@@ -1,13 +1,13 @@
 package transformations
 
 import (
-	"Metarr/internal/config"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	writefs "Metarr/internal/utils/fs/write"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	writefs "metarr/internal/utils/fs/write"
+	logging "metarr/internal/utils/logging"
 	"path/filepath"
 	"strings"
 )

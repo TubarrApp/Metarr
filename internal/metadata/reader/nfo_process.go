@@ -1,11 +1,11 @@
 package metadata
 
 import (
-	nfo "Metarr/internal/metadata/process/nfo"
-	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	nfo "metarr/internal/metadata/process/nfo"
+	writer "metarr/internal/metadata/writer"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"os"
 )
 

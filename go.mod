@@ -1,4 +1,4 @@
-module Metarr
+module metarr
 
 go 1.23.0
 

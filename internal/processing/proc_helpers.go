@@ -1,11 +1,11 @@
 package processing
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"time"
 

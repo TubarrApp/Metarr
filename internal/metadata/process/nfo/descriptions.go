@@ -1,9 +1,9 @@
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	print "metarr/internal/utils/print"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
