@@ -81,15 +81,24 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 	contractionsMap := make(map[string]*models.ContractionPattern)
 	// Rename style map to use
 	switch style {
+
 	case enums.RENAMING_SPACES:
 		contractionsMap = regex.ContractionMapSpacesCompile()
+
 	case enums.RENAMING_UNDERSCORES:
 		contractionsMap = regex.ContractionMapUnderscoresCompile()
+
 	case enums.RENAMING_FIXES_ONLY:
 		contractionsMap = regex.ContractionMapAllCompile()
+
 	default:
 		return videoFilename, metaFilename, nil
 	}
+
+	videoFilename = replaceLoneS(videoFilename, style)
+	metaFilename = replaceLoneS(metaFilename, style)
+
+	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoFilename, metaFilename)
 
 	// Function to replace contractions in a filename
 	replaceContractions := func(filename string) string {
@@ -153,4 +162,75 @@ func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) st
 
 	logging.PrintD(2, "Suffix replacement complete: %q -> %q", filename, result)
 	return result
+}
+
+// replaceLoneS performs replacements without regex
+func replaceLoneS(f string, style enums.ReplaceToStyle) string {
+	if style == enums.RENAMING_SKIP {
+		return f
+	}
+
+	prevString := ""
+
+	// Keep replacing until no more changes occur
+	for f != prevString {
+		prevString = f
+
+		if style == enums.RENAMING_SPACES || style == enums.RENAMING_FIXES_ONLY {
+			if strings.HasSuffix(f, " s") {
+				f = f[:len(f)-2] + "s"
+			}
+
+			f = strings.ReplaceAll(f, " s ", "s ")
+			f = strings.ReplaceAll(f, " s.", "s.")
+			f = strings.ReplaceAll(f, " s[", "s[")
+			f = strings.ReplaceAll(f, " s(", "s(")
+			f = strings.ReplaceAll(f, " s)", "s)")
+			f = strings.ReplaceAll(f, " s]", "s]")
+			f = strings.ReplaceAll(f, " s-", "s-")
+			f = strings.ReplaceAll(f, " s_", "s_")
+			f = strings.ReplaceAll(f, " s,", "s,")
+			f = strings.ReplaceAll(f, " s!", "s!")
+			f = strings.ReplaceAll(f, " s'", "s'")
+			f = strings.ReplaceAll(f, " s&", "s&")
+			f = strings.ReplaceAll(f, " s=", "s=")
+			f = strings.ReplaceAll(f, " s;", "s;")
+			f = strings.ReplaceAll(f, " s#", "s#")
+			f = strings.ReplaceAll(f, " s@", "s@")
+			f = strings.ReplaceAll(f, " s$", "s$")
+			f = strings.ReplaceAll(f, " s%", "s%")
+			f = strings.ReplaceAll(f, " s+", "s+")
+			f = strings.ReplaceAll(f, " s{", "s{")
+			f = strings.ReplaceAll(f, " s}", "s}")
+		}
+
+		if style == enums.RENAMING_UNDERSCORES || style == enums.RENAMING_FIXES_ONLY {
+			if strings.HasSuffix(f, "_s") {
+				f = f[:len(f)-2] + "s"
+			}
+
+			f = strings.ReplaceAll(f, "_s_", "s_")
+			f = strings.ReplaceAll(f, "_s.", "s.")
+			f = strings.ReplaceAll(f, "_s[", "s[")
+			f = strings.ReplaceAll(f, "_s(", "s(")
+			f = strings.ReplaceAll(f, "_s)", "s)")
+			f = strings.ReplaceAll(f, "_s]", "s]")
+			f = strings.ReplaceAll(f, "_s-", "s-")
+			f = strings.ReplaceAll(f, "_s ", "s ")
+			f = strings.ReplaceAll(f, "_s,", "s,")
+			f = strings.ReplaceAll(f, "_s!", "s!")
+			f = strings.ReplaceAll(f, "_s'", "s'")
+			f = strings.ReplaceAll(f, "_s&", "s&")
+			f = strings.ReplaceAll(f, "_s=", "s=")
+			f = strings.ReplaceAll(f, "_s;", "s;")
+			f = strings.ReplaceAll(f, "_s#", "s#")
+			f = strings.ReplaceAll(f, "_s@", "s@")
+			f = strings.ReplaceAll(f, "_s$", "s$")
+			f = strings.ReplaceAll(f, "_s%", "s%")
+			f = strings.ReplaceAll(f, "_s+", "s+")
+			f = strings.ReplaceAll(f, "_s{", "s{")
+			f = strings.ReplaceAll(f, "_s}", "s}")
+		}
+	}
+	return f
 }

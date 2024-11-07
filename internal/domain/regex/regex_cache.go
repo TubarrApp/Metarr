@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	AnsiEscape                *regexp.Regexp
-	ExtraSpaces               *regexp.Regexp
-	InvalidChars              *regexp.Regexp
-	SpecialChars              *regexp.Regexp
+	AnsiEscape   *regexp.Regexp
+	ExtraSpaces  *regexp.Regexp
+	InvalidChars *regexp.Regexp
+	SpecialChars *regexp.Regexp
+
 	ContractionMapSpaced      map[string]*models.ContractionPattern
 	ContractionMapUnderscored map[string]*models.ContractionPattern
 	ContractionMapAll         map[string]*models.ContractionPattern
@@ -101,7 +102,7 @@ func ExtraSpacesCompile() *regexp.Regexp {
 // InvalidCharsCompile compiles regex for invalid characters
 func InvalidCharsCompile() *regexp.Regexp {
 	if InvalidChars == nil {
-		regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+		InvalidChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
 	}
 	return InvalidChars
 }
