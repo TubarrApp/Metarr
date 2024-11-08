@@ -1,13 +1,14 @@
 package config
 
 import (
-	keys "Metarr/internal/domain/keys"
+	keys "metarr/internal/domain/keys"
 
 	"github.com/spf13/viper"
 )
 
 // initFilesDirs initializes user flag settings for input files and directories
 func initFilesDirs() {
+
 	// Videos
 	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
 	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
@@ -21,10 +22,15 @@ func initFilesDirs() {
 
 	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
 	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
+
+	// Cookies
+	rootCmd.PersistentFlags().String(keys.CookiePath, "", "Specify cookie location")
+	viper.BindPFlag(keys.CookiePath, rootCmd.PersistentFlags().Lookup(keys.CookiePath))
 }
 
 // initResourceRelated initializes user flag settings for parameters related to system hardware
 func initResourceRelated() {
+
 	// Concurrency limit
 	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
 	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
@@ -44,6 +50,7 @@ func initResourceRelated() {
 
 // initAllFileTransformers initializes user flag settings for transformations applying to all files
 func initAllFileTransformers() {
+
 	// Prefix file with metafield
 	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
 	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
@@ -53,7 +60,7 @@ func initAllFileTransformers() {
 	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
 
 	// Rename convention
-	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, or skip)")
+	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "fixes-only", "Rename flag (spaces, underscores, fixes-only, or skip)")
 	viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle))
 
 	// Replace filename suffix
@@ -71,6 +78,7 @@ func initAllFileTransformers() {
 
 // initMetaTransformers initializes user flag settings for manipulation of metadata
 func initMetaTransformers() {
+
 	// Metadata replacement & new additions
 	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
 	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
@@ -89,18 +97,22 @@ func initMetaTransformers() {
 
 	rootCmd.PersistentFlags().Bool(keys.MPreserve, false, "When adding new metadata fields, skip already existent fields")
 	viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve))
+
+	rootCmd.PersistentFlags().String(keys.MetaPurge, "", "Delete metadata files (e.g. .json, .nfo) after the video is successfully processed")
+	viper.BindPFlag(keys.MetaPurge, rootCmd.PersistentFlags().Lookup(keys.MetaPurge))
 }
 
 // initVideoTransformers initializes user flag settings for transformation of video files
 func initVideoTransformers() {
+
 	// Output extension type
 	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
 	viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype))
-
 }
 
 // initFiltering initializes user flag settings for filtering files to work with
 func initFiltering() {
+
 	// Video file extensions to convert
 	rootCmd.PersistentFlags().StringSliceP(keys.InputVideoExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
 	viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts))
@@ -116,6 +128,7 @@ func initFiltering() {
 
 // initProgramFunctions initializes user flag settings for miscellaneous program features such as debug level
 func initProgramFunctions() {
+
 	// Debugging level
 	rootCmd.PersistentFlags().Uint16P(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
 	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
@@ -135,11 +148,11 @@ func initProgramFunctions() {
 package config
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
 
@@ -150,7 +163,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
-	Short: "Metarr is a video and metatagging tool",
+	Short: "metarr is a video and metatagging tool",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Lookup("help").Changed {
 			return nil // Stop further execution if help is invoked
@@ -226,6 +239,9 @@ func execute() error {
 	// Meta overwrite and preserve flags
 	verifyMetaOverwritePreserve()
 
+	// Verify user metafile purge settings
+	verifyPurgeMetafiles()
+
 	// Ensure no video and metadata location conflicts
 	if err := checkFileDirs(); err != nil {
 		return err
@@ -245,64 +261,71 @@ func execute() error {
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
 
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-	jsonDirSet := viper.IsSet(keys.JsonDir)
+	videoFile := strings.TrimSpace(viper.GetString(keys.VideoFile))
 	videoFileSet := viper.IsSet(keys.VideoFile)
+
+	videoDir := strings.TrimSpace(viper.GetString(keys.VideoDir))
 	videoDirSet := viper.IsSet(keys.VideoDir)
 
+	jsonFile := strings.TrimSpace(viper.GetString(keys.JsonFile))
+	jsonFileSet := viper.IsSet(keys.JsonFile)
+
+	jsonDir := strings.TrimSpace(viper.GetString(keys.JsonDir))
+	jsonDirSet := viper.IsSet(keys.JsonDir)
+
+	// Validate configuration
 	if jsonFileSet {
-		if _, err := os.Stat(viper.GetString(keys.JsonFile)); err != nil {
-			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.JsonFile))
+		if jsonDirSet {
+			return fmt.Errorf("cannot set both the JSON file and the JSON directory")
 		}
-		// Check if it's actually a directory
-		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonFile)); fileInfo.IsDir() {
-			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.JsonFile))
-		}
-	}
-
-	if jsonDirSet {
-		if _, err := os.Stat(viper.GetString(keys.JsonDir)); err != nil {
-			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.JsonDir))
-		}
-		// Check if it's actually a file
-		if fileInfo, _ := os.Stat(viper.GetString(keys.JsonDir)); !fileInfo.IsDir() {
-			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.JsonDir))
+		if videoDirSet {
+			return fmt.Errorf("cannot set singular metadata file for whole video directory")
 		}
 	}
-
 	if videoFileSet {
-		if _, err := os.Stat(viper.GetString(keys.VideoFile)); err != nil {
-			return fmt.Errorf("file '%s' does not exist", viper.GetString(keys.VideoFile))
+		if videoDirSet {
+			return fmt.Errorf("cannot set singular video file AND video directory")
 		}
-		// Check if it's actually a directory
-		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoFile)); fileInfo.IsDir() {
-			return fmt.Errorf("entered directory '%s' as a file", viper.GetString(keys.VideoFile))
-		}
-	}
-
-	if videoDirSet {
-		if _, err := os.Stat(viper.GetString(keys.VideoDir)); err != nil {
-			return fmt.Errorf("directory '%s' does not exist", viper.GetString(keys.VideoDir))
-		}
-		// Check if it's actually a file
-		if fileInfo, _ := os.Stat(viper.GetString(keys.VideoDir)); !fileInfo.IsDir() {
-			return fmt.Errorf("entered file '%s' as a directory", viper.GetString(keys.VideoDir))
-		}
-	}
-
-	if jsonFileSet && jsonDirSet {
-		return fmt.Errorf("cannot set both the JSON file and the JSON directory")
-	}
-	if jsonFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular metadata file for whole video directory")
-	}
-	if videoFileSet && videoDirSet {
-		return fmt.Errorf("cannot set singular video file AND video directory")
-	}
-
-	if videoFileSet {
 		viper.Set(keys.SingleFile, true)
 	}
+
+	// Check files and dirs exist
+	if viper.IsSet(keys.JsonFile) {
+		if _, err := os.Stat(jsonFile); err != nil {
+			return fmt.Errorf("file '%s' does not exist", jsonFile)
+		}
+		if fileInfo, _ := os.Stat(jsonFile); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", jsonFile)
+		}
+	}
+
+	if viper.IsSet(keys.JsonDir) {
+		if _, err := os.Stat(jsonDir); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", jsonDir)
+		}
+		if fileInfo, _ := os.Stat(jsonDir); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", jsonDir)
+		}
+	}
+
+	if viper.IsSet(keys.VideoFile) {
+		if _, err := os.Stat(videoFile); err != nil {
+			return fmt.Errorf("file '%s' does not exist", videoFile)
+		}
+		if fileInfo, _ := os.Stat(videoFile); fileInfo.IsDir() {
+			return fmt.Errorf("entered directory '%s' as a file", videoFile)
+		}
+	}
+
+	if viper.IsSet(keys.VideoDir) {
+		if _, err := os.Stat(videoDir); err != nil {
+			return fmt.Errorf("directory '%s' does not exist", videoDir)
+		}
+		if fileInfo, _ := os.Stat(videoDir); !fileInfo.IsDir() {
+			return fmt.Errorf("entered file '%s' as a directory", videoDir)
+		}
+	}
+
 	return nil
 }
 
@@ -476,14 +499,41 @@ func verifyOutputFiletype() {
 		Set(keys.OutputFiletype, "")
 	}
 }
+
+// verifyPurgeMetafiles checks and sets the type of metafile purge to perform
+func verifyPurgeMetafiles() {
+	if !viper.IsSet(keys.MetaPurge) {
+		return
+	}
+
+	var e enums.PurgeMetafiles
+	purgeType := viper.GetString(keys.MetaPurge)
+
+	purgeType = strings.TrimSpace(purgeType)
+	purgeType = strings.ToLower(purgeType)
+	purgeType = strings.ReplaceAll(purgeType, ".", "")
+
+	switch purgeType {
+	case "all":
+		e = enums.PURGEMETA_ALL
+	case "json":
+		e = enums.PURGEMETA_JSON
+	case "nfo":
+		e = enums.PURGEMETA_NFO
+	default:
+		e = enums.PURGEMETA_NONE
+	}
+
+	viper.Set(keys.MetaPurgeEnum, e)
+}
 package config
 
 import (
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strings"
 )
 
@@ -616,6 +666,10 @@ func setRenameFlag() {
 	var renameFlag enums.ReplaceToStyle
 	argRenameFlag := GetString(keys.RenameStyle)
 
+	// Trim whitespace for more robust validation
+	argRenameFlag = strings.TrimSpace(argRenameFlag)
+	argRenameFlag = strings.ToLower(argRenameFlag)
+
 	switch argRenameFlag {
 	case "spaces", "space":
 		renameFlag = enums.RENAMING_SPACES
@@ -624,6 +678,11 @@ func setRenameFlag() {
 	case "underscores", "underscore":
 		renameFlag = enums.RENAMING_UNDERSCORES
 		logging.Print("Rename style selected: %v", argRenameFlag)
+
+	case "fixes-only", "fixesonly":
+		renameFlag = enums.RENAMING_FIXES_ONLY
+		logging.Print("Rename style selected: %v", argRenameFlag)
+
 	default:
 		logging.PrintD(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RENAMING_SKIP
@@ -637,7 +696,10 @@ func initDateReplaceFormat() error {
 	var formatEnum enums.FilenameDateFormat
 	dateFmt := GetString(keys.InputFileDatePfx)
 
-	if dateFmt == "" {
+	// Trim whitespace for more robust validation
+	dateFmt = strings.TrimSpace(dateFmt)
+
+	if dateFmt == "" || len(dateFmt) == 0 {
 		formatEnum = enums.FILEDATE_SKIP
 	} else if len(dateFmt) != 3 {
 		return fmt.Errorf("invalid date format entered, please enter three characters (where 'Y' is yyyy and 'y' is yy)")
@@ -659,8 +721,6 @@ func initDateReplaceFormat() error {
 			formatEnum = enums.FILEDATE_MM_DD_YYYY
 		case "mdy":
 			formatEnum = enums.FILEDATE_MM_DD_YY
-		case "":
-			formatEnum = enums.FILEDATE_SKIP
 		default:
 			return fmt.Errorf("invalid date format entered, please enter three characters (where capital Y is yyyy and y is yy)")
 		}
@@ -850,6 +910,33 @@ var (
 )
 package domain
 
+// Video extensions
+const (
+	Ext3GP  = ".3gp"
+	Ext3G2  = ".3g2"
+	ExtASF  = ".asf"
+	ExtAVI  = ".avi"
+	ExtFLV  = ".flv"
+	ExtM4V  = ".m4v"
+	ExtMKV  = ".mkv"
+	ExtMOV  = ".mov"
+	ExtMP4  = ".mp4"
+	ExtMPEG = ".mpeg"
+	ExtMPG  = ".mpg"
+	ExtMTS  = ".mts"
+	ExtRM   = ".rm"
+	ExtRMVB = ".rmvb"
+	ExtTS   = ".ts"
+	ExtWEBM = ".webm"
+)
+
+// Metafile extensions
+const (
+	MExtJSON = ".json"
+	MExtNFO  = ".nfo"
+)
+package domain
+
 // AV codec copy
 var (
 	AVCodecCopy = [...]string{"-codec", "copy"}
@@ -879,19 +966,20 @@ var (
 package domain
 
 const (
-	JActor     = "actor"
-	JAuthor    = "author"
-	JArtist    = "artist"
-	JChannel   = "channel"
-	JComposer  = "composer"
-	JCreator   = "creator"
-	JDirector  = "director"
-	JPerformer = "performer"
-	JProducer  = "producer"
-	JPublisher = "publisher"
-	JStudio    = "studio"
-	JUploader  = "uploader"
-	JWriter    = "writer"
+	JOverrideCredits = "all-credits"
+	JActor           = "actor"
+	JAuthor          = "author"
+	JArtist          = "artist"
+	JChannel         = "channel"
+	JComposer        = "composer"
+	JCreator         = "creator"
+	JDirector        = "director"
+	JPerformer       = "performer"
+	JProducer        = "producer"
+	JPublisher       = "publisher"
+	JStudio          = "studio"
+	JUploader        = "uploader"
+	JWriter          = "writer"
 )
 
 const (
@@ -1044,6 +1132,7 @@ type ReplaceToStyle int
 const (
 	RENAMING_SPACES ReplaceToStyle = iota
 	RENAMING_UNDERSCORES
+	RENAMING_FIXES_ONLY
 	RENAMING_SKIP
 )
 
@@ -1082,6 +1171,16 @@ const (
 	VIPER_STRING_SLICE
 )
 
+// Purge metafile types
+type PurgeMetafiles int
+
+const (
+	PURGEMETA_ALL PurgeMetafiles = iota
+	PURGEMETA_JSON
+	PURGEMETA_NFO
+	PURGEMETA_NONE
+)
+
 // Web tags
 type WebClassTags int
 
@@ -1103,37 +1202,46 @@ package domain
 
 // Terminal keys
 const (
-	VideoDir                string = "video-dir"
-	VideoFile               string = "video-file"
-	JsonDir                 string = "json-dir"
-	JsonFile                string = "json-file"
-	InputVideoExts          string = "input-video-exts"
-	InputMetaExts           string = "input-meta-exts"
-	FilePrefixes            string = "prefix"
-	Concurrency             string = "concurrency"
-	MaxCPU                  string = "max-cpu"
-	MinMem                  string = "min-mem"
-	MinMemMB                string = "min-mem-mb"
-	GPU                     string = "gpu"
-	GetLatest               string = "get-latest"
-	MFilenamePfx            string = "metadata-filename-prefix"
+	VideoDir  string = "video-dir"
+	VideoFile string = "video-file"
+
+	JsonDir   string = "json-dir"
+	JsonFile  string = "json-file"
+	MetaPurge string = "purge-metafile"
+
+	CookiePath string = "cookie-file"
+
+	InputMetaExts  string = "input-meta-exts"
+	InputVideoExts string = "input-video-exts"
+	FilePrefixes   string = "prefix"
+
+	Concurrency string = "concurrency"
+	GPU         string = "gpu"
+	MaxCPU      string = "max-cpu"
+	MinMem      string = "min-mem"
+	MinMemMB    string = "min-mem-mb"
+
 	InputFilenameReplaceSfx string = "filename-replace-suffix"
 	InputFileDatePfx        string = "filename-date-tag"
 	RenameStyle             string = "input-rename-style"
-	MReplaceSfx             string = "meta-trim-suffix"
-	MReplacePfx             string = "meta-trim-prefix"
-	MNewField               string = "meta-add-field"
-	MOverwrite              string = "meta-overwrite"
-	MPreserve               string = "meta-preserve"
-	DebugLevel              string = "debug-level"
-	SkipVideos              string = "skip-videos"
-	NoFileOverwrite         string = "no-file-overwrite"
-	MDescDatePfx            string = "desc-date-prefix"
-	MDescDateSfx            string = "desc-date-suffix"
-	InputPreset             string = "preset"
-	MoveOnComplete          string = "output-directory"
-	OutputFiletype          string = "ext"
-	Benchmarking            string = "benchmark"
+	MFilenamePfx            string = "metadata-filename-prefix"
+
+	MDescDatePfx string = "desc-date-prefix"
+	MDescDateSfx string = "desc-date-suffix"
+	MNewField    string = "meta-add-field"
+	MReplacePfx  string = "meta-trim-prefix"
+	MReplaceSfx  string = "meta-trim-suffix"
+	MOverwrite   string = "meta-overwrite"
+	MPreserve    string = "meta-preserve"
+
+	DebugLevel      string = "debug-level"
+	SkipVideos      string = "skip-videos"
+	NoFileOverwrite string = "no-file-overwrite"
+
+	Benchmarking   string = "benchmark"
+	OutputFiletype string = "ext"
+	MoveOnComplete string = "output-directory"
+	InputPreset    string = "preset"
 )
 
 // Primary program
@@ -1145,10 +1253,11 @@ const (
 
 // Files and directories
 const (
-	OpenVideo string = "openVideo"
-	OpenJson  string = "openJson"
-	VideoMap  string = "videoMap"
-	MetaMap   string = "metaMap"
+	OpenVideo     string = "openVideo"
+	OpenJson      string = "openJson"
+	VideoMap      string = "videoMap"
+	MetaMap       string = "metaMap"
+	MetaPurgeEnum string = "metaPurgeEnum"
 )
 
 // Filter for files
@@ -1179,12 +1288,666 @@ var MultiEntryFields = []string{
 	MNewField,
 	FilenameReplaceSfx,
 }
+package regex
+
+import (
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	"regexp"
+)
+
+var (
+	AnsiEscape   *regexp.Regexp
+	ExtraSpaces  *regexp.Regexp
+	InvalidChars *regexp.Regexp
+	SpecialChars *regexp.Regexp
+
+	ContractionMapSpaced      map[string]*models.ContractionPattern
+	ContractionMapUnderscored map[string]*models.ContractionPattern
+	ContractionMapAll         map[string]*models.ContractionPattern
+)
+
+// ContractionMapAllCompile compiles the regex pattern for spaced AND underscored contractions and returns
+// a model containing the regex and the replacement
+func ContractionMapAllCompile() map[string]*models.ContractionPattern {
+	if ContractionMapAll == nil {
+		ContractionMapAll = make(map[string]*models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
+
+		// Spaced map
+		for contraction, replacement := range consts.ContractionsSpaced {
+
+			ContractionMapAll[contraction] = &models.ContractionPattern{
+				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+				Replacement: replacement,
+			}
+			ContractionMapAll[contraction].Replacement = replacement
+		}
+
+		// Underscored map
+		for contraction, replacement := range consts.ContractionsUnderscored {
+
+			ContractionMapAll[contraction] = &models.ContractionPattern{
+				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+				Replacement: replacement,
+			}
+			ContractionMapAll[contraction].Replacement = replacement
+		}
+	}
+
+	return ContractionMapAll
+}
+
+// ContractionMapSpacesCompile compiles the regex pattern for spaced contractions and returns
+// a model containing the regex and the replacement
+func ContractionMapSpacesCompile() map[string]*models.ContractionPattern {
+	if ContractionMapSpaced == nil {
+		ContractionMapSpaced = make(map[string]*models.ContractionPattern, len(consts.ContractionsSpaced))
+
+		for contraction, replacement := range consts.ContractionsSpaced {
+
+			ContractionMapSpaced[contraction] = &models.ContractionPattern{
+				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+				Replacement: replacement,
+			}
+			ContractionMapSpaced[contraction].Replacement = replacement
+		}
+	}
+	return ContractionMapSpaced
+}
+
+// ContractionMapUnderscoresCompile compiles the regex pattern for underscored contractions and returns
+// a model containing the regex and the replacement
+func ContractionMapUnderscoresCompile() map[string]*models.ContractionPattern {
+	if ContractionMapUnderscored == nil {
+		ContractionMapUnderscored = make(map[string]*models.ContractionPattern, len(consts.ContractionsUnderscored))
+
+		for contraction, replacement := range consts.ContractionsUnderscored {
+
+			ContractionMapUnderscored[contraction] = &models.ContractionPattern{
+				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+				Replacement: replacement,
+			}
+			ContractionMapUnderscored[contraction].Replacement = replacement
+		}
+	}
+	return ContractionMapUnderscored
+}
+
+// AnsiEscapeCompile compiles regex for ANSI escape codes
+func AnsiEscapeCompile() *regexp.Regexp {
+	if AnsiEscape == nil {
+		AnsiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	}
+	return AnsiEscape
+}
+
+// ExtraSpacesCompile compiles regex for extra spaces
+func ExtraSpacesCompile() *regexp.Regexp {
+	if ExtraSpaces == nil {
+		ExtraSpaces = regexp.MustCompile(`\s+`)
+	}
+	return ExtraSpaces
+}
+
+// InvalidCharsCompile compiles regex for invalid characters
+func InvalidCharsCompile() *regexp.Regexp {
+	if InvalidChars == nil {
+		InvalidChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	}
+	return InvalidChars
+}
+
+// SpecialCharsCompile compiles regex for special characters
+func SpecialCharsCompile() *regexp.Regexp {
+	if SpecialChars == nil {
+		SpecialChars = regexp.MustCompile(`[^\w\s-]`)
+	}
+	return SpecialChars
+}
+package ffmpeg
+
+import (
+	"fmt"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	"path/filepath"
+	"strings"
+)
+
+// ffCommandBuilder handles FFmpeg command construction
+type ffCommandBuilder struct {
+	inputFile   string
+	outputFile  string
+	formatFlags []string
+	gpuAccel    []string
+	metadataMap map[string]string
+}
+
+// newFfCommandBuilder creates a new FFmpeg command builder
+func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuilder {
+	return &ffCommandBuilder{
+		inputFile:   fd.OriginalVideoPath,
+		outputFile:  outputFile,
+		metadataMap: make(map[string]string),
+	}
+}
+
+// buildCommand constructs the complete FFmpeg command
+func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
+
+	b.setGPUAcceleration()
+	b.addAllMetadata(fd)
+	b.setFormatFlags(outExt)
+
+	// Return the fully appended argument string
+	return b.buildFinalCommand()
+}
+
+// addAllMetadata combines all metadata into a single map
+func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
+
+	b.addTitlesDescs(fd.MTitleDesc)
+	b.addCredits(fd.MCredits)
+	b.addDates(fd.MDates)
+	b.addShowInfo(fd.MShowData)
+	b.addOtherMetadata(fd.MOther)
+}
+
+// addTitlesDescs adds all title/description-related metadata
+func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
+
+	if t.Title == "" && t.FallbackTitle != "" {
+		t.Title = t.FallbackTitle
+	}
+	if t.LongDescription == "" && t.Long_Description != "" {
+		t.LongDescription = t.Long_Description
+	}
+
+	fields := map[string]string{
+		"title":           t.Title,
+		"subtitle":        t.Subtitle,
+		"description":     t.Description,
+		"longdescription": t.LongDescription,
+		"summary":         t.Summary,
+		"synopsis":        t.Synopsis,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addCredits adds all credit-related metadata
+func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
+
+	// Single value credits
+	fields := map[string]string{
+		"actor":     c.Actor,
+		"author":    c.Author,
+		"artist":    c.Artist,
+		"creator":   c.Creator,
+		"studio":    c.Studio,
+		"publisher": c.Publisher,
+		"producer":  c.Producer,
+		"performer": c.Performer,
+		"composer":  c.Composer,
+		"director":  c.Director,
+		"writer":    c.Writer,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+
+	// Array credits (length already checked in function)
+	b.addArrayMetadata("actor", c.Actors)
+	b.addArrayMetadata("composer", c.Composers)
+	b.addArrayMetadata("artist", c.Artists)
+	b.addArrayMetadata("studio", c.Studios)
+	b.addArrayMetadata("performer", c.Performers)
+	b.addArrayMetadata("producer", c.Producers)
+	b.addArrayMetadata("publisher", c.Publishers)
+	b.addArrayMetadata("director", c.Directors)
+	b.addArrayMetadata("writer", c.Writers)
+}
+
+// addDates adds all date-related metadata
+func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
+
+	fields := map[string]string{
+		"creation_time":           d.Creation_Time,
+		"date":                    d.Date,
+		"originally_available_at": d.Originally_Available_At,
+		"release_date":            d.ReleaseDate,
+		"upload_date":             d.UploadDate,
+		"year":                    d.Year,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addShowInfo adds all show info related metadata
+func (b *ffCommandBuilder) addShowInfo(s *models.MetadataShowData) {
+
+	fields := map[string]string{
+		"episode_id":    s.Episode_ID,
+		"episode_sort":  s.Episode_Sort,
+		"season_number": s.Season_Number,
+		"season_title":  s.Season_Title,
+		"show":          s.Show,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addOtherMetadata adds other related metadata
+func (b *ffCommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
+
+	fields := map[string]string{
+		"genre":    o.Genre,
+		"hd_video": o.HD_Video,
+		"language": o.Language,
+	}
+
+	for field, value := range fields {
+		if value != "" {
+			b.metadataMap[field] = value
+		}
+	}
+}
+
+// addArrayMetadata combines array values with existing metadata
+func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
+	if len(values) == 0 {
+		return
+	}
+
+	existing, exists := b.metadataMap[key]
+	newValue := strings.Join(values, "; ")
+
+	if exists && existing != "" {
+		b.metadataMap[key] = existing + "; " + newValue
+	} else {
+		b.metadataMap[key] = newValue
+	}
+}
+
+// setGPUAcceleration sets appropriate GPU acceleration flags
+func (b *ffCommandBuilder) setGPUAcceleration() {
+	if config.IsSet(keys.GPUEnum) {
+		gpuFlag, ok := config.Get(keys.GPUEnum).(enums.SysGPU)
+		if ok {
+			switch gpuFlag {
+			case enums.GPU_NVIDIA:
+				b.gpuAccel = consts.NvidiaAccel[:]
+			case enums.GPU_AMD:
+				b.gpuAccel = consts.AMDAccel[:]
+			case enums.GPU_INTEL:
+				b.gpuAccel = consts.IntelAccel[:]
+			}
+		}
+	}
+}
+
+// setFormatFlags adds commands specific for the extension input and output
+func (b *ffCommandBuilder) setFormatFlags(outExt string) {
+	inExt := strings.ToLower(filepath.Ext(b.inputFile))
+	outExt = strings.ToLower(outExt)
+
+	if outExt == "" || strings.EqualFold(inExt, outExt) {
+		b.formatFlags = copyPreset.flags
+		return
+	}
+
+	logging.PrintI("Input extension: '%s', output extension: '%s', File: %s",
+		inExt, outExt, b.inputFile)
+
+	// Get format preset from map
+	if presets, exists := formatMap[outExt]; exists {
+		// Try exact input format match
+		if preset, exists := presets[inExt]; exists {
+			b.formatFlags = preset.flags
+			return
+		}
+		// Fall back to default preset for this output format
+		if preset, exists := presets["*"]; exists {
+			b.formatFlags = preset.flags
+			return
+		}
+	}
+
+	// Fall back to copy preset if no mapping found
+	b.formatFlags = copyPreset.flags
+	logging.PrintD(1, "No format mapping found for %s to %s conversion, using copy preset",
+		inExt, outExt)
+}
+
+// buildFinalCommand assembles the final FFmpeg command
+func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
+
+	args := make([]string, 0, calculateCommandCapacity(b))
+
+	if len(b.gpuAccel) > 0 {
+		args = append(args, b.gpuAccel...)
+	}
+
+	if b.inputFile != "" {
+		args = append(args, "-y", "-i", b.inputFile)
+	}
+
+	// Add all -metadata commands
+	for key, value := range b.metadataMap {
+		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, strings.TrimSpace(value)))
+	}
+
+	if len(b.formatFlags) > 0 {
+		args = append(args, b.formatFlags...)
+	}
+
+	if b.outputFile != "" {
+		args = append(args, b.outputFile)
+	}
+
+	return args, nil
+}
+
+// calculateCommandCapacity determines the total length needed for the command
+func calculateCommandCapacity(b *ffCommandBuilder) int {
+	const (
+		inputFlags   = 2 // "-y", "-i"
+		inputFile    = 1 // input file
+		formatFlag   = 1 // "-codec"
+		outputFile   = 1 // output file
+		metadataFlag = 1 // "-metadata" for each metadata entry
+		keyValuePair = 1 // "key=value" for each metadata entry
+	)
+
+	totalCapacity := len(b.gpuAccel) + // GPU acceleration flags if any
+		inputFlags + inputFile + // Input related flags and file
+		(len(b.metadataMap) * (metadataFlag + keyValuePair)) + // Metadata entries
+		len(b.formatFlags) + // Format flags (like -codec copy)
+		outputFile
+
+	logging.PrintD(3, "Total command capacity calculated as: %d", totalCapacity)
+	return totalCapacity
+}
+package ffmpeg
+
+import (
+	consts "metarr/internal/domain/constants"
+	logging "metarr/internal/utils/logging"
+)
+
+// formatPreset holds a pre-calculated set of ffmpeg flags
+type formatPreset struct {
+	flags []string
+}
+
+var (
+	// Direct copy preset
+	copyPreset = formatPreset{
+		flags: consts.AVCodecCopy[:],
+	}
+
+	// Standard h264 conversion
+	h264Preset = formatPreset{
+		flags: concat(
+			consts.VideoToH264Balanced[:],
+			consts.PixelFmtYuv420p[:],
+			consts.AudioToAAC[:],
+			consts.AudioBitrate[:],
+		),
+	}
+
+	// Video copy with AAC audio
+	videoCopyAACPreset = formatPreset{
+		flags: concat(
+			consts.VideoCodecCopy[:],
+			consts.AudioToAAC[:],
+			consts.AudioBitrate[:],
+		),
+	}
+
+	// Full webm conversion preset
+	webmPreset = formatPreset{
+		flags: concat(
+			consts.VideoToH264Balanced[:],
+			consts.PixelFmtYuv420p[:],
+			consts.KeyframeBalanced[:],
+			consts.AudioToAAC[:],
+			consts.AudioBitrate[:],
+		),
+	}
+)
+
+var formatMap = map[string]map[string]formatPreset{
+	consts.ExtAVI: {
+		consts.ExtAVI:  copyPreset,
+		consts.ExtMP4:  videoCopyAACPreset,
+		consts.ExtM4V:  videoCopyAACPreset,
+		consts.ExtMOV:  videoCopyAACPreset,
+		consts.ExtRM:   webmPreset,
+		consts.ExtRMVB: webmPreset,
+		"*":            h264Preset, // default preset
+	},
+	consts.ExtMP4: {
+		consts.ExtMP4:  copyPreset,
+		consts.ExtMKV:  videoCopyAACPreset,
+		consts.ExtWEBM: webmPreset,
+		"*":            h264Preset,
+	},
+	consts.ExtMKV: {
+		consts.ExtMKV: copyPreset,
+		consts.ExtMP4: videoCopyAACPreset,
+		consts.ExtM4V: videoCopyAACPreset,
+		"*":           h264Preset,
+	},
+	consts.ExtWEBM: {
+		consts.ExtWEBM: copyPreset,
+		"*":            webmPreset,
+	},
+}
+
+// concat combines multiple string slices into one
+func concat(slices ...[]string) []string {
+	var totalLen int
+	for _, s := range slices {
+		totalLen += len(s)
+	}
+
+	result := make([]string, 0, totalLen)
+	for _, s := range slices {
+		result = append(result, s...)
+	}
+
+	logging.PrintD(2, "Made format flag array %v", result)
+	return result
+}
+package ffmpeg
+
+import (
+	"fmt"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	backup "metarr/internal/utils/fs/backup"
+	logging "metarr/internal/utils/logging"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+)
+
+// executeVideo writes metadata to a single video file
+func ExecuteVideo(fd *models.FileData) error {
+
+	if dontProcess(fd) {
+		return nil
+	}
+
+	var (
+		tmpOutPath,
+		outExt string
+	)
+
+	dir := fd.VideoDirectory
+	origPath := fd.OriginalVideoPath
+	origExt := filepath.Ext(origPath)
+
+	if config.IsSet(keys.OutputFiletype) {
+		if outExt = config.GetString(keys.OutputFiletype); outExt == "" {
+			outExt = origExt
+		}
+	} else {
+		outExt = origExt
+		config.Set(keys.OutputFiletype, outExt)
+	}
+
+	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
+
+	// Make temp output path
+	fileBase := strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
+	logging.PrintD(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
+
+	// Add temp path to data struct
+	fd.TempOutputFilePath = tmpOutPath
+
+	defer func() {
+		if _, err := os.Stat(tmpOutPath); err == nil {
+			os.Remove(tmpOutPath)
+		}
+	}()
+
+	// Build FFmpeg command
+	builder := newFfCommandBuilder(fd, tmpOutPath)
+	args, err := builder.buildCommand(fd, outExt)
+	if err != nil {
+		return err
+	}
+
+	command := exec.Command("ffmpeg", args...)
+	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
+
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+
+	// Set final video path and base name in model
+	fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+	fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
+
+	logging.PrintI("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
+		fd.JSONFilePath,
+		fd.FinalVideoPath,
+		fd.TempOutputFilePath)
+
+	// Run the ffmpeg command
+	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
+	if err := command.Run(); err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		return fmt.Errorf("failed to run FFmpeg command: %w", err)
+	}
+
+	// Rename temporary file to overwrite the original video file
+	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
+		logging.PrintI("Original file not type %s, removing '%s'", outExt, origPath)
+
+	} else if config.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+		if err := makeBackup(origPath); err != nil {
+			return err
+		}
+	}
+
+	// Delete original after potential backup ops
+	err = os.Remove(origPath)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		return fmt.Errorf("failed to remove original file (%s). Error: %v", origPath, err)
+	}
+
+	//
+	err = os.Rename(tmpOutPath, fd.FinalVideoPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+
+	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
+		fd.FinalVideoPath,
+		fd.MTitleDesc.Title)
+
+	return nil
+}
+
+// dontProcess determines whether the program should process this video (meta already exists and file extensions are unchanged)
+func dontProcess(fd *models.FileData) (dontProcess bool) {
+	if fd.MetaAlreadyExists {
+
+		logging.PrintI("Metadata already exists in the file, skipping processing...")
+		origPath := fd.OriginalVideoPath
+		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
+
+		// Set the final video path based on output extension
+		outExt := config.GetString(keys.OutputFiletype)
+		if outExt == "" {
+			outExt = filepath.Ext(fd.OriginalVideoPath)
+			config.Set(keys.OutputFiletype, outExt)
+		}
+
+		// Save final video path into model
+		fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
+		return true
+	}
+	return dontProcess
+}
+
+// makeBackup performs the backup
+func makeBackup(origPath string) error {
+
+	origInfo, err := os.Stat(origPath)
+	if os.IsNotExist(err) {
+		logging.PrintI("File does not exist, safe to proceed overwriting: %s", origPath)
+		return nil
+	}
+
+	backupPath, err := backup.RenameToBackup(origPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+	}
+
+	backInfo, err := os.Stat(backupPath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("backup file was not created, aborting")
+	}
+
+	if origInfo.Size() != backInfo.Size() {
+		return fmt.Errorf("backup file size does not match original, aborting")
+	}
+
+	return nil
+}
 package metadata
 
 import (
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 
@@ -1370,34 +2133,39 @@ func FormatAllDates(fd *models.FileData) string {
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
+	config "metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+
+	metaOW := config.GetBool(keys.MOverwrite)
 
 	c := fd.MCredits
 	w := fd.MWebData
 
 	fieldMap := map[string]*string{
 		// Order by importance
-		consts.JCreator:   &c.Creator,
-		consts.JPerformer: &c.Performer,
-		consts.JAuthor:    &c.Author,
-		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
-		consts.JChannel:   &c.Channel,
-		consts.JDirector:  &c.Director,
-		consts.JActor:     &c.Actor,
-		consts.JStudio:    &c.Studio,
-		consts.JProducer:  &c.Producer,
-		consts.JWriter:    &c.Writer,
-		consts.JUploader:  &c.Uploader,
-		consts.JPublisher: &c.Publisher,
-		consts.JComposer:  &c.Composer,
+		consts.JOverrideCredits: &c.Override, // Users can assign to this flag to override all credits
+		consts.JCreator:         &c.Creator,
+		consts.JPerformer:       &c.Performer,
+		consts.JAuthor:          &c.Author,
+		consts.JArtist:          &c.Artist, // May be alias for "author" in some systems
+		consts.JChannel:         &c.Channel,
+		consts.JDirector:        &c.Director,
+		consts.JActor:           &c.Actor,
+		consts.JStudio:          &c.Studio,
+		consts.JProducer:        &c.Producer,
+		consts.JWriter:          &c.Writer,
+		consts.JUploader:        &c.Uploader,
+		consts.JPublisher:       &c.Publisher,
+		consts.JComposer:        &c.Composer,
 	}
 
 	dataFilled := unpackJSON("credits", fieldMap, data)
@@ -1408,7 +2176,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 			logging.PrintE(0, "Value is null")
 			continue
 		}
-		if *val == "" {
+		if *val == "" || metaOW {
 			logging.PrintD(2, "Value for '%s' is empty, attempting to fill by inference...", key)
 			*val = fillEmptyCredits(c)
 			logging.PrintD(2, "Set value to '%s'", *val)
@@ -1464,6 +2232,9 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 
 	// Order by importance
 	switch {
+	case c.Override != "":
+		return c.Override
+
 	case c.Creator != "":
 		return c.Creator
 
@@ -1502,6 +2273,7 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 
 	case c.Composer != "":
 		return c.Composer
+
 	default:
 		return ""
 	}
@@ -1509,13 +2281,13 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	helpers "metarr/internal/metadata/process/helpers"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 	"strings"
 )
 
@@ -1671,6 +2443,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	// Infer from originally available date
 	if t.Originally_Available_At != "" && len(t.Originally_Available_At) >= 6 {
+
 		gotRelevantDate = true
 		if t.Creation_Time == "" {
 			if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
@@ -1696,6 +2469,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			}
 		}
 	}
+
 	// Infer from release date
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
 		gotRelevantDate = true
@@ -1788,18 +2562,47 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	if len(t.Year) > 4 {
 		t.Year = t.Year[:4]
 	}
+
+	// Try to fix accidentally using upload date if another date is available
+	if len(t.Year) == 4 && !strings.HasPrefix(t.Creation_Time, t.Year) && len(t.Creation_Time) >= 4 {
+
+		logging.PrintD(1, "Creation time does not match year tag, seeing if other dates are available...")
+
+		switch {
+		case strings.HasPrefix(t.Originally_Available_At, t.Year):
+			t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.Originally_Available_At)
+
+		case strings.HasPrefix(t.ReleaseDate, t.Year):
+			t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.ReleaseDate)
+
+		case strings.HasPrefix(t.Date, t.Year):
+			t.Creation_Time = t.Date + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.Date)
+
+		case strings.HasPrefix(t.FormattedDate, t.Year):
+			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
+			logging.PrintD(1, "Changed creation time to %s", t.FormattedDate)
+
+		default:
+			logging.PrintD(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
+			t.Creation_Time = t.Year + t.Creation_Time[4:]
+			logging.PrintD(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
+		}
+	}
 	return gotRelevantDate
 }
 package metadata
 
 import (
-	"Metarr/internal/config"
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
 	"strings"
 )
 
@@ -1946,9 +2749,9 @@ func fillEmptyDescriptions(want *string, d *models.MetadataTitlesDescs) bool {
 package metadata
 
 import (
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 )
 
 // Primary function to fill out meta fields before writing
@@ -2025,11 +2828,11 @@ func unpackJSON(fieldType string, fieldMap map[string]*string, metadata map[stri
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	print "metarr/internal/utils/print"
 )
 
 // fillTitles grabs the fulltitle ("title")
@@ -2073,10 +2876,10 @@ func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 )
 
 // Grabs details necessary to scrape the web for missing metafields
@@ -2161,9 +2964,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	"strings"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
@@ -2218,22 +3022,24 @@ func fillNFOCredits(fd *models.FileData) bool {
 // filled arrays
 func fillSingleCredits(entries []string, target *string) {
 
-	if target == nil || *target != "" {
-		logging.PrintD(1, "Target string is nil or not empty, skipping...")
+	if target == nil {
+		logging.PrintD(1, "Target string is nil, skipping...")
+		return
 	}
 
-	var out string
+	if *target != "" {
+		logging.PrintD(1, "Target string is not empty, skipping...")
+		return
+	}
 
-	for i, entry := range entries {
+	filtered := make([]string, 0, len(entries))
+	for _, entry := range entries {
 		if entry != "" {
-			out += entry
-			if i != len(entries)-1 {
-				out += ", "
-			}
+			filtered = append(filtered, entry)
 		}
 	}
 
-	*target = out
+	*target = strings.Join(filtered, ", ")
 }
 
 func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool {
@@ -2293,13 +3099,13 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	helpers "Metarr/internal/metadata/process/helpers"
-	"Metarr/internal/models"
-	browser "Metarr/internal/utils/browser"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	helpers "metarr/internal/metadata/process/helpers"
+	"metarr/internal/models"
+	browser "metarr/internal/utils/browser"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 )
 
 func fillNFOTimestamps(fd *models.FileData) bool {
@@ -2432,9 +3238,9 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	print "metarr/internal/utils/print"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
@@ -2511,9 +3317,9 @@ func fillNFODescriptions(fd *models.FileData) bool {
 package metadata
 
 import (
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
-	print "Metarr/internal/utils/print"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 	"strings"
 )
 
@@ -2676,9 +3482,9 @@ func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[st
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 )
 
 // fillNFOTitles attempts to fill in title info from NFO
@@ -2752,9 +3558,9 @@ func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
 package metadata
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	print "Metarr/internal/utils/print"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	print "metarr/internal/utils/print"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
@@ -2782,18 +3588,159 @@ func fillNFOWebData(fd *models.FileData) bool {
 package metadata
 
 import (
-	"Metarr/internal/config"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	helpers "Metarr/internal/metadata/process/helpers"
-	process "Metarr/internal/metadata/process/json"
-	tags "Metarr/internal/metadata/tags"
-	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/models"
-	"Metarr/internal/transformations"
-	logging "Metarr/internal/utils/logging"
+	logging "metarr/internal/utils/logging"
+	"strings"
+)
+
+type ffprobeFormat struct {
+	Tags ffprobeTags `json:"tags"`
+}
+
+type ffprobeOutput struct {
+	Format ffprobeFormat `json:"format"`
+}
+
+type ffprobeTags struct {
+	Description  string `json:"description"`
+	Synopsis     string `json:"synopsis"`
+	Title        string `json:"title"`
+	CreationTime string `json:"creation_time"`
+	Date         string `json:"date"`
+	Artist       string `json:"artist"`
+	Composer     string `json:"composer"`
+}
+
+// safeGetDatePart safely extracts the date part before 'T' if it exists
+func safeGetDatePart(timeStr string) string {
+	timeStr = strings.TrimSpace(timeStr)
+	if parts := strings.Split(timeStr, "T"); len(parts) > 0 {
+		return parts[0]
+	}
+	return timeStr
+}
+
+func printArray(s []string) {
+	str := strings.Join(s, ", ")
+	logging.PrintI("FFprobe captured %s", str)
+}
+package metadata
+
+import (
+	"encoding/json"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	"os/exec"
+	"strings"
+)
+
+// MP4MetaMatches checks FFprobe captured metadata from the video against the metafile
+func MP4MetaMatches(fd *models.FileData) bool {
+
+	c := fd.MCredits
+	d := fd.MDates
+	t := fd.MTitleDesc
+
+	// FFprobe command fetches metadata from the video file
+	command := exec.Command(
+		"ffprobe",
+		"-v", "quiet",
+		"-print_format", "json",
+		"-show_format",
+		fd.OriginalVideoPath,
+	)
+
+	logging.PrintI("Made command for FFprobe:\n\n%v", command.String())
+
+	output, err := command.Output()
+	if err != nil {
+		logging.PrintE(0, "Error running FFprobe command: %v. Will process video.", err)
+		return false
+	}
+
+	// Parse JSON output
+	var ffData ffprobeOutput
+
+	if err := json.Unmarshal(output, &ffData); err != nil {
+		logging.PrintE(0, "Error parsing FFprobe output: %v. Will process video.", err)
+		return false
+	}
+
+	// Map of metadata to check
+	fieldMap := map[string]struct {
+		existing string
+		new      string
+	}{
+		consts.JDescription: {
+			existing: strings.TrimSpace(ffData.Format.Tags.Description),
+			new:      strings.TrimSpace(t.Description),
+		},
+		consts.JSynopsis: {
+			existing: strings.TrimSpace(ffData.Format.Tags.Synopsis),
+			new:      strings.TrimSpace(t.Synopsis),
+		},
+		consts.JFallbackTitle: {
+			existing: strings.TrimSpace(ffData.Format.Tags.Title),
+			new:      strings.TrimSpace(t.Title),
+		},
+		consts.JCreationTime: {
+			existing: safeGetDatePart(ffData.Format.Tags.CreationTime),
+			new:      safeGetDatePart(d.Creation_Time),
+		},
+		consts.JDate: {
+			existing: strings.TrimSpace(ffData.Format.Tags.Date),
+			new:      strings.TrimSpace(d.Date),
+		},
+		consts.JArtist: {
+			existing: strings.TrimSpace(ffData.Format.Tags.Artist),
+			new:      strings.TrimSpace(c.Artist),
+		},
+		consts.JComposer: {
+			existing: strings.TrimSpace(ffData.Format.Tags.Composer),
+			new:      strings.TrimSpace(c.Composer),
+		},
+	}
+
+	// Collect all metadata for logging
+	var ffContent []string
+	matches := true
+
+	// Check each field
+	for key, values := range fieldMap {
+		pair := fmt.Sprintf("Key: %s, Value: %s", key, values.existing)
+		ffContent = append(ffContent, pair)
+
+		if values.new != values.existing {
+			logging.PrintD(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nAlready in video as: '%s'. Will process video.",
+				fd.OriginalVideoBaseName, key, values.new, values.existing)
+			matches = false
+		}
+	}
+
+	// Print all captured metadata
+	printArray(ffContent)
+
+	return matches
+}
+package metadata
+
+import (
+	"fmt"
+	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	helpers "metarr/internal/metadata/process/helpers"
+	process "metarr/internal/metadata/process/json"
+	check "metarr/internal/metadata/reader/check_existing"
+	tags "metarr/internal/metadata/tags"
+	writer "metarr/internal/metadata/writer"
+	"metarr/internal/models"
+	"metarr/internal/transformations"
+	logging "metarr/internal/utils/logging"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -2846,7 +3793,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Make metadata adjustments per user selection
-	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, w)
+	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, fd)
 	if err != nil {
 		return nil, err
 	}
@@ -2882,16 +3829,47 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
 	}
 
+	// Check if metadata is already existent in target file
+	if filetypeMetaCheckSwitch(fd) {
+		logging.PrintI("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
+		fd.MetaAlreadyExists = true
+	}
+
 	return fd, nil
+}
+
+func filetypeMetaCheckSwitch(fd *models.FileData) bool {
+
+	var outExt string
+
+	outFlagSet := config.IsSet(keys.OutputFiletype)
+	if outFlagSet {
+		outExt = config.GetString(keys.OutputFiletype)
+	}
+	currentExt := filepath.Ext(fd.OriginalVideoPath)
+	currentExt = strings.TrimSpace(currentExt)
+
+	if outFlagSet && outExt != "" && outExt != currentExt {
+		logging.PrintI("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
+		return false
+	}
+
+	// Run metadata checks in all other cases
+	switch currentExt {
+	case ".mp4":
+		return check.MP4MetaMatches(fd)
+	default:
+		return false
+	}
 }
 package metadata
 
 import (
-	nfo "Metarr/internal/metadata/process/nfo"
-	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	nfo "metarr/internal/metadata/process/nfo"
+	writer "metarr/internal/metadata/writer"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"os"
 )
 
@@ -2948,12 +3926,12 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 package metadata
 
 import (
-	"Metarr/internal/config"
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -3225,41 +4203,53 @@ func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
 package metadata
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
-	"fmt"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/regex"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-	logging.PrintD(3, "Entering makeFilenameTag with data@ %v", metadata)
+	logging.PrintD(3, "Entering makeFilenameTag with data %v", metadata)
 
-	tagArray := config.GetStringSlice(keys.MFilenamePfx)
-	tag := "["
+	tagFields := config.GetStringSlice(keys.MFilenamePfx)
+	if len(tagFields) == 0 {
+		return "[]"
+	}
 
-	for field, value := range metadata {
-		for i, data := range tagArray {
+	var b strings.Builder
+	b.Grow(len(metadata) + len("[2006-02-01]"))
+	b.WriteString("[")
 
-			if field == data {
-				tag += fmt.Sprintf(value.(string))
-				logging.PrintD(3, "Added metafield %v data %v to prefix tag (Tag so far: %s)", field, data, tag)
+	written := false
+	for _, field := range tagFields {
 
-				if i != len(tagArray)-1 {
-					tag += "_"
+		if value, exists := metadata[field]; exists {
+			if strVal, ok := value.(string); ok && strVal != "" {
+
+				if written {
+					b.WriteString("_")
 				}
+
+				b.WriteString(strVal)
+				written = true
+
+				logging.PrintD(3, "Added metafield %v to prefix tag (Tag so far: %s)", field, b.String())
 			}
 		}
 	}
-	tag += "]"
+
+	b.WriteString("]")
+
+	tag := b.String()
 	tag = strings.TrimSpace(tag)
 	tag = strings.ToValidUTF8(tag, "")
 
-	invalidChars := regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+	invalidChars := regex.InvalidCharsCompile()
 	tag = invalidChars.ReplaceAllString(tag, "")
 
 	logging.PrintD(1, "Made metatag '%s' from file '%s'", tag, file.Name())
@@ -3282,439 +4272,16 @@ func checkTagExists(tag, filename string) bool {
 package metadata
 
 import (
-	"Metarr/internal/config"
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	backup "Metarr/internal/utils/fs/backup"
-	logging "Metarr/internal/utils/logging"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
-	"sync"
-)
-
-var (
-	muWriteCommand sync.Mutex
-)
-
-// CommandBuilder handles FFmpeg command construction
-type CommandBuilder struct {
-	inputFile   string
-	outputFile  string
-	formatFlags []string
-	gpuAccel    []string
-	metadataMap map[string]string
-}
-
-// NewCommandBuilder creates a new FFmpeg command builder
-func NewCommandBuilder(m *models.FileData, outputFile string) *CommandBuilder {
-	return &CommandBuilder{
-		inputFile:   m.OriginalVideoPath,
-		outputFile:  outputFile,
-		metadataMap: make(map[string]string),
-	}
-}
-
-// buildCommand constructs the complete FFmpeg command
-func buildCommand(m *models.FileData, outputFile string) ([]string, error) {
-
-	builder := NewCommandBuilder(m, outputFile)
-
-	builder.setGPUAcceleration()
-	builder.addAllMetadata(m)
-	builder.setFormatFlags()
-
-	// Return the fully appended argument string
-	return builder.buildFinalCommand()
-}
-
-// WriteMetadata writes metadata to a single video file
-func WriteMetadata(m *models.FileData) error {
-
-	var tempOutputFilePath string
-
-	originalVPath := m.OriginalVideoPath
-	dir := m.VideoDirectory
-	originalExt := filepath.Ext(originalVPath)
-	outputExt := config.GetString(keys.OutputFiletype)
-
-	fmt.Printf("\nWriting metadata for file: %s\n", originalVPath)
-	// Make temp output path with .mp4 extension
-	fileBase := strings.TrimSuffix(filepath.Base(originalVPath), filepath.Ext(originalVPath))
-
-	if outputExt == "" {
-		outputExt = filepath.Ext(m.FinalVideoPath)
-		config.Set(keys.OutputFiletype, outputExt)
-	}
-
-	switch {
-	case outputExt != "":
-		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+outputExt)
-	default:
-		tempOutputFilePath = filepath.Join(dir, consts.TempTag+fileBase+originalExt+originalExt)
-	}
-
-	m.TempOutputFilePath = tempOutputFilePath // Add to video file data struct
-
-	defer func() {
-		if _, err := os.Stat(tempOutputFilePath); err == nil {
-			os.Remove(tempOutputFilePath)
-		}
-	}()
-
-	muWriteCommand.Lock()
-	args, err := buildCommand(m, tempOutputFilePath)
-	if err != nil {
-		muWriteCommand.Unlock()
-		return err
-	}
-
-	command := exec.Command("ffmpeg", args...)
-	muWriteCommand.Unlock()
-
-	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, m.OriginalVideoPath, command.String())
-
-	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
-
-	origPath := originalVPath
-	m.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-
-	switch {
-	case outputExt != "":
-		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + outputExt
-	default:
-		m.FinalVideoPath = filepath.Join(m.VideoDirectory, m.FinalVideoBaseName) + originalExt
-	}
-
-	fmt.Printf("\n\nVideo file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s\n\n", originalVPath,
-		m.JSONFilePath,
-		m.FinalVideoPath,
-		m.TempOutputFilePath)
-
-	// Run the ffmpeg command
-	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, m.FinalVideoBaseName, consts.ColorReset)
-	if err := command.Run(); err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
-		return fmt.Errorf("failed to run ffmpeg command: %w", err)
-	}
-
-	// Rename temporary file to overwrite the original video file:
-	// First check overwrite rules
-	if config.GetBool(keys.NoFileOverwrite) && originalVPath == m.FinalVideoPath {
-		if err := backup.RenameToBackup(originalVPath); err != nil {
-			return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
-		}
-	}
-	err = os.Rename(tempOutputFilePath, m.FinalVideoPath)
-	if err != nil {
-		return fmt.Errorf("failed to overwrite original file: %w", err)
-	}
-
-	fmt.Printf("Successfully renamed video from %s to %s\n", tempOutputFilePath, m.FinalVideoPath)
-
-	if filepath.Ext(originalVPath) != filepath.Ext(m.FinalVideoPath) {
-
-		logging.PrintI("Original file not type %s, removing '%s'", outputExt, originalVPath)
-
-		if config.GetBool(keys.NoFileOverwrite) {
-			if _, err := os.Stat(originalVPath); os.IsNotExist(err) {
-				logging.PrintI("File does not exist, safe to proceed overwriting: %s", originalVPath)
-			} else {
-				if err := backup.RenameToBackup(originalVPath); err != nil {
-					return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
-				}
-			}
-			err = os.Remove(originalVPath)
-			if err != nil {
-				logging.ErrorArray = append(logging.ErrorArray, err)
-				return fmt.Errorf("failed to remove original file (%s). Error: %v", originalVPath, err)
-			}
-		}
-	}
-
-	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", originalVPath,
-		m.FinalVideoPath,
-		m.MTitleDesc.Title)
-
-	return nil
-}
-
-// setGPUAcceleration sets appropriate GPU acceleration flags
-func (b *CommandBuilder) setGPUAcceleration() {
-	gpuFlag, ok := config.Get(keys.GPUEnum).(enums.SysGPU)
-	if ok {
-		switch gpuFlag {
-		case enums.GPU_NVIDIA:
-			b.gpuAccel = consts.NvidiaAccel[:]
-		case enums.GPU_AMD:
-			b.gpuAccel = consts.AMDAccel[:]
-		case enums.GPU_INTEL:
-			b.gpuAccel = consts.IntelAccel[:]
-		}
-	}
-}
-
-// addAllMetadata combines all metadata into a single map
-func (b *CommandBuilder) addAllMetadata(m *models.FileData) {
-
-	b.addTitlesDescs(m.MTitleDesc)
-	b.addCredits(m.MCredits)
-	b.addDates(m.MDates)
-	b.addShowInfo(m.MShowData)
-	b.addOtherMetadata(m.MOther)
-}
-
-// setFormatFlags adds commands specific for the extension input and output
-func (b *CommandBuilder) setFormatFlags() {
-
-	inExt := filepath.Ext(b.inputFile)
-	outExt := config.GetString(keys.OutputFiletype)
-
-	if outExt == "" {
-		outExt = inExt
-	}
-
-	logging.PrintI("Input extension set '%s' and output extension '%s'. File: %s", inExt, outExt, b.inputFile)
-
-	// Return early with straight copy if no extension change
-	if strings.TrimPrefix(inExt, ".") == strings.TrimPrefix(outExt, ".") {
-		b.formatFlags = consts.AVCodecCopy[:]
-		return
-	}
-
-	flags := make([]string, 0)
-
-	// Set flags based on output format requirements
-	switch outExt {
-	case ".mp4":
-		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced[:]...)
-		flags = append(flags, consts.PixelFmtYuv420p[:]...)
-		flags = append(flags, consts.AudioToAAC[:]...)
-		flags = append(flags, consts.AudioBitrate[:]...)
-
-	case ".mkv":
-		flags = append(flags, "-f", outExt)
-		// MKV is flexible, copy AV codec for supported formats
-		if inExt == ".mp4" || inExt == ".m4v" {
-			flags = append(flags, consts.VideoCodecCopy[:]...)
-		} else {
-			flags = append(flags, consts.VideoToH264Balanced[:]...)
-		}
-		flags = append(flags, consts.AudioToAAC[:]...)
-		flags = append(flags, consts.AudioBitrate[:]...)
-
-	case ".webm":
-		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced[:]...)
-		flags = append(flags, consts.PixelFmtYuv420p[:]...)
-		flags = append(flags, consts.KeyframeBalanced[:]...)
-		flags = append(flags, consts.AudioToAAC[:]...)
-		flags = append(flags, consts.AudioBitrate[:]...)
-
-	default:
-		// Safe defaults for any other output format
-		flags = append(flags, "-f", outExt)
-		flags = append(flags, consts.VideoToH264Balanced[:]...)
-		flags = append(flags, consts.PixelFmtYuv420p[:]...)
-		flags = append(flags, consts.AudioToAAC[:]...)
-		flags = append(flags, consts.AudioBitrate[:]...)
-	}
-
-	b.formatFlags = flags
-}
-
-// buildFinalCommand assembles the final FFmpeg command
-func (b *CommandBuilder) buildFinalCommand() ([]string, error) {
-
-	// MAP LENGTH LOGIC [KEEP CLOSE EYE ON THIS IF COMMANDS CHANGE]:
-	//
-	// GPU acceleration flags
-	// "-y", "i", input file, output file (+4)
-	// Length of metadata map, then * 2 to prefix "-metadata" to each entry
-	// Length of format flags
-	// Output file (+1)
-	args := make([]string, 0, len(b.gpuAccel)+4+len(b.metadataMap)*2+len(b.formatFlags)+1)
-
-	// Add GPU acceleration if present
-	args = append(args, b.gpuAccel...)
-
-	// Add input file
-	args = append(args, "-y", "-i", b.inputFile)
-
-	// Add all -metadata commands
-	for key, value := range b.metadataMap {
-		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, fieldFormatter(value)))
-	}
-
-	// Add format flags
-	args = append(args, b.formatFlags...)
-
-	// Add output file
-	args = append(args, b.outputFile)
-
-	return args, nil
-}
-
-// fieldFormatter cleans field values
-func fieldFormatter(value string) string {
-	return strings.TrimSpace(value)
-}
-package metadata
-
-import (
-	"Metarr/internal/models"
-	"strings"
-)
-
-// addCredits adds all credit-related metadata
-func (b *CommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
-
-	if t.Title == "" && t.FallbackTitle != "" {
-		t.Title = t.FallbackTitle
-	}
-	if t.LongDescription == "" && t.Long_Description != "" {
-		t.LongDescription = t.Long_Description
-	}
-
-	fields := map[string]string{
-		"title":           t.Title,
-		"subtitle":        t.Subtitle,
-		"description":     t.Description,
-		"longdescription": t.LongDescription,
-		"summary":         t.Summary,
-		"synopsis":        t.Synopsis,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addCredits adds all credit-related metadata
-func (b *CommandBuilder) addCredits(c *models.MetadataCredits) {
-
-	// Single value credits
-	fields := map[string]string{
-		"actor":     c.Actor,
-		"author":    c.Author,
-		"artist":    c.Artist,
-		"creator":   c.Creator,
-		"studio":    c.Studio,
-		"publisher": c.Publisher,
-		"producer":  c.Producer,
-		"performer": c.Performer,
-		"composer":  c.Composer,
-		"director":  c.Director,
-		"writer":    c.Writer,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-
-	// Array credits
-	b.addArrayMetadata("actor", c.Actors)
-	b.addArrayMetadata("composer", c.Composers)
-	b.addArrayMetadata("artist", c.Artists)
-	b.addArrayMetadata("studio", c.Studios)
-	b.addArrayMetadata("performer", c.Performers)
-	b.addArrayMetadata("producer", c.Producers)
-	b.addArrayMetadata("publisher", c.Publishers)
-	b.addArrayMetadata("director", c.Directors)
-	b.addArrayMetadata("writer", c.Writers)
-}
-
-// addCredits adds all date-related metadata
-func (b *CommandBuilder) addDates(d *models.MetadataDates) {
-
-	fields := map[string]string{
-		"creation_time":           d.Creation_Time,
-		"date":                    d.Date,
-		"originally_available_at": d.Originally_Available_At,
-		"release_date":            d.ReleaseDate,
-		"upload_date":             d.UploadDate,
-		"year":                    d.Year,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addShowInfo adds all show info related metadata
-func (b *CommandBuilder) addShowInfo(s *models.MetadataShowData) {
-
-	fields := map[string]string{
-		"episode_id":    s.Episode_ID,
-		"episode_sort":  s.Episode_Sort,
-		"season_number": s.Season_Number,
-		"season_title":  s.Season_Title,
-		"show":          s.Show,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addOtherMetadata adds other related metadata
-func (b *CommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
-
-	fields := map[string]string{
-		"genre":    o.Genre,
-		"hd_video": o.HD_Video,
-		"language": o.Language,
-	}
-
-	for field, value := range fields {
-		if value != "" {
-			b.metadataMap[field] = value
-		}
-	}
-}
-
-// addArrayMetadata combines array values with existing metadata
-func (b *CommandBuilder) addArrayMetadata(key string, values []string) {
-	if len(values) == 0 {
-		return
-	}
-
-	existing, exists := b.metadataMap[key]
-	newValue := strings.Join(values, "; ")
-
-	if exists && existing != "" {
-		b.metadataMap[key] = existing + "; " + newValue
-	} else {
-		b.metadataMap[key] = newValue
-	}
-}
-package metadata
-
-import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	backup "Metarr/internal/utils/fs/backup"
-	logging "Metarr/internal/utils/logging"
-	prompt "Metarr/internal/utils/prompt"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	backup "metarr/internal/utils/fs/backup"
+	logging "metarr/internal/utils/logging"
+	prompt "metarr/internal/utils/prompt"
 	"os"
 	"strings"
 	"sync"
@@ -3810,6 +4377,9 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 	// Update metadata with new fields
 	updated := false
 	for field, value := range fieldMap {
+		if field == "all-credits" {
+			continue
+		}
 		if value != nil && *value != "" {
 			currentVal, exists := rw.Meta[field]
 			if !exists {
@@ -3846,7 +4416,7 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, wd *models.MetadataWebData) (bool, error) {
+func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (bool, error) {
 
 	var (
 		edited, ok bool
@@ -3855,19 +4425,31 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		new        []*models.MetaNewField
 	)
 
-	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
-		if !ok {
+	if len(fd.ModelMPfxReplace) > 0 {
+		logging.PrintI("Model for file '%s' applying preset meta prefix replacements", fd.OriginalVideoBaseName)
+		pfx = fd.ModelMPfxReplace
+
+	} else if config.IsSet(keys.MReplacePfx) {
+		if pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix); !ok {
 			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 		}
 	}
-	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
-		if !ok {
+
+	if len(fd.ModelMSfxReplace) > 0 {
+		logging.PrintI("Model for file '%s' applying preset meta suffix replacements", fd.OriginalVideoBaseName)
+		sfx = fd.ModelMSfxReplace
+
+	} else if config.IsSet(keys.MReplaceSfx) {
+		if sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix); !ok {
 			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
 		}
 	}
-	if config.IsSet(keys.MNewField) {
+
+	if len(fd.ModelMNewField) > 0 {
+		logging.PrintI("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
+		new = fd.ModelMNewField
+
+	} else if config.IsSet(keys.MNewField) {
 		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
 		if !ok {
 			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
@@ -3875,7 +4457,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 	}
 
 	if len(pfx) > 0 {
-		newPrefix, err := rw.replaceMetaPrefix(data)
+		newPrefix, err := rw.replaceMetaPrefix(data, pfx)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -3883,10 +4465,9 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			edited = true
 		}
 	}
-	logging.PrintD(3, "After meta prefix replace: %v", data)
 
 	if len(sfx) > 0 {
-		newSuffix, err := rw.replaceMetaSuffix(data)
+		newSuffix, err := rw.replaceMetaSuffix(data, sfx)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -3894,10 +4475,9 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			edited = true
 		}
 	}
-	logging.PrintD(3, "After meta suffix replace: %v", data)
 
 	if len(new) > 0 {
-		newField, err := rw.addNewMetaField(data)
+		newField, err := rw.addNewMetaField(data, fd.ModelMOverwrite, new)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -3905,8 +4485,6 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			edited = true
 		}
 	}
-
-	logging.PrintD(3, "JSON after transformations: %v", data)
 
 	// Marshal the updated JSON back to a byte slice
 	updatedFileContent, err := json.MarshalIndent(data, "", "  ")
@@ -3963,16 +4541,12 @@ func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 }
 
 // replaceMetaSuffix applies suffix replacement to the fields in the JSON data
-func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, error) {
-
-	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve suffixes in private meta replace function, wrong type: '%T'", sfx)
-	}
+func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}, sfx []*models.MetaReplaceSuffix) (bool, error) {
 
 	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", data)
 
 	if len(sfx) == 0 {
+		logging.PrintE(0, "No new suffix replacements found", keys.MReplaceSfx)
 		return false, nil // No replacements to apply
 	}
 
@@ -3999,18 +4573,16 @@ func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, erro
 			}
 		}
 	}
+	logging.PrintD(3, "After meta suffix replace: %v", data)
+
 	return newAddition, nil
 }
 
 // replaceMetaPrefix applies prefix replacement to the fields in the JSON data
-func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, error) {
+func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}, pfx []*models.MetaReplacePrefix) (bool, error) {
 
-	pfx, ok := config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
-	}
-	logging.PrintD(2, "Entering replaceMetaPrefix with data: %v", data)
 	if len(pfx) == 0 {
+		logging.PrintE(0, "No new prefix replacements found", keys.MReplacePfx)
 		return false, nil // No replacements to apply
 	}
 
@@ -4032,21 +4604,28 @@ func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, erro
 			}
 		}
 	}
+	logging.PrintD(3, "After meta prefix replace: %v", data)
+
 	return newAddition, nil
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error) {
+func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool, new []*models.MetaNewField) (bool, error) {
 
-	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
+	var (
+		metaOW,
+		metaPS bool
+	)
+
+	if !config.IsSet(keys.MOverwrite) && !config.IsSet(keys.MPreserve) {
+		metaOW = modelOW
+	} else {
+		metaOW = config.GetBool(keys.MOverwrite)
+		metaPS = config.GetBool(keys.MPreserve)
 	}
-	metaOW := config.GetBool(keys.MOverwrite)
-	metaPS := config.GetBool(keys.MPreserve)
 
 	if len(new) == 0 {
-		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)
+		logging.PrintE(0, "No new field additions found", keys.MNewField)
 		return false, nil
 	}
 
@@ -4132,21 +4711,23 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}) (bool, error)
 			newAddition = true
 		}
 	}
+	logging.PrintD(3, "JSON after transformations: %v", data)
+
 	return newAddition, nil
 }
 package metadata
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
-	prompt "Metarr/internal/utils/prompt"
 	"bufio"
 	"context"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	prompt "metarr/internal/utils/prompt"
 	"os"
 	"strings"
 	"sync"
@@ -4641,7 +5222,7 @@ func (rw *NFOFileRW) flattenField(s string) string {
 package models
 
 import (
-	enums "Metarr/internal/domain/enums"
+	enums "metarr/internal/domain/enums"
 	"os"
 )
 
@@ -4657,27 +5238,31 @@ func NewFileData() *FileData {
 }
 
 type FileData struct {
+	// Files & dirs
 	VideoDirectory        string   `json:"-" xml:"-"`
 	OriginalVideoPath     string   `json:"-" xml:"-"`
 	OriginalVideoBaseName string   `json:"-" xml:"-"`
 	TempOutputFilePath    string   `json:"-" xml:"-"`
 	FinalVideoPath        string   `json:"-" xml:"-"`
 	FinalVideoBaseName    string   `json:"-" xml:"-"`
-	FilenameMetaPrefix    string   `json:"-" xml:"-"`
-	FilenameDateTag       string   `json:"-" xml:"-"`
-	RenamedVideoPath      string   `json:"-"`
-	RenamedMetaPath       string   `json:"-"`
 	VideoFile             *os.File `json:"-" xml:"-"`
+
+	// Transformations
+	FilenameMetaPrefix string `json:"-" xml:"-"`
+	FilenameDateTag    string `json:"-" xml:"-"`
+	RenamedVideoPath   string `json:"-" xml:"-"`
+	RenamedMetaPath    string `json:"-" xml:"-"`
+
 	// JSON paths
 	JSONDirectory string `json:"-" xml:"-"`
 	JSONFilePath  string `json:"-" xml:"-"`
 	JSONBaseName  string `json:"-" xml:"-"`
+
 	// NFO paths
 	NFOBaseName  string `json:"-" xml:"-"`
 	NFODirectory string `json:"-" xml:"-"`
 	NFOFilePath  string `json:"-" xml:"-"`
-	// Meta type
-	MetaFileType enums.MetaFiletypeFound `json:"-" xml:"-"`
+
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
 	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
@@ -4685,10 +5270,22 @@ type FileData struct {
 	MShowData  *MetadataShowData    `json:"meta_show_data" xml:"show"`
 	MWebData   *MetadataWebData     `json:"meta_web_data" xml:"web"`
 	MOther     *MetadataOtherData   `json:"meta_other_data" xml:"other"`
+	NFOData    *NFOData
 
+	// File writers
 	JSONFileRW JSONFileRW
 	NFOFileRW  NFOFileRW
-	NFOData    *NFOData
+
+	// Own transformations
+	ModelMSfxReplace    []*MetaReplaceSuffix
+	ModelMPfxReplace    []*MetaReplacePrefix
+	ModelMNewField      []*MetaNewField
+	ModelFileSfxReplace []*FilenameReplaceSuffix
+
+	// Misc
+	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`
+	MetaAlreadyExists bool                    `json:"-" xml:"-"`
+	ModelMOverwrite   bool
 }
 package models
 
@@ -4699,7 +5296,7 @@ type JSONFileRW interface {
 	DecodeMetadata(file *os.File) (map[string]interface{}, error)
 	RefreshMetadata() (map[string]interface{}, error)
 	WriteMetadata(fieldMap map[string]*string) (map[string]interface{}, error)
-	MakeMetaEdits(data map[string]interface{}, file *os.File, wd *MetadataWebData) (bool, error)
+	MakeMetaEdits(data map[string]interface{}, file *os.File, fd *FileData) (bool, error)
 }
 
 // Metadata read/write interface
@@ -4711,7 +5308,7 @@ type NFOFileRW interface {
 package models
 
 import (
-	enums "Metarr/internal/domain/enums"
+	enums "metarr/internal/domain/enums"
 	"net/http"
 )
 
@@ -4760,27 +5357,29 @@ type FilenameReplaceSuffix struct {
 }
 
 type MetadataCredits struct {
-	Actor      string `json:"actor" xml:"actor"`
+	Override  string `json:"-"`
+	Actor     string `json:"actor" xml:"actor"`
+	Author    string `json:"author" xml:"author"`
+	Artist    string `json:"artist" xml:"artist"`
+	Channel   string `json:"channel" xml:"channel"`
+	Creator   string `json:"creator" xml:"creator"`
+	Studio    string `json:"studio" xml:"studio"`
+	Publisher string `json:"publisher" xml:"publisher"`
+	Producer  string `json:"producer" xml:"producer"`
+	Performer string `json:"performer" xml:"performer"`
+	Uploader  string `json:"uploader" xml:"uploader"`
+	Composer  string `json:"composer" xml:"composer"`
+	Director  string `json:"director" xml:"director"`
+	Writer    string `json:"writer" xml:"writer"`
+
 	Actors     []string
-	Author     string `json:"author" xml:"author"`
-	Artist     string `json:"artist" xml:"artist"`
 	Artists    []string
-	Channel    string `json:"channel" xml:"channel"`
-	Creator    string `json:"creator" xml:"creator"`
-	Studio     string `json:"studio" xml:"studio"`
 	Studios    []string
-	Publisher  string `json:"publisher" xml:"publisher"`
 	Publishers []string
-	Producer   string `json:"producer" xml:"producer"`
 	Producers  []string
-	Performer  string `json:"performer" xml:"performer"`
 	Performers []string
-	Uploader   string `json:"uploader" xml:"uploader"`
-	Composer   string `json:"composer" xml:"composer"`
 	Composers  []string
-	Director   string `json:"director" xml:"director"`
 	Directors  []string
-	Writer     string `json:"writer" xml:"writer"`
 	Writers    []string
 }
 
@@ -4885,6 +5484,14 @@ type WebpageInfo struct {
 }
 package models
 
+import "regexp"
+
+type ContractionPattern struct {
+	Regexp      *regexp.Regexp
+	Replacement string
+}
+package models
+
 // SelectorRule holds rules for specific websites for use in scrapers
 type SelectorRule struct {
 	Selector string
@@ -4895,17 +5502,17 @@ type SelectorRule struct {
 package processing
 
 import (
-	"Metarr/internal/config"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	reader "Metarr/internal/metadata/reader"
-	writer "Metarr/internal/metadata/writer"
-	"Metarr/internal/models"
-	"Metarr/internal/transformations"
-	fsRead "Metarr/internal/utils/fs/read"
-	logging "Metarr/internal/utils/logging"
 	"context"
 	"fmt"
+	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/ffmpeg"
+	reader "metarr/internal/metadata/reader"
+	"metarr/internal/models"
+	"metarr/internal/transformations"
+	fsRead "metarr/internal/utils/fs/read"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -4977,12 +5584,10 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
-	fmt.Printf("\nFound %d file(s) to process in the directory\n", totalMetaFiles+totalVideoFiles)
-
+	logging.PrintI("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
 	logging.PrintD(3, "Matched metafiles: %v", matchedFiles)
 
 	for _, fileData := range matchedFiles {
-
 		var (
 			processedData *models.FileData
 			err           error
@@ -5015,7 +5620,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		<-cleanupChan
 
 		fmt.Println("\nSignal received, cleaning up temporary files...")
-
 		cancel()
 
 		err = cleanupTempFiles(videoMap)
@@ -5024,7 +5628,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			fmt.Printf("\nFailed to cleanup temp files: %v", err)
 			logging.PrintE(0, "Failed to cleanup temp files", err)
 		}
-
 		logging.PrintI("Process was interrupted by a syscall", nil)
 
 		wg.Wait()
@@ -5034,7 +5637,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	sem := make(chan struct{}, config.GetInt(keys.Concurrency))
 
 	for fileName, fileData := range matchedFiles {
-
 		executeFile(ctx, wg, sem, fileName, fileData)
 	}
 
@@ -5046,7 +5648,19 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		logging.PrintE(0, "Failed to cleanup temp files: %v", err)
 	}
 
-	replaceToStyle := config.Get(keys.Rename).(enums.ReplaceToStyle)
+	var (
+		replaceToStyle enums.ReplaceToStyle
+		ok             bool
+	)
+
+	if config.IsSet(keys.Rename) {
+		if replaceToStyle, ok = config.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
+			logging.PrintE(0, "Received wrong type for rename style. Got %T", replaceToStyle)
+		} else {
+			logging.PrintD(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
+		}
+	}
+
 	inputVideoDir := config.GetString(keys.JsonDir)
 
 	err = transformations.FileRename(processedDataArray, replaceToStyle)
@@ -5107,7 +5721,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		}
 
 		if isVideoFile && !skipVideos {
-			err := writer.WriteMetadata(fileData)
+			err := ffmpeg.ExecuteVideo(fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
@@ -5132,11 +5746,11 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 package processing
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"time"
 
@@ -5209,7 +5823,7 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 	return errReturn
 }
 
-// metaChanges determines if metadatashould be processed
+// metaChanges determines if metadata should be processed
 func metaChanges() bool {
 	response := false
 	if config.IsSet(keys.MReplacePfx) {
@@ -5229,10 +5843,10 @@ func metaChanges() bool {
 package transformations
 
 import (
-	config "Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	config "metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 )
 
 // CensoredTvTransformations adds preset transformations to
@@ -5241,12 +5855,12 @@ func CensoredTvTransformations(fd *models.FileData) {
 
 	logging.PrintI("Making preset censored.tv meta replacements")
 
-	censoredTvMSuffixes()
+	censoredTvMSuffixes(fd)
 	censoredTvFSuffixes(fd)
 }
 
 // censoredTvMSuffixes adds meta suffix replacements
-func censoredTvMSuffixes() {
+func censoredTvMSuffixes(fd *models.FileData) {
 
 	var (
 		sfx []*models.MetaReplaceSuffix
@@ -5255,14 +5869,14 @@ func censoredTvMSuffixes() {
 
 	flagSet := config.IsSet(keys.MReplaceSfx)
 
-	if !flagSet {
+	if flagSet {
 		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
 		if !ok {
 			logging.PrintE(2, "Got type %T, may be null", sfx)
 		}
 	}
 
-	var new []*models.MetaReplaceSuffix
+	var new = make([]*models.MetaReplaceSuffix, 0, 4)
 	new = append(new, models.NewMetaReplaceSuffix("title", " (1)", ""))
 	new = append(new, models.NewMetaReplaceSuffix("fulltitle", " (1)", ""))
 	new = append(new, models.NewMetaReplaceSuffix("id", "-1", ""))
@@ -5281,8 +5895,7 @@ func censoredTvMSuffixes() {
 			sfx = append(sfx, newSuffix)
 		}
 	}
-
-	config.Set(keys.MReplaceSfx, sfx)
+	fd.ModelMSfxReplace = sfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements
@@ -5328,19 +5941,19 @@ func censoredTvFSuffixes(fd *models.FileData) {
 		logging.PrintI("Added filename suffix replacement '%s'", vExt)
 	}
 
-	config.Set(keys.FilenameReplaceSfx, sfx)
+	fd.ModelFileSfxReplace = sfx
 	logging.PrintI("Total filename suffix replacements: %d", len(sfx))
 }
 package transformations
 
 import (
-	"Metarr/internal/config"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	writefs "Metarr/internal/utils/fs/write"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	writefs "metarr/internal/utils/fs/write"
+	logging "metarr/internal/utils/logging"
 	"path/filepath"
 	"strings"
 )
@@ -5349,7 +5962,6 @@ import (
 func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
 
 	var vidExt string
-
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
@@ -5364,12 +5976,12 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		renamedMeta := ""
 
 		if !skipVideos {
-			renamedVideo = renameVideo(videoBase, style)
+			renamedVideo = renameVideo(videoBase, style, fd)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
 
 			logging.PrintD(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
 		} else {
-			renamedMeta = renameMeta(metaBase, style)
+			renamedMeta = renameMeta(metaBase, style, fd)
 
 			logging.PrintD(2, "Renamed metafile to %s", renamedMeta)
 		}
@@ -5401,8 +6013,16 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
 		}
+
+		var deletedMeta bool
+		if config.IsSet(keys.MetaPurge) {
+			if err, deletedMeta = fsWriter.DeleteMetafile(renamedMPath); err != nil {
+				logging.PrintE(0, "Failed to purge metafile: %v", err)
+			}
+		}
+
 		if config.IsSet(keys.MoveOnComplete) {
-			if err := fsWriter.MoveFile(); err != nil {
+			if err := fsWriter.MoveFile(deletedMeta); err != nil {
 				logging.PrintE(0, "Failed to move to destination folder: %v", err)
 			}
 		}
@@ -5411,70 +6031,83 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 }
 
 // Performs name transformations for video files
-func renameVideo(videoBase string, style enums.ReplaceToStyle) string {
+func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing video base name: %q", videoBase)
 
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-		return videoBase
-	}
+	if config.IsSet(keys.FilenameReplaceSfx) {
 
-	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-		return videoBase
-	}
+		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+		if !ok && len(fd.ModelFileSfxReplace) == 0 {
+			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			return videoBase
+		} else {
+			suffixes = fd.ModelFileSfxReplace
+		}
 
-	// Transformations
-	name := videoBase
-	if len(suffixes) > 0 {
-		name = replaceSuffix(name, suffixes)
+		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+			return videoBase
+		}
+
+		// Transformations
+		if len(suffixes) > 0 {
+			videoBase = replaceSuffix(videoBase, suffixes)
+		}
 	}
 
 	if style != enums.RENAMING_SKIP {
-		name = applyNamingStyle(style, name)
+		videoBase = applyNamingStyle(style, videoBase)
+	} else {
+		logging.PrintD(1, "No naming style selected, skipping rename style")
 	}
-	return name
+	return videoBase
 }
 
 // Performs name transformations for metafiles
-func renameMeta(metaBase string, style enums.ReplaceToStyle) string {
+func renameMeta(metaBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
 
-	suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-		return metaBase
-	}
+	if config.IsSet(keys.FilenameReplaceSfx) {
 
-	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-		return metaBase
-	}
+		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+		if !ok && len(fd.ModelFileSfxReplace) == 0 {
+			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			return metaBase
+		} else {
+			suffixes = fd.ModelFileSfxReplace
+		}
 
-	// Transformations
-	name := metaBase
-	if len(suffixes) > 0 {
-		name = replaceSuffix(name, suffixes)
+		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+			return metaBase
+		}
+
+		// Transformations
+		if len(suffixes) > 0 {
+			metaBase = replaceSuffix(metaBase, suffixes)
+		}
 	}
 
 	if style != enums.RENAMING_SKIP {
-		name = applyNamingStyle(style, name)
+		metaBase = applyNamingStyle(style, metaBase)
+	} else {
+		logging.PrintD(1, "No naming style selected, skipping rename style")
 	}
-	return name
+	return metaBase
 }
 package transformations
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	presets "Metarr/internal/transformations/presets"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
-	"regexp"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/regex"
+	"metarr/internal/models"
+	presets "metarr/internal/transformations/presets"
+	logging "metarr/internal/utils/logging"
 	"strings"
 	"unicode"
 )
 
+// TryTransPresets checks if any URLs in the video metadata have a known match.
+// Applies preset transformations for those which match.
 func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
 
 	for _, url := range urls {
@@ -5487,8 +6120,8 @@ func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
 	return found
 }
 
-// getMetafileData retrieves meta type specific data
-func getMetafileData(m *models.FileData) (string, string, string) {
+// getMetafileData retrieves meta type specific data.
+func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 
 	switch m.MetaFileType {
 	case enums.METAFILE_JSON:
@@ -5501,7 +6134,7 @@ func getMetafileData(m *models.FileData) (string, string, string) {
 	}
 }
 
-// Renaming conventions
+// applyNamingStyle applies renaming conventions.
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
@@ -5516,7 +6149,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 	return output
 }
 
-// addTags handles the tagging of the video files where necessary
+// addTags handles the tagging of the video files where necessary.
 func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (string, string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
@@ -5537,58 +6170,70 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 	return renamedVideo, renamedMeta
 }
 
-// fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag
+// fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
 func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (string, string, error) {
 
-	contractionsMap := make(map[string]string, len(consts.ContractionsSpaced))
-
+	contractionsMap := make(map[string]*models.ContractionPattern)
 	// Rename style map to use
 	switch style {
+
 	case enums.RENAMING_SPACES:
-		contractionsMap = consts.ContractionsSpaced
+		contractionsMap = regex.ContractionMapSpacesCompile()
+
 	case enums.RENAMING_UNDERSCORES:
-		contractionsMap = consts.ContractionsUnderscored
+		contractionsMap = regex.ContractionMapUnderscoresCompile()
+
+	case enums.RENAMING_FIXES_ONLY:
+		contractionsMap = regex.ContractionMapAllCompile()
+
 	default:
-		// Skip or other unsupported parameter returns unchanged
 		return videoFilename, metaFilename, nil
 	}
 
+	videoFilename = replaceLoneS(videoFilename, style)
+	metaFilename = replaceLoneS(metaFilename, style)
+
+	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoFilename, metaFilename)
+
 	// Function to replace contractions in a filename
 	replaceContractions := func(filename string) string {
-		for contraction, replacement := range contractionsMap {
-			re := regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`)
-			repIdx := re.FindStringIndex(strings.ToLower(filename))
+		for _, replacement := range contractionsMap {
+			repIdx := replacement.Regexp.FindStringIndex(strings.ToLower(filename))
 			if repIdx == nil {
 				continue
 			}
+
+			var b strings.Builder
+			b.Grow(len(replacement.Replacement))
 			originalContraction := filename[repIdx[0]:repIdx[1]]
-			restoredReplacement := ""
 
 			// Match original case for each character in the replacement
-			for i, char := range replacement {
+			for i, char := range replacement.Replacement {
 				if i < len(originalContraction) && unicode.IsUpper(rune(originalContraction[i])) {
-					restoredReplacement += strings.ToUpper(string(char))
+					b.WriteString(strings.ToUpper(string(char)))
 				} else {
-					restoredReplacement += string(char)
+					b.WriteString(string(char))
 				}
 			}
+
 			// Replace in filename with adjusted case
-			filename = filename[:repIdx[0]] + restoredReplacement + filename[repIdx[1]:]
+			filename = filename[:repIdx[0]] + b.String() + filename[repIdx[1]:]
+			b.Reset()
 		}
+
 		logging.PrintD(2, "Made contraction replacements for file '%s'", filename)
 		return filename
 	}
+
 	// Replace contractions in both filenames
-	videoFilename = replaceContractions(videoFilename)
 	videoFilename = strings.TrimSpace(videoFilename)
-
-	metaFilename = replaceContractions(metaFilename)
 	metaFilename = strings.TrimSpace(metaFilename)
-
-	return videoFilename, metaFilename, nil
+	return replaceContractions(videoFilename),
+		replaceContractions(metaFilename),
+		nil
 }
 
-// replaceSuffix applies configured suffix replacements to a filename
+// replaceSuffix applies configured suffix replacements to a filename.
 func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
 
 	logging.PrintD(2, "Received filename %q", filename)
@@ -5613,17 +6258,95 @@ func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) st
 	logging.PrintD(2, "Suffix replacement complete: %q -> %q", filename, result)
 	return result
 }
+
+// replaceLoneS performs replacements without regex
+func replaceLoneS(f string, style enums.ReplaceToStyle) string {
+	if style == enums.RENAMING_SKIP {
+		return f
+	}
+
+	prevString := ""
+
+	// Keep replacing until no more changes occur
+	// fixes accidental double spaces or double underscores
+	// in the "s" contractions
+	for f != prevString {
+		prevString = f
+
+		if style == enums.RENAMING_SPACES || style == enums.RENAMING_FIXES_ONLY {
+			if strings.HasSuffix(f, " s") {
+				f = f[:len(f)-2] + "s"
+			}
+
+			f = strings.ReplaceAll(f, " s ", "s ")
+			f = strings.ReplaceAll(f, " s.", "s.")
+			f = strings.ReplaceAll(f, " s[", "s[")
+			f = strings.ReplaceAll(f, " s(", "s(")
+			f = strings.ReplaceAll(f, " s)", "s)")
+			f = strings.ReplaceAll(f, " s]", "s]")
+			f = strings.ReplaceAll(f, " s-", "s-")
+			f = strings.ReplaceAll(f, " s_", "s_")
+			f = strings.ReplaceAll(f, " s,", "s,")
+			f = strings.ReplaceAll(f, " s!", "s!")
+			f = strings.ReplaceAll(f, " s'", "s'")
+			f = strings.ReplaceAll(f, " s&", "s&")
+			f = strings.ReplaceAll(f, " s=", "s=")
+			f = strings.ReplaceAll(f, " s;", "s;")
+			f = strings.ReplaceAll(f, " s#", "s#")
+			f = strings.ReplaceAll(f, " s@", "s@")
+			f = strings.ReplaceAll(f, " s$", "s$")
+			f = strings.ReplaceAll(f, " s%", "s%")
+			f = strings.ReplaceAll(f, " s+", "s+")
+			f = strings.ReplaceAll(f, " s{", "s{")
+			f = strings.ReplaceAll(f, " s}", "s}")
+		}
+
+		if style == enums.RENAMING_UNDERSCORES || style == enums.RENAMING_FIXES_ONLY {
+			if strings.HasSuffix(f, "_s") {
+				f = f[:len(f)-2] + "s"
+			}
+
+			f = strings.ReplaceAll(f, "_s_", "s_")
+			f = strings.ReplaceAll(f, "_s.", "s.")
+			f = strings.ReplaceAll(f, "_s[", "s[")
+			f = strings.ReplaceAll(f, "_s(", "s(")
+			f = strings.ReplaceAll(f, "_s)", "s)")
+			f = strings.ReplaceAll(f, "_s]", "s]")
+			f = strings.ReplaceAll(f, "_s-", "s-")
+			f = strings.ReplaceAll(f, "_s ", "s ")
+			f = strings.ReplaceAll(f, "_s,", "s,")
+			f = strings.ReplaceAll(f, "_s!", "s!")
+			f = strings.ReplaceAll(f, "_s'", "s'")
+			f = strings.ReplaceAll(f, "_s&", "s&")
+			f = strings.ReplaceAll(f, "_s=", "s=")
+			f = strings.ReplaceAll(f, "_s;", "s;")
+			f = strings.ReplaceAll(f, "_s#", "s#")
+			f = strings.ReplaceAll(f, "_s@", "s@")
+			f = strings.ReplaceAll(f, "_s$", "s$")
+			f = strings.ReplaceAll(f, "_s%", "s%")
+			f = strings.ReplaceAll(f, "_s+", "s+")
+			f = strings.ReplaceAll(f, "_s{", "s{")
+			f = strings.ReplaceAll(f, "_s}", "s}")
+		}
+	}
+	return f
+}
 package utils
 
 import (
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/browserutils/kooky"
 	_ "github.com/browserutils/kooky/browser/all"
+	"github.com/browserutils/kooky/browser/chrome"
+	"github.com/browserutils/kooky/browser/firefox"
+	"github.com/browserutils/kooky/browser/safari"
 )
 
 var (
@@ -5631,21 +6354,32 @@ var (
 	allCookies []*http.Cookie
 )
 
+// initializeCookies initializes all browser cookie stores
 func initializeCookies() {
 	allStores = kooky.FindAllCookieStores()
 	allCookies = []*http.Cookie{}
 }
 
-// GetBrowserCookies checks user browsers for cookies corresponding to
-// a given URL
+// GetBrowserCookies retrieves cookies for a given URL, using a specified cookie file if provided.
 func getBrowserCookies(url string) ([]*http.Cookie, error) {
-
 	baseURL, err := extractBaseDomain(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract base domain: %v", err)
 	}
 
-	// Find all cookie stores
+	cookieFilePath := config.GetString(keys.CookiePath)
+
+	// If a cookie file path is provided, use it
+	if cookieFilePath != "" {
+		logging.PrintD(2, "Reading cookies from specified file: %s", cookieFilePath)
+		kookyCookies, err := readCookieFile(cookieFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read cookies from file: %v", err)
+		}
+		return convertToHTTPCookies(kookyCookies), nil
+	}
+
+	// Otherwise, proceed to use browser cookie stores
 	if allStores == nil || allCookies == nil || len(allCookies) == 0 {
 		initializeCookies()
 	}
@@ -5665,16 +6399,7 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 		if len(cookies) > 0 {
 			logging.PrintI("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
-			// Append to the Go http.Cookie structure
-			for _, c := range cookies {
-				allCookies = append(allCookies, &http.Cookie{
-					Name:   c.Name,
-					Value:  c.Value,
-					Path:   c.Path,
-					Domain: c.Domain,
-					Secure: c.Secure,
-				})
-			}
+			allCookies = append(allCookies, convertToHTTPCookies(cookies)...)
 		} else {
 			logging.PrintD(2, "No cookies found for %s", browserName)
 		}
@@ -5692,8 +6417,22 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 	return allCookies, nil
 }
 
-// extractBaseDomain helper function to parse a domain as just it's base.
-// Useful for the purpose of scraping for cookies.
+// convertToHTTPCookies converts kooky cookies to http.Cookie format
+func convertToHTTPCookies(kookyCookies []*kooky.Cookie) []*http.Cookie {
+	httpCookies := make([]*http.Cookie, len(kookyCookies))
+	for i, c := range kookyCookies {
+		httpCookies[i] = &http.Cookie{
+			Name:   c.Name,
+			Value:  c.Value,
+			Path:   c.Path,
+			Domain: c.Domain,
+			Secure: c.Secure,
+		}
+	}
+	return httpCookies
+}
+
+// extractBaseDomain parses a URL and extracts its base domain
 func extractBaseDomain(urlString string) (string, error) {
 	parsedURL, err := url.Parse(urlString)
 	if err != nil {
@@ -5715,12 +6454,41 @@ func keysFromMap(m map[string]bool) []string {
 	}
 	return keys
 }
+
+// readCookieFile reads cookies from the specified cookie file
+func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
+	var store kooky.CookieStore
+	var err error
+
+	// Attempt to identify and read cookies based on known browser stores
+	if strings.Contains(cookieFilePath, "firefox") || strings.Contains(cookieFilePath, "cookies.sqlite") {
+		store, err = firefox.CookieStore(cookieFilePath)
+	} else if strings.Contains(cookieFilePath, "safari") || strings.Contains(cookieFilePath, "Cookies.binarycookies") {
+		store, err = safari.CookieStore(cookieFilePath)
+	} else if strings.Contains(cookieFilePath, "chrome") || strings.Contains(cookieFilePath, "Cookies") {
+		store, err = chrome.CookieStore(cookieFilePath)
+	} else {
+		return nil, fmt.Errorf("unsupported cookie file format")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create cookie store: %w", err)
+	}
+
+	// Read cookies from the store
+	cookies, err := store.ReadCookies()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cookies: %w", err)
+	}
+
+	return cookies, nil
+}
 package utils
 
 import (
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 	"time"
@@ -5811,9 +6579,9 @@ func BitchuteComParseDate(date string) string {
 package utils
 
 import (
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -5866,8 +6634,8 @@ func CensoredTvChannelName(url string) string {
 package utils
 
 import (
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
 	"strings"
 )
 
@@ -5910,8 +6678,8 @@ var OdyseeComRules = map[enums.WebClassTags][]*models.SelectorRule{
 package utils
 
 import (
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
 	"strings"
 )
 
@@ -5952,13 +6720,13 @@ var RumbleComRules = map[enums.WebClassTags][]*models.SelectorRule{
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	"Metarr/internal/models"
-	presets "Metarr/internal/utils/browser/presets"
-	logging "Metarr/internal/utils/logging"
 	"encoding/json"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
+	presets "metarr/internal/utils/browser/presets"
+	logging "metarr/internal/utils/logging"
 	"net/http"
 	"regexp"
 	"strings"
@@ -6210,10 +6978,10 @@ func looksLikeDate(text string) bool {
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
 	"io"
+	consts "metarr/internal/domain/constants"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -6241,7 +7009,7 @@ func BackupFile(file *os.File) error {
 	}
 
 	// Copy the content of the original file to the backup file
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, 4*1024*1024)
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
@@ -6259,32 +7027,32 @@ func generateBackupFilename(originalFilePath string) string {
 }
 
 // RenameToBackup renames the passed in file
-func RenameToBackup(filename string) error {
+func RenameToBackup(filename string) (backupName string, err error) {
 
 	if filename == "" {
 		logging.PrintE(0, "filename was passed in to backup empty")
 	}
 
-	backupName := generateBackupFilename(filename)
+	backupName = generateBackupFilename(filename)
 
 	if err := os.Rename(filename, backupName); err != nil {
-		return fmt.Errorf("failed to backup filename '%s' to '%s'", filename, backupName)
+		return "", fmt.Errorf("failed to backup filename '%s' to '%s'", filename, backupName)
 	}
-	return nil
+	return backupName, nil
 }
 package utils
 
 import (
-	"Metarr/internal/config"
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/regex"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -6401,14 +7169,16 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			filePath := filepath.Join(metaDir.Name(), file.Name())
 
 			switch ext {
-			case ".json":
+			case consts.MExtJSON:
+
 				logging.PrintD(1, "Detected JSON file '%s'", file.Name())
 				m.JSONFilePath = filePath
 				m.JSONBaseName = baseName
 				m.JSONDirectory = metaDir.Name()
 				m.MetaFileType = enums.METAFILE_JSON
 
-			case ".nfo":
+			case consts.MExtNFO:
+
 				logging.PrintD(1, "Detected NFO file '%s'", file.Name())
 				m.NFOFilePath = filePath
 				m.NFOBaseName = baseName
@@ -6458,14 +7228,16 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	ext := filepath.Ext(metaFile.Name())
 
 	switch ext {
-	case ".json":
+	case consts.MExtJSON:
+
 		fileData.MetaFileType = enums.METAFILE_JSON
 		fileData.JSONFilePath = metaFile.Name()
 		fileData.JSONBaseName = strings.TrimSuffix(filename, ext)
 		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
 		logging.PrintD(3, "Created JSON metadata file data for single file: %s", filename)
 
-	case ".nfo":
+	case consts.MExtNFO:
+
 		fileData.MetaFileType = enums.METAFILE_NFO
 		fileData.NFOFilePath = metaFile.Name()
 		fileData.NFOBaseName = strings.TrimSuffix(filename, ext)
@@ -6486,8 +7258,8 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 
-	specialChars := regexp.MustCompile(`[^\w\s-]`)
-	extraSpaces := regexp.MustCompile(`\s+`)
+	specialChars := regex.SpecialCharsCompile()
+	extraSpaces := regex.ExtraSpacesCompile()
 
 	// Pre-process metaFiles into a lookup map
 	metaLookup := make(map[string]*models.FileData, len(metaFiles))
@@ -6527,9 +7299,9 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	enums "Metarr/internal/domain/enums"
-	logging "Metarr/internal/utils/logging"
+	consts "metarr/internal/domain/constants"
+	enums "metarr/internal/domain/enums"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -6549,8 +7321,6 @@ func HasFileExtension(fileName string, extensions []string) bool {
 			return true
 		}
 	}
-
-	// No matches
 	return false
 }
 
@@ -6566,8 +7336,6 @@ func HasPrefix(fileName string, prefixes []string) bool {
 			return true
 		}
 	}
-
-	// No matches
 	return false
 }
 
@@ -6630,6 +7398,7 @@ func SetPrefixFilter(inputPrefixFilters []string) []string {
 
 // GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized
 func GetDirStats(dir string) (vidCount, metaCount int) {
+
 	// Quick initial scan just counting files, not storing anything
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -6645,7 +7414,7 @@ func GetDirStats(dir string) (vidCount, metaCount int) {
 					continue
 				}
 				switch ext {
-				case ".json", ".nfo":
+				case consts.MExtJSON, consts.MExtNFO:
 					metaCount++
 					continue
 				}
@@ -6676,36 +7445,38 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 		if !strings.HasSuffix(videoBase, ".info") {
 			metaBase = strings.TrimSuffix(metaBase, ".info.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	case strings.HasSuffix(metaBase, ".metadata.json"): // Angular
 		if !strings.HasSuffix(videoBase, ".metadata") {
 			metaBase = strings.TrimSuffix(metaBase, ".metadata.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	case strings.HasSuffix(metaBase, ".model.json"):
 		if !strings.HasSuffix(videoBase, ".model") {
 			metaBase = strings.TrimSuffix(metaBase, ".model.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	case strings.HasSuffix(metaBase, ".manifest.cdfd.json"):
 		if !strings.HasSuffix(videoBase, ".manifest.cdm") {
 			metaBase = strings.TrimSuffix(metaBase, ".manifest.cdfd.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	default:
 		switch {
-		case !strings.HasSuffix(videoBase, ".json"): // Edge cases where metafile extension is in the suffix of the video file
-			metaBase = strings.TrimSuffix(metaBase, ".json")
-		case !strings.HasSuffix(videoBase, ".nfo"):
-			metaBase = strings.TrimSuffix(metaBase, ".nfo")
+		case !strings.HasSuffix(videoBase, consts.MExtJSON): // Edge cases where metafile extension is in the suffix of the video file
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
+
+		case !strings.HasSuffix(videoBase, consts.MExtNFO):
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtNFO)
+
 		default:
 			logging.PrintD(1, "Common suffix not found for metafile (%s)", metaBase)
 		}
@@ -6715,13 +7486,14 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 package utils
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	logging "Metarr/internal/utils/logging"
 	"bufio"
 	"bytes"
 	"fmt"
 	"io"
+	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -6762,26 +7534,31 @@ func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
+	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
+		fs.SrcMeta, fs.DestMeta)
+
 	if !fs.SkipVids {
 		if fs.SrcVideo != fs.DestVideo && fs.SrcVideo != "" && fs.DestVideo != "" {
 			if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
 				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 			}
+		} else {
+			logging.PrintD(2, "Video source and destination files are equal, not moving/renaming...")
 		}
 	}
 	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
+	} else {
+		logging.PrintD(2, "Metadata source and destination files are equal, not moving/renaming...")
 	}
 
-	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'\n\n", fs.SrcVideo, fs.DestVideo,
-		fs.SrcMeta, fs.DestMeta)
 	return nil
 }
 
 // MoveFile moves files to specified location
-func (fs *FSFileWriter) MoveFile() error {
+func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
@@ -6813,11 +7590,14 @@ func (fs *FSFileWriter) MoveFile() error {
 			return fmt.Errorf("failed to move video file: %w", err)
 		}
 	}
-	if fs.DestMeta != "" {
-		destMBase := filepath.Base(fs.DestMeta)
-		destMTarget := filepath.Join(dst, destMBase)
-		if err := fs.moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
-			return fmt.Errorf("failed to move metadata file: %w", err)
+
+	if !noMeta {
+		if fs.DestMeta != "" {
+			destMBase := filepath.Base(fs.DestMeta)
+			destMTarget := filepath.Join(dst, destMBase)
+			if err := fs.moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
+				return fmt.Errorf("failed to move metadata file: %w", err)
+			}
 		}
 	}
 	return nil
@@ -6970,6 +7750,62 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 	}
 	return fmt.Errorf("failed to move file: %w", err)
 }
+
+// DeleteJSON safely removes JSON metadata files once file operations are complete
+func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
+
+	if !config.IsSet(keys.MetaPurgeEnum) {
+		return fmt.Errorf("meta purge enum not set"), false
+	}
+
+	e, ok := config.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
+	if !ok {
+		return fmt.Errorf("wrong type for purge metafile enum. Got %T", e), false
+	}
+
+	ext := filepath.Ext(file)
+	ext = strings.ToLower(ext)
+
+	switch e {
+	case enums.PURGEMETA_ALL:
+		// Continue
+	case enums.PURGEMETA_JSON:
+		if ext != ".json" {
+			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+			return nil, false
+		}
+	case enums.PURGEMETA_NFO:
+		if ext != ".nfo" {
+			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+			return nil, false
+		}
+	case enums.PURGEMETA_NONE:
+		return fmt.Errorf("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
+	default:
+		return fmt.Errorf("support not added for this metafile purge enum yet, exiting function"), false
+	}
+
+	fileInfo, err := os.Stat(file)
+	if err != nil {
+		return err, false
+	}
+
+	if fileInfo.IsDir() {
+		return fmt.Errorf("metafile '%s' is a directory, not a file", file), false
+	}
+
+	if !fileInfo.Mode().IsRegular() {
+		return fmt.Errorf("metafile '%s' is not a regular file", file), false
+	}
+
+	if err := os.Remove(file); err != nil {
+		return fmt.Errorf("unable to delete JSON file: %w", err), false
+	}
+
+	logging.PrintS(0, "Successfully deleted metafile. Bye bye '%s'!", file)
+
+	return nil, true
+}
 package utils
 
 import (
@@ -7012,9 +7848,9 @@ func (fs *FSFileWriter) calculateFileHash(filepath string) ([]byte, error) {
 package utils
 
 import (
-	consts "Metarr/internal/domain/constants"
-	keys "Metarr/internal/domain/keys"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	keys "metarr/internal/domain/keys"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -7033,9 +7869,10 @@ func PrintE(l int, format string, args ...interface{}) string {
 	defer mu.Unlock()
 	var msg string
 
-	_, file, line, _ := runtime.Caller(1)
+	pc, file, line, _ := runtime.Caller(1)
 	file = filepath.Base(file)
-	tag := fmt.Sprintf("[File: %s : Line: %d] ", file, line)
+	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
+	tag := fmt.Sprintf("["+consts.ColorBlue+"Function:"+consts.ColorReset+" %s - "+consts.ColorBlue+"File:"+consts.ColorReset+" %s : "+consts.ColorBlue+"Line:"+consts.ColorReset+" %d] ", funcName, file, line)
 
 	if Level < 0 {
 		Level = viper.GetInt(keys.DebugLevel)
@@ -7043,9 +7880,9 @@ func PrintE(l int, format string, args ...interface{}) string {
 	if l <= viper.GetInt(keys.DebugLevel) {
 
 		if len(args) != 0 && args != nil {
-			msg = fmt.Sprintf(consts.RedError+format+tag+"\n", args...)
+			msg = fmt.Sprintf(consts.RedError+format+" "+tag+"\n", args...)
 		} else {
-			msg = fmt.Sprintf(consts.RedError + format + tag + "\n")
+			msg = fmt.Sprintf(consts.RedError + format + " " + tag + "\n")
 		}
 		fmt.Print(msg)
 		Write(msg, l)
@@ -7060,19 +7897,15 @@ func PrintS(l int, format string, args ...interface{}) string {
 	defer mu.Unlock()
 	var msg string
 
-	_, file, line, _ := runtime.Caller(1)
-	file = filepath.Base(file)
-	tag := fmt.Sprintf("[File: %s : Line: %d] ", file, line)
-
 	if Level < 0 {
 		Level = viper.GetInt(keys.DebugLevel)
 	}
 	if l <= viper.GetInt(keys.DebugLevel) {
 
 		if len(args) != 0 && args != nil {
-			msg = fmt.Sprintf(consts.GreenSuccess+format+tag+"\n", args...)
+			msg = fmt.Sprintf(consts.GreenSuccess+format+" \n", args...)
 		} else {
-			msg = fmt.Sprintf(consts.GreenSuccess + format + tag + "\n")
+			msg = fmt.Sprintf(consts.GreenSuccess + format + " \n")
 		}
 		fmt.Print(msg)
 		Write(msg, l)
@@ -7086,9 +7919,10 @@ func PrintD(l int, format string, args ...interface{}) string {
 	defer mu.Unlock()
 	var msg string
 
-	_, file, line, _ := runtime.Caller(1)
+	pc, file, line, _ := runtime.Caller(1)
 	file = filepath.Base(file)
-	tag := fmt.Sprintf("[File: %s : Line: %d] ", file, line)
+	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
+	tag := fmt.Sprintf("["+consts.ColorBlue+"Function:"+consts.ColorReset+" %s - "+consts.ColorBlue+"File:"+consts.ColorReset+" %s : "+consts.ColorBlue+"Line:"+consts.ColorReset+" %d] ", funcName, file, line)
 
 	if Level < 0 {
 		Level = viper.GetInt(keys.DebugLevel)
@@ -7096,9 +7930,9 @@ func PrintD(l int, format string, args ...interface{}) string {
 	if l <= viper.GetInt(keys.DebugLevel) && l != 0 { // Debug messages don't appear by default
 
 		if len(args) != 0 && args != nil {
-			msg = fmt.Sprintf(consts.YellowDebug+format+tag+"\n", args...)
+			msg = fmt.Sprintf(consts.YellowDebug+format+" "+tag+"\n", args...)
 		} else {
-			msg = fmt.Sprintf(consts.YellowDebug + format + tag + "\n")
+			msg = fmt.Sprintf(consts.YellowDebug + format + " " + tag + "\n")
 		}
 		fmt.Print(msg)
 		Write(msg, l)
@@ -7142,10 +7976,9 @@ func Print(format string, args ...interface{}) string {
 package utils
 
 import (
-	"fmt"
 	"log"
+	"metarr/internal/domain/regex"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -7158,7 +7991,7 @@ var (
 	Logger     *log.Logger
 
 	// Matches ANSI escape codes
-	ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	ansiEscape = regex.AnsiEscapeCompile()
 )
 
 // SetupLogging creates and/or opens the log file
@@ -7181,11 +8014,16 @@ func SetupLogging(targetDir string) error {
 
 // Write writes error information to the log file
 func Write(msg string, level int) {
-	// Do not add mutex, only called by callers which themselves use mutex
+	// Do not add mutex
 	if Loggable && level < 2 {
 		if !strings.HasPrefix(msg, "\n") {
 			msg += "\n"
 		}
+
+		if ansiEscape == nil {
+			ansiEscape = regex.AnsiEscapeCompile()
+		}
+
 		Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
 	}
 }
@@ -7193,28 +8031,24 @@ func Write(msg string, level int) {
 // WriteArray writes an array of error information to the log file
 func WriteArray(msgs []string, args ...interface{}) {
 	if Loggable {
-		if len(msgs) != 0 {
-			var msg string
-			for i, entry := range msgs {
-				switch i {
-				case len(msgs) - 1:
-					msg += fmt.Sprintf(entry, args...)
-				default:
-					msg += fmt.Sprintf(entry+", ", args...)
-				}
-				Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
-			}
+
+		if ansiEscape == nil {
+			ansiEscape = regex.AnsiEscapeCompile()
 		}
+		out := strings.Join(msgs, ", ")
+
+		Logger.Print(ansiEscape.ReplaceAllString(out, ""))
 	}
 }
 package print
 
 import (
-	consts "Metarr/internal/domain/constants"
-	"Metarr/internal/models"
-	logging "Metarr/internal/utils/logging"
 	"fmt"
+	consts "metarr/internal/domain/constants"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
 	"reflect"
+	"strings"
 	"sync"
 )
 
@@ -7226,74 +8060,81 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
-	output := "\n\n================= " + consts.ColorCyan + "Printing metadata fields for:" + consts.ColorReset + " '" + consts.ColorReset + filename + "' =================\n"
+	var b strings.Builder
+	b.Grow(2048)
+
+	// Helper function to add sections
+	addSection := func(title string, content string) {
+		b.WriteString(consts.ColorYellow + "\n" + title + ":\n" + consts.ColorReset)
+		b.WriteString(content)
+	}
+
+	// Header
+	b.WriteString("\n\n================= ")
+	b.WriteString(consts.ColorCyan + "Printing metadata fields for: " + consts.ColorReset)
+	b.WriteString("'" + consts.ColorReset + filename + "'")
+	b.WriteString(" =================\n")
 
 	if taskName != "" {
 		str := fmt.Sprintf("'"+taskName+"'", args...)
-		output += "\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n"
+		b.WriteString("\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n")
 	}
 
 	// Add fields from the struct
-	output += consts.ColorYellow + "\nFile Information:\n" + consts.ColorReset
-	output += printStructFields(model)
+	addSection("File Information", printStructFields(model))
 
 	if m, ok := model.(*models.FileData); ok {
-		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
-		output += printStructFields(m.MCredits)
 
-		output += consts.ColorYellow + "\nTitles and descriptions:\n" + consts.ColorReset
-		output += printStructFields(m.MTitleDesc)
+		addSection("Credits", printStructFields(m.MCredits))
+		addSection("Titles and descriptions", printStructFields(m.MTitleDesc))
+		addSection("Dates and timestamps", printStructFields(m.MDates))
+		addSection("Webpage data", printStructFields(m.MWebData))
+		addSection("Show data", printStructFields(m.MShowData))
+		addSection("Other data", printStructFields(m.MOther))
 
-		output += consts.ColorYellow + "\nDates and timestamps:\n" + consts.ColorReset
-		output += printStructFields(m.MDates)
-
-		output += consts.ColorYellow + "\nWebpage data:\n" + consts.ColorReset
-		output += printStructFields(m.MWebData)
-
-		output += consts.ColorYellow + "\nShow data:\n" + consts.ColorReset
-		output += printStructFields(m.MShowData)
-
-		output += consts.ColorYellow + "\nOther data:\n" + consts.ColorReset
-		output += printStructFields(m.MOther)
 	} else if n, ok := model.(*models.NFOData); ok {
-		output += consts.ColorYellow + "\nCredits:\n" + consts.ColorReset
+		// Credits section
+		b.WriteString(consts.ColorYellow + "\nCredits:\n" + consts.ColorReset)
+
+		// Handle each slice type separately
 		for _, actor := range n.Actors {
-			output += printStructFields(actor.Name)
+			b.WriteString(printStructFields(actor.Name))
 		}
 		for _, director := range n.Directors {
-			output += printStructFields(director)
+			b.WriteString(printStructFields(director))
 		}
 		for _, producer := range n.Producers {
-			output += printStructFields(producer)
+			b.WriteString(printStructFields(producer))
 		}
 		for _, publisher := range n.Publishers {
-			output += printStructFields(publisher)
+			b.WriteString(printStructFields(publisher))
 		}
 		for _, studio := range n.Studios {
-			output += printStructFields(studio)
+			b.WriteString(printStructFields(studio))
 		}
 		for _, writer := range n.Writers {
-			output += printStructFields(writer)
+			b.WriteString(printStructFields(writer))
 		}
 
-		output += consts.ColorYellow + "\nTitles and descriptions:\n" + consts.ColorReset
-		output += printStructFields(n.Title)
-		output += printStructFields(n.Description)
-		output += printStructFields(n.Plot)
+		addSection("Titles and descriptions", printStructFields(n.Title)+
+			printStructFields(n.Description)+
+			printStructFields(n.Plot))
 
-		output += consts.ColorYellow + "\nWebpage data:\n" + consts.ColorReset
-		output += printStructFields(n.WebpageInfo)
+		addSection("Webpage data", printStructFields(n.WebpageInfo))
 
-		output += consts.ColorYellow + "\nShow data:\n" + consts.ColorReset
-		output += printStructFields(n.ShowInfo.Show)
-		output += printStructFields(n.ShowInfo.EpisodeID)
-		output += printStructFields(n.ShowInfo.EpisodeTitle)
-		output += printStructFields(n.ShowInfo.SeasonNumber)
+		addSection("Show data", printStructFields(n.ShowInfo.Show)+
+			printStructFields(n.ShowInfo.EpisodeID)+
+			printStructFields(n.ShowInfo.EpisodeTitle)+
+			printStructFields(n.ShowInfo.SeasonNumber))
 	}
 
-	output += "\n\n================= " + consts.ColorYellow + "End metadata fields for:" + consts.ColorReset + " '" + filename + "' =================\n\n"
+	// Footer
+	b.WriteString("\n\n================= ")
+	b.WriteString(consts.ColorYellow + "End metadata fields for: " + consts.ColorReset)
+	b.WriteString("'" + filename + "'")
+	b.WriteString(" =================\n\n")
 
-	logging.Print(output)
+	logging.Print(b.String())
 }
 
 // Function to print the fields of a struct using reflection
@@ -7310,7 +8151,9 @@ func printStructFields(s interface{}) string {
 	}
 
 	typ := val.Type()
-	output := ""
+
+	var b strings.Builder
+	b.Grow(val.NumField() * 1024)
 
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)      // Get field metadata
@@ -7318,7 +8161,7 @@ func printStructFields(s interface{}) string {
 
 		// Skip zero or empty fields
 		if fieldValue.IsZero() {
-			output += field.Name + consts.ColorRed + " [empty]\n" + consts.ColorReset
+			b.WriteString(field.Name + consts.ColorRed + " [empty]\n" + consts.ColorReset)
 			continue
 		}
 
@@ -7326,10 +8169,10 @@ func printStructFields(s interface{}) string {
 		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string
 
 		// Append the field name and value in key-value format
-		output += fmt.Sprintf("%s: %s\n", fieldName, fieldValueStr)
+		b.WriteString(fmt.Sprintf("%s: %s\n", fieldName, fieldValueStr))
 	}
 
-	return output
+	return b.String()
 }
 
 // Print out the fetched fields
@@ -7354,10 +8197,10 @@ func PrintGrabbedFields(fieldType string, p *map[string]string) {
 package utils
 
 import (
-	logging "Metarr/internal/utils/logging"
 	"bufio"
 	"context"
 	"fmt"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
 )
@@ -7419,15 +8262,15 @@ func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 package main
 
 import (
-	"Metarr/internal/config"
-	keys "Metarr/internal/domain/keys"
-	"Metarr/internal/processing"
-	fsRead "Metarr/internal/utils/fs/read"
-	logging "Metarr/internal/utils/logging"
-	prompt "Metarr/internal/utils/prompt"
 	"context"
 	"fmt"
 	"log"
+	"metarr/internal/config"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/processing"
+	fsRead "metarr/internal/utils/fs/read"
+	logging "metarr/internal/utils/logging"
+	prompt "metarr/internal/utils/prompt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -7442,7 +8285,7 @@ var startTime time.Time
 
 func init() {
 	startTime = time.Now()
-	logging.PrintI("Metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.PrintI("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
 }
 
 func main() {
@@ -7596,14 +8439,12 @@ func main() {
 
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Removed: prompt.SetMetaOverwritePreserve(config.GetBool(keys.MOverwrite), config.GetBool(keys.MPreserve))
 	prompt.InitUserInputReader()
 
 	// Proceed to process files (videos, metadata files, etc...)
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
 
 	endTime := time.Now()
-	logging.PrintI("Metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.PrintI("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
 	logging.PrintI("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
 }

@@ -6,6 +6,7 @@ import (
 	"metarr/internal/config"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
+	"metarr/internal/ffmpeg"
 	reader "metarr/internal/metadata/reader"
 	"metarr/internal/models"
 	"metarr/internal/transformations"
@@ -82,12 +83,10 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
-	fmt.Printf("\nFound %d file(s) to process in the directory\n", totalMetaFiles+totalVideoFiles)
-
+	logging.PrintI("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
 	logging.PrintD(3, "Matched metafiles: %v", matchedFiles)
 
 	for _, fileData := range matchedFiles {
-
 		var (
 			processedData *models.FileData
 			err           error
@@ -120,7 +119,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		<-cleanupChan
 
 		fmt.Println("\nSignal received, cleaning up temporary files...")
-
 		cancel()
 
 		err = cleanupTempFiles(videoMap)
@@ -129,7 +127,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			fmt.Printf("\nFailed to cleanup temp files: %v", err)
 			logging.PrintE(0, "Failed to cleanup temp files", err)
 		}
-
 		logging.PrintI("Process was interrupted by a syscall", nil)
 
 		wg.Wait()
@@ -139,7 +136,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	sem := make(chan struct{}, config.GetInt(keys.Concurrency))
 
 	for fileName, fileData := range matchedFiles {
-
 		executeFile(ctx, wg, sem, fileName, fileData)
 	}
 
@@ -224,7 +220,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		}
 
 		if isVideoFile && !skipVideos {
-			err := executeVideo(fileData)
+			err := ffmpeg.ExecuteVideo(fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)

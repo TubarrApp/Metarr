@@ -23,8 +23,6 @@ func HasFileExtension(fileName string, extensions []string) bool {
 			return true
 		}
 	}
-
-	// No matches
 	return false
 }
 
@@ -40,8 +38,6 @@ func HasPrefix(fileName string, prefixes []string) bool {
 			return true
 		}
 	}
-
-	// No matches
 	return false
 }
 
@@ -104,6 +100,7 @@ func SetPrefixFilter(inputPrefixFilters []string) []string {
 
 // GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized
 func GetDirStats(dir string) (vidCount, metaCount int) {
+
 	// Quick initial scan just counting files, not storing anything
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -119,7 +116,7 @@ func GetDirStats(dir string) (vidCount, metaCount int) {
 					continue
 				}
 				switch ext {
-				case ".json", ".nfo":
+				case consts.MExtJSON, consts.MExtNFO:
 					metaCount++
 					continue
 				}
@@ -150,36 +147,38 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 		if !strings.HasSuffix(videoBase, ".info") {
 			metaBase = strings.TrimSuffix(metaBase, ".info.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	case strings.HasSuffix(metaBase, ".metadata.json"): // Angular
 		if !strings.HasSuffix(videoBase, ".metadata") {
 			metaBase = strings.TrimSuffix(metaBase, ".metadata.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	case strings.HasSuffix(metaBase, ".model.json"):
 		if !strings.HasSuffix(videoBase, ".model") {
 			metaBase = strings.TrimSuffix(metaBase, ".model.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	case strings.HasSuffix(metaBase, ".manifest.cdfd.json"):
 		if !strings.HasSuffix(videoBase, ".manifest.cdm") {
 			metaBase = strings.TrimSuffix(metaBase, ".manifest.cdfd.json")
 		} else {
-			metaBase = strings.TrimSuffix(metaBase, ".json")
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
 		}
 
 	default:
 		switch {
-		case !strings.HasSuffix(videoBase, ".json"): // Edge cases where metafile extension is in the suffix of the video file
-			metaBase = strings.TrimSuffix(metaBase, ".json")
-		case !strings.HasSuffix(videoBase, ".nfo"):
-			metaBase = strings.TrimSuffix(metaBase, ".nfo")
+		case !strings.HasSuffix(videoBase, consts.MExtJSON): // Edge cases where metafile extension is in the suffix of the video file
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
+
+		case !strings.HasSuffix(videoBase, consts.MExtNFO):
+			metaBase = strings.TrimSuffix(metaBase, consts.MExtNFO)
+
 		default:
 			logging.PrintD(1, "Common suffix not found for metafile (%s)", metaBase)
 		}

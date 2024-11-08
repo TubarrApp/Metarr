@@ -1,19 +1,20 @@
 package domain
 
 const (
-	JActor     = "actor"
-	JAuthor    = "author"
-	JArtist    = "artist"
-	JChannel   = "channel"
-	JComposer  = "composer"
-	JCreator   = "creator"
-	JDirector  = "director"
-	JPerformer = "performer"
-	JProducer  = "producer"
-	JPublisher = "publisher"
-	JStudio    = "studio"
-	JUploader  = "uploader"
-	JWriter    = "writer"
+	JOverrideCredits = "all-credits"
+	JActor           = "actor"
+	JAuthor          = "author"
+	JArtist          = "artist"
+	JChannel         = "channel"
+	JComposer        = "composer"
+	JCreator         = "creator"
+	JDirector        = "director"
+	JPerformer       = "performer"
+	JProducer        = "producer"
+	JPublisher       = "publisher"
+	JStudio          = "studio"
+	JUploader        = "uploader"
+	JWriter          = "writer"
 )
 
 const (

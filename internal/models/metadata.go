@@ -50,6 +50,7 @@ type FilenameReplaceSuffix struct {
 }
 
 type MetadataCredits struct {
+	Override  string `json:"-"`
 	Actor     string `json:"actor" xml:"actor"`
 	Author    string `json:"author" xml:"author"`
 	Artist    string `json:"artist" xml:"artist"`

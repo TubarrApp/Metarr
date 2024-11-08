@@ -106,6 +106,9 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 	// Update metadata with new fields
 	updated := false
 	for field, value := range fieldMap {
+		if field == "all-credits" {
+			continue
+		}
 		if value != nil && *value != "" {
 			currentVal, exists := rw.Meta[field]
 			if !exists {
@@ -151,29 +154,30 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		new        []*models.MetaNewField
 	)
 
-	if len(fd.ModelMPfxReplace) != 0 {
+	if len(fd.ModelMPfxReplace) > 0 {
 		logging.PrintI("Model for file '%s' applying preset meta prefix replacements", fd.OriginalVideoBaseName)
 		pfx = fd.ModelMPfxReplace
+
 	} else if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
-		if !ok {
+		if pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix); !ok {
 			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
 		}
 	}
 
-	if len(fd.ModelMSfxReplace) != 0 {
+	if len(fd.ModelMSfxReplace) > 0 {
 		logging.PrintI("Model for file '%s' applying preset meta suffix replacements", fd.OriginalVideoBaseName)
 		sfx = fd.ModelMSfxReplace
+
 	} else if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
-		if !ok {
+		if sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix); !ok {
 			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
 		}
 	}
 
-	if len(fd.ModelMNewField) != 0 {
+	if len(fd.ModelMNewField) > 0 {
 		logging.PrintI("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
 		new = fd.ModelMNewField
+
 	} else if config.IsSet(keys.MNewField) {
 		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
 		if !ok {
@@ -182,7 +186,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 	}
 
 	if len(pfx) > 0 {
-		newPrefix, err := rw.replaceMetaPrefix(data)
+		newPrefix, err := rw.replaceMetaPrefix(data, pfx)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -190,10 +194,9 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			edited = true
 		}
 	}
-	logging.PrintD(3, "After meta prefix replace: %v", data)
 
 	if len(sfx) > 0 {
-		newSuffix, err := rw.replaceMetaSuffix(data)
+		newSuffix, err := rw.replaceMetaSuffix(data, sfx)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -201,10 +204,9 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			edited = true
 		}
 	}
-	logging.PrintD(3, "After meta suffix replace: %v", data)
 
 	if len(new) > 0 {
-		newField, err := rw.addNewMetaField(data, fd.ModelMOverwrite)
+		newField, err := rw.addNewMetaField(data, fd.ModelMOverwrite, new)
 		if err != nil {
 			logging.PrintE(0, err.Error())
 		}
@@ -212,8 +214,6 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			edited = true
 		}
 	}
-
-	logging.PrintD(3, "JSON after transformations: %v", data)
 
 	// Marshal the updated JSON back to a byte slice
 	updatedFileContent, err := json.MarshalIndent(data, "", "  ")
@@ -270,16 +270,12 @@ func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 }
 
 // replaceMetaSuffix applies suffix replacement to the fields in the JSON data
-func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, error) {
-
-	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve suffixes in private meta replace function, wrong type: '%T'", sfx)
-	}
+func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}, sfx []*models.MetaReplaceSuffix) (bool, error) {
 
 	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", data)
 
 	if len(sfx) == 0 {
+		logging.PrintE(0, "No new suffix replacements found", keys.MReplaceSfx)
 		return false, nil // No replacements to apply
 	}
 
@@ -306,18 +302,16 @@ func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}) (bool, erro
 			}
 		}
 	}
+	logging.PrintD(3, "After meta suffix replace: %v", data)
+
 	return newAddition, nil
 }
 
 // replaceMetaPrefix applies prefix replacement to the fields in the JSON data
-func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, error) {
+func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}, pfx []*models.MetaReplacePrefix) (bool, error) {
 
-	pfx, ok := config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
-	}
-	logging.PrintD(2, "Entering replaceMetaPrefix with data: %v", data)
 	if len(pfx) == 0 {
+		logging.PrintE(0, "No new prefix replacements found", keys.MReplacePfx)
 		return false, nil // No replacements to apply
 	}
 
@@ -339,21 +333,18 @@ func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}) (bool, erro
 			}
 		}
 	}
+	logging.PrintD(3, "After meta prefix replace: %v", data)
+
 	return newAddition, nil
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool) (bool, error) {
+func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool, new []*models.MetaNewField) (bool, error) {
 
 	var (
 		metaOW,
 		metaPS bool
 	)
-
-	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
-	}
 
 	if !config.IsSet(keys.MOverwrite) && !config.IsSet(keys.MPreserve) {
 		metaOW = modelOW
@@ -363,7 +354,7 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool)
 	}
 
 	if len(new) == 0 {
-		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)
+		logging.PrintE(0, "No new field additions found", keys.MNewField)
 		return false, nil
 	}
 
@@ -449,5 +440,7 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool)
 			newAddition = true
 		}
 	}
+	logging.PrintD(3, "JSON after transformations: %v", data)
+
 	return newAddition, nil
 }

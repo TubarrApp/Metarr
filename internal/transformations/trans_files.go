@@ -24,7 +24,12 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 
 		videoBase := fd.FinalVideoBaseName
 		originalVPath := fd.FinalVideoPath
-		vidExt = filepath.Ext(fd.OriginalVideoPath)
+
+		if config.IsSet(keys.OutputFiletype) {
+			vidExt = config.GetString(keys.OutputFiletype)
+		} else {
+			vidExt = filepath.Ext(fd.OriginalVideoPath)
+		}
 
 		renamedVideo := ""
 		renamedMeta := ""
