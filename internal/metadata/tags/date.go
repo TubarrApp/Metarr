@@ -21,7 +21,7 @@ func MakeDateTag(metadata map[string]interface{}, fileName string) (string, erro
 
 	date, found := extractDateFromMetadata(metadata)
 	if !found {
-		logging.PrintE(0, "No dates found in JSON file")
+		logging.E(0, "No dates found in JSON file")
 		return "", nil
 	}
 
@@ -32,17 +32,17 @@ func MakeDateTag(metadata map[string]interface{}, fileName string) (string, erro
 
 	dateStr, err := formatDateString(year, month, day, dateFmt)
 	if dateStr == "" || err != nil {
-		logging.PrintE(0, "Failed to create date string")
+		logging.E(0, "Failed to create date string")
 		return "[]", nil
 	}
 
 	dateTag := "[" + dateStr + "]"
 	if checkTagExists(dateTag, filepath.Base(fileName)) {
-		logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
+		logging.D(2, "Tag '%s' already detected in name, skipping...", dateTag)
 		return "[]", nil
 	}
 
-	logging.PrintS(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
+	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
 	return dateTag, nil
 }
 
@@ -161,7 +161,7 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 		}
 
 		if (i == 20 || i == 19) && j > 12 { // First guess year
-			logging.PrintI("Guessing date string '%s' as year", d)
+			logging.I("Guessing date string '%s' as year", d)
 			switch dateFmt {
 			case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
 				return d[2:4], "", "", nil
@@ -171,18 +171,18 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 		} else { // Second guess, month-date
 			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
 				if ddmm {
-					logging.PrintI("Guessing date string '%s' as day-month")
+					logging.I("Guessing date string '%s' as day-month")
 					day = d[:2]
 					month = d[2:4]
 
 				} else if mmdd {
-					logging.PrintI("Guessing date string '%s' as month-day")
+					logging.I("Guessing date string '%s' as month-day")
 					day = d[2:4]
 					month = d[:2]
 				}
 				return "", month, day, nil
 			} else if i == 20 || i == 19 { // Final guess year
-				logging.PrintI("Guessing date string '%s' as year after failed day-month check", d)
+				logging.I("Guessing date string '%s' as year after failed day-month check", d)
 				switch dateFmt {
 				case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
 					return d[2:4], "", "", nil

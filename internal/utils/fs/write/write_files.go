@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	logging "metarr/internal/utils/logging"
@@ -33,7 +34,7 @@ func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta strin
 		same++
 	}
 
-	logging.PrintD(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+	logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
 		skipVids, srcVideo, destVideo, srcMeta, destMeta, same)
 	return &FSFileWriter{
 		SkipVids:  skipVids,
@@ -49,7 +50,7 @@ func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
+	logging.D(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
 		fs.SrcMeta, fs.DestMeta)
 
 	if !fs.SkipVids {
@@ -58,15 +59,16 @@ func (fs *FSFileWriter) WriteResults() error {
 				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 			}
 		} else {
-			logging.PrintD(2, "Video source and destination files are equal, not moving/renaming...")
+			logging.D(2, "Video source and destination files are equal, not moving/renaming...")
 		}
 	}
+
 	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
 	} else {
-		logging.PrintD(2, "Metadata source and destination files are equal, not moving/renaming...")
+		logging.D(2, "Metadata source and destination files are equal, not moving/renaming...")
 	}
 
 	return nil
@@ -127,7 +129,7 @@ func (fs *FSFileWriter) copyFile(src, dst string) error {
 		return fmt.Errorf("entered source file '%s' and destination '%s' file as the same name and same path", src, dst)
 	}
 
-	logging.PrintI("Copying:\n'%s'\nto\n'%s'...", src, dst)
+	logging.I("Copying:\n'%s'\nto\n'%s'...", src, dst)
 
 	// Validate source file
 	sourceInfo, err := os.Stat(src)
@@ -193,7 +195,7 @@ func (fs *FSFileWriter) copyFile(src, dst string) error {
 
 	// Set same permissions as source
 	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
-		logging.PrintI("Failed to set file permissions, is destination folder remote? (%v)", err)
+		logging.I("Failed to set file permissions, is destination folder remote? (%v)", err)
 	}
 
 	// Verify destination file
@@ -235,9 +237,11 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 		return nil
 	}
 
+	logging.S(0, "Moved file from '%s' to '%s'", src, dst)
+
 	// If cross-device error, fall back to copy+delete
 	if strings.Contains(err.Error(), "invalid cross-device link") {
-		logging.PrintD(1, "Falling back to copy for moving %s to %s", src, dst)
+		logging.D(1, "Falling back to copy for moving '%s' to '%s'", src, dst)
 
 		// Copy the file
 		if err := fs.copyFile(src, dst); err != nil {
@@ -258,7 +262,7 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 
 		// Remove source after successful copy and verification
 		if err := os.Remove(src); err != nil {
-			logging.PrintE(0, "Failed to remove source file after verified copy: %v", err)
+			logging.E(0, "Failed to remove source file after verified copy: %v", err)
 			// Operation successful, do not return error, just log the error
 		}
 		return nil
@@ -285,15 +289,17 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 	case enums.PURGEMETA_ALL:
 		// Continue
 	case enums.PURGEMETA_JSON:
-		if ext != ".json" {
-			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+		if ext != consts.MExtJSON {
+			logging.D(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
 			return nil, false
 		}
+
 	case enums.PURGEMETA_NFO:
-		if ext != ".nfo" {
-			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+		if ext != consts.MExtNFO {
+			logging.D(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
 			return nil, false
 		}
+
 	case enums.PURGEMETA_NONE:
 		return fmt.Errorf("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
 	default:
@@ -314,10 +320,10 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 	}
 
 	if err := os.Remove(file); err != nil {
-		return fmt.Errorf("unable to delete JSON file: %w", err), false
+		return fmt.Errorf("unable to delete meta file: %w", err), false
 	}
 
-	logging.PrintS(0, "Successfully deleted metafile. Bye bye '%s'!", file)
+	logging.S(0, "Successfully deleted metafile. Bye bye '%s'!", file)
 
 	return nil, true
 }

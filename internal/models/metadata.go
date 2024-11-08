@@ -5,24 +5,32 @@ import (
 	"net/http"
 )
 
-func NewMetaReplaceSuffix(f, s, r string) *MetaReplaceSuffix {
-	return &MetaReplaceSuffix{
-		Field:       f,
-		Suffix:      s,
-		Replacement: r,
-	}
+// func NewMetaReplaceSuffix(f, s, r string) *MetaReplaceSuffix {
+// 	return &MetaReplaceSuffix{
+// 		Field:       f,
+// 		Suffix:      s,
+// 		Replacement: r,
+// 	}
+// }
+
+type MetaAppend struct {
+	Field  string
+	Suffix string
 }
 
-type MetaReplaceSuffix struct {
-	Field       string
-	Suffix      string
-	Replacement string
+type MetaPrefix struct {
+	Field  string
+	Prefix string
 }
 
-type MetaReplacePrefix struct {
-	Field       string
-	Prefix      string
-	Replacement string
+type MetaTrimPrefix struct {
+	Field  string
+	Prefix string
+}
+
+type MetaTrimSuffix struct {
+	Field  string
+	Suffix string
 }
 
 type MetaNewField struct {
@@ -30,18 +38,17 @@ type MetaNewField struct {
 	Value string
 }
 
+type MetaReplace struct {
+	Field       string
+	Value       string
+	Replacement string
+}
+
 type FilenameDatePrefix struct {
 	YearLength  int
 	MonthLength int
 	DayLength   int
 	Order       enums.FilenameDateFormat
-}
-
-func NewFilenameReplaceSuffix(s, r string) *FilenameReplaceSuffix {
-	return &FilenameReplaceSuffix{
-		Suffix:      s,
-		Replacement: r,
-	}
 }
 
 type FilenameReplaceSuffix struct {

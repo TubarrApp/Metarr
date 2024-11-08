@@ -51,17 +51,17 @@ func cleanEmptyFields(fieldMap map[string]*string) {
 func nestedLoop(content string) map[string]interface{} {
 	nested := make(map[string]interface{})
 
-	logging.PrintD(2, "Parsing content in nestedLoop: %s", content)
+	logging.D(2, "Parsing content in nestedLoop: %s", content)
 
 	for len(content) > 0 {
 		if strings.HasPrefix(content, "<?xml") || strings.HasPrefix(content, "<?") {
 			endIdx := strings.Index(content, "?>")
 			if endIdx == -1 {
-				logging.PrintE(0, "Malformed XML declaration in content: %s", content)
+				logging.E(0, "Malformed XML declaration in content: %s", content)
 				break
 			}
 			content = content[endIdx+2:]
-			logging.PrintD(2, "Skipping XML declaration, remaining content: %s", content)
+			logging.D(2, "Skipping XML declaration, remaining content: %s", content)
 			continue
 		}
 
@@ -73,7 +73,7 @@ func nestedLoop(content string) map[string]interface{} {
 
 		openIdxClose := strings.Index(content, ">")
 		if openIdxClose == -1 {
-			logging.PrintE(0, "No valid tag close bracket for entry beginning %s", content[openIdx:])
+			logging.E(0, "No valid tag close bracket for entry beginning %s", content[openIdx:])
 			break // No closing tag bracket
 		}
 
@@ -85,7 +85,7 @@ func nestedLoop(content string) map[string]interface{} {
 		if isSelfClosing {
 			// Self-closing tag; skip over and move to the next
 			content = content[openIdxClose+1:]
-			logging.PrintD(2, "Skipping self-closing tag: %s", tag)
+			logging.D(2, "Skipping self-closing tag: %s", tag)
 			continue
 		}
 
@@ -95,46 +95,46 @@ func nestedLoop(content string) map[string]interface{} {
 		if closeIdx == -1 {
 			// No closing tag; skip this tag and continue
 			content = content[openIdxClose+1:]
-			logging.PrintD(2, "Skipping tag without end tag: %s", tag)
+			logging.D(2, "Skipping tag without end tag: %s", tag)
 			continue
 		}
 
 		// Extract the inner content between tags
 		innerContent := content[openIdxClose+1 : closeIdx]
-		logging.PrintD(2, "Found inner content for tag '%s': %s", tag, innerContent)
+		logging.D(2, "Found inner content for tag '%s': %s", tag, innerContent)
 
 		// Recursive call if innerContent contains nested tags
 		if strings.Contains(innerContent, "<") && strings.Contains(innerContent, ">") {
-			logging.PrintD(2, "Recursively parsing nested content for tag '%s'", tag)
+			logging.D(2, "Recursively parsing nested content for tag '%s'", tag)
 			nested[tag] = nestedLoop(innerContent)
 		} else {
-			logging.PrintD(2, "Assigning inner content to tag '%s': %s", tag, innerContent)
+			logging.D(2, "Assigning inner content to tag '%s': %s", tag, innerContent)
 			nested[tag] = innerContent
 		}
 
 		// Move past the processed tag
 		content = content[closeIdx+len(closeTag):]
-		logging.PrintD(2, "Remaining content after parsing tag '%s': %s", tag, content)
+		logging.D(2, "Remaining content after parsing tag '%s': %s", tag, content)
 	}
 
-	logging.PrintD(2, "Final parsed structure from nestedLoop: %v", nested)
+	logging.D(2, "Final parsed structure from nestedLoop: %v", nested)
 	return nested
 }
 
 // unpackNFO unpacks an NFO map back to the model
 func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[string]*string) {
-	logging.PrintD(3, "Unpacking NFO map...")
+	logging.D(3, "Unpacking NFO map...")
 
 	// Access the top-level "movie" key
 	movieData, ok := data["movie"].(map[string]interface{})
 	if !ok {
-		logging.PrintE(0, "Missing 'movie' key in data, unable to unpack")
+		logging.E(0, "Missing 'movie' key in data, unable to unpack")
 		return
 	}
 
 	for field, fieldVal := range fieldMap {
 		if fieldVal == nil {
-			logging.PrintE(0, "Field value is null, continuing...")
+			logging.E(0, "Field value is null, continuing...")
 			continue
 		}
 
@@ -146,20 +146,20 @@ func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[st
 
 		switch v := val.(type) {
 		case string:
-			logging.PrintD(3, "Setting field '%s' to '%s'", field, v)
+			logging.D(3, "Setting field '%s' to '%s'", field, v)
 			*fieldVal = v
 		case map[string]interface{}:
 			switch field {
 
 			case "title":
-				logging.PrintD(3, "Unpacking nested 'title' map...")
+				logging.D(3, "Unpacking nested 'title' map...")
 				unpackTitle(fd, v)
 			case "cast":
-				logging.PrintD(3, "Unpacking nested 'cast' map...")
+				logging.D(3, "Unpacking nested 'cast' map...")
 				unpackCredits(fd, v)
 			}
 		default:
-			logging.PrintD(1, "Unknown field type for '%s', skipping...", field)
+			logging.D(1, "Unknown field type for '%s', skipping...", field)
 		}
 	}
 }

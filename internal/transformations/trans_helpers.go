@@ -34,7 +34,7 @@ func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 	case enums.METAFILE_NFO:
 		return m.NFOBaseName, m.NFODirectory, m.NFOFilePath
 	default:
-		logging.PrintE(0, "No metafile type set in model %v", m)
+		logging.E(0, "No metafile type set in model %v", m)
 		return "", "", ""
 	}
 }
@@ -48,7 +48,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 	case enums.RENAMING_UNDERSCORES:
 		output = strings.ReplaceAll(input, " ", "_")
 	default:
-		logging.PrintI("Skipping space or underscore renaming conventions...")
+		logging.I("Skipping space or underscore renaming conventions...")
 		output = input
 	}
 	return output
@@ -126,7 +126,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 			b.Reset()
 		}
 
-		logging.PrintD(2, "Made contraction replacements for file '%s'", filename)
+		logging.D(2, "Made contraction replacements for file '%s'", filename)
 		return filename
 	}
 
@@ -141,27 +141,31 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 // replaceSuffix applies configured suffix replacements to a filename.
 func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
 
-	logging.PrintD(2, "Received filename %q", filename)
+	logging.D(2, "Received filename %s", filename)
 
-	if suffixes == nil {
-		logging.PrintD(1, "No suffix replacements configured, keeping original filename: %q", filename)
+	if len(suffixes) == 0 {
+		logging.D(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	logging.PrintD(2, "Processing filename %q with suffixes: %v", filename, suffixes)
+	logging.D(2, "Processing filename %s with suffixes: %v", filename, suffixes)
 
 	var result string
 	for _, suffix := range suffixes {
-		logging.PrintD(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
+		logging.D(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
 
 		if strings.HasSuffix(filename, suffix.Suffix) {
 			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
-			logging.PrintD(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
+			logging.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
 		}
 	}
 
-	logging.PrintD(2, "Suffix replacement complete: %q -> %q", filename, result)
-	return result
+	if result != "" {
+		logging.D(2, "Suffix replacement complete: %s -> %s", filename, result)
+		return result
+	}
+
+	return filename
 }
 
 // replaceLoneS performs replacements without regex

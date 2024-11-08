@@ -79,10 +79,9 @@ func initAllFileTransformers() {
 // initMetaTransformers initializes user flag settings for manipulation of metadata
 func initMetaTransformers() {
 
-	// Metadata replacement & new additions
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaNewFieldInput, "meta-add-field", nil, "Add new fields into metadata files (metatag:value)")
+	// Metadata transformations
+	rootCmd.PersistentFlags().StringSlice(keys.MetaOps, nil, "Metadata operations (field:operation:value) - e.g. title:set:New Title, description:prefix:Draft-, tags:append:newtag")
+	viper.BindPFlag(keys.MetaOps, rootCmd.PersistentFlags().Lookup(keys.MetaOps))
 
 	// Prefix or append description fields with dates
 	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")

@@ -7,25 +7,45 @@ import (
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 )
 
+var (
+	muResource sync.Mutex
+)
+
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
+	var (
+		resourceMsg bool
+		backoff     = time.Second
+		maxBackoff  = 10 * time.Second
+	)
 
-	var resourceMsg bool
-	audioMemoryThreshold := config.GetUint64(keys.MinMemMB)
+	memoryThreshold := config.GetUint64(keys.MinMemMB)
 
 	for {
 		// Fetch system resources and determine if processing can proceed
-		proceed, availableMemory, CPUUsage, err := checkSysResources(audioMemoryThreshold)
+		muResource.Lock()
+		proceed, availableMemory, CPUUsage, err := checkSysResources(memoryThreshold)
+		muResource.Unlock()
+
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
-			logging.PrintE(0, "Error checking system resources: %v", err)
+			logging.E(0, "Error checking system resources: %v", err)
+
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
 		}
+
 		if proceed {
 			resourceMsg = false
 			break
@@ -33,11 +53,16 @@ func sysResourceLoop(fileStr string) {
 
 		// Log resource info only once when insufficient resources are detected
 		if !resourceMsg {
-			logging.PrintI("Not enough system resources to process %s, waiting...", fileStr)
-			logging.PrintD(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(1024*1024), CPUUsage)
+			logging.I("Not enough system resources to process %s, waiting...", fileStr)
+			logging.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(1024*1024), CPUUsage)
 			resourceMsg = true
 		}
-		time.Sleep(1 * time.Second) // Wait before checking again
+
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
 	}
 }
 
@@ -80,18 +105,23 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 
 // metaChanges determines if metadata should be processed
 func metaChanges() bool {
-	response := false
-	if config.IsSet(keys.MReplacePfx) {
-		response = true
+	if config.IsSet(keys.MAppend) {
+		return true
 	}
-	if config.IsSet(keys.MReplaceSfx) {
-		response = true
+	if config.IsSet(keys.MPrefix) {
+		return true
 	}
 	if config.IsSet(keys.MNewField) {
-		response = true
+		return true
+	}
+	if config.IsSet(keys.MTrimPrefix) {
+		return true
+	}
+	if config.IsSet(keys.MTrimSuffix) {
+		return true
 	}
 	if config.IsSet(keys.FileDateFmt) {
-		response = true
+		return true
 	}
-	return response
+	return false
 }

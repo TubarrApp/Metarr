@@ -58,7 +58,7 @@ func Execute() error {
 
 	err := rootCmd.Execute()
 	if err != nil {
-		logging.PrintE(0, "Failed to execute cobra")
+		logging.E(0, "Failed to execute cobra")
 		return err
 
 	}
@@ -201,7 +201,7 @@ func verifyFilePrefixes() {
 // verifyMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
 func verifyMetaOverwritePreserve() {
 	if GetBool(keys.MOverwrite) && GetBool(keys.MPreserve) {
-		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
+		logging.E(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
 		os.Exit(1)
 	}
 }
@@ -209,12 +209,13 @@ func verifyMetaOverwritePreserve() {
 // verifyDebugLevel checks and sets the debugging level to use
 func verifyDebugLevel() {
 	debugLevel := viper.GetUint16(keys.DebugLevel)
-	if debugLevel > 3 {
-		debugLevel = 3
+	if debugLevel > 5 {
+		debugLevel = 5
 	} else if debugLevel == 0 {
-		logging.PrintI("Debugging level: %v", debugLevel)
+		logging.I("Debugging level: %v", debugLevel)
 	}
 	viper.Set(keys.DebugLevel, debugLevel)
+	logging.Level = int(debugLevel)
 }
 
 // verifyInputFiletypes checks that the inputted filetypes are accepted
@@ -237,7 +238,7 @@ func verifyInputFiletypes() {
 	if len(inputVExts) == 0 {
 		inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
 	}
-	logging.PrintD(2, "Received video input extension filter: %v", inputVExts)
+	logging.D(2, "Received video input extension filter: %v", inputVExts)
 	viper.Set(keys.InputVExtsEnum, inputVExts)
 
 	argsMInputExts := viper.GetStringSlice(keys.InputMetaExts)
@@ -256,7 +257,7 @@ func verifyInputFiletypes() {
 	if len(inputMExts) == 0 {
 		inputMExts = append(inputMExts, enums.META_EXTS_ALL)
 	}
-	logging.PrintD(2, "Received meta input extension filter: %v", inputMExts)
+	logging.D(2, "Received meta input extension filter: %v", inputMExts)
 	viper.Set(keys.InputMExtsEnum, inputMExts)
 }
 
@@ -265,13 +266,13 @@ func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
 		viper.Set(keys.GPUEnum, enums.GPU_NVIDIA)
-		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	case "amd":
 		viper.Set(keys.GPUEnum, enums.GPU_AMD)
-		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	case "intel":
 		viper.Set(keys.GPUEnum, enums.GPU_INTEL)
-		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	default:
 		viper.Set(keys.GPUEnum, enums.GPU_NO_HW_ACCEL)
 	}
@@ -284,9 +285,9 @@ func verifyConcurrencyLimit() {
 	switch {
 	case maxConcurrentProcesses < 1:
 		maxConcurrentProcesses = 1
-		logging.PrintE(2, "Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
+		logging.E(2, "Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
 	default:
-		logging.PrintI("Max concurrency: %d", maxConcurrentProcesses)
+		logging.I("Max concurrency: %d", maxConcurrentProcesses)
 	}
 	viper.Set(keys.Concurrency, maxConcurrentProcesses)
 }
@@ -298,7 +299,7 @@ func verifyResourceLimits() {
 
 	currentAvailableMem, err := mem.VirtualMemory()
 	if err != nil {
-		logging.PrintE(0, "Could not get system memory, using default max RAM requirements", err)
+		logging.E(0, "Could not get system memory, using default max RAM requirements", err)
 		currentAvailableMem.Available = 1024
 	}
 	if MinMemUsage > currentAvailableMem.Available {
@@ -306,7 +307,7 @@ func verifyResourceLimits() {
 	}
 
 	if MinMemUsage > 0 {
-		logging.PrintI("Min RAM to spawn process: %v", MinMemUsage)
+		logging.I("Min RAM to spawn process: %v", MinMemUsage)
 	}
 	viper.Set(keys.MinMemMB, MinMemUsage)
 
@@ -314,14 +315,14 @@ func verifyResourceLimits() {
 	switch {
 	case maxCPUUsage > 100.0:
 		maxCPUUsage = 100.0
-		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
+		logging.E(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
 
 	case maxCPUUsage < 1.0:
 		maxCPUUsage = 10.0
-		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
+		logging.E(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
 	}
 	if maxCPUUsage != 100.0 {
-		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
+		logging.I("Max CPU usage: %.2f%%", maxCPUUsage)
 	}
 	viper.Set(keys.MaxCPU, maxCPUUsage)
 }
@@ -347,7 +348,7 @@ func verifyOutputFiletype() {
 
 	switch valid {
 	case true:
-		logging.PrintI("Outputting files as %s", o)
+		logging.I("Outputting files as %s", o)
 	default:
 		Set(keys.OutputFiletype, "")
 	}

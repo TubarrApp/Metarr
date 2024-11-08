@@ -21,7 +21,7 @@ func fillNFOTitles(fd *models.FileData) bool {
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)
 
-	logging.PrintI("Grab NFO metadata: %v", t)
+	logging.I("Grab NFO metadata: %v", t)
 
 	if n.Title.Main != "" {
 		if t.Title == "" {
@@ -58,18 +58,18 @@ func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
 		switch key {
 		case "main":
 			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting main title to '%s'", strVal)
+				logging.D(3, "Setting main title to '%s'", strVal)
 				t.Title = strVal
 				filled = true
 			}
 		case "sub":
 			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting subtitle to '%s'", strVal)
+				logging.D(3, "Setting subtitle to '%s'", strVal)
 				t.Subtitle = strVal
 				filled = true
 			}
 		default:
-			logging.PrintD(1, "Unknown nested title element '%s', skipping...", key)
+			logging.D(1, "Unknown nested title element '%s', skipping...", key)
 		}
 	}
 	return filled

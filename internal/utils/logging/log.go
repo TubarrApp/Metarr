@@ -38,7 +38,7 @@ func SetupLogging(targetDir string) error {
 }
 
 // Write writes error information to the log file
-func Write(msg string, level int) {
+func writeLog(msg string, level int) {
 	// Do not add mutex
 	if Loggable && level < 2 {
 		if !strings.HasPrefix(msg, "\n") {
@@ -54,7 +54,7 @@ func Write(msg string, level int) {
 }
 
 // WriteArray writes an array of error information to the log file
-func WriteArray(msgs []string, args ...interface{}) {
+func writeLogArray(msgs []string) {
 	if Loggable {
 
 		if ansiEscape == nil {

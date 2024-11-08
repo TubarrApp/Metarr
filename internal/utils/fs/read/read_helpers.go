@@ -14,7 +14,7 @@ import (
 func HasFileExtension(fileName string, extensions []string) bool {
 
 	if extensions == nil {
-		logging.PrintE(0, "No extensions picked.")
+		logging.E(0, "No extensions picked.")
 		return false
 	}
 
@@ -180,7 +180,7 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 			metaBase = strings.TrimSuffix(metaBase, consts.MExtNFO)
 
 		default:
-			logging.PrintD(1, "Common suffix not found for metafile (%s)", metaBase)
+			logging.D(1, "Common suffix not found for metafile (%s)", metaBase)
 		}
 	}
 	return metaBase

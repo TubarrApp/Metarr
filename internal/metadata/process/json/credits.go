@@ -41,13 +41,13 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 	// Check if filled
 	for key, val := range fieldMap {
 		if val == nil {
-			logging.PrintE(0, "Value is null")
+			logging.E(0, "Value is null")
 			continue
 		}
 		if *val == "" || metaOW {
-			logging.PrintD(2, "Value for '%s' is empty, attempting to fill by inference...", key)
+			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", key)
 			*val = fillEmptyCredits(c)
-			logging.PrintD(2, "Set value to '%s'", *val)
+			logging.D(2, "Set value to '%s'", *val)
 			if *val != "" {
 				dataFilled = true
 			}
@@ -61,7 +61,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		switch {
 		case err != nil:
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
 		case rtn != nil:
 			data = rtn
@@ -69,7 +69,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		}
 
 	case w.WebpageURL == "":
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
 		return data, false
 	}
 
@@ -84,7 +84,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		switch {
 		case err != nil:
-			logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
+			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
 			return data, true
 		case rtn != nil:
 			data = rtn

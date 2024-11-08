@@ -56,9 +56,13 @@ type FileData struct {
 	NFOFileRW  NFOFileRW
 
 	// Own transformations
-	ModelMSfxReplace    []*MetaReplaceSuffix
-	ModelMPfxReplace    []*MetaReplacePrefix
-	ModelMNewField      []*MetaNewField
+	ModelMAppend     []*MetaAppend
+	ModelMNewField   []*MetaNewField
+	ModelMPrefix     []*MetaPrefix
+	ModelMReplace    []*MetaReplace
+	ModelMTrimPrefix []*MetaTrimPrefix
+	ModelMTrimSuffix []*MetaTrimSuffix
+
 	ModelFileSfxReplace []*FilenameReplaceSuffix
 
 	// Misc

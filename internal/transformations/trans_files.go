@@ -15,7 +15,12 @@ import (
 // FileRename formats the file names
 func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
 
-	var vidExt string
+	var (
+		vidExt,
+		renamedVideo,
+		renamedMeta string
+	)
+
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
@@ -31,18 +36,15 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 			vidExt = filepath.Ext(fd.OriginalVideoPath)
 		}
 
-		renamedVideo := ""
-		renamedMeta := ""
-
 		if !skipVideos {
-			renamedVideo = renameVideo(videoBase, style, fd)
+			renamedVideo = renameFile(videoBase, style, fd)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
 
-			logging.PrintD(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
+			logging.D(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
 		} else {
-			renamedMeta = renameMeta(metaBase, style, fd)
+			renamedMeta = renameFile(metaBase, style, fd)
 
-			logging.PrintD(2, "Renamed metafile to %s", renamedMeta)
+			logging.D(2, "Renamed metafile to %s", renamedMeta)
 		}
 
 		var err error
@@ -57,7 +59,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		renamedVideo = strings.TrimSpace(renamedVideo)
 		renamedMeta = strings.TrimSpace(renamedMeta)
 
-		logging.PrintD(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
+		logging.D(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
 
 		// Construct final output filepaths
 		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
@@ -76,79 +78,48 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		var deletedMeta bool
 		if config.IsSet(keys.MetaPurge) {
 			if err, deletedMeta = fsWriter.DeleteMetafile(renamedMPath); err != nil {
-				logging.PrintE(0, "Failed to purge metafile: %v", err)
+				logging.E(0, "Failed to purge metafile: %v", err)
 			}
 		}
 
 		if config.IsSet(keys.MoveOnComplete) {
 			if err := fsWriter.MoveFile(deletedMeta); err != nil {
-				logging.PrintE(0, "Failed to move to destination folder: %v", err)
+				logging.E(0, "Failed to move to destination folder: %v", err)
 			}
 		}
 	}
 	return nil
 }
 
-// Performs name transformations for video files
-func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
-	logging.PrintD(2, "Processing video base name: %q", videoBase)
-
-	if config.IsSet(keys.FilenameReplaceSfx) {
-
-		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-		if !ok && len(fd.ModelFileSfxReplace) == 0 {
-			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-			return videoBase
-		} else {
-			suffixes = fd.ModelFileSfxReplace
-		}
-
-		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-			return videoBase
-		}
-
-		// Transformations
-		if len(suffixes) > 0 {
-			videoBase = replaceSuffix(videoBase, suffixes)
-		}
-	}
-
-	if style != enums.RENAMING_SKIP {
-		videoBase = applyNamingStyle(style, videoBase)
-	} else {
-		logging.PrintD(1, "No naming style selected, skipping rename style")
-	}
-	return videoBase
-}
-
 // Performs name transformations for metafiles
-func renameMeta(metaBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
-	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
+func renameFile(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
+	logging.D(2, "Processing metafile base name: %q", fileBase)
 
-	if config.IsSet(keys.FilenameReplaceSfx) {
+	var (
+		suffixes []*models.FilenameReplaceSuffix
+		ok       bool
+	)
 
-		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if len(fd.ModelFileSfxReplace) > 0 {
+		suffixes = fd.ModelFileSfxReplace
+	} else if config.IsSet(keys.FilenameReplaceSfx) {
+		suffixes, ok = config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok && len(fd.ModelFileSfxReplace) == 0 {
-			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-			return metaBase
-		} else {
-			suffixes = fd.ModelFileSfxReplace
+			logging.E(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			return fileBase
 		}
+	}
 
-		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-			return metaBase
-		}
-
-		// Transformations
-		if len(suffixes) > 0 {
-			metaBase = replaceSuffix(metaBase, suffixes)
-		}
+	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+		return fileBase
+	} else if len(suffixes) > 0 {
+		fileBase = replaceSuffix(fileBase, suffixes)
 	}
 
 	if style != enums.RENAMING_SKIP {
-		metaBase = applyNamingStyle(style, metaBase)
+		fileBase = applyNamingStyle(style, fileBase)
 	} else {
-		logging.PrintD(1, "No naming style selected, skipping rename style")
+		logging.D(1, "No naming style selected, skipping rename style")
 	}
-	return metaBase
+	return fileBase
 }

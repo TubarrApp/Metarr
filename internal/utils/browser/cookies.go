@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"metarr/internal/config"
 	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/browserutils/kooky"
@@ -38,7 +41,7 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	// If a cookie file path is provided, use it
 	if cookieFilePath != "" {
-		logging.PrintD(2, "Reading cookies from specified file: %s", cookieFilePath)
+		logging.D(2, "Reading cookies from specified file: %s", cookieFilePath)
 		kookyCookies, err := readCookieFile(cookieFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read cookies from file: %v", err)
@@ -55,30 +58,30 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	for _, store := range allStores {
 		browserName := store.Browser()
-		logging.PrintD(2, "Attempting to read cookies from %s", browserName)
+		logging.D(2, "Attempting to read cookies from %s", browserName)
 		attemptedBrowsers[browserName] = true
 
 		cookies, err := store.ReadCookies(kooky.Valid, kooky.Domain(baseURL))
 		if err != nil {
-			logging.PrintD(2, "Failed to read cookies from %s: %v", browserName, err)
+			logging.D(2, "Failed to read cookies from %s: %v", browserName, err)
 			continue
 		}
 
 		if len(cookies) > 0 {
-			logging.PrintI("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
+			logging.I("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
 			allCookies = append(allCookies, convertToHTTPCookies(cookies)...)
 		} else {
-			logging.PrintD(2, "No cookies found for %s", browserName)
+			logging.D(2, "No cookies found for %s", browserName)
 		}
 	}
 
 	// Log summary of attempted browsers
-	logging.PrintI("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
+	logging.I("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
 
 	if len(allCookies) == 0 {
-		logging.PrintI("No cookies found for '%s', proceeding without cookies", url)
+		logging.I("No cookies found for '%s', proceeding without cookies", url)
 	} else {
-		logging.PrintI("Found a total of %d cookies for '%s'", len(allCookies), url)
+		logging.I("Found a total of %d cookies for '%s'", len(allCookies), url)
 	}
 
 	return allCookies, nil
@@ -149,4 +152,74 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 	}
 
 	return cookies, nil
+}
+
+// newCustomCookieSource validates and retrieves a custom cookie source profile
+func newCustomCookieSource() (*models.CustomCookieSource, error) {
+
+	if !config.IsSet(keys.CookiePath) {
+		logging.D(2, "No custom cookie directory sent in")
+		return nil, nil
+	}
+
+	cDir := config.GetString(keys.CookiePath)
+	cDir = filepath.Clean(cDir)
+
+	info, err := os.Stat(cDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("cookie directory does not exist: %w", err)
+		}
+		return nil, err
+	}
+
+	if !info.IsDir() {
+		return nil, fmt.Errorf("cookie directory sent in as file, should be directory")
+	}
+
+	dirContents, err := os.ReadDir(cDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var cSource models.CustomCookieSource
+	foundFiles := make(map[string][]string, len(cookieFilePatterns))
+
+	for browser, patterns := range cookieFilePatterns {
+		for _, pattern := range patterns {
+			// For each file in directory
+			for _, dirFile := range dirContents {
+
+				fileName := dirFile.Name()
+				match, err := filepath.Match(pattern, fileName)
+				if err != nil {
+					logging.D(2, "Pattern matching error: %v", err)
+					continue
+				}
+
+				if match {
+					foundFiles[browser] = append(foundFiles[browser], fileName)
+				}
+			}
+			if len(foundFiles[browser]) == len(cookieFilePatterns[browser]) {
+				logging.S(0, "Got all required cookie and auth files for browser %s", browser)
+				cSource.Browser = browser
+				cSource.Dir = cDir
+				break
+			}
+		}
+	}
+
+	if cSource.Browser == "" {
+		for browser, files := range foundFiles {
+			if len(files) > 0 {
+				logging.D(2, "Found %d files for %s: %v", len(files), browser, files)
+
+				cSource.Browser = browser
+				cSource.Dir = cDir
+			}
+		}
+	}
+
+	return &cSource, nil
 }

@@ -17,25 +17,25 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 
 	if len(fd.MWebData.TryURLs) == 0 {
 		if !FillWebpageDetails(fd, data) {
-			logging.PrintI("No URL metadata found")
+			logging.I("No URL metadata found")
 			allFilled = false
 		}
 	}
 
 	if !fillTitles(fd, data) {
-		logging.PrintI("No title metadata found")
+		logging.I("No title metadata found")
 		allFilled = false
 	}
 
 	if meta, ok = fillCredits(fd, data); !ok {
-		logging.PrintI("No credits metadata found")
+		logging.I("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
 		data = meta
 	}
 
 	if meta, ok = fillTimestamps(fd, data); !ok {
-		logging.PrintI("No date metadata found")
+		logging.I("No date metadata found")
 		allFilled = false
 	} else {
 		if meta != nil {
@@ -44,7 +44,7 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 	}
 
 	if meta, ok = fillDescriptions(fd, data); !ok {
-		logging.PrintI("No description metadata found")
+		logging.I("No description metadata found")
 		allFilled = false
 	} else if meta != nil {
 		data = meta

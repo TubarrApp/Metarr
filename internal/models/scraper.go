@@ -7,3 +7,8 @@ type SelectorRule struct {
 	Process  func(string) string
 	JsonPath []string
 }
+
+type CustomCookieSource struct {
+	Browser string
+	Dir     string
+}

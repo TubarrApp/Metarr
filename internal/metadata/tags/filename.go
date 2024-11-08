@@ -12,7 +12,7 @@ import (
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-	logging.PrintD(3, "Entering makeFilenameTag with data %v", metadata)
+	logging.D(3, "Entering makeFilenameTag with data %v", metadata)
 
 	tagFields := config.GetStringSlice(keys.MFilenamePfx)
 	if len(tagFields) == 0 {
@@ -36,7 +36,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 				b.WriteString(strVal)
 				written = true
 
-				logging.PrintD(3, "Added metafield %v to prefix tag (Tag so far: %s)", field, b.String())
+				logging.D(3, "Added metafield %v to prefix tag (Tag so far: %s)", field, b.String())
 			}
 		}
 	}
@@ -50,11 +50,11 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	invalidChars := regex.InvalidCharsCompile()
 	tag = invalidChars.ReplaceAllString(tag, "")
 
-	logging.PrintD(1, "Made metatag '%s' from file '%s'", tag, file.Name())
+	logging.D(1, "Made metatag '%s' from file '%s'", tag, file.Name())
 
 	if tag != "[]" {
 		if checkTagExists(tag, filepath.Base(file.Name())) {
-			logging.PrintD(2, "Tag '%s' already detected in name, skipping...", tag)
+			logging.D(2, "Tag '%s' already detected in name, skipping...", tag)
 			tag = "[]"
 		}
 	}
@@ -63,7 +63,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 
 // checkTagExists checks if the constructed tag already exists in the filename
 func checkTagExists(tag, filename string) bool {
-	logging.PrintD(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
+	logging.D(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
 
 	return strings.Contains(filename, tag)
 }

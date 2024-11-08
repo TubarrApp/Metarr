@@ -26,11 +26,11 @@ func MP4MetaMatches(fd *models.FileData) bool {
 		fd.OriginalVideoPath,
 	)
 
-	logging.PrintI("Made command for FFprobe:\n\n%v", command.String())
+	logging.I("Made command for FFprobe:\n\n%v", command.String())
 
 	output, err := command.Output()
 	if err != nil {
-		logging.PrintE(0, "Error running FFprobe command: %v. Will process video.", err)
+		logging.E(0, "Error running FFprobe command: %v. Will process video.", err)
 		return false
 	}
 
@@ -38,7 +38,7 @@ func MP4MetaMatches(fd *models.FileData) bool {
 	var ffData ffprobeOutput
 
 	if err := json.Unmarshal(output, &ffData); err != nil {
-		logging.PrintE(0, "Error parsing FFprobe output: %v. Will process video.", err)
+		logging.E(0, "Error parsing FFprobe output: %v. Will process video.", err)
 		return false
 	}
 
@@ -87,7 +87,7 @@ func MP4MetaMatches(fd *models.FileData) bool {
 		ffContent = append(ffContent, pair)
 
 		if values.new != values.existing {
-			logging.PrintD(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nAlready in video as: '%s'. Will process video.",
+			logging.D(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nAlready in video as: '%s'. Will process video.",
 				fd.OriginalVideoBaseName, key, values.new, values.existing)
 			matches = false
 		}

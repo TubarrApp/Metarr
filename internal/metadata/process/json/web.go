@@ -30,7 +30,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 					switch {
 					case key == consts.JWebpageURL:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.WebpageURL == "" {
 							w.WebpageURL = val
@@ -42,7 +42,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 					case key == consts.JURL:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.VideoURL == "" {
 							w.VideoURL = val
@@ -54,7 +54,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 					case key == consts.JReferer:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.Referer == "" {
 							w.Referer = val
@@ -66,7 +66,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 					case key == consts.JWebpageDomain, key == consts.JDomain:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.Domain == "" {
 							w.Domain = val
@@ -80,7 +80,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 		}
 	}
 
-	logging.PrintD(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
+	logging.D(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
 
 	print.PrintGrabbedFields("web details", &printMap)
 

@@ -34,5 +34,5 @@ func safeGetDatePart(timeStr string) string {
 
 func printArray(s []string) {
 	str := strings.Join(s, ", ")
-	logging.PrintI("FFprobe captured %s", str)
+	logging.I("FFprobe captured %s", str)
 }

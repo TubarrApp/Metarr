@@ -48,7 +48,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
 		}
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 	}
@@ -61,7 +61,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 		}
 		if err != nil {
-			logging.PrintE(0, "Error fetching video files: %v", err)
+			logging.E(0, "Error fetching video files: %v", err)
 			os.Exit(1)
 		}
 
@@ -69,7 +69,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		if !skipVideos {
 			matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap)
 			if err != nil {
-				logging.PrintE(0, "Error matching videos with metadata: %v", err)
+				logging.E(0, "Error matching videos with metadata: %v", err)
 				os.Exit(1)
 			}
 		} else {
@@ -83,8 +83,8 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
-	logging.PrintI("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
-	logging.PrintD(3, "Matched metafiles: %v", matchedFiles)
+	logging.I("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
+	logging.D(3, "Matched metafiles: %v", matchedFiles)
 
 	for _, fileData := range matchedFiles {
 		var (
@@ -95,17 +95,17 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		if !config.IsSet(keys.SkipVideos) || metaChanges() {
 			switch fileData.MetaFileType {
 			case enums.METAFILE_JSON:
-				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
+				logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
 				processedData, err = reader.ProcessJSONFile(fileData)
 
 			case enums.METAFILE_NFO:
-				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
+				logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
 				processedData, err = reader.ProcessNFOFiles(fileData)
 			}
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("error processing metadata for file: %w", err)
-				logging.PrintE(0, errMsg.Error())
+				logging.E(0, errMsg.Error())
 				return
 			}
 			processedDataArray = append(processedDataArray, processedData)
@@ -125,9 +125,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
 			fmt.Printf("\nFailed to cleanup temp files: %v", err)
-			logging.PrintE(0, "Failed to cleanup temp files", err)
+			logging.E(0, "Failed to cleanup temp files", err)
 		}
-		logging.PrintI("Process was interrupted by a syscall", nil)
+		logging.I("Process was interrupted by a syscall", nil)
 
 		wg.Wait()
 		os.Exit(0)
@@ -144,7 +144,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	err = cleanupTempFiles(videoMap)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.PrintE(0, "Failed to cleanup temp files: %v", err)
+		logging.E(0, "Failed to cleanup temp files: %v", err)
 	}
 
 	var (
@@ -154,9 +154,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 	if config.IsSet(keys.Rename) {
 		if replaceToStyle, ok = config.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
-			logging.PrintE(0, "Received wrong type for rename style. Got %T", replaceToStyle)
+			logging.E(0, "Received wrong type for rename style. Got %T", replaceToStyle)
 		} else {
-			logging.PrintD(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
+			logging.D(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
 		}
 	}
 
@@ -165,18 +165,18 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	err = transformations.FileRename(processedDataArray, replaceToStyle)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.PrintE(0, "Failed to rename files: %v", err)
+		logging.E(0, "Failed to rename files: %v", err)
 	} else {
-		logging.PrintS(0, "Successfully formatted file names in directory: %v", inputVideoDir)
+		logging.S(0, "Successfully formatted file names in directory: %v", inputVideoDir)
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
 
-		logging.PrintS(0, "Successfully processed all videos in directory (%v) with no errors.", inputVideoDir)
+		logging.S(0, "Successfully processed all videos in directory (%v) with no errors.", inputVideoDir)
 		fmt.Println()
 	} else {
 
-		logging.PrintE(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
+		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
 		fmt.Println()
 	}
 }
@@ -214,9 +214,9 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		isVideoFile := fileData.OriginalVideoPath != ""
 
 		if isVideoFile {
-			logging.PrintI("Processing file: %s", fileName)
+			logging.I("Processing file: %s", fileName)
 		} else {
-			logging.PrintI("Processing metadata file: %s", fileName)
+			logging.I("Processing metadata file: %s", fileName)
 		}
 
 		if isVideoFile && !skipVideos {
@@ -224,12 +224,12 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
-				logging.PrintE(0, errMsg.Error())
+				logging.E(0, errMsg.Error())
 			} else {
-				logging.PrintS(0, "Successfully processed video %s", fileName)
+				logging.S(0, "Successfully processed video %s", fileName)
 			}
 		} else {
-			logging.PrintS(0, "Successfully processed metadata for %s", fileName)
+			logging.S(0, "Successfully processed metadata for %s", fileName)
 		}
 
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)

@@ -30,7 +30,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, fmt.Errorf("model passed in null")
 	}
 
-	logging.PrintD(2, "Beginning JSON file processing...")
+	logging.D(2, "Beginning JSON file processing...")
 
 	// Function mutex
 	mu.Lock()
@@ -58,10 +58,10 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, err
 	}
 
-	logging.PrintD(3, "%v", data)
+	logging.D(3, "%v", data)
 
 	process.FillWebpageDetails(fd, data)
-	logging.PrintI("URLs grabbed: %s", w.TryURLs)
+	logging.I("URLs grabbed: %s", w.TryURLs)
 
 	if len(w.TryURLs) > 0 {
 		transformations.TryTransPresets(w.TryURLs, fd)
@@ -73,7 +73,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, err
 	}
 	if edited {
-		logging.PrintD(2, "Refreshing JSON metadata after edits were made...")
+		logging.D(2, "Refreshing JSON metadata after edits were made...")
 		data, err = fd.JSONFileRW.RefreshMetadata()
 		if err != nil {
 			return nil, err
@@ -82,7 +82,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 
 	var ok bool
 	if data, ok = process.FillMetaFields(fd, data); !ok {
-		logging.PrintD(2, "Some metafields were unfilled")
+		logging.D(2, "Some metafields were unfilled")
 	}
 
 	if fd.MDates.FormattedDate == "" {
@@ -90,23 +90,23 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Make date tag
-	logging.PrintD(3, "About to make date tag for: %v", file.Name())
+	logging.D(3, "About to make date tag for: %v", file.Name())
 	if config.Get(keys.FileDateFmt).(enums.FilenameDateFormat) != enums.FILEDATE_SKIP {
 		fd.FilenameDateTag, err = tags.MakeDateTag(data, file.Name())
 		if err != nil {
-			logging.PrintE(0, "Failed to make date tag: %v", err)
+			logging.E(0, "Failed to make date tag: %v", err)
 		}
 	}
 
 	// Add new filename tag for files
 	if config.IsSet(keys.MFilenamePfx) {
-		logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
+		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
 	}
 
 	// Check if metadata is already existent in target file
 	if filetypeMetaCheckSwitch(fd) {
-		logging.PrintI("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
+		logging.I("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
 		fd.MetaAlreadyExists = true
 	}
 
@@ -125,7 +125,7 @@ func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 	currentExt = strings.TrimSpace(currentExt)
 
 	if outFlagSet && outExt != "" && outExt != currentExt {
-		logging.PrintI("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
+		logging.I("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
 		return false
 	}
 

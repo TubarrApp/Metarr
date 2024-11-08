@@ -25,21 +25,21 @@ var (
 func InitFetchFilesVars() error {
 
 	if inVExts, ok := config.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
-		logging.PrintD(2, "Received video extensions enum: %v", inVExts)
+		logging.D(2, "Received video extensions enum: %v", inVExts)
 		videoExtensions = setVideoExtensions(inVExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
 
 	if inMExts, ok := config.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
-		logging.PrintD(2, "Received video extensions enum: %v", inMExts)
+		logging.D(2, "Received video extensions enum: %v", inMExts)
 		metaExtensions = setMetaExtensions(inMExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
 
 	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
-	logging.PrintD(2, "Setting prefix filter: %v", inputPrefixes)
+	logging.D(2, "Setting prefix filter: %v", inputPrefixes)
 
 	return nil
 }
@@ -51,7 +51,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		return nil, fmt.Errorf("error reading video directory: %w", err)
 	}
 
-	logging.Print("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
+	logging.P("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
 
 	videoFiles := make(map[string]*models.FileData, len(files))
 
@@ -72,9 +72,9 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 
 			if !strings.HasSuffix(m.OriginalVideoBaseName, consts.OldTag) {
 				videoFiles[file.Name()] = m
-				logging.PrintI("Added video to queue: %v", filenameBase)
+				logging.I("Added video to queue: %v", filenameBase)
 			} else {
-				logging.PrintI("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.OldTag)
+				logging.I("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.OldTag)
 			}
 		}
 	}
@@ -98,7 +98,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		if !file.IsDir() {
 			ext := filepath.Ext(file.Name())
 
-			logging.PrintD(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
+			logging.D(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
 
 			if config.IsSet(keys.FilePrefixes) {
 				if !HasPrefix(file.Name(), inputPrefixes) {
@@ -109,10 +109,10 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			var match bool
 			for _, mExt := range metaExtensions {
 				if ext != mExt {
-					logging.PrintD(3, "Extension '%s' does not match '%s'", ext, mExt)
+					logging.D(3, "Extension '%s' does not match '%s'", ext, mExt)
 					continue
 				}
-				logging.PrintS(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
+				logging.S(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
 				match = true
 				break
 			}
@@ -129,7 +129,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			switch ext {
 			case consts.MExtJSON:
 
-				logging.PrintD(1, "Detected JSON file '%s'", file.Name())
+				logging.D(1, "Detected JSON file '%s'", file.Name())
 				m.JSONFilePath = filePath
 				m.JSONBaseName = baseName
 				m.JSONDirectory = metaDir.Name()
@@ -137,7 +137,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 
 			case consts.MExtNFO:
 
-				logging.PrintD(1, "Detected NFO file '%s'", file.Name())
+				logging.D(1, "Detected NFO file '%s'", file.Name())
 				m.NFOFilePath = filePath
 				m.NFOBaseName = baseName
 				m.NFODirectory = metaDir.Name()
@@ -147,7 +147,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			if !strings.Contains(baseName, consts.OldTag) {
 				metaFiles[file.Name()] = m
 			} else {
-				logging.PrintI("Skipping file '%s' containing backup tag ('%s')", baseName, consts.OldTag)
+				logging.I("Skipping file '%s' containing backup tag ('%s')", baseName, consts.OldTag)
 			}
 		}
 	}
@@ -156,7 +156,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		return nil, fmt.Errorf("no meta files with extensions: %v and prefixes: %v found in directory: %s", metaExtensions, inputPrefixes, metaDir.Name())
 	}
 
-	logging.PrintD(3, "Returning meta files %v", metaFiles)
+	logging.D(3, "Returning meta files %v", metaFiles)
 	return metaFiles, nil
 }
 
@@ -171,7 +171,7 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error)
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
 	videoData.VideoFile = videoFile
 
-	logging.PrintD(3, "Created video file data for single file: %s", filename)
+	logging.D(3, "Created video file data for single file: %s", filename)
 
 	videoMap[filename] = videoData
 	return videoMap, nil
@@ -192,7 +192,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 		fileData.JSONFilePath = metaFile.Name()
 		fileData.JSONBaseName = strings.TrimSuffix(filename, ext)
 		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
-		logging.PrintD(3, "Created JSON metadata file data for single file: %s", filename)
+		logging.D(3, "Created JSON metadata file data for single file: %s", filename)
 
 	case consts.MExtNFO:
 
@@ -200,7 +200,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 		fileData.NFOFilePath = metaFile.Name()
 		fileData.NFOBaseName = strings.TrimSuffix(filename, ext)
 		fileData.NFODirectory = filepath.Dir(metaFile.Name())
-		logging.PrintD(3, "Created NFO metadata file data for single file: %s", filename)
+		logging.D(3, "Created NFO metadata file data for single file: %s", filename)
 
 	default:
 		return nil, fmt.Errorf("unsupported metadata file type: %s", ext)
@@ -212,7 +212,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
-	logging.PrintD(3, "Entering metadata and video file matching loop...")
+	logging.D(3, "Entering metadata and video file matching loop...")
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 

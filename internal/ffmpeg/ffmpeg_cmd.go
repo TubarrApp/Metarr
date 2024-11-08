@@ -209,7 +209,7 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		return
 	}
 
-	logging.PrintI("Input extension: '%s', output extension: '%s', File: %s",
+	logging.I("Input extension: '%s', output extension: '%s', File: %s",
 		inExt, outExt, b.inputFile)
 
 	// Get format preset from map
@@ -228,7 +228,7 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 
 	// Fall back to copy preset if no mapping found
 	b.formatFlags = copyPreset.flags
-	logging.PrintD(1, "No format mapping found for %s to %s conversion, using copy preset",
+	logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
 		inExt, outExt)
 }
 
@@ -278,6 +278,6 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 		len(b.formatFlags) + // Format flags (like -codec copy)
 		outputFile
 
-	logging.PrintD(3, "Total command capacity calculated as: %d", totalCapacity)
+	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
 }

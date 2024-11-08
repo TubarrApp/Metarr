@@ -32,7 +32,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 	}
 
 	if ok := unpackJSON("date", fieldMap, data); !ok {
-		logging.PrintE(1, "Failed to unpack date JSON, no dates currently exist in file?")
+		logging.E(1, "Failed to unpack date JSON, no dates currently exist in file?")
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
@@ -72,20 +72,20 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 	switch {
 	case gotRelevantDate:
 
-		logging.PrintD(3, "Got a relevant date, proceeding...")
+		logging.D(3, "Got a relevant date, proceeding...")
 		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
 			helpers.FormatAllDates(fd)
 		} else {
 			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
 			if err != nil {
-				logging.PrintE(0, err.Error())
+				logging.E(0, err.Error())
 			}
 		}
 
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		if err != nil {
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
 		} else if rtn != nil {
 			data = rtn
@@ -94,21 +94,21 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 
 	case w.WebpageURL == "":
 
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
 		print.PrintGrabbedFields("time and date", &printMap)
 		return data, false
 	}
 
 	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
-	logging.PrintD(1, "Scraped date: %s", scrapedDate)
+	logging.D(1, "Scraped date: %s", scrapedDate)
 
-	logging.PrintD(3, "Passed web scrape attempt for date.")
+	logging.D(3, "Passed web scrape attempt for date.")
 
 	var date string
 	if scrapedDate != "" {
 		date, err = helpers.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return data, false
 		} else {
 			if t.ReleaseDate == "" {
@@ -145,7 +145,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 			switch {
 			case err != nil:
-				logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
+				logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
 				return data, true
 			case rtn != nil:
 				data = rtn
@@ -286,29 +286,29 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	// Try to fix accidentally using upload date if another date is available
 	if len(t.Year) == 4 && !strings.HasPrefix(t.Creation_Time, t.Year) && len(t.Creation_Time) >= 4 {
 
-		logging.PrintD(1, "Creation time does not match year tag, seeing if other dates are available...")
+		logging.D(1, "Creation time does not match year tag, seeing if other dates are available...")
 
 		switch {
 		case strings.HasPrefix(t.Originally_Available_At, t.Year):
 			t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.Originally_Available_At)
+			logging.D(1, "Changed creation time to %s", t.Originally_Available_At)
 
 		case strings.HasPrefix(t.ReleaseDate, t.Year):
 			t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.ReleaseDate)
+			logging.D(1, "Changed creation time to %s", t.ReleaseDate)
 
 		case strings.HasPrefix(t.Date, t.Year):
 			t.Creation_Time = t.Date + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.Date)
+			logging.D(1, "Changed creation time to %s", t.Date)
 
 		case strings.HasPrefix(t.FormattedDate, t.Year):
 			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.FormattedDate)
+			logging.D(1, "Changed creation time to %s", t.FormattedDate)
 
 		default:
-			logging.PrintD(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
+			logging.D(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
 			t.Creation_Time = t.Year + t.Creation_Time[4:]
-			logging.PrintD(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
+			logging.D(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
 		}
 	}
 	return gotRelevantDate

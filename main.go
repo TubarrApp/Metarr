@@ -24,7 +24,7 @@ var startTime time.Time
 
 func init() {
 	startTime = time.Now()
-	logging.PrintI("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.I("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
 }
 
 func main() {
@@ -82,7 +82,7 @@ func main() {
 
 	if !config.GetBool("execute") {
 		fmt.Println()
-		logging.PrintI(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
+		logging.I(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
 		fmt.Println()
 		return // Exit early if not meant to execute
 	}
@@ -103,7 +103,7 @@ func main() {
 		inputVideoDir = config.GetString(keys.VideoDir)
 		openVideo, err = os.Open(inputVideoDir)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openVideo.Close()
@@ -114,7 +114,7 @@ func main() {
 		inputVideo = config.GetString(keys.VideoFile)
 		openVideo, err = os.Open(inputVideo)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openVideo.Close()
@@ -133,7 +133,7 @@ func main() {
 		inputMetaDir = config.GetString(keys.JsonDir)
 		openJson, err = os.Open(inputMetaDir)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openJson.Close()
@@ -146,7 +146,7 @@ func main() {
 		inputMeta = config.GetString(keys.JsonFile)
 		openJson, err = os.Open(inputMeta)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openJson.Close()
@@ -163,12 +163,12 @@ func main() {
 			fmt.Printf("\n\nNotice: Log file was not created\nReason: %s\n\n", err)
 		}
 	} else {
-		logging.PrintI("Directory and file strings were entered empty. Exiting...")
+		logging.I("Directory and file strings were entered empty. Exiting...")
 		os.Exit(1)
 	}
 
 	if err := fsRead.InitFetchFilesVars(); err != nil {
-		logging.PrintE(0, "Failed to initialize variables to fetch files. Exiting...")
+		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
 		os.Exit(1)
 	}
 
@@ -184,6 +184,6 @@ func main() {
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
 
 	endTime := time.Now()
-	logging.PrintI("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
-	logging.PrintI("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
+	logging.I("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.I("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
 }

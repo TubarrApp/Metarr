@@ -11,49 +11,73 @@ import (
 // files for censored.tv videos
 func CensoredTvTransformations(fd *models.FileData) {
 
-	logging.PrintI("Making preset censored.tv meta replacements")
+	logging.I("Making preset censored.tv meta replacements")
 
-	censoredTvMSuffixes(fd)
+	censoredTvTrimSuffixes(fd)
 	censoredTvFSuffixes(fd)
 }
 
 // censoredTvMSuffixes adds meta suffix replacements
-func censoredTvMSuffixes(fd *models.FileData) {
+func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	var (
-		sfx []*models.MetaReplaceSuffix
-		ok  bool
+		trimSfx []*models.MetaTrimSuffix
+		ok      bool
 	)
 
-	flagSet := config.IsSet(keys.MReplaceSfx)
-
-	if flagSet {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
+	if config.IsSet(keys.MTrimSuffix) {
+		trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix)
 		if !ok {
-			logging.PrintE(2, "Got type %T, may be null", sfx)
+			logging.E(2, "Got type %T, may be null", trimSfx)
 		}
 	}
 
-	var new = make([]*models.MetaReplaceSuffix, 0, 4)
-	new = append(new, models.NewMetaReplaceSuffix("title", " (1)", ""))
-	new = append(new, models.NewMetaReplaceSuffix("fulltitle", " (1)", ""))
-	new = append(new, models.NewMetaReplaceSuffix("id", "-1", ""))
-	new = append(new, models.NewMetaReplaceSuffix("display_id", "-1", ""))
+	var new = make([]*models.MetaTrimSuffix, 0, 4)
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "title",
+		Suffix: " (1)",
+	})
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "fulltitle",
+		Suffix: " (1)",
+	})
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "id",
+		Suffix: "-1",
+	})
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "display_id",
+		Suffix: "-1",
+	})
 
 	for _, newSuffix := range new {
 		exists := false
-		for _, existingSuffix := range sfx {
+		for _, existingSuffix := range trimSfx {
 			if existingSuffix.Field == newSuffix.Field {
 				exists = true
 				break
 			}
 		}
 		if !exists {
-			logging.PrintI("Adding new censored.tv meta suffix replacement: %v", newSuffix)
-			sfx = append(sfx, newSuffix)
+			logging.I("Adding new censored.tv meta suffix replacement: %v", newSuffix)
+			trimSfx = append(trimSfx, newSuffix)
 		}
 	}
-	fd.ModelMSfxReplace = sfx
+
+	if logging.Level >= 2 {
+		var entries []string
+		for _, entry := range trimSfx {
+			entries = append(entries, "("+entry.Field+":")
+			entries = append(entries, entry.Suffix+")")
+		}
+		logging.I("After adding preset suffixes, suffixes to be trimmed for '%s': %v", fd.OriginalVideoBaseName, entries)
+	}
+
+	fd.ModelMTrimSuffix = trimSfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements
@@ -66,21 +90,21 @@ func censoredTvFSuffixes(fd *models.FileData) {
 	if config.IsSet(keys.FilenameReplaceSfx) {
 		existingSfx, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok {
-			logging.PrintE(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
+			logging.E(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
 		} else {
 			sfx = existingSfx
 		}
 	}
 
-	logging.PrintD(3, "Retrieved file name: %s", v)
+	logging.D(3, "Retrieved file name: %s", v)
 	vExt := ""
 	if len(v) > 1 {
 		check := v[len(v)-2:]
-		logging.PrintD(3, "Got last element of file name: %s", check)
+		logging.D(3, "Got last element of file name: %s", check)
 		switch check {
 		case " 1", "_1":
 			vExt = check
-			logging.PrintD(2, "Found file name suffix: %s", vExt)
+			logging.D(2, "Found file name suffix: %s", vExt)
 		}
 	}
 
@@ -95,10 +119,13 @@ func censoredTvFSuffixes(fd *models.FileData) {
 
 	// Add suffix if it does not already exist
 	if !alreadyExists {
-		sfx = append(sfx, models.NewFilenameReplaceSuffix(vExt, ""))
-		logging.PrintI("Added filename suffix replacement '%s'", vExt)
+		sfx = append(sfx, &models.FilenameReplaceSuffix{
+			Suffix:      "_1",
+			Replacement: "",
+		})
+		logging.I("Added filename suffix replacement '%s'", vExt)
 	}
 
 	fd.ModelFileSfxReplace = sfx
-	logging.PrintI("Total filename suffix replacements: %d", len(sfx))
+	logging.I("Total filename suffix replacements: %d", len(sfx))
 }

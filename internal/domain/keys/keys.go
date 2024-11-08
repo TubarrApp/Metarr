@@ -9,7 +9,7 @@ const (
 	JsonFile  string = "json-file"
 	MetaPurge string = "purge-metafile"
 
-	CookiePath string = "cookie-file"
+	CookiePath string = "cookie-dir"
 
 	InputMetaExts  string = "input-meta-exts"
 	InputVideoExts string = "input-video-exts"
@@ -26,13 +26,9 @@ const (
 	RenameStyle             string = "input-rename-style"
 	MFilenamePfx            string = "metadata-filename-prefix"
 
+	MetaOps      string = "meta-ops"
 	MDescDatePfx string = "desc-date-prefix"
 	MDescDateSfx string = "desc-date-suffix"
-	MNewField    string = "meta-add-field"
-	MReplacePfx  string = "meta-trim-prefix"
-	MReplaceSfx  string = "meta-trim-suffix"
-	MOverwrite   string = "meta-overwrite"
-	MPreserve    string = "meta-preserve"
 
 	DebugLevel      string = "debug-level"
 	SkipVideos      string = "skip-videos"
@@ -78,13 +74,23 @@ const (
 	FilenameReplaceSfx string = "filenameReplaceSfx"
 )
 
+// Meta edits
+const (
+	MOverwrite string = "meta-overwrite"
+	MPreserve  string = "meta-preserve"
+
+	MAppend      string = "metaAppend"
+	MNewField    string = "metaNewField"
+	MPrefix      string = "metaPrefix"
+	MReplaceText string = "metaReplaceText"
+	MTrimPrefix  string = "metaTrimPrefix"
+	MTrimSuffix  string = "metaTrimSuffix"
+)
+
 // Contains the fields which accept multiple entries as string arrays
 var MultiEntryFields = []string{
 	InputVideoExts,
 	InputMetaExts,
 	FilePrefixes,
-	MReplaceSfx,
-	MReplacePfx,
-	MNewField,
 	FilenameReplaceSfx,
 }

@@ -53,7 +53,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	day = dayStringSwitch(day)
 
 	dateStr = month + " " + day + ", " + year
-	logging.PrintS(1, "Made string form date: '%s'", dateStr)
+	logging.S(1, "Made string form date: '%s'", dateStr)
 
 	return dateStr, nil
 }
@@ -87,7 +87,7 @@ func monthStringSwitch(month string) string {
 	case "12":
 		monthStr = "Dec"
 	default:
-		logging.PrintE(0, "Failed to make month string from month number '%s'", month)
+		logging.E(0, "Failed to make month string from month number '%s'", month)
 		monthStr = "Jan"
 	}
 	return monthStr
@@ -96,7 +96,7 @@ func monthStringSwitch(month string) string {
 // Affix a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
 func dayStringSwitch(day string) string {
 	if thCheck, err := strconv.Atoi(day); err != nil {
-		logging.PrintE(0, "Failed to convert date string to number")
+		logging.E(0, "Failed to convert date string to number")
 		return day
 	} else if thCheck > 10 && thCheck < 20 {
 		return day + "th"
@@ -125,15 +125,15 @@ func YyyyMmDd(fieldValue string) (string, bool) {
 
 	if len(fieldValue) >= 8 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", fieldValue[:4], fieldValue[4:6], fieldValue[6:8], t)
-		logging.PrintS(2, "Made date %s", formatted)
+		logging.S(2, "Made date %s", formatted)
 		return formatted, true
 
 	} else if len(fieldValue) >= 6 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", fieldValue[:2], fieldValue[2:4], fieldValue[4:6], t)
-		logging.PrintS(2, "Made date %s", formatted)
+		logging.S(2, "Made date %s", formatted)
 		return formatted, true
 	}
-	logging.PrintD(3, "Returning empty or short date element (%s) without formatting", fieldValue)
+	logging.D(3, "Returning empty or short date element (%s) without formatting", fieldValue)
 	return fieldValue, false
 }
 
@@ -148,39 +148,39 @@ func FormatAllDates(fd *models.FileData) string {
 	d := fd.MDates
 
 	if !ok && d.Originally_Available_At != "" {
-		logging.PrintD(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
+		logging.D(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
 		result, ok = YyyyMmDd(d.Originally_Available_At)
 	}
 	if !ok && d.ReleaseDate != "" {
-		logging.PrintD(2, "Attempting to format release date: %v", d.ReleaseDate)
+		logging.D(2, "Attempting to format release date: %v", d.ReleaseDate)
 		result, ok = YyyyMmDd(d.ReleaseDate)
 	}
 	if !ok && d.Date != "" {
-		logging.PrintD(2, "Attempting to format date: %v", d.Date)
+		logging.D(2, "Attempting to format date: %v", d.Date)
 		result, ok = YyyyMmDd(d.Date)
 	}
 	if !ok && d.UploadDate != "" {
-		logging.PrintD(2, "Attempting to format upload date: %v", d.UploadDate)
+		logging.D(2, "Attempting to format upload date: %v", d.UploadDate)
 		result, ok = YyyyMmDd(d.UploadDate)
 	}
 	if !ok && d.Creation_Time != "" {
-		logging.PrintD(3, "Attempting to format creation time: %v", d.Creation_Time)
+		logging.D(3, "Attempting to format creation time: %v", d.Creation_Time)
 		result, ok = YyyyMmDd(d.Creation_Time)
 	}
 	if !ok {
-		logging.PrintE(0, "Failed to format dates")
+		logging.E(0, "Failed to format dates")
 		return ""
 	} else {
-		logging.PrintD(2, "Exiting with formatted date: %v", result)
+		logging.D(2, "Exiting with formatted date: %v", result)
 
 		d.FormattedDate = result
 
-		logging.PrintD(2, "Got formatted date '%s' and entering parse to string function...", result)
+		logging.D(2, "Got formatted date '%s' and entering parse to string function...", result)
 
 		var err error
 		d.StringDate, err = ParseNumDate(d.FormattedDate)
 		if err != nil {
-			logging.PrintE(0, err.Error())
+			logging.E(0, err.Error())
 		}
 
 		return result

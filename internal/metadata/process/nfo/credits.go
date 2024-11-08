@@ -60,12 +60,12 @@ func fillNFOCredits(fd *models.FileData) bool {
 func fillSingleCredits(entries []string, target *string) {
 
 	if target == nil {
-		logging.PrintD(1, "Target string is nil, skipping...")
+		logging.D(1, "Target string is nil, skipping...")
 		return
 	}
 
 	if *target != "" {
-		logging.PrintD(1, "Target string is not empty, skipping...")
+		logging.D(1, "Target string is not empty, skipping...")
 		return
 	}
 
@@ -90,7 +90,7 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 		for k, v := range data {
 			if k == "role" {
 				if role, ok := v.(string); ok {
-					logging.PrintD(3, "Adding role '%s' to actors", role)
+					logging.D(3, "Adding role '%s' to actors", role)
 					c.Actors = append(c.Actors, role)
 					filled = true
 				}
@@ -114,21 +114,21 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 			for _, actorData := range actorsData {
 				if actorMap, ok := actorData.(map[string]interface{}); ok {
 					if name, ok := actorMap["name"].(string); ok {
-						logging.PrintD(3, "Adding actor name '%s'", name)
+						logging.D(3, "Adding actor name '%s'", name)
 						c.Actors = append(c.Actors, name)
 						filled = true
 					}
 					if role, ok := actorMap["role"].(string); ok {
-						logging.PrintD(3, "Adding actor role '%s'", role)
+						logging.D(3, "Adding actor role '%s'", role)
 						filled = true
 					}
 				}
 			}
 		} else {
-			logging.PrintD(1, "'actor' key is present but not a valid structure")
+			logging.D(1, "'actor' key is present but not a valid structure")
 		}
 	} else {
-		logging.PrintD(1, "'cast' key is missing or not a map")
+		logging.D(1, "'cast' key is missing or not a map")
 	}
 
 	return filled

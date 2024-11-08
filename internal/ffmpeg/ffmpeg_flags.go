@@ -87,6 +87,6 @@ func concat(slices ...[]string) []string {
 		result = append(result, s...)
 	}
 
-	logging.PrintD(2, "Made format flag array %v", result)
+	logging.D(2, "Made format flag array %v", result)
 	return result
 }

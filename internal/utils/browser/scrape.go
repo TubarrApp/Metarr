@@ -26,12 +26,12 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
 	w.Cookies, err = getBrowserCookies(w.WebpageURL)
 	if err != nil {
-		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+		logging.E(2, "Was unable to grab browser cookies: %v", err)
 	}
 	for _, try := range w.TryURLs {
 		data, err = scrape(try, w.Cookies, find, false)
 		if err != nil {
-			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
+			logging.E(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
 		} else {
 			break
 		}
@@ -65,13 +65,13 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 	case strings.Contains(url, "bitchute.com") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using bitchute.com preset scraper")
+		logging.I("Using bitchute.com preset scraper")
 		setupPresetScraping(c, tag, presets.BitchuteComRules, &result, url)
 
 	case strings.Contains(url, "censored.tv") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using censored.tv preset scraper")
+		logging.I("Using censored.tv preset scraper")
 		if tag == enums.WEBCLASS_CREDITS {
 			return presets.CensoredTvChannelName(url), nil
 		}
@@ -80,17 +80,17 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 	case strings.Contains(url, "rumble.com") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using rumble.com preset scraper")
+		logging.I("Using rumble.com preset scraper")
 		setupPresetScraping(c, tag, presets.RumbleComRules, &result, url)
 
 	case strings.Contains(url, "odysee.com") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using odysee.com preset scraper")
+		logging.I("Using odysee.com preset scraper")
 		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
 
 	default:
-		logging.PrintI("Generic scrape attempt...")
+		logging.I("Generic scrape attempt...")
 		setupGenericScraping(c, tag, &result, url)
 	}
 
@@ -110,7 +110,7 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 		case "":
 			return "", scrapeError
 		default:
-			logging.PrintE(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
+			logging.E(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
 			return result, nil
 		}
 	}
@@ -146,7 +146,7 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 				}
 
 				if value != "" {
-					logging.PrintS(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
+					logging.S(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
 					*result = rule.Process(value)
 				}
 			})
@@ -187,7 +187,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 		text := strings.TrimSpace(e.Text)
 
 		if classAttr != "" {
-			logging.PrintD(2, "Checking element with class: '%s'", classAttr)
+			logging.D(2, "Checking element with class: '%s'", classAttr)
 		}
 
 		for _, t := range tags {
@@ -200,7 +200,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 				}
 
 				*result = text
-				logging.PrintI("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
+				logging.I("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
 					result, classAttr, idAttr, url)
 				return
 			}

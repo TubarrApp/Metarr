@@ -44,7 +44,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	// Make temp output path
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
-	logging.PrintD(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
+	logging.D(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
 
 	// Add temp path to data struct
 	fd.TempOutputFilePath = tmpOutPath
@@ -63,7 +63,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	}
 
 	command := exec.Command("ffmpeg", args...)
-	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
+	logging.I("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -72,13 +72,13 @@ func ExecuteVideo(fd *models.FileData) error {
 	fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 	fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
 
-	logging.PrintI("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
+	logging.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
 		fd.JSONFilePath,
 		fd.FinalVideoPath,
 		fd.TempOutputFilePath)
 
 	// Run the ffmpeg command
-	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
+	logging.P("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		return fmt.Errorf("failed to run FFmpeg command: %w", err)
@@ -86,7 +86,7 @@ func ExecuteVideo(fd *models.FileData) error {
 
 	// Rename temporary file to overwrite the original video file
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
-		logging.PrintI("Original file not type %s, removing '%s'", outExt, origPath)
+		logging.I("Original file not type %s, removing '%s'", outExt, origPath)
 
 	} else if config.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {
@@ -107,7 +107,7 @@ func ExecuteVideo(fd *models.FileData) error {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
-	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
+	logging.S(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
 		fd.FinalVideoPath,
 		fd.MTitleDesc.Title)
 
@@ -118,7 +118,7 @@ func ExecuteVideo(fd *models.FileData) error {
 func dontProcess(fd *models.FileData) (dontProcess bool) {
 	if fd.MetaAlreadyExists {
 
-		logging.PrintI("Metadata already exists in the file, skipping processing...")
+		logging.I("Metadata already exists in the file, skipping processing...")
 		origPath := fd.OriginalVideoPath
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
@@ -141,7 +141,7 @@ func makeBackup(origPath string) error {
 
 	origInfo, err := os.Stat(origPath)
 	if os.IsNotExist(err) {
-		logging.PrintI("File does not exist, safe to proceed overwriting: %s", origPath)
+		logging.I("File does not exist, safe to proceed overwriting: %s", origPath)
 		return nil
 	}
 

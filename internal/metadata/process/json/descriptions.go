@@ -47,7 +47,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 					}
 					continue
 				default:
-					logging.PrintD(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *value)
+					logging.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *value)
 					continue
 				}
 			}
@@ -79,7 +79,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		switch {
 		case err != nil:
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
 		case rtn != nil:
 			data = rtn
@@ -87,7 +87,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		}
 
 	case w.WebpageURL == "":
-		logging.PrintI("Page URL not found in data, so cannot scrape for missing description in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in data, so cannot scrape for missing description in '%s'", fd.JSONFilePath)
 		return data, false
 	}
 
@@ -104,7 +104,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		// Insert new scraped fields into file
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		if err != nil {
-			logging.PrintE(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
+			logging.E(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
 		} else if rtn != nil {
 			data = rtn
 		}
@@ -119,7 +119,7 @@ func fillEmptyDescriptions(want *string, d *models.MetadataTitlesDescs) bool {
 
 	filled := false
 	if want == nil {
-		logging.PrintE(0, "Sent in string null, returning...")
+		logging.E(0, "Sent in string null, returning...")
 		return false
 	}
 	if *want == "" {

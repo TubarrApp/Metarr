@@ -92,7 +92,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	b.WriteString("'" + filename + "'")
 	b.WriteString(" =================\n\n")
 
-	logging.Print(b.String())
+	logging.P(b.String())
 }
 
 // Function to print the fields of a struct using reflection
@@ -142,7 +142,7 @@ func PrintGrabbedFields(fieldType string, p *map[string]string) {
 	defer muPrint.Unlock()
 
 	fmt.Println()
-	logging.PrintI("Found and stored %s metadata fields from metafile:", fieldType)
+	logging.I("Found and stored %s metadata fields from metafile:", fieldType)
 	fmt.Println()
 
 	for printKey, printVal := range printMap {

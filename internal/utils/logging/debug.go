@@ -16,7 +16,7 @@ var (
 	mu    sync.Mutex
 )
 
-func PrintE(l int, format string, args ...interface{}) string {
+func E(l int, format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -38,13 +38,13 @@ func PrintE(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.RedError + format + " " + tag + "\n")
 		}
 		fmt.Print(msg)
-		Write(msg, l)
+		writeLog(msg, l)
 	}
 
 	return msg
 }
 
-func PrintS(l int, format string, args ...interface{}) string {
+func S(l int, format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -61,12 +61,12 @@ func PrintS(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.GreenSuccess + format + " \n")
 		}
 		fmt.Print(msg)
-		Write(msg, l)
+		writeLog(msg, l)
 	}
 	return msg
 }
 
-func PrintD(l int, format string, args ...interface{}) string {
+func D(l int, format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -88,12 +88,12 @@ func PrintD(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.YellowDebug + format + " " + tag + "\n")
 		}
 		fmt.Print(msg)
-		Write(msg, l)
+		writeLog(msg, l)
 	}
 	return msg
 }
 
-func PrintI(format string, args ...interface{}) string {
+func I(format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -105,12 +105,12 @@ func PrintI(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(consts.BlueInfo + format + "\n")
 	}
 	fmt.Print(msg)
-	Write(msg, 0)
+	writeLog(msg, 0)
 
 	return msg
 }
 
-func Print(format string, args ...interface{}) string {
+func P(format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -122,7 +122,7 @@ func Print(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(format + "\n")
 	}
 	fmt.Print(msg)
-	Write(msg, 0)
+	writeLog(msg, 0)
 
 	return msg
 }

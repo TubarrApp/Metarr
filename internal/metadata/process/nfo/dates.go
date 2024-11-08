@@ -68,28 +68,28 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 
 		var err error
 
-		logging.PrintD(3, "Got a relevant date, proceeding...")
+		logging.D(3, "Got a relevant date, proceeding...")
 		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
 			helpers.FormatAllDates(fd)
 		} else {
 			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
 			if err != nil {
-				logging.PrintE(0, err.Error())
+				logging.E(0, err.Error())
 			}
 		}
 
 	case w.WebpageURL == "":
 
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
 		print.PrintGrabbedFields("time and date", &printMap)
 		return false
 	}
 
 	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
-	logging.PrintD(1, "Scraped date: %s", scrapedDate)
+	logging.D(1, "Scraped date: %s", scrapedDate)
 
-	logging.PrintD(3, "Passed web scrape attempt for date.")
+	logging.D(3, "Passed web scrape attempt for date.")
 
 	var (
 		date string
@@ -98,7 +98,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	if scrapedDate != "" {
 		date, err = helpers.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return false
 		} else {
 			if t.ReleaseDate == "" {
