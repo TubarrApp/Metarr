@@ -12,7 +12,7 @@ import (
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-	logging.D(3, "Entering makeFilenameTag with data %v", metadata)
+	logging.D(5, "Entering makeFilenameTag with data %v", metadata)
 
 	tagFields := config.GetStringSlice(keys.MFilenamePfx)
 	if len(tagFields) == 0 {
