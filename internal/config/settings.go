@@ -184,6 +184,9 @@ func checkFileDirs() error {
 
 // verifyFilePrefixes checks and sets the file prefix filters
 func verifyFilePrefixes() {
+	if !viper.IsSet(keys.FilePrefixes) {
+		return
+	}
 
 	argsInputPrefixes := viper.GetStringSlice(keys.FilePrefixes)
 	filePrefixes := make([]string, 0, len(argsInputPrefixes))
@@ -329,28 +332,30 @@ func verifyResourceLimits() {
 
 // Verify the output filetype is valid for FFmpeg
 func verifyOutputFiletype() {
-	o := GetString(keys.OutputFiletype)
+	if !viper.IsSet(keys.OutputFiletype) {
+		return
+	}
+
+	o := GetString(keys.OutputFiletypeInput)
 	o = strings.TrimSpace(o)
 
 	if !strings.HasPrefix(o, ".") {
 		o = "." + o
-		Set(keys.OutputFiletype, o)
+		viper.Set(keys.OutputFiletype, o)
 	}
 
 	valid := false
 	for _, ext := range consts.AllVidExtensions {
 		if o != ext {
 			continue
+		} else {
+			valid = true
+			break
 		}
-		valid = true
-		break
 	}
 
-	switch valid {
-	case true:
+	if valid {
 		logging.I("Outputting files as %s", o)
-	default:
-		Set(keys.OutputFiletype, "")
 	}
 }
 

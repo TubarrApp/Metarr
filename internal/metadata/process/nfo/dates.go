@@ -1,9 +1,9 @@
 package metadata
 
 import (
+	"metarr/internal/dates"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
-	helpers "metarr/internal/metadata/process/helpers"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
@@ -28,7 +28,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	printMap := make(map[string]string, len(fieldMap))
 
 	if n.Premiered != "" {
-		if rtn, ok := helpers.YyyyMmDd(n.Premiered); ok && rtn != "" {
+		if rtn, ok := dates.YyyyMmDd(n.Premiered); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -37,7 +37,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		gotRelevantDate = true
 	}
 	if n.ReleaseDate != "" {
-		if rtn, ok := helpers.YyyyMmDd(n.ReleaseDate); ok && rtn != "" {
+		if rtn, ok := dates.YyyyMmDd(n.ReleaseDate); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -71,9 +71,9 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		logging.D(3, "Got a relevant date, proceeding...")
 		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
-			helpers.FormatAllDates(fd)
+			dates.FormatAllDates(fd)
 		} else {
-			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
+			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
 			if err != nil {
 				logging.E(0, err.Error())
 			}
@@ -96,7 +96,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		err  error
 	)
 	if scrapedDate != "" {
-		date, err = helpers.ParseStringDate(scrapedDate)
+		date, err = dates.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
 			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return false
@@ -130,7 +130,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 			print.PrintGrabbedFields("time and date", &printMap)
 
 			if t.FormattedDate == "" {
-				helpers.FormatAllDates(fd)
+				dates.FormatAllDates(fd)
 			}
 		}
 	}

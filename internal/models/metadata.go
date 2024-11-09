@@ -38,6 +38,11 @@ type MetaNewField struct {
 	Value string
 }
 
+type MetaDateTag struct {
+	Loc    enums.MetaDateTagLocation
+	Format enums.DateFormat
+}
+
 type MetaReplace struct {
 	Field       string
 	Value       string
@@ -48,7 +53,7 @@ type FilenameDatePrefix struct {
 	YearLength  int
 	MonthLength int
 	DayLength   int
-	Order       enums.FilenameDateFormat
+	Order       enums.DateFormat
 }
 
 type FilenameReplaceSuffix struct {

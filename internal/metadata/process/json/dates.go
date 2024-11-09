@@ -1,9 +1,9 @@
 package metadata
 
 import (
+	"metarr/internal/dates"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
-	helpers "metarr/internal/metadata/process/helpers"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
@@ -42,7 +42,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			if _, exists := fieldMap[key]; exists {
 
 				if len(strVal) >= 6 {
-					if formatted, ok := helpers.YyyyMmDd(strVal); ok {
+					if formatted, ok := dates.YyyyMmDd(strVal); ok {
 						*fieldMap[key] = formatted
 						printMap[key] = formatted
 						gotRelevantDate = true
@@ -75,9 +75,9 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 		logging.D(3, "Got a relevant date, proceeding...")
 		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
-			helpers.FormatAllDates(fd)
+			dates.FormatAllDates(fd)
 		} else {
-			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
+			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
 			if err != nil {
 				logging.E(0, err.Error())
 			}
@@ -106,7 +106,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 
 	var date string
 	if scrapedDate != "" {
-		date, err = helpers.ParseStringDate(scrapedDate)
+		date, err = dates.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
 			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return data, false
@@ -140,7 +140,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			print.PrintGrabbedFields("time and date", &printMap)
 
 			if t.FormattedDate == "" {
-				helpers.FormatAllDates(fd)
+				dates.FormatAllDates(fd)
 			}
 			rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 			switch {
@@ -166,7 +166,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 		gotRelevantDate = true
 		if t.Creation_Time == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
+			if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 				if !strings.ContainsRune(formatted, 'T') {
 					t.Creation_Time = formatted + "T00:00:00Z"
 					t.FormattedDate = formatted
@@ -175,7 +175,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 					t.FormattedDate, _, _ = strings.Cut(formatted, "T")
 				}
 			} else {
-				if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
+				if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 					if !strings.ContainsRune(formatted, 'T') {
 						t.Creation_Time = formatted + "T00:00:00Z"
 						t.FormattedDate = formatted
@@ -194,7 +194,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
 		gotRelevantDate = true
 		if t.Creation_Time == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Creation_Time = formatted + "T00:00:00Z"
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
@@ -204,7 +204,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			}
 		}
 		if t.Originally_Available_At == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Originally_Available_At = formatted
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
@@ -217,7 +217,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	// Infer from date
 	if t.Date != "" && len(t.Date) >= 6 {
 		gotRelevantDate = true
-		if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+		if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 			t.Creation_Time = formatted + "T00:00:00Z"
 			if t.FormattedDate == "" {
 				t.FormattedDate = formatted
@@ -226,7 +226,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			t.Creation_Time = t.Date + "T00:00:00Z"
 		}
 		if t.Originally_Available_At == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Originally_Available_At = formatted
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
@@ -239,7 +239,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	// Infer from upload date
 	if t.UploadDate != "" && len(t.UploadDate) >= 6 {
-		if formatted, ok := helpers.YyyyMmDd(t.UploadDate); ok {
+		if formatted, ok := dates.YyyyMmDd(t.UploadDate); ok {
 			t.Creation_Time = formatted + "T00:00:00Z"
 			if t.FormattedDate == "" {
 				t.FormattedDate = formatted

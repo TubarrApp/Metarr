@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
+	tags "metarr/internal/metadata/tags"
 	"metarr/internal/models"
 	backup "metarr/internal/utils/fs/backup"
 	logging "metarr/internal/utils/logging"
@@ -169,7 +171,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		replace = fd.ModelMReplace
 	} else if config.IsSet(keys.MReplaceText) {
 		if replace, ok = config.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
-			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", replace)
+			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
 
@@ -179,7 +181,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		trimPfx = fd.ModelMTrimPrefix
 	} else if config.IsSet(keys.MTrimPrefix) {
 		if trimPfx, ok = config.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
-			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
+			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
 
@@ -188,7 +190,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		trimSfx = fd.ModelMTrimSuffix
 	} else if config.IsSet(keys.MTrimSuffix) {
 		if trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
-			logging.E(0, "Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
+			logging.E(0, "Could not retrieve suffix trim, wrong type: '%T'", trimSfx)
 		}
 	}
 
@@ -198,7 +200,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		apnd = fd.ModelMAppend
 	} else if config.IsSet(keys.MAppend) {
 		if apnd, ok = config.Get(keys.MAppend).([]*models.MetaAppend); !ok {
-			logging.E(0, "Count not retrieve appends, wrong type: '%T'", apnd)
+			logging.E(0, "Could not retrieve appends, wrong type: '%T'", apnd)
 		}
 	}
 
@@ -207,7 +209,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		pfx = fd.ModelMPrefix
 	} else if config.IsSet(keys.MPrefix) {
 		if pfx, ok = config.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
-			logging.E(0, "Count not retrieve prefix, wrong type: '%T'", pfx)
+			logging.E(0, "Could not retrieve prefix, wrong type: '%T'", pfx)
 		}
 	}
 
@@ -271,6 +273,25 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
+		}
+	}
+
+	// Add date tag
+	if config.IsSet(keys.MDateTagMap) {
+		logging.D(3, "Adding metafield date tag...")
+		if dateTagMap, ok := config.Get(keys.MDateTagMap).(map[string]*models.MetaDateTag); ok {
+			if len(dateTagMap) > 0 {
+
+				if ok, err := rw.jsonFieldDateTag(data, dateTagMap, fd); err != nil {
+					logging.E(0, err.Error())
+				} else if ok {
+					edited = true
+				}
+			} else {
+				logging.E(0, "dateTagMap grabbed empty")
+			}
+		} else {
+			logging.E(0, "Got null or wrong type for %s: %T", keys.MDateTagMap, dateTagMap)
 		}
 	}
 
@@ -476,6 +497,11 @@ func (rw *JSONFileRW) jsonPrefix(data map[string]interface{}, pfx []*models.Meta
 // addNewField can insert a new field which does not yet exist into the metadata file
 func (rw *JSONFileRW) addNewJsonField(data map[string]interface{}, modelOW bool, new []*models.MetaNewField) (bool, error) {
 
+	if len(new) == 0 {
+		logging.E(0, "No new field additions found", keys.MNewField)
+		return false, nil
+	}
+
 	var (
 		metaOW,
 		metaPS bool
@@ -486,11 +512,6 @@ func (rw *JSONFileRW) addNewJsonField(data map[string]interface{}, modelOW bool,
 	} else {
 		metaOW = config.GetBool(keys.MOverwrite)
 		metaPS = config.GetBool(keys.MPreserve)
-	}
-
-	if len(new) == 0 {
-		logging.E(0, "No new field additions found", keys.MNewField)
-		return false, nil
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", new)
@@ -578,4 +599,65 @@ func (rw *JSONFileRW) addNewJsonField(data map[string]interface{}, modelOW bool,
 	logging.D(3, "JSON after transformations: %v", data)
 
 	return newAddition, nil
+}
+
+// jsonFieldDateTag sets date tags in designated meta fields
+func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap map[string]*models.MetaDateTag, fd *models.FileData) (bool, error) {
+
+	logging.D(2, "Making metadata date tag for '%s'...", fd.OriginalVideoBaseName)
+
+	if len(dateTagMap) == 0 {
+		logging.D(3, "No date tag operations to perform")
+		return false, nil
+	}
+	if fd == nil {
+		return false, fmt.Errorf("JsonFieldDateTag called with null FileData model")
+	}
+
+	edited := false
+	for field, dateTag := range dateTagMap {
+		if dateTag == nil {
+			logging.E(0, "Nil date tag configuration for field '%s'", field)
+			continue
+		}
+
+		val, exists := data[field]
+		if !exists {
+			logging.D(3, "Field '%s' not found in metadata", field)
+			continue
+		}
+
+		strVal, ok := val.(string)
+		if !ok {
+			logging.D(3, "Field '%s' is not a string value, type: %T", field, val)
+			continue
+		}
+
+		// Generate the date tag
+		tag, err := tags.MetafieldDateTag(data, strVal, dateTag.Format)
+		if err != nil {
+			return false, fmt.Errorf("failed to generate date tag for field '%s': %w", field, err)
+		}
+		if len(tag) < 3 {
+			return false, fmt.Errorf("generated date tag too short for field '%s': '%s'", field, tag)
+		}
+
+		// Apply the tag based on location
+		switch dateTag.Loc {
+		case enums.DATE_TAG_LOC_PFX:
+			data[field] = tag + " " + strVal
+			logging.I("Added date tag '%s' as prefix to field '%s'", tag, field)
+			edited = true
+
+		case enums.DATE_TAG_LOC_SFX:
+			data[field] = strVal + " " + tag
+			logging.I("Added date tag '%s' as suffix to field '%s'", tag, field)
+			edited = true
+
+		default:
+			return false, fmt.Errorf("invalid date tag location enum: %v", dateTag.Loc)
+		}
+	}
+
+	return edited, nil
 }

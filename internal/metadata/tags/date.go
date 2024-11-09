@@ -2,21 +2,20 @@ package metadata
 
 import (
 	"fmt"
-	"metarr/internal/config"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
 	logging "metarr/internal/utils/logging"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-// MakeDateTag attempts to create the date tag for files using metafile data
-func MakeDateTag(metadata map[string]interface{}, fileName string) (string, error) {
-	dateFmt, ok := config.Get(keys.FileDateFmt).(enums.FilenameDateFormat)
-	if !ok {
-		return "", fmt.Errorf("invalid date format configuration")
+// MakeDATEFMTTag attempts to create the date tag for files using metafile data
+func MakeFileDateTag(metadata map[string]interface{}, fileName string, dateFmt enums.DateFormat) (string, error) {
+
+	if dateFmt == enums.DATEFMT_SKIP {
+		logging.D(1, "Skip set, not making file date tag for '%s'", fileName)
+		return "", nil
 	}
 
 	date, found := extractDateFromMetadata(metadata)
@@ -44,6 +43,46 @@ func MakeDateTag(metadata map[string]interface{}, fileName string) (string, erro
 
 	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
 	return dateTag, nil
+}
+
+// MakeDATEFMTTag attempts to create the date tag for files using metafile data
+func MetafieldDateTag(metadata map[string]interface{}, fieldVal string, dateFmt enums.DateFormat) (string, error) {
+
+	if dateFmt == enums.DATEFMT_SKIP {
+		logging.D(1, "Skip set, not making date tag for field '%s'", fieldVal)
+		return "", nil
+	}
+
+	if len(metadata) == 0 {
+		return "[]", fmt.Errorf("metadata sent in empty")
+	}
+
+	date, found := extractDateFromMetadata(metadata)
+	if !found {
+		logging.E(0, "No dates found in JSON file")
+		return "[]", nil
+	}
+
+	year, month, day, err := parseDateComponents(date, dateFmt)
+	if err != nil {
+		return "[]", fmt.Errorf("failed to parse date components: %w", err)
+	}
+
+	dateStr, err := formatDateString(year, month, day, dateFmt)
+	if dateStr == "" || err != nil {
+		logging.E(0, "Failed to create date string")
+		return "[]", nil
+	}
+
+	dateTag := "[" + dateStr + "]"
+	if strings.Contains(fieldVal, dateTag) {
+		logging.D(2, "Tag '%s' already detected in metafield, skipping...", dateTag)
+		return "[]", nil
+	}
+
+	logging.S(0, "Made date tag '%s' for field with data '%s'", dateTag, fieldVal)
+	return dateTag, nil
+
 }
 
 // extractDateFromMetadata attempts to find a date in the metadata using predefined fields
@@ -77,7 +116,7 @@ func extractDateFromMetadata(metadata map[string]interface{}) (string, bool) {
 }
 
 // parseDateComponents extracts and validates year, month, and day from the date string
-func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+func parseDateComponents(date string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	date = strings.ReplaceAll(date, "-", "")
 	date = strings.TrimSpace(date)
 
@@ -90,17 +129,17 @@ func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, m
 }
 
 // formatDateString formats the date as a hyphenated string
-func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) (string, error) {
+func formatDateString(year, month, day string, dateFmt enums.DateFormat) (string, error) {
 	var parts [3]string
 
 	switch dateFmt {
-	case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
+	case enums.DATEFMT_YYYY_MM_DD, enums.DATEFMT_YY_MM_DD:
 		parts = [3]string{year, month, day}
-	case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
+	case enums.DATEFMT_YYYY_DD_MM, enums.DATEFMT_YY_DD_MM:
 		parts = [3]string{year, day, month}
-	case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
+	case enums.DATEFMT_DD_MM_YYYY, enums.DATEFMT_DD_MM_YY:
 		parts = [3]string{day, month, year}
-	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
+	case enums.DATEFMT_MM_DD_YYYY, enums.DATEFMT_MM_DD_YY:
 		parts = [3]string{month, day, year}
 	}
 
@@ -126,13 +165,13 @@ func joinNonEmpty(parts [3]string) string {
 }
 
 // getYear returns the year digits from the date string
-func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	d = strings.ReplaceAll(d, "-", "")
 	d = strings.TrimSpace(d)
 
 	if len(d) >= 8 {
 		switch dateFmt {
-		case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+		case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 			year = d[2:4]
 		default:
 			year = d[:4]
@@ -163,7 +202,7 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 		if (i == 20 || i == 19) && j > 12 { // First guess year
 			logging.I("Guessing date string '%s' as year", d)
 			switch dateFmt {
-			case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+			case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 				return d[2:4], "", "", nil
 			default:
 				return d[:4], "", "", nil
@@ -184,7 +223,7 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 			} else if i == 20 || i == 19 { // Final guess year
 				logging.I("Guessing date string '%s' as year after failed day-month check", d)
 				switch dateFmt {
-				case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+				case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 					return d[2:4], "", "", nil
 				default:
 					return d[:4], "", "", nil

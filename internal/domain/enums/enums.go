@@ -23,35 +23,45 @@ const (
 type SysGPU int
 
 const (
-	GPU_NVIDIA SysGPU = iota
+	GPU_NO_HW_ACCEL SysGPU = iota
 	GPU_AMD
 	GPU_INTEL
-	GPU_NO_HW_ACCEL
+	GPU_NVIDIA
 )
 
 // Naming syle
 type ReplaceToStyle int
 
 const (
-	RENAMING_SPACES ReplaceToStyle = iota
+	RENAMING_SKIP ReplaceToStyle = iota
 	RENAMING_UNDERSCORES
 	RENAMING_FIXES_ONLY
-	RENAMING_SKIP
+	RENAMING_SPACES
 )
 
 // Date formats
-type FilenameDateFormat int
+type DateFormat int
 
 const (
-	FILEDATE_YYYY_MM_DD FilenameDateFormat = iota
-	FILEDATE_YY_MM_DD
-	FILEDATE_YYYY_DD_MM
-	FILEDATE_YY_DD_MM
-	FILEDATE_DD_MM_YYYY
-	FILEDATE_DD_MM_YY
-	FILEDATE_MM_DD_YYYY
-	FILEDATE_MM_DD_YY
-	FILEDATE_SKIP
+	DATEFMT_SKIP DateFormat = iota
+	DATEFMT_YYYY_MM_DD
+	DATEFMT_YY_MM_DD
+	DATEFMT_YYYY_DD_MM
+	DATEFMT_YY_DD_MM
+	DATEFMT_DD_MM_YYYY
+	DATEFMT_DD_MM_YY
+	DATEFMT_MM_DD_YYYY
+	DATEFMT_MM_DD_YY
+	DATEFMT_DD_MM
+	DATEFMT_MM_DD
+)
+
+// Date tag location
+type MetaDateTagLocation int
+
+const (
+	DATE_TAG_LOC_PFX MetaDateTagLocation = iota
+	DATE_TAG_LOC_SFX
 )
 
 // Web tags
@@ -60,7 +70,6 @@ type MetaFiletypeFound int
 const (
 	METAFILE_JSON MetaFiletypeFound = iota
 	METAFILE_NFO
-	WEBCLASS_XML
 )
 
 // Viper variable types

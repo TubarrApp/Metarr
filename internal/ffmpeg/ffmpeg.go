@@ -8,6 +8,7 @@ import (
 	"metarr/internal/models"
 	backup "metarr/internal/utils/fs/backup"
 	logging "metarr/internal/utils/logging"
+	validate "metarr/internal/utils/validation"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,33 +17,38 @@ import (
 
 // executeVideo writes metadata to a single video file
 func ExecuteVideo(fd *models.FileData) error {
-
-	if dontProcess(fd) {
-		return nil
-	}
-
 	var (
-		tmpOutPath,
-		outExt string
+		tmpOutPath, outExt string
 	)
 
-	dir := fd.VideoDirectory
 	origPath := fd.OriginalVideoPath
 	origExt := filepath.Ext(origPath)
 
+	// Extension validation - now checks length and format immediately
 	if config.IsSet(keys.OutputFiletype) {
-		if outExt = config.GetString(keys.OutputFiletype); outExt == "" {
+		if outExt = validate.ValidateExtension(config.GetString(keys.OutputFiletype)); outExt == "" {
+			logging.E(0, "Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
 	} else {
-		outExt = origExt
-		config.Set(keys.OutputFiletype, outExt)
+		if origExt != "" && strings.HasPrefix(origExt, ".") {
+			outExt = origExt
+			config.Set(keys.OutputFiletype, outExt)
+		} else {
+			return fmt.Errorf("unable to set file extension, malformed? Input: %s, Output: %s", origExt, outExt)
+		}
+	}
+
+	if dontProcess(fd, outExt) {
+		return nil
 	}
 
 	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
 
+	dir := fd.VideoDirectory
+	fileBase := strings.TrimSuffix(filepath.Base(origPath), origExt)
+
 	// Make temp output path
-	fileBase := strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
 	logging.D(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
 
@@ -115,7 +121,7 @@ func ExecuteVideo(fd *models.FileData) error {
 }
 
 // dontProcess determines whether the program should process this video (meta already exists and file extensions are unchanged)
-func dontProcess(fd *models.FileData) (dontProcess bool) {
+func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
 	if fd.MetaAlreadyExists {
 
 		logging.I("Metadata already exists in the file, skipping processing...")
@@ -123,7 +129,6 @@ func dontProcess(fd *models.FileData) (dontProcess bool) {
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
 		// Set the final video path based on output extension
-		outExt := config.GetString(keys.OutputFiletype)
 		if outExt == "" {
 			outExt = filepath.Ext(fd.OriginalVideoPath)
 			config.Set(keys.OutputFiletype, outExt)

@@ -8,13 +8,13 @@ import (
 	"metarr/internal/models"
 	writefs "metarr/internal/utils/fs/write"
 	logging "metarr/internal/utils/logging"
+	validate "metarr/internal/utils/validation"
 	"path/filepath"
 	"strings"
 )
 
 // FileRename formats the file names
 func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
-
 	var (
 		vidExt,
 		renamedVideo,
@@ -30,21 +30,22 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		videoBase := fd.FinalVideoBaseName
 		originalVPath := fd.FinalVideoPath
 
+		// Ensure we have the proper video extension
 		if config.IsSet(keys.OutputFiletype) {
-			vidExt = config.GetString(keys.OutputFiletype)
+			vidExt = validate.ValidateExtension(config.GetString(keys.OutputFiletype))
+			if vidExt == "" {
+				vidExt = filepath.Ext(originalVPath)
+			}
 		} else {
-			vidExt = filepath.Ext(fd.OriginalVideoPath)
+			vidExt = filepath.Ext(originalVPath)
 		}
 
 		if !skipVideos {
 			renamedVideo = renameFile(videoBase, style, fd)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
-
-			logging.D(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
+			logging.D(2, "Renamed video to '%s' with extension '%s'", renamedVideo, vidExt)
 		} else {
 			renamedMeta = renameFile(metaBase, style, fd)
-
-			logging.D(2, "Renamed metafile to %s", renamedMeta)
 		}
 
 		var err error
@@ -59,13 +60,16 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		renamedVideo = strings.TrimSpace(renamedVideo)
 		renamedMeta = strings.TrimSpace(renamedMeta)
 
-		logging.D(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
+		logging.D(2, "Rename replacements:\nVideo: %v\nMetafile: %v", renamedVideo, renamedMeta)
 
-		// Construct final output filepaths
-		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
+		// Construct final output filepaths - ensure video gets its extension
+		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt) // Add extension here
 		renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
 
-		// Save into model. May want to save to FinalVideoPath (etc) instead, but currently saves to new field
+		// Log the complete paths to verify extension
+		logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
+
+		// Save into model
 		fd.RenamedVideoPath = renamedVPath
 		fd.RenamedMetaPath = renamedMPath
 

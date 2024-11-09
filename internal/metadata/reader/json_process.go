@@ -3,9 +3,9 @@ package metadata
 import (
 	"fmt"
 	"metarr/internal/config"
+	"metarr/internal/dates"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
-	helpers "metarr/internal/metadata/process/helpers"
 	process "metarr/internal/metadata/process/json"
 	check "metarr/internal/metadata/reader/check_existing"
 	tags "metarr/internal/metadata/tags"
@@ -74,8 +74,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 	if edited {
 		logging.D(2, "Refreshing JSON metadata after edits were made...")
-		data, err = fd.JSONFileRW.RefreshMetadata()
-		if err != nil {
+		if data, err = fd.JSONFileRW.RefreshMetadata(); err != nil {
 			return nil, err
 		}
 	}
@@ -86,15 +85,22 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	if fd.MDates.FormattedDate == "" {
-		helpers.FormatAllDates(fd)
+		dates.FormatAllDates(fd)
 	}
 
 	// Make date tag
 	logging.D(3, "About to make date tag for: %v", file.Name())
-	if config.Get(keys.FileDateFmt).(enums.FilenameDateFormat) != enums.FILEDATE_SKIP {
-		fd.FilenameDateTag, err = tags.MakeDateTag(data, file.Name())
-		if err != nil {
-			logging.E(0, "Failed to make date tag: %v", err)
+	if config.IsSet(keys.FileDateFmt) {
+
+		if dateFmt, ok := config.Get(keys.FileDateFmt).(enums.DateFormat); !ok {
+			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
+		} else if dateFmt != enums.DATEFMT_SKIP {
+			fd.FilenameDateTag, err = tags.MakeFileDateTag(data, file.Name(), dateFmt)
+			if err != nil {
+				logging.E(0, "Failed to make date tag: %v", err)
+			}
+		} else {
+			logging.D(1, "Set file date tag format to skip, not making date tag for '%s'", file.Name())
 		}
 	}
 
@@ -115,16 +121,28 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 
 func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 
-	var outExt string
+	logging.D(4, "Entering filetypeMetaCheckSwitch with '%s'", fd.OriginalVideoPath)
 
+	var outExt string
 	outFlagSet := config.IsSet(keys.OutputFiletype)
+
 	if outFlagSet {
 		outExt = config.GetString(keys.OutputFiletype)
+	} else {
+		outExt = filepath.Ext(fd.OriginalVideoPath)
+		logging.D(2, "Got output extension as %s", outExt)
 	}
+
 	currentExt := filepath.Ext(fd.OriginalVideoPath)
 	currentExt = strings.TrimSpace(currentExt)
 
-	if outFlagSet && outExt != "" && outExt != currentExt {
+	if outExt != "" && !strings.HasPrefix(outExt, ".") {
+		outExt = "." + outExt
+
+		logging.D(2, "Added dot to outExt: %s, currentExt is %s", outExt, currentExt)
+	}
+
+	if outFlagSet && outExt != "" && !strings.EqualFold(outExt, currentExt) {
 		logging.I("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
 		return false
 	}

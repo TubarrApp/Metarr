@@ -34,10 +34,10 @@ const (
 	SkipVideos      string = "skip-videos"
 	NoFileOverwrite string = "no-file-overwrite"
 
-	Benchmarking   string = "benchmark"
-	OutputFiletype string = "ext"
-	MoveOnComplete string = "output-directory"
-	InputPreset    string = "preset"
+	Benchmarking        string = "benchmark"
+	OutputFiletypeInput string = "ext"
+	MoveOnComplete      string = "output-directory"
+	InputPreset         string = "preset"
 )
 
 // Primary program
@@ -49,11 +49,12 @@ const (
 
 // Files and directories
 const (
-	OpenVideo     string = "openVideo"
-	OpenJson      string = "openJson"
-	VideoMap      string = "videoMap"
-	MetaMap       string = "metaMap"
-	MetaPurgeEnum string = "metaPurgeEnum"
+	OpenVideo      string = "openVideo"
+	OpenJson       string = "openJson"
+	VideoMap       string = "videoMap"
+	MetaMap        string = "metaMap"
+	MetaPurgeEnum  string = "metaPurgeEnum"
+	OutputFiletype string = "outputFiletype"
 )
 
 // Filter for files
@@ -85,6 +86,8 @@ const (
 	MReplaceText string = "metaReplaceText"
 	MTrimPrefix  string = "metaTrimPrefix"
 	MTrimSuffix  string = "metaTrimSuffix"
+
+	MDateTagMap string = "metaDateTagMap"
 )
 
 // Contains the fields which accept multiple entries as string arrays

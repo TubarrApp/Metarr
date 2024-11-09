@@ -79,10 +79,9 @@ func initAllFileTransformers() {
 // initMetaTransformers initializes user flag settings for manipulation of metadata
 func initMetaTransformers() {
 
-	// Metadata replacement & new additions
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplaceSuffixInput, "meta-replace-suffix", nil, "Trim suffixes from metadata fields (metatag:fieldsuffix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaReplacePrefixInput, "meta-replace-prefix", nil, "Trim prefixes from metadata fields (metatag:fieldprefix:replacement)")
-	rootCmd.PersistentFlags().StringSliceVar(&metaNewFieldInput, "meta-add-field", nil, "Add new fields into metadata files (metatag:value)")
+	// Metadata transformations
+	rootCmd.PersistentFlags().StringSlice(keys.MetaOps, nil, "Metadata operations (field:operation:value) - e.g. title:set:New Title, description:prefix:Draft-, tags:append:newtag")
+	viper.BindPFlag(keys.MetaOps, rootCmd.PersistentFlags().Lookup(keys.MetaOps))
 
 	// Prefix or append description fields with dates
 	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")
@@ -205,7 +204,7 @@ func Execute() error {
 
 	err := rootCmd.Execute()
 	if err != nil {
-		logging.PrintE(0, "Failed to execute cobra")
+		logging.E(0, "Failed to execute cobra")
 		return err
 
 	}
@@ -348,7 +347,7 @@ func verifyFilePrefixes() {
 // verifyMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
 func verifyMetaOverwritePreserve() {
 	if GetBool(keys.MOverwrite) && GetBool(keys.MPreserve) {
-		logging.PrintE(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
+		logging.E(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
 		os.Exit(1)
 	}
 }
@@ -356,12 +355,13 @@ func verifyMetaOverwritePreserve() {
 // verifyDebugLevel checks and sets the debugging level to use
 func verifyDebugLevel() {
 	debugLevel := viper.GetUint16(keys.DebugLevel)
-	if debugLevel > 3 {
-		debugLevel = 3
+	if debugLevel > 5 {
+		debugLevel = 5
 	} else if debugLevel == 0 {
-		logging.PrintI("Debugging level: %v", debugLevel)
+		logging.I("Debugging level: %v", debugLevel)
 	}
 	viper.Set(keys.DebugLevel, debugLevel)
+	logging.Level = int(debugLevel)
 }
 
 // verifyInputFiletypes checks that the inputted filetypes are accepted
@@ -384,7 +384,7 @@ func verifyInputFiletypes() {
 	if len(inputVExts) == 0 {
 		inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
 	}
-	logging.PrintD(2, "Received video input extension filter: %v", inputVExts)
+	logging.D(2, "Received video input extension filter: %v", inputVExts)
 	viper.Set(keys.InputVExtsEnum, inputVExts)
 
 	argsMInputExts := viper.GetStringSlice(keys.InputMetaExts)
@@ -403,7 +403,7 @@ func verifyInputFiletypes() {
 	if len(inputMExts) == 0 {
 		inputMExts = append(inputMExts, enums.META_EXTS_ALL)
 	}
-	logging.PrintD(2, "Received meta input extension filter: %v", inputMExts)
+	logging.D(2, "Received meta input extension filter: %v", inputMExts)
 	viper.Set(keys.InputMExtsEnum, inputMExts)
 }
 
@@ -412,13 +412,13 @@ func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
 		viper.Set(keys.GPUEnum, enums.GPU_NVIDIA)
-		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	case "amd":
 		viper.Set(keys.GPUEnum, enums.GPU_AMD)
-		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	case "intel":
 		viper.Set(keys.GPUEnum, enums.GPU_INTEL)
-		logging.Print("GPU acceleration selected by user: %v", keys.GPU)
+		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	default:
 		viper.Set(keys.GPUEnum, enums.GPU_NO_HW_ACCEL)
 	}
@@ -431,9 +431,9 @@ func verifyConcurrencyLimit() {
 	switch {
 	case maxConcurrentProcesses < 1:
 		maxConcurrentProcesses = 1
-		logging.PrintE(2, "Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
+		logging.E(2, "Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
 	default:
-		logging.PrintI("Max concurrency: %d", maxConcurrentProcesses)
+		logging.I("Max concurrency: %d", maxConcurrentProcesses)
 	}
 	viper.Set(keys.Concurrency, maxConcurrentProcesses)
 }
@@ -445,7 +445,7 @@ func verifyResourceLimits() {
 
 	currentAvailableMem, err := mem.VirtualMemory()
 	if err != nil {
-		logging.PrintE(0, "Could not get system memory, using default max RAM requirements", err)
+		logging.E(0, "Could not get system memory, using default max RAM requirements", err)
 		currentAvailableMem.Available = 1024
 	}
 	if MinMemUsage > currentAvailableMem.Available {
@@ -453,7 +453,7 @@ func verifyResourceLimits() {
 	}
 
 	if MinMemUsage > 0 {
-		logging.PrintI("Min RAM to spawn process: %v", MinMemUsage)
+		logging.I("Min RAM to spawn process: %v", MinMemUsage)
 	}
 	viper.Set(keys.MinMemMB, MinMemUsage)
 
@@ -461,14 +461,14 @@ func verifyResourceLimits() {
 	switch {
 	case maxCPUUsage > 100.0:
 		maxCPUUsage = 100.0
-		logging.PrintE(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
+		logging.E(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
 
 	case maxCPUUsage < 1.0:
 		maxCPUUsage = 10.0
-		logging.PrintE(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
+		logging.E(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
 	}
 	if maxCPUUsage != 100.0 {
-		logging.PrintI("Max CPU usage: %.2f%%", maxCPUUsage)
+		logging.I("Max CPU usage: %.2f%%", maxCPUUsage)
 	}
 	viper.Set(keys.MaxCPU, maxCPUUsage)
 }
@@ -494,7 +494,7 @@ func verifyOutputFiletype() {
 
 	switch valid {
 	case true:
-		logging.PrintI("Outputting files as %s", o)
+		logging.I("Outputting files as %s", o)
 	default:
 		Set(keys.OutputFiletype, "")
 	}
@@ -538,9 +538,6 @@ import (
 )
 
 var (
-	metaReplaceSuffixInput,
-	metaReplacePrefixInput,
-	metaNewFieldInput,
 	filenameReplaceSuffixInput []string
 )
 
@@ -550,18 +547,8 @@ func initTextReplace() error {
 	// Parse rename flag
 	setRenameFlag()
 
-	// Add new field
-	if err := validateNewMetafields(); err != nil {
-		return err
-	}
-
-	// Replace metafield value suffixes
-	if err := validateMetaSuffixes(); err != nil {
-		return err
-	}
-
-	// Replace metafield value prefixes
-	if err := validateMetaPrefixes(); err != nil {
+	// Meta operations
+	if err := validateMetaOps(); err != nil {
 		return err
 	}
 
@@ -573,13 +560,220 @@ func initTextReplace() error {
 	return nil
 }
 
+// validateMetaOps parses the meta transformation operations
+func validateMetaOps() error {
+
+	metaOpsInput := GetStringSlice(keys.MetaOps)
+	if len(metaOpsInput) == 0 {
+		logging.D(2, "No metadata operations passed in")
+		return nil
+	}
+
+	newLen, apndLen, pfxLen, trimSfxLen, trimPfxLen, replaceLen, dTagLen := metaOpsMapLength(metaOpsInput)
+
+	// Add and replace
+	newField := make([]*models.MetaNewField, 0, newLen)
+	replace := make([]*models.MetaReplace, 0, replaceLen)
+
+	// Prefixes and suffixes
+	apnd := make([]*models.MetaAppend, 0, apndLen)
+	pfx := make([]*models.MetaPrefix, 0, pfxLen)
+	trimSfx := make([]*models.MetaTrimSuffix, 0, trimSfxLen)
+	trimPfx := make([]*models.MetaTrimPrefix, 0, trimPfxLen)
+
+	// Misc
+	dateTag := make(map[string]*models.MetaDateTag, dTagLen)
+
+	for _, op := range metaOpsInput {
+
+		// Check validity
+		parts := strings.Split(op, ":")
+
+		if len(parts) < 3 || len(parts) > 4 {
+			return fmt.Errorf("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:add:Video Title')")
+		}
+
+		field := parts[0]
+		operation := parts[1]
+		value := parts[2]
+
+		switch strings.ToLower(operation) {
+		case "add":
+			newFieldModel := &models.MetaNewField{
+				Field: field,
+				Value: value,
+			}
+			newField = append(newField, newFieldModel)
+			fmt.Println()
+			logging.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
+			fmt.Println()
+
+		case "append":
+			apndModel := &models.MetaAppend{
+				Field:  field,
+				Suffix: value,
+			}
+			apnd = append(apnd, apndModel)
+			fmt.Println()
+			logging.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Suffix)
+			fmt.Println()
+
+		case "prefix":
+			pfxModel := &models.MetaPrefix{
+				Field:  field,
+				Prefix: value,
+			}
+			pfx = append(pfx, pfxModel)
+			fmt.Println()
+			logging.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
+			fmt.Println()
+
+		case "trim-suffix":
+			tSfxModel := &models.MetaTrimSuffix{
+				Field:  field,
+				Suffix: value,
+			}
+			trimSfx = append(trimSfx, tSfxModel)
+			fmt.Println()
+			logging.D(3, "Added new suffix trim op:\nField: %s\nSuffix: %s", tSfxModel.Field, tSfxModel.Suffix)
+			fmt.Println()
+
+		case "trim-prefix":
+			tPfxModel := &models.MetaTrimPrefix{
+				Field:  field,
+				Prefix: value,
+			}
+			trimPfx = append(trimPfx, tPfxModel)
+			fmt.Println()
+			logging.D(3, "Added new prefix trim op:\nField: %s\nPrefix: %s", tPfxModel.Field, tPfxModel.Prefix)
+			fmt.Println()
+
+		case "replace":
+			if len(parts) != 4 {
+				return fmt.Errorf("replacement should be in format 'field:replace:text:replacement'")
+			}
+			rModel := &models.MetaReplace{
+				Field:       field,
+				Value:       value,
+				Replacement: parts[3],
+			}
+			replace = append(replace, rModel)
+			fmt.Println()
+			logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
+			fmt.Println()
+
+		case "date-tag":
+			if len(parts) != 4 {
+				return fmt.Errorf("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+			}
+
+			var loc enums.MetaDateTagLocation
+
+			switch strings.ToLower(value) {
+			case "prefix":
+				loc = enums.DATE_TAG_LOC_PFX
+			case "suffix":
+				loc = enums.DATE_TAG_LOC_SFX
+			default:
+				return fmt.Errorf("date tag location must be prefix, or suffix")
+			}
+
+			if e, err := dateEnum(parts[3]); err != nil {
+				return err
+			} else {
+				dateTag[field] = &models.MetaDateTag{
+					Loc:    loc,
+					Format: e,
+				}
+
+				fmt.Println()
+				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
+				fmt.Println()
+			}
+
+		default:
+			return fmt.Errorf("unrecognized meta operation '%s' (valid operations: add, append, prefix, trim-suffix, trim-prefix)", parts[1])
+		}
+	}
+
+	if len(apnd) > 0 {
+		logging.I("Appending: %v", apnd)
+		Set(keys.MAppend, apnd)
+	}
+
+	if len(newField) > 0 {
+		logging.I("New meta fields: %v", newField)
+		Set(keys.MNewField, newField)
+	}
+
+	if len(pfx) > 0 {
+		logging.I("Prefixing: %v", apnd)
+		Set(keys.MPrefix, pfx)
+	}
+
+	if len(trimPfx) > 0 {
+		logging.I("Trimming prefix: %v", trimPfx)
+		Set(keys.MTrimPrefix, trimPfx)
+	}
+
+	if len(trimSfx) > 0 {
+		logging.I("Trimming suffix: %v", trimSfx)
+		Set(keys.MTrimSuffix, trimSfx)
+	}
+
+	if len(replace) > 0 {
+		logging.I("Replacing text: %v", replace)
+		Set(keys.MReplaceText, replace)
+	}
+
+	if len(dateTag) > 0 {
+		logging.I("Adding date tags: %v", dateTag)
+		Set(keys.MDateTagMap, dateTag)
+	}
+
+	return nil
+}
+
+// metaOpsMapLength quickly grabs the lengths needed for each map
+func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag int) {
+	for _, op := range metaOpsInput {
+		if i := strings.IndexByte(op, ':'); i >= 0 {
+			if j := strings.IndexByte(op[i+1:], ':'); j >= 0 {
+				op = op[i+1 : i+1+j]
+
+				switch op {
+				case "add":
+					new++
+				case "append":
+					apnd++
+				case "prefix":
+					pfx++
+				case "trim-suffix":
+					sfxTrim++
+				case "trim-prefix":
+					pfxTrim++
+				case "replace":
+					replace++
+				case "date-tag":
+					dTag++
+				}
+			}
+		}
+
+	}
+	fmt.Println()
+	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d", new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag)
+	fmt.Println()
+	return new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag
+}
+
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
 func validateFilenameSuffixReplace() error {
 	filenameReplaceSuffix := make([]*models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) < 2 {
+		if len(parts) < 3 {
 			return fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
 		}
 		filenameReplaceSuffix = append(filenameReplaceSuffix, &models.FilenameReplaceSuffix{
@@ -588,74 +782,8 @@ func validateFilenameSuffixReplace() error {
 		})
 	}
 	if len(filenameReplaceSuffix) > 0 {
-		logging.PrintI("Meta replace suffixes: %v", filenameReplaceSuffix)
+		logging.I("Meta replace suffixes: %v", filenameReplaceSuffix)
 		Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
-	}
-	return nil
-}
-
-// validateMetaPrefixes checks if the input format for meta prefix alterations is valid
-func validateMetaPrefixes() error {
-	metaReplacePrefix := make([]*models.MetaReplacePrefix, 0, len(metaReplacePrefixInput))
-
-	for _, tuple := range metaReplacePrefixInput {
-		parts := strings.SplitN(tuple, ":", 3)
-		if len(parts) < 3 {
-			return fmt.Errorf("invalid use of meta-replace-prefix, values must be written as (metatag:fieldprefix:replacement)")
-		}
-		metaReplacePrefix = append(metaReplacePrefix, &models.MetaReplacePrefix{
-			Field:       parts[0],
-			Prefix:      parts[1],
-			Replacement: parts[2],
-		})
-	}
-	if len(metaReplacePrefix) > 0 {
-		logging.PrintI("Meta replace prefixes: %v", metaReplacePrefix)
-		Set(keys.MReplacePfx, metaReplacePrefix)
-	}
-	return nil
-}
-
-// validateMetaSuffixes checks if the input format for meta suffix alterations is valid
-func validateMetaSuffixes() error {
-	metaReplaceSuffix := make([]*models.MetaReplaceSuffix, 0, len(metaReplaceSuffixInput))
-
-	for _, tuple := range metaReplaceSuffixInput {
-		parts := strings.SplitN(tuple, ":", 3)
-		if len(parts) < 3 {
-			return fmt.Errorf("invalid use of meta-replace-suffix, values must be written as (metatag:fieldsuffix:replacement)")
-		}
-		metaReplaceSuffix = append(metaReplaceSuffix, &models.MetaReplaceSuffix{
-			Field:       parts[0],
-			Suffix:      parts[1],
-			Replacement: parts[2],
-		})
-	}
-	if len(metaReplaceSuffix) > 0 {
-		logging.PrintI("Meta replace suffixes: %v\n", metaReplaceSuffix)
-		Set(keys.MReplaceSfx, metaReplaceSuffix)
-	}
-	return nil
-}
-
-// validateNewMetafields checks if the input format for metatag and field additions is valid
-func validateNewMetafields() error {
-	metaNewField := make([]*models.MetaNewField, 0, len(metaNewFieldInput))
-
-	for _, value := range metaNewFieldInput {
-		parts := strings.SplitN(value, ":", 2)
-		if len(parts) < 2 {
-			return fmt.Errorf("invalid use of metadata addition, values must be written as (metatag:field)")
-		}
-		// Append each parsed field-value pair to the metaNewField array
-		metaNewField = append(metaNewField, &models.MetaNewField{
-			Field: parts[0],
-			Value: parts[1],
-		})
-	}
-	if len(metaNewField) > 0 {
-		logging.PrintI("Meta new fields to add: %v", metaNewField)
-		Set(keys.MNewField, metaNewField)
 	}
 	return nil
 }
@@ -673,18 +801,18 @@ func setRenameFlag() {
 	switch argRenameFlag {
 	case "spaces", "space":
 		renameFlag = enums.RENAMING_SPACES
-		logging.Print("Rename style selected: %v", argRenameFlag)
+		logging.P("Rename style selected: %v", argRenameFlag)
 
 	case "underscores", "underscore":
 		renameFlag = enums.RENAMING_UNDERSCORES
-		logging.Print("Rename style selected: %v", argRenameFlag)
+		logging.P("Rename style selected: %v", argRenameFlag)
 
 	case "fixes-only", "fixesonly":
 		renameFlag = enums.RENAMING_FIXES_ONLY
-		logging.Print("Rename style selected: %v", argRenameFlag)
+		logging.P("Rename style selected: %v", argRenameFlag)
 
 	default:
-		logging.PrintD(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
+		logging.D(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RENAMING_SKIP
 	}
 	Set(keys.Rename, renameFlag)
@@ -693,41 +821,53 @@ func setRenameFlag() {
 // initDateReplaceFormat initializes the user's preferred format for dates
 func initDateReplaceFormat() error {
 
-	var formatEnum enums.FilenameDateFormat
-	dateFmt := GetString(keys.InputFileDatePfx)
+	if IsSet(keys.InputFileDatePfx) {
+		dateFmt := GetString(keys.InputFileDatePfx)
 
-	// Trim whitespace for more robust validation
-	dateFmt = strings.TrimSpace(dateFmt)
+		// Trim whitespace for more robust validation
+		dateFmt = strings.TrimSpace(dateFmt)
 
-	if dateFmt == "" || len(dateFmt) == 0 {
-		formatEnum = enums.FILEDATE_SKIP
-	} else if len(dateFmt) != 3 {
-		return fmt.Errorf("invalid date format entered, please enter three characters (where 'Y' is yyyy and 'y' is yy)")
+		formatEnum, err := dateEnum(dateFmt)
+		if err != nil {
+			return err
+		}
+
+		Set(keys.FileDateFmt, formatEnum)
+		logging.D(1, "Set file date format to %v", formatEnum)
+	}
+	return nil
+}
+
+// dateEnum returns the date format enum type
+func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
+
+	if len(dateFmt) < 2 {
+		return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as '%s', please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
 	} else {
 		switch dateFmt {
 		case "Ymd":
-			formatEnum = enums.FILEDATE_YYYY_MM_DD
+			return enums.DATEFMT_YYYY_MM_DD, nil
 		case "ymd":
-			formatEnum = enums.FILEDATE_YY_MM_DD
+			return enums.DATEFMT_YY_MM_DD, nil
 		case "Ydm":
-			formatEnum = enums.FILEDATE_YYYY_DD_MM
+			return enums.DATEFMT_YYYY_DD_MM, nil
 		case "ydm":
-			formatEnum = enums.FILEDATE_YY_DD_MM
+			return enums.DATEFMT_YY_DD_MM, nil
 		case "dmY":
-			formatEnum = enums.FILEDATE_DD_MM_YYYY
+			return enums.DATEFMT_DD_MM_YYYY, nil
 		case "dmy":
-			formatEnum = enums.FILEDATE_DD_MM_YY
+			return enums.DATEFMT_DD_MM_YY, nil
 		case "mdY":
-			formatEnum = enums.FILEDATE_MM_DD_YYYY
+			return enums.DATEFMT_MM_DD_YYYY, nil
 		case "mdy":
-			formatEnum = enums.FILEDATE_MM_DD_YY
-		default:
-			return fmt.Errorf("invalid date format entered, please enter three characters (where capital Y is yyyy and y is yy)")
+			return enums.DATEFMT_MM_DD_YY, nil
+		case "md":
+			return enums.DATEFMT_MM_DD, nil
+		case "dm":
+			return enums.DATEFMT_DD_MM, nil
 		}
 	}
-	Set(keys.FileDateFmt, formatEnum)
-	logging.PrintD(1, "Set file date format to %v", formatEnum)
-	return nil
+	return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as '%s', please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
 }
 package config
 
@@ -782,6 +922,202 @@ func GetStringSlice(key string) []string {
 func IsSet(key string) bool {
 	return viper.IsSet(key)
 }
+package dates
+
+import (
+	"fmt"
+	"metarr/internal/models"
+	logging "metarr/internal/utils/logging"
+	"strconv"
+	"strings"
+
+	"github.com/araddon/dateparse"
+)
+
+// ParseAndFormatDate parses and formats the inputted date string
+func ParseStringDate(dateString string) (string, error) {
+
+	t, err := dateparse.ParseAny(dateString)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse date: %s", dateString)
+	}
+
+	return t.Format("2006-01-02"), nil
+}
+
+// ParseAndFormatDate parses and formats the inputted date string
+func ParseNumDate(dateNum string) (string, error) {
+
+	t, err := dateparse.ParseAny(dateNum)
+	if err != nil {
+		return "", fmt.Errorf("unable to parse date '%s' to word date", dateNum)
+	}
+	time := t.Format("01022006")
+	if time == "" {
+		time = t.Format("010206")
+	}
+
+	var day, month, year, dateStr string
+
+	if len(time) < 6 {
+		return dateNum, fmt.Errorf("unable to parse date, date '%s' is too short", time)
+	}
+
+	if len(time) >= 8 {
+		day = time[2:4]
+		month = time[:2]
+		year = time[4:8]
+	} else if len(time) >= 6 {
+		day = time[2:4]
+		month = time[:2]
+		year = time[4:6]
+	}
+
+	month = monthStringSwitch(month)
+	day = dayStringSwitch(day)
+
+	dateStr = month + " " + day + ", " + year
+	logging.S(1, "Made string form date: '%s'", dateStr)
+
+	return dateStr, nil
+}
+
+// Convert a numerical month to a word
+func monthStringSwitch(month string) string {
+	var monthStr string
+	switch month {
+	case "01":
+		monthStr = "Jan"
+	case "02":
+		monthStr = "Feb"
+	case "03":
+		monthStr = "Mar"
+	case "04":
+		monthStr = "Apr"
+	case "05":
+		monthStr = "May"
+	case "06":
+		monthStr = "Jun"
+	case "07":
+		monthStr = "Jul"
+	case "08":
+		monthStr = "Aug"
+	case "09":
+		monthStr = "Sep"
+	case "10":
+		monthStr = "Oct"
+	case "11":
+		monthStr = "Nov"
+	case "12":
+		monthStr = "Dec"
+	default:
+		logging.E(0, "Failed to make month string from month number '%s'", month)
+		monthStr = "Jan"
+	}
+	return monthStr
+}
+
+// Affix a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
+func dayStringSwitch(day string) string {
+	if thCheck, err := strconv.Atoi(day); err != nil {
+		logging.E(0, "Failed to convert date string to number")
+		return day
+	} else if thCheck > 10 && thCheck < 20 {
+		return day + "th"
+	}
+	switch {
+	case strings.HasSuffix(day, "1"):
+		return day + "st"
+	case strings.HasSuffix(day, "2"):
+		return day + "nd"
+	case strings.HasSuffix(day, "3"):
+		return day + "rd"
+	default:
+		return day + "th"
+	}
+}
+
+// YyyyMmDd converts inputted date strings into the user's defined format
+func YyyyMmDd(date string) (string, bool) {
+
+	var t string = ""
+	if tIdx := strings.Index(date, "T"); tIdx != -1 {
+		t = date[tIdx:]
+	}
+
+	date = strings.ReplaceAll(date, "-", "")
+
+	if len(date) >= 8 {
+		formatted := fmt.Sprintf("%s-%s-%s%s", date[:4], date[4:6], date[6:8], t)
+		logging.S(2, "Made date %s", formatted)
+		return formatted, true
+
+	} else if len(date) >= 6 {
+		formatted := fmt.Sprintf("%s-%s-%s%s", date[:2], date[2:4], date[4:6], t)
+		logging.S(2, "Made date %s", formatted)
+		return formatted, true
+	}
+	logging.D(3, "Returning empty or short date element (%s) without formatting", date)
+	return date, false
+}
+
+// FormatAllDates formats timestamps into a hyphenated form
+func FormatAllDates(fd *models.FileData) string {
+
+	var (
+		result string
+		ok     bool
+	)
+
+	d := fd.MDates
+
+	if !ok && d.Originally_Available_At != "" {
+		logging.D(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
+		result, ok = YyyyMmDd(d.Originally_Available_At)
+	}
+	if !ok && d.ReleaseDate != "" {
+		logging.D(2, "Attempting to format release date: %v", d.ReleaseDate)
+		result, ok = YyyyMmDd(d.ReleaseDate)
+	}
+	if !ok && d.Date != "" {
+		logging.D(2, "Attempting to format date: %v", d.Date)
+		result, ok = YyyyMmDd(d.Date)
+	}
+	if !ok && d.UploadDate != "" {
+		logging.D(2, "Attempting to format upload date: %v", d.UploadDate)
+		result, ok = YyyyMmDd(d.UploadDate)
+	}
+	if !ok && d.Creation_Time != "" {
+		logging.D(3, "Attempting to format creation time: %v", d.Creation_Time)
+		result, ok = YyyyMmDd(d.Creation_Time)
+	}
+	if !ok {
+		logging.E(0, "Failed to format dates")
+		return ""
+	} else {
+		logging.D(2, "Exiting with formatted date: %v", result)
+
+		d.FormattedDate = result
+
+		logging.D(2, "Got formatted date '%s' and entering parse to string function...", result)
+
+		var err error
+		d.StringDate, err = ParseNumDate(d.FormattedDate)
+		if err != nil {
+			logging.E(0, err.Error())
+		}
+
+		return result
+	}
+}
+package domain
+
+const (
+	BrowserChrome  = "chrome"
+	BrowserEdge    = "edge"
+	BrowserFirefox = "firefox"
+	BrowserSafari  = "safari"
+)
 package domain
 
 // Colors
@@ -798,8 +1134,8 @@ const (
 
 const (
 	RedError     string = ColorRed + "[ERROR] " + ColorReset
-	GreenSuccess string = ColorGreen + "[SUCCESS] " + ColorReset
-	YellowDebug  string = ColorYellow + "[DEBUG] " + ColorReset
+	GreenSuccess string = ColorGreen + "[Success] " + ColorReset
+	YellowDebug  string = ColorYellow + "[Debug] " + ColorReset
 	BlueInfo     string = ColorCyan + "[Info] " + ColorReset
 )
 package domain
@@ -1120,35 +1456,45 @@ const (
 type SysGPU int
 
 const (
-	GPU_NVIDIA SysGPU = iota
+	GPU_NO_HW_ACCEL SysGPU = iota
 	GPU_AMD
 	GPU_INTEL
-	GPU_NO_HW_ACCEL
+	GPU_NVIDIA
 )
 
 // Naming syle
 type ReplaceToStyle int
 
 const (
-	RENAMING_SPACES ReplaceToStyle = iota
+	RENAMING_SKIP ReplaceToStyle = iota
 	RENAMING_UNDERSCORES
 	RENAMING_FIXES_ONLY
-	RENAMING_SKIP
+	RENAMING_SPACES
 )
 
 // Date formats
-type FilenameDateFormat int
+type DateFormat int
 
 const (
-	FILEDATE_YYYY_MM_DD FilenameDateFormat = iota
-	FILEDATE_YY_MM_DD
-	FILEDATE_YYYY_DD_MM
-	FILEDATE_YY_DD_MM
-	FILEDATE_DD_MM_YYYY
-	FILEDATE_DD_MM_YY
-	FILEDATE_MM_DD_YYYY
-	FILEDATE_MM_DD_YY
-	FILEDATE_SKIP
+	DATEFMT_SKIP DateFormat = iota
+	DATEFMT_YYYY_MM_DD
+	DATEFMT_YY_MM_DD
+	DATEFMT_YYYY_DD_MM
+	DATEFMT_YY_DD_MM
+	DATEFMT_DD_MM_YYYY
+	DATEFMT_DD_MM_YY
+	DATEFMT_MM_DD_YYYY
+	DATEFMT_MM_DD_YY
+	DATEFMT_DD_MM
+	DATEFMT_MM_DD
+)
+
+// Date tag location
+type MetaDateTagLocation int
+
+const (
+	DATE_TAG_LOC_PFX MetaDateTagLocation = iota
+	DATE_TAG_LOC_SFX
 )
 
 // Web tags
@@ -1157,7 +1503,6 @@ type MetaFiletypeFound int
 const (
 	METAFILE_JSON MetaFiletypeFound = iota
 	METAFILE_NFO
-	WEBCLASS_XML
 )
 
 // Viper variable types
@@ -1209,7 +1554,7 @@ const (
 	JsonFile  string = "json-file"
 	MetaPurge string = "purge-metafile"
 
-	CookiePath string = "cookie-file"
+	CookiePath string = "cookie-dir"
 
 	InputMetaExts  string = "input-meta-exts"
 	InputVideoExts string = "input-video-exts"
@@ -1226,13 +1571,9 @@ const (
 	RenameStyle             string = "input-rename-style"
 	MFilenamePfx            string = "metadata-filename-prefix"
 
+	MetaOps      string = "meta-ops"
 	MDescDatePfx string = "desc-date-prefix"
 	MDescDateSfx string = "desc-date-suffix"
-	MNewField    string = "meta-add-field"
-	MReplacePfx  string = "meta-trim-prefix"
-	MReplaceSfx  string = "meta-trim-suffix"
-	MOverwrite   string = "meta-overwrite"
-	MPreserve    string = "meta-preserve"
 
 	DebugLevel      string = "debug-level"
 	SkipVideos      string = "skip-videos"
@@ -1278,14 +1619,26 @@ const (
 	FilenameReplaceSfx string = "filenameReplaceSfx"
 )
 
+// Meta edits
+const (
+	MOverwrite string = "meta-overwrite"
+	MPreserve  string = "meta-preserve"
+
+	MAppend      string = "metaAppend"
+	MNewField    string = "metaNewField"
+	MPrefix      string = "metaPrefix"
+	MReplaceText string = "metaReplaceText"
+	MTrimPrefix  string = "metaTrimPrefix"
+	MTrimSuffix  string = "metaTrimSuffix"
+
+	MDateTagMap string = "metaDateTagMap"
+)
+
 // Contains the fields which accept multiple entries as string arrays
 var MultiEntryFields = []string{
 	InputVideoExts,
 	InputMetaExts,
 	FilePrefixes,
-	MReplaceSfx,
-	MReplacePfx,
-	MNewField,
 	FilenameReplaceSfx,
 }
 package regex
@@ -1615,7 +1968,7 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		return
 	}
 
-	logging.PrintI("Input extension: '%s', output extension: '%s', File: %s",
+	logging.I("Input extension: '%s', output extension: '%s', File: %s",
 		inExt, outExt, b.inputFile)
 
 	// Get format preset from map
@@ -1634,7 +1987,7 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 
 	// Fall back to copy preset if no mapping found
 	b.formatFlags = copyPreset.flags
-	logging.PrintD(1, "No format mapping found for %s to %s conversion, using copy preset",
+	logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
 		inExt, outExt)
 }
 
@@ -1684,7 +2037,7 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 		len(b.formatFlags) + // Format flags (like -codec copy)
 		outputFile
 
-	logging.PrintD(3, "Total command capacity calculated as: %d", totalCapacity)
+	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
 }
 package ffmpeg
@@ -1776,7 +2129,7 @@ func concat(slices ...[]string) []string {
 		result = append(result, s...)
 	}
 
-	logging.PrintD(2, "Made format flag array %v", result)
+	logging.D(2, "Made format flag array %v", result)
 	return result
 }
 package ffmpeg
@@ -1825,7 +2178,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	// Make temp output path
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
-	logging.PrintD(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
+	logging.D(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
 
 	// Add temp path to data struct
 	fd.TempOutputFilePath = tmpOutPath
@@ -1844,7 +2197,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	}
 
 	command := exec.Command("ffmpeg", args...)
-	logging.PrintI("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
+	logging.I("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -1853,13 +2206,13 @@ func ExecuteVideo(fd *models.FileData) error {
 	fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 	fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
 
-	logging.PrintI("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
+	logging.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
 		fd.JSONFilePath,
 		fd.FinalVideoPath,
 		fd.TempOutputFilePath)
 
 	// Run the ffmpeg command
-	logging.Print("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
+	logging.P("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		return fmt.Errorf("failed to run FFmpeg command: %w", err)
@@ -1867,7 +2220,7 @@ func ExecuteVideo(fd *models.FileData) error {
 
 	// Rename temporary file to overwrite the original video file
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
-		logging.PrintI("Original file not type %s, removing '%s'", outExt, origPath)
+		logging.I("Original file not type %s, removing '%s'", outExt, origPath)
 
 	} else if config.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {
@@ -1888,7 +2241,7 @@ func ExecuteVideo(fd *models.FileData) error {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
-	logging.PrintS(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
+	logging.S(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
 		fd.FinalVideoPath,
 		fd.MTitleDesc.Title)
 
@@ -1899,7 +2252,7 @@ func ExecuteVideo(fd *models.FileData) error {
 func dontProcess(fd *models.FileData) (dontProcess bool) {
 	if fd.MetaAlreadyExists {
 
-		logging.PrintI("Metadata already exists in the file, skipping processing...")
+		logging.I("Metadata already exists in the file, skipping processing...")
 		origPath := fd.OriginalVideoPath
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
@@ -1922,7 +2275,7 @@ func makeBackup(origPath string) error {
 
 	origInfo, err := os.Stat(origPath)
 	if os.IsNotExist(err) {
-		logging.PrintI("File does not exist, safe to proceed overwriting: %s", origPath)
+		logging.I("File does not exist, safe to proceed overwriting: %s", origPath)
 		return nil
 	}
 
@@ -1941,194 +2294,6 @@ func makeBackup(origPath string) error {
 	}
 
 	return nil
-}
-package metadata
-
-import (
-	"fmt"
-	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
-	"strconv"
-	"strings"
-
-	"github.com/araddon/dateparse"
-)
-
-// ParseAndFormatDate parses and formats the inputted date string
-func ParseStringDate(dateString string) (string, error) {
-
-	t, err := dateparse.ParseAny(dateString)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse date: %s", dateString)
-	}
-
-	return t.Format("2006-01-02"), nil
-}
-
-// ParseAndFormatDate parses and formats the inputted date string
-func ParseNumDate(dateNum string) (string, error) {
-
-	t, err := dateparse.ParseAny(dateNum)
-	if err != nil {
-		return "", fmt.Errorf("unable to parse date '%s' to word date", dateNum)
-	}
-	time := t.Format("01022006")
-	if time == "" {
-		time = t.Format("010206")
-	}
-
-	var day, month, year, dateStr string
-
-	if len(time) < 6 {
-		return dateNum, fmt.Errorf("unable to parse date, date '%s' is too short", time)
-	}
-
-	if len(time) >= 8 {
-		day = time[2:4]
-		month = time[:2]
-		year = time[4:8]
-	} else if len(time) >= 6 {
-		day = time[2:4]
-		month = time[:2]
-		year = time[4:6]
-	}
-
-	month = monthStringSwitch(month)
-	day = dayStringSwitch(day)
-
-	dateStr = month + " " + day + ", " + year
-	logging.PrintS(1, "Made string form date: '%s'", dateStr)
-
-	return dateStr, nil
-}
-
-// Convert a numerical month to a word
-func monthStringSwitch(month string) string {
-	var monthStr string
-	switch month {
-	case "01":
-		monthStr = "Jan"
-	case "02":
-		monthStr = "Feb"
-	case "03":
-		monthStr = "Mar"
-	case "04":
-		monthStr = "Apr"
-	case "05":
-		monthStr = "May"
-	case "06":
-		monthStr = "Jun"
-	case "07":
-		monthStr = "Jul"
-	case "08":
-		monthStr = "Aug"
-	case "09":
-		monthStr = "Sep"
-	case "10":
-		monthStr = "Oct"
-	case "11":
-		monthStr = "Nov"
-	case "12":
-		monthStr = "Dec"
-	default:
-		logging.PrintE(0, "Failed to make month string from month number '%s'", month)
-		monthStr = "Jan"
-	}
-	return monthStr
-}
-
-// Affix a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
-func dayStringSwitch(day string) string {
-	if thCheck, err := strconv.Atoi(day); err != nil {
-		logging.PrintE(0, "Failed to convert date string to number")
-		return day
-	} else if thCheck > 10 && thCheck < 20 {
-		return day + "th"
-	}
-	switch {
-	case strings.HasSuffix(day, "1"):
-		return day + "st"
-	case strings.HasSuffix(day, "2"):
-		return day + "nd"
-	case strings.HasSuffix(day, "3"):
-		return day + "rd"
-	default:
-		return day + "th"
-	}
-}
-
-// YyyyMmDd converts inputted date strings into the user's defined format
-func YyyyMmDd(fieldValue string) (string, bool) {
-
-	var t string = ""
-	if tIdx := strings.Index(fieldValue, "T"); tIdx != -1 {
-		t = fieldValue[tIdx:]
-	}
-
-	fieldValue = strings.ReplaceAll(fieldValue, "-", "")
-
-	if len(fieldValue) >= 8 {
-		formatted := fmt.Sprintf("%s-%s-%s%s", fieldValue[:4], fieldValue[4:6], fieldValue[6:8], t)
-		logging.PrintS(2, "Made date %s", formatted)
-		return formatted, true
-
-	} else if len(fieldValue) >= 6 {
-		formatted := fmt.Sprintf("%s-%s-%s%s", fieldValue[:2], fieldValue[2:4], fieldValue[4:6], t)
-		logging.PrintS(2, "Made date %s", formatted)
-		return formatted, true
-	}
-	logging.PrintD(3, "Returning empty or short date element (%s) without formatting", fieldValue)
-	return fieldValue, false
-}
-
-// FormatAllDates formats timestamps into a hyphenated form
-func FormatAllDates(fd *models.FileData) string {
-
-	var (
-		result string
-		ok     bool
-	)
-
-	d := fd.MDates
-
-	if !ok && d.Originally_Available_At != "" {
-		logging.PrintD(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
-		result, ok = YyyyMmDd(d.Originally_Available_At)
-	}
-	if !ok && d.ReleaseDate != "" {
-		logging.PrintD(2, "Attempting to format release date: %v", d.ReleaseDate)
-		result, ok = YyyyMmDd(d.ReleaseDate)
-	}
-	if !ok && d.Date != "" {
-		logging.PrintD(2, "Attempting to format date: %v", d.Date)
-		result, ok = YyyyMmDd(d.Date)
-	}
-	if !ok && d.UploadDate != "" {
-		logging.PrintD(2, "Attempting to format upload date: %v", d.UploadDate)
-		result, ok = YyyyMmDd(d.UploadDate)
-	}
-	if !ok && d.Creation_Time != "" {
-		logging.PrintD(3, "Attempting to format creation time: %v", d.Creation_Time)
-		result, ok = YyyyMmDd(d.Creation_Time)
-	}
-	if !ok {
-		logging.PrintE(0, "Failed to format dates")
-		return ""
-	} else {
-		logging.PrintD(2, "Exiting with formatted date: %v", result)
-
-		d.FormattedDate = result
-
-		logging.PrintD(2, "Got formatted date '%s' and entering parse to string function...", result)
-
-		var err error
-		d.StringDate, err = ParseNumDate(d.FormattedDate)
-		if err != nil {
-			logging.PrintE(0, err.Error())
-		}
-
-		return result
-	}
 }
 package metadata
 
@@ -2173,13 +2338,13 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 	// Check if filled
 	for key, val := range fieldMap {
 		if val == nil {
-			logging.PrintE(0, "Value is null")
+			logging.E(0, "Value is null")
 			continue
 		}
 		if *val == "" || metaOW {
-			logging.PrintD(2, "Value for '%s' is empty, attempting to fill by inference...", key)
+			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", key)
 			*val = fillEmptyCredits(c)
-			logging.PrintD(2, "Set value to '%s'", *val)
+			logging.D(2, "Set value to '%s'", *val)
 			if *val != "" {
 				dataFilled = true
 			}
@@ -2193,7 +2358,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		switch {
 		case err != nil:
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
 		case rtn != nil:
 			data = rtn
@@ -2201,7 +2366,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		}
 
 	case w.WebpageURL == "":
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
 		return data, false
 	}
 
@@ -2216,7 +2381,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		switch {
 		case err != nil:
-			logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
+			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
 			return data, true
 		case rtn != nil:
 			data = rtn
@@ -2281,9 +2446,9 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 package metadata
 
 import (
+	"metarr/internal/dates"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
-	helpers "metarr/internal/metadata/process/helpers"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
@@ -2312,7 +2477,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 	}
 
 	if ok := unpackJSON("date", fieldMap, data); !ok {
-		logging.PrintE(1, "Failed to unpack date JSON, no dates currently exist in file?")
+		logging.E(1, "Failed to unpack date JSON, no dates currently exist in file?")
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
@@ -2322,7 +2487,7 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			if _, exists := fieldMap[key]; exists {
 
 				if len(strVal) >= 6 {
-					if formatted, ok := helpers.YyyyMmDd(strVal); ok {
+					if formatted, ok := dates.YyyyMmDd(strVal); ok {
 						*fieldMap[key] = formatted
 						printMap[key] = formatted
 						gotRelevantDate = true
@@ -2352,20 +2517,20 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 	switch {
 	case gotRelevantDate:
 
-		logging.PrintD(3, "Got a relevant date, proceeding...")
+		logging.D(3, "Got a relevant date, proceeding...")
 		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
-			helpers.FormatAllDates(fd)
+			dates.FormatAllDates(fd)
 		} else {
-			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
+			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
 			if err != nil {
-				logging.PrintE(0, err.Error())
+				logging.E(0, err.Error())
 			}
 		}
 
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		if err != nil {
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
 		} else if rtn != nil {
 			data = rtn
@@ -2374,21 +2539,21 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 
 	case w.WebpageURL == "":
 
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
 		print.PrintGrabbedFields("time and date", &printMap)
 		return data, false
 	}
 
 	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
-	logging.PrintD(1, "Scraped date: %s", scrapedDate)
+	logging.D(1, "Scraped date: %s", scrapedDate)
 
-	logging.PrintD(3, "Passed web scrape attempt for date.")
+	logging.D(3, "Passed web scrape attempt for date.")
 
 	var date string
 	if scrapedDate != "" {
-		date, err = helpers.ParseStringDate(scrapedDate)
+		date, err = dates.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return data, false
 		} else {
 			if t.ReleaseDate == "" {
@@ -2420,12 +2585,12 @@ func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			print.PrintGrabbedFields("time and date", &printMap)
 
 			if t.FormattedDate == "" {
-				helpers.FormatAllDates(fd)
+				dates.FormatAllDates(fd)
 			}
 			rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 			switch {
 			case err != nil:
-				logging.PrintE(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
+				logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
 				return data, true
 			case rtn != nil:
 				data = rtn
@@ -2446,7 +2611,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 		gotRelevantDate = true
 		if t.Creation_Time == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
+			if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 				if !strings.ContainsRune(formatted, 'T') {
 					t.Creation_Time = formatted + "T00:00:00Z"
 					t.FormattedDate = formatted
@@ -2455,7 +2620,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 					t.FormattedDate, _, _ = strings.Cut(formatted, "T")
 				}
 			} else {
-				if formatted, ok := helpers.YyyyMmDd(t.Originally_Available_At); ok {
+				if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 					if !strings.ContainsRune(formatted, 'T') {
 						t.Creation_Time = formatted + "T00:00:00Z"
 						t.FormattedDate = formatted
@@ -2474,7 +2639,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
 		gotRelevantDate = true
 		if t.Creation_Time == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Creation_Time = formatted + "T00:00:00Z"
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
@@ -2484,7 +2649,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			}
 		}
 		if t.Originally_Available_At == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Originally_Available_At = formatted
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
@@ -2497,7 +2662,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	// Infer from date
 	if t.Date != "" && len(t.Date) >= 6 {
 		gotRelevantDate = true
-		if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+		if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 			t.Creation_Time = formatted + "T00:00:00Z"
 			if t.FormattedDate == "" {
 				t.FormattedDate = formatted
@@ -2506,7 +2671,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			t.Creation_Time = t.Date + "T00:00:00Z"
 		}
 		if t.Originally_Available_At == "" {
-			if formatted, ok := helpers.YyyyMmDd(t.ReleaseDate); ok {
+			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Originally_Available_At = formatted
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
@@ -2519,7 +2684,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	// Infer from upload date
 	if t.UploadDate != "" && len(t.UploadDate) >= 6 {
-		if formatted, ok := helpers.YyyyMmDd(t.UploadDate); ok {
+		if formatted, ok := dates.YyyyMmDd(t.UploadDate); ok {
 			t.Creation_Time = formatted + "T00:00:00Z"
 			if t.FormattedDate == "" {
 				t.FormattedDate = formatted
@@ -2566,29 +2731,29 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	// Try to fix accidentally using upload date if another date is available
 	if len(t.Year) == 4 && !strings.HasPrefix(t.Creation_Time, t.Year) && len(t.Creation_Time) >= 4 {
 
-		logging.PrintD(1, "Creation time does not match year tag, seeing if other dates are available...")
+		logging.D(1, "Creation time does not match year tag, seeing if other dates are available...")
 
 		switch {
 		case strings.HasPrefix(t.Originally_Available_At, t.Year):
 			t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.Originally_Available_At)
+			logging.D(1, "Changed creation time to %s", t.Originally_Available_At)
 
 		case strings.HasPrefix(t.ReleaseDate, t.Year):
 			t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.ReleaseDate)
+			logging.D(1, "Changed creation time to %s", t.ReleaseDate)
 
 		case strings.HasPrefix(t.Date, t.Year):
 			t.Creation_Time = t.Date + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.Date)
+			logging.D(1, "Changed creation time to %s", t.Date)
 
 		case strings.HasPrefix(t.FormattedDate, t.Year):
 			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
-			logging.PrintD(1, "Changed creation time to %s", t.FormattedDate)
+			logging.D(1, "Changed creation time to %s", t.FormattedDate)
 
 		default:
-			logging.PrintD(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
+			logging.D(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
 			t.Creation_Time = t.Year + t.Creation_Time[4:]
-			logging.PrintD(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
+			logging.D(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
 		}
 	}
 	return gotRelevantDate
@@ -2642,7 +2807,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 					}
 					continue
 				default:
-					logging.PrintD(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *value)
+					logging.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *value)
 					continue
 				}
 			}
@@ -2674,7 +2839,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		switch {
 		case err != nil:
-			logging.PrintE(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
 		case rtn != nil:
 			data = rtn
@@ -2682,7 +2847,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		}
 
 	case w.WebpageURL == "":
-		logging.PrintI("Page URL not found in data, so cannot scrape for missing description in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in data, so cannot scrape for missing description in '%s'", fd.JSONFilePath)
 		return data, false
 	}
 
@@ -2699,7 +2864,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		// Insert new scraped fields into file
 		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
 		if err != nil {
-			logging.PrintE(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
+			logging.E(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
 		} else if rtn != nil {
 			data = rtn
 		}
@@ -2714,7 +2879,7 @@ func fillEmptyDescriptions(want *string, d *models.MetadataTitlesDescs) bool {
 
 	filled := false
 	if want == nil {
-		logging.PrintE(0, "Sent in string null, returning...")
+		logging.E(0, "Sent in string null, returning...")
 		return false
 	}
 	if *want == "" {
@@ -2765,25 +2930,25 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 
 	if len(fd.MWebData.TryURLs) == 0 {
 		if !FillWebpageDetails(fd, data) {
-			logging.PrintI("No URL metadata found")
+			logging.I("No URL metadata found")
 			allFilled = false
 		}
 	}
 
 	if !fillTitles(fd, data) {
-		logging.PrintI("No title metadata found")
+		logging.I("No title metadata found")
 		allFilled = false
 	}
 
 	if meta, ok = fillCredits(fd, data); !ok {
-		logging.PrintI("No credits metadata found")
+		logging.I("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
 		data = meta
 	}
 
 	if meta, ok = fillTimestamps(fd, data); !ok {
-		logging.PrintI("No date metadata found")
+		logging.I("No date metadata found")
 		allFilled = false
 	} else {
 		if meta != nil {
@@ -2792,7 +2957,7 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 	}
 
 	if meta, ok = fillDescriptions(fd, data); !ok {
-		logging.PrintI("No description metadata found")
+		logging.I("No description metadata found")
 		allFilled = false
 	} else if meta != nil {
 		data = meta
@@ -2905,7 +3070,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 					switch {
 					case key == consts.JWebpageURL:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.WebpageURL == "" {
 							w.WebpageURL = val
@@ -2917,7 +3082,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 					case key == consts.JURL:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.VideoURL == "" {
 							w.VideoURL = val
@@ -2929,7 +3094,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 					case key == consts.JReferer:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.Referer == "" {
 							w.Referer = val
@@ -2941,7 +3106,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 					case key == consts.JWebpageDomain, key == consts.JDomain:
 
-						logging.PrintD(3, "Got URL: %s", val)
+						logging.D(3, "Got URL: %s", val)
 
 						if w.Domain == "" {
 							w.Domain = val
@@ -2955,7 +3120,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 		}
 	}
 
-	logging.PrintD(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
+	logging.D(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
 
 	print.PrintGrabbedFields("web details", &printMap)
 
@@ -3023,12 +3188,12 @@ func fillNFOCredits(fd *models.FileData) bool {
 func fillSingleCredits(entries []string, target *string) {
 
 	if target == nil {
-		logging.PrintD(1, "Target string is nil, skipping...")
+		logging.D(1, "Target string is nil, skipping...")
 		return
 	}
 
 	if *target != "" {
-		logging.PrintD(1, "Target string is not empty, skipping...")
+		logging.D(1, "Target string is not empty, skipping...")
 		return
 	}
 
@@ -3053,7 +3218,7 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 		for k, v := range data {
 			if k == "role" {
 				if role, ok := v.(string); ok {
-					logging.PrintD(3, "Adding role '%s' to actors", role)
+					logging.D(3, "Adding role '%s' to actors", role)
 					c.Actors = append(c.Actors, role)
 					filled = true
 				}
@@ -3077,21 +3242,21 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 			for _, actorData := range actorsData {
 				if actorMap, ok := actorData.(map[string]interface{}); ok {
 					if name, ok := actorMap["name"].(string); ok {
-						logging.PrintD(3, "Adding actor name '%s'", name)
+						logging.D(3, "Adding actor name '%s'", name)
 						c.Actors = append(c.Actors, name)
 						filled = true
 					}
 					if role, ok := actorMap["role"].(string); ok {
-						logging.PrintD(3, "Adding actor role '%s'", role)
+						logging.D(3, "Adding actor role '%s'", role)
 						filled = true
 					}
 				}
 			}
 		} else {
-			logging.PrintD(1, "'actor' key is present but not a valid structure")
+			logging.D(1, "'actor' key is present but not a valid structure")
 		}
 	} else {
-		logging.PrintD(1, "'cast' key is missing or not a map")
+		logging.D(1, "'cast' key is missing or not a map")
 	}
 
 	return filled
@@ -3099,9 +3264,9 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 package metadata
 
 import (
+	"metarr/internal/dates"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
-	helpers "metarr/internal/metadata/process/helpers"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
@@ -3126,7 +3291,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	printMap := make(map[string]string, len(fieldMap))
 
 	if n.Premiered != "" {
-		if rtn, ok := helpers.YyyyMmDd(n.Premiered); ok && rtn != "" {
+		if rtn, ok := dates.YyyyMmDd(n.Premiered); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -3135,7 +3300,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		gotRelevantDate = true
 	}
 	if n.ReleaseDate != "" {
-		if rtn, ok := helpers.YyyyMmDd(n.ReleaseDate); ok && rtn != "" {
+		if rtn, ok := dates.YyyyMmDd(n.ReleaseDate); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -3166,37 +3331,37 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 
 		var err error
 
-		logging.PrintD(3, "Got a relevant date, proceeding...")
+		logging.D(3, "Got a relevant date, proceeding...")
 		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
-			helpers.FormatAllDates(fd)
+			dates.FormatAllDates(fd)
 		} else {
-			t.StringDate, err = helpers.ParseNumDate(t.FormattedDate)
+			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
 			if err != nil {
-				logging.PrintE(0, err.Error())
+				logging.E(0, err.Error())
 			}
 		}
 
 	case w.WebpageURL == "":
 
-		logging.PrintI("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
 		print.PrintGrabbedFields("time and date", &printMap)
 		return false
 	}
 
 	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
-	logging.PrintD(1, "Scraped date: %s", scrapedDate)
+	logging.D(1, "Scraped date: %s", scrapedDate)
 
-	logging.PrintD(3, "Passed web scrape attempt for date.")
+	logging.D(3, "Passed web scrape attempt for date.")
 
 	var (
 		date string
 		err  error
 	)
 	if scrapedDate != "" {
-		date, err = helpers.ParseStringDate(scrapedDate)
+		date, err = dates.ParseStringDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.PrintE(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return false
 		} else {
 			if t.ReleaseDate == "" {
@@ -3228,7 +3393,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 			print.PrintGrabbedFields("time and date", &printMap)
 
 			if t.FormattedDate == "" {
-				helpers.FormatAllDates(fd)
+				dates.FormatAllDates(fd)
 			}
 		}
 	}
@@ -3367,17 +3532,17 @@ func cleanEmptyFields(fieldMap map[string]*string) {
 func nestedLoop(content string) map[string]interface{} {
 	nested := make(map[string]interface{})
 
-	logging.PrintD(2, "Parsing content in nestedLoop: %s", content)
+	logging.D(2, "Parsing content in nestedLoop: %s", content)
 
 	for len(content) > 0 {
 		if strings.HasPrefix(content, "<?xml") || strings.HasPrefix(content, "<?") {
 			endIdx := strings.Index(content, "?>")
 			if endIdx == -1 {
-				logging.PrintE(0, "Malformed XML declaration in content: %s", content)
+				logging.E(0, "Malformed XML declaration in content: %s", content)
 				break
 			}
 			content = content[endIdx+2:]
-			logging.PrintD(2, "Skipping XML declaration, remaining content: %s", content)
+			logging.D(2, "Skipping XML declaration, remaining content: %s", content)
 			continue
 		}
 
@@ -3389,7 +3554,7 @@ func nestedLoop(content string) map[string]interface{} {
 
 		openIdxClose := strings.Index(content, ">")
 		if openIdxClose == -1 {
-			logging.PrintE(0, "No valid tag close bracket for entry beginning %s", content[openIdx:])
+			logging.E(0, "No valid tag close bracket for entry beginning %s", content[openIdx:])
 			break // No closing tag bracket
 		}
 
@@ -3401,7 +3566,7 @@ func nestedLoop(content string) map[string]interface{} {
 		if isSelfClosing {
 			// Self-closing tag; skip over and move to the next
 			content = content[openIdxClose+1:]
-			logging.PrintD(2, "Skipping self-closing tag: %s", tag)
+			logging.D(2, "Skipping self-closing tag: %s", tag)
 			continue
 		}
 
@@ -3411,46 +3576,46 @@ func nestedLoop(content string) map[string]interface{} {
 		if closeIdx == -1 {
 			// No closing tag; skip this tag and continue
 			content = content[openIdxClose+1:]
-			logging.PrintD(2, "Skipping tag without end tag: %s", tag)
+			logging.D(2, "Skipping tag without end tag: %s", tag)
 			continue
 		}
 
 		// Extract the inner content between tags
 		innerContent := content[openIdxClose+1 : closeIdx]
-		logging.PrintD(2, "Found inner content for tag '%s': %s", tag, innerContent)
+		logging.D(2, "Found inner content for tag '%s': %s", tag, innerContent)
 
 		// Recursive call if innerContent contains nested tags
 		if strings.Contains(innerContent, "<") && strings.Contains(innerContent, ">") {
-			logging.PrintD(2, "Recursively parsing nested content for tag '%s'", tag)
+			logging.D(2, "Recursively parsing nested content for tag '%s'", tag)
 			nested[tag] = nestedLoop(innerContent)
 		} else {
-			logging.PrintD(2, "Assigning inner content to tag '%s': %s", tag, innerContent)
+			logging.D(2, "Assigning inner content to tag '%s': %s", tag, innerContent)
 			nested[tag] = innerContent
 		}
 
 		// Move past the processed tag
 		content = content[closeIdx+len(closeTag):]
-		logging.PrintD(2, "Remaining content after parsing tag '%s': %s", tag, content)
+		logging.D(2, "Remaining content after parsing tag '%s': %s", tag, content)
 	}
 
-	logging.PrintD(2, "Final parsed structure from nestedLoop: %v", nested)
+	logging.D(2, "Final parsed structure from nestedLoop: %v", nested)
 	return nested
 }
 
 // unpackNFO unpacks an NFO map back to the model
 func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[string]*string) {
-	logging.PrintD(3, "Unpacking NFO map...")
+	logging.D(3, "Unpacking NFO map...")
 
 	// Access the top-level "movie" key
 	movieData, ok := data["movie"].(map[string]interface{})
 	if !ok {
-		logging.PrintE(0, "Missing 'movie' key in data, unable to unpack")
+		logging.E(0, "Missing 'movie' key in data, unable to unpack")
 		return
 	}
 
 	for field, fieldVal := range fieldMap {
 		if fieldVal == nil {
-			logging.PrintE(0, "Field value is null, continuing...")
+			logging.E(0, "Field value is null, continuing...")
 			continue
 		}
 
@@ -3462,20 +3627,20 @@ func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[st
 
 		switch v := val.(type) {
 		case string:
-			logging.PrintD(3, "Setting field '%s' to '%s'", field, v)
+			logging.D(3, "Setting field '%s' to '%s'", field, v)
 			*fieldVal = v
 		case map[string]interface{}:
 			switch field {
 
 			case "title":
-				logging.PrintD(3, "Unpacking nested 'title' map...")
+				logging.D(3, "Unpacking nested 'title' map...")
 				unpackTitle(fd, v)
 			case "cast":
-				logging.PrintD(3, "Unpacking nested 'cast' map...")
+				logging.D(3, "Unpacking nested 'cast' map...")
 				unpackCredits(fd, v)
 			}
 		default:
-			logging.PrintD(1, "Unknown field type for '%s', skipping...", field)
+			logging.D(1, "Unknown field type for '%s', skipping...", field)
 		}
 	}
 }
@@ -3502,7 +3667,7 @@ func fillNFOTitles(fd *models.FileData) bool {
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)
 
-	logging.PrintI("Grab NFO metadata: %v", t)
+	logging.I("Grab NFO metadata: %v", t)
 
 	if n.Title.Main != "" {
 		if t.Title == "" {
@@ -3539,18 +3704,18 @@ func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
 		switch key {
 		case "main":
 			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting main title to '%s'", strVal)
+				logging.D(3, "Setting main title to '%s'", strVal)
 				t.Title = strVal
 				filled = true
 			}
 		case "sub":
 			if strVal, ok := value.(string); ok {
-				logging.PrintD(3, "Setting subtitle to '%s'", strVal)
+				logging.D(3, "Setting subtitle to '%s'", strVal)
 				t.Subtitle = strVal
 				filled = true
 			}
 		default:
-			logging.PrintD(1, "Unknown nested title element '%s', skipping...", key)
+			logging.D(1, "Unknown nested title element '%s', skipping...", key)
 		}
 	}
 	return filled
@@ -3621,7 +3786,7 @@ func safeGetDatePart(timeStr string) string {
 
 func printArray(s []string) {
 	str := strings.Join(s, ", ")
-	logging.PrintI("FFprobe captured %s", str)
+	logging.I("FFprobe captured %s", str)
 }
 package metadata
 
@@ -3651,11 +3816,11 @@ func MP4MetaMatches(fd *models.FileData) bool {
 		fd.OriginalVideoPath,
 	)
 
-	logging.PrintI("Made command for FFprobe:\n\n%v", command.String())
+	logging.I("Made command for FFprobe:\n\n%v", command.String())
 
 	output, err := command.Output()
 	if err != nil {
-		logging.PrintE(0, "Error running FFprobe command: %v. Will process video.", err)
+		logging.E(0, "Error running FFprobe command: %v. Will process video.", err)
 		return false
 	}
 
@@ -3663,7 +3828,7 @@ func MP4MetaMatches(fd *models.FileData) bool {
 	var ffData ffprobeOutput
 
 	if err := json.Unmarshal(output, &ffData); err != nil {
-		logging.PrintE(0, "Error parsing FFprobe output: %v. Will process video.", err)
+		logging.E(0, "Error parsing FFprobe output: %v. Will process video.", err)
 		return false
 	}
 
@@ -3712,7 +3877,7 @@ func MP4MetaMatches(fd *models.FileData) bool {
 		ffContent = append(ffContent, pair)
 
 		if values.new != values.existing {
-			logging.PrintD(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nAlready in video as: '%s'. Will process video.",
+			logging.D(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nAlready in video as: '%s'. Will process video.",
 				fd.OriginalVideoBaseName, key, values.new, values.existing)
 			matches = false
 		}
@@ -3728,9 +3893,9 @@ package metadata
 import (
 	"fmt"
 	"metarr/internal/config"
+	"metarr/internal/dates"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
-	helpers "metarr/internal/metadata/process/helpers"
 	process "metarr/internal/metadata/process/json"
 	check "metarr/internal/metadata/reader/check_existing"
 	tags "metarr/internal/metadata/tags"
@@ -3755,7 +3920,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, fmt.Errorf("model passed in null")
 	}
 
-	logging.PrintD(2, "Beginning JSON file processing...")
+	logging.D(2, "Beginning JSON file processing...")
 
 	// Function mutex
 	mu.Lock()
@@ -3783,10 +3948,10 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, err
 	}
 
-	logging.PrintD(3, "%v", data)
+	logging.D(3, "%v", data)
 
 	process.FillWebpageDetails(fd, data)
-	logging.PrintI("URLs grabbed: %s", w.TryURLs)
+	logging.I("URLs grabbed: %s", w.TryURLs)
 
 	if len(w.TryURLs) > 0 {
 		transformations.TryTransPresets(w.TryURLs, fd)
@@ -3798,7 +3963,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, err
 	}
 	if edited {
-		logging.PrintD(2, "Refreshing JSON metadata after edits were made...")
+		logging.D(2, "Refreshing JSON metadata after edits were made...")
 		data, err = fd.JSONFileRW.RefreshMetadata()
 		if err != nil {
 			return nil, err
@@ -3807,31 +3972,38 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 
 	var ok bool
 	if data, ok = process.FillMetaFields(fd, data); !ok {
-		logging.PrintD(2, "Some metafields were unfilled")
+		logging.D(2, "Some metafields were unfilled")
 	}
 
 	if fd.MDates.FormattedDate == "" {
-		helpers.FormatAllDates(fd)
+		dates.FormatAllDates(fd)
 	}
 
 	// Make date tag
-	logging.PrintD(3, "About to make date tag for: %v", file.Name())
-	if config.Get(keys.FileDateFmt).(enums.FilenameDateFormat) != enums.FILEDATE_SKIP {
-		fd.FilenameDateTag, err = tags.MakeDateTag(data, file.Name())
-		if err != nil {
-			logging.PrintE(0, "Failed to make date tag: %v", err)
+	logging.D(3, "About to make date tag for: %v", file.Name())
+	if config.IsSet(keys.FileDateFmt) {
+
+		if dateFmt, ok := config.Get(keys.FileDateFmt).(enums.DateFormat); !ok {
+			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
+		} else if dateFmt != enums.DATEFMT_SKIP {
+			fd.FilenameDateTag, err = tags.MakeFileDateTag(data, file.Name(), dateFmt)
+			if err != nil {
+				logging.E(0, "Failed to make date tag: %v", err)
+			}
+		} else {
+			logging.D(1, "Set file date tag format to skip, not making date tag for '%s'", file.Name())
 		}
 	}
 
 	// Add new filename tag for files
 	if config.IsSet(keys.MFilenamePfx) {
-		logging.PrintD(3, "About to make prefix tag for: %v", file.Name())
+		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
 	}
 
 	// Check if metadata is already existent in target file
 	if filetypeMetaCheckSwitch(fd) {
-		logging.PrintI("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
+		logging.I("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
 		fd.MetaAlreadyExists = true
 	}
 
@@ -3850,7 +4022,7 @@ func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 	currentExt = strings.TrimSpace(currentExt)
 
 	if outFlagSet && outExt != "" && outExt != currentExt {
-		logging.PrintI("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
+		logging.I("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
 		return false
 	}
 
@@ -3879,7 +4051,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 		return nil, fmt.Errorf("model passed in null")
 	}
 
-	logging.PrintD(2, "Beginning NFO file processing...")
+	logging.D(2, "Beginning NFO file processing...")
 
 	// Open the file
 	file, err := os.OpenFile(fd.NFOFilePath, os.O_RDWR, 0644)
@@ -3897,18 +4069,18 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 
 	data, err := nfoRW.DecodeMetadata(file)
 	if err != nil || data == nil {
-		logging.PrintE(0, "Failed to decode metadata from file: %v", err)
+		logging.E(0, "Failed to decode metadata from file: %v", err)
 	} else {
 		// Store NFO data in model
 		fd.NFOData = data
 	}
 
-	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd.MWebData)
+	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd)
 	if err != nil {
-		logging.PrintE(0, "Encountered issue making meta edits: %v", err)
+		logging.E(0, "Encountered issue making meta edits: %v", err)
 	}
 	if edited {
-		logging.PrintD(2, "Refreshing NFO metadata after edits were made...")
+		logging.D(2, "Refreshing NFO metadata after edits were made...")
 		data, err := fd.NFOFileRW.RefreshMetadata()
 		if err != nil {
 			return nil, err
@@ -3919,7 +4091,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 
 	// Fill to file metadata
 	if ok := nfo.FillNFO(fd); !ok {
-		logging.PrintE(0, "No metadata filled from NFO file...")
+		logging.E(0, "No metadata filled from NFO file...")
 	}
 	return fd, nil
 }
@@ -3927,26 +4099,25 @@ package metadata
 
 import (
 	"fmt"
-	"metarr/internal/config"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
 	logging "metarr/internal/utils/logging"
 	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-// MakeDateTag attempts to create the date tag for files using metafile data
-func MakeDateTag(metadata map[string]interface{}, fileName string) (string, error) {
-	dateFmt, ok := config.Get(keys.FileDateFmt).(enums.FilenameDateFormat)
-	if !ok {
-		return "", fmt.Errorf("invalid date format configuration")
+// MakeDATEFMTTag attempts to create the date tag for files using metafile data
+func MakeFileDateTag(metadata map[string]interface{}, fileName string, dateFmt enums.DateFormat) (string, error) {
+
+	if dateFmt == enums.DATEFMT_SKIP {
+		logging.D(1, "Skip set, not making file date tag for '%s'", fileName)
+		return "", nil
 	}
 
 	date, found := extractDateFromMetadata(metadata)
 	if !found {
-		logging.PrintE(0, "No dates found in JSON file")
+		logging.E(0, "No dates found in JSON file")
 		return "", nil
 	}
 
@@ -3957,18 +4128,58 @@ func MakeDateTag(metadata map[string]interface{}, fileName string) (string, erro
 
 	dateStr, err := formatDateString(year, month, day, dateFmt)
 	if dateStr == "" || err != nil {
-		logging.PrintE(0, "Failed to create date string")
+		logging.E(0, "Failed to create date string")
 		return "[]", nil
 	}
 
 	dateTag := "[" + dateStr + "]"
 	if checkTagExists(dateTag, filepath.Base(fileName)) {
-		logging.PrintD(2, "Tag '%s' already detected in name, skipping...", dateTag)
+		logging.D(2, "Tag '%s' already detected in name, skipping...", dateTag)
 		return "[]", nil
 	}
 
-	logging.PrintS(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
+	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
 	return dateTag, nil
+}
+
+// MakeDATEFMTTag attempts to create the date tag for files using metafile data
+func MetafieldDateTag(metadata map[string]interface{}, fieldVal string, dateFmt enums.DateFormat) (string, error) {
+
+	if dateFmt == enums.DATEFMT_SKIP {
+		logging.D(1, "Skip set, not making date tag for field '%s'", fieldVal)
+		return "", nil
+	}
+
+	if len(metadata) == 0 {
+		return "[]", fmt.Errorf("metadata sent in empty")
+	}
+
+	date, found := extractDateFromMetadata(metadata)
+	if !found {
+		logging.E(0, "No dates found in JSON file")
+		return "[]", nil
+	}
+
+	year, month, day, err := parseDateComponents(date, dateFmt)
+	if err != nil {
+		return "[]", fmt.Errorf("failed to parse date components: %w", err)
+	}
+
+	dateStr, err := formatDateString(year, month, day, dateFmt)
+	if dateStr == "" || err != nil {
+		logging.E(0, "Failed to create date string")
+		return "[]", nil
+	}
+
+	dateTag := "[" + dateStr + "]"
+	if strings.Contains(fieldVal, dateTag) {
+		logging.D(2, "Tag '%s' already detected in metafield, skipping...", dateTag)
+		return "[]", nil
+	}
+
+	logging.S(0, "Made date tag '%s' for field with data '%s'", dateTag, fieldVal)
+	return dateTag, nil
+
 }
 
 // extractDateFromMetadata attempts to find a date in the metadata using predefined fields
@@ -4002,7 +4213,7 @@ func extractDateFromMetadata(metadata map[string]interface{}) (string, bool) {
 }
 
 // parseDateComponents extracts and validates year, month, and day from the date string
-func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+func parseDateComponents(date string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	date = strings.ReplaceAll(date, "-", "")
 	date = strings.TrimSpace(date)
 
@@ -4015,17 +4226,17 @@ func parseDateComponents(date string, dateFmt enums.FilenameDateFormat) (year, m
 }
 
 // formatDateString formats the date as a hyphenated string
-func formatDateString(year, month, day string, dateFmt enums.FilenameDateFormat) (string, error) {
+func formatDateString(year, month, day string, dateFmt enums.DateFormat) (string, error) {
 	var parts [3]string
 
 	switch dateFmt {
-	case enums.FILEDATE_YYYY_MM_DD, enums.FILEDATE_YY_MM_DD:
+	case enums.DATEFMT_YYYY_MM_DD, enums.DATEFMT_YY_MM_DD:
 		parts = [3]string{year, month, day}
-	case enums.FILEDATE_YYYY_DD_MM, enums.FILEDATE_YY_DD_MM:
+	case enums.DATEFMT_YYYY_DD_MM, enums.DATEFMT_YY_DD_MM:
 		parts = [3]string{year, day, month}
-	case enums.FILEDATE_DD_MM_YYYY, enums.FILEDATE_DD_MM_YY:
+	case enums.DATEFMT_DD_MM_YYYY, enums.DATEFMT_DD_MM_YY:
 		parts = [3]string{day, month, year}
-	case enums.FILEDATE_MM_DD_YYYY, enums.FILEDATE_MM_DD_YY:
+	case enums.DATEFMT_MM_DD_YYYY, enums.DATEFMT_MM_DD_YY:
 		parts = [3]string{month, day, year}
 	}
 
@@ -4051,13 +4262,13 @@ func joinNonEmpty(parts [3]string) string {
 }
 
 // getYear returns the year digits from the date string
-func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, day string, err error) {
+func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	d = strings.ReplaceAll(d, "-", "")
 	d = strings.TrimSpace(d)
 
 	if len(d) >= 8 {
 		switch dateFmt {
-		case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+		case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 			year = d[2:4]
 		default:
 			year = d[:4]
@@ -4086,9 +4297,9 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 		}
 
 		if (i == 20 || i == 19) && j > 12 { // First guess year
-			logging.PrintI("Guessing date string '%s' as year", d)
+			logging.I("Guessing date string '%s' as year", d)
 			switch dateFmt {
-			case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+			case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 				return d[2:4], "", "", nil
 			default:
 				return d[:4], "", "", nil
@@ -4096,20 +4307,20 @@ func getYearMonthDay(d string, dateFmt enums.FilenameDateFormat) (year, month, d
 		} else { // Second guess, month-date
 			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
 				if ddmm {
-					logging.PrintI("Guessing date string '%s' as day-month")
+					logging.I("Guessing date string '%s' as day-month")
 					day = d[:2]
 					month = d[2:4]
 
 				} else if mmdd {
-					logging.PrintI("Guessing date string '%s' as month-day")
+					logging.I("Guessing date string '%s' as month-day")
 					day = d[2:4]
 					month = d[:2]
 				}
 				return "", month, day, nil
 			} else if i == 20 || i == 19 { // Final guess year
-				logging.PrintI("Guessing date string '%s' as year after failed day-month check", d)
+				logging.I("Guessing date string '%s' as year after failed day-month check", d)
 				switch dateFmt {
-				case enums.FILEDATE_DD_MM_YY, enums.FILEDATE_MM_DD_YY, enums.FILEDATE_YY_DD_MM, enums.FILEDATE_YY_MM_DD:
+				case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 					return d[2:4], "", "", nil
 				default:
 					return d[:4], "", "", nil
@@ -4214,7 +4425,7 @@ import (
 
 // makeFilenameTag creates the metatag string to prefix filenames with
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
-	logging.PrintD(3, "Entering makeFilenameTag with data %v", metadata)
+	logging.D(5, "Entering makeFilenameTag with data %v", metadata)
 
 	tagFields := config.GetStringSlice(keys.MFilenamePfx)
 	if len(tagFields) == 0 {
@@ -4238,7 +4449,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 				b.WriteString(strVal)
 				written = true
 
-				logging.PrintD(3, "Added metafield %v to prefix tag (Tag so far: %s)", field, b.String())
+				logging.D(3, "Added metafield %v to prefix tag (Tag so far: %s)", field, b.String())
 			}
 		}
 	}
@@ -4252,11 +4463,11 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	invalidChars := regex.InvalidCharsCompile()
 	tag = invalidChars.ReplaceAllString(tag, "")
 
-	logging.PrintD(1, "Made metatag '%s' from file '%s'", tag, file.Name())
+	logging.D(1, "Made metatag '%s' from file '%s'", tag, file.Name())
 
 	if tag != "[]" {
 		if checkTagExists(tag, filepath.Base(file.Name())) {
-			logging.PrintD(2, "Tag '%s' already detected in name, skipping...", tag)
+			logging.D(2, "Tag '%s' already detected in name, skipping...", tag)
 			tag = "[]"
 		}
 	}
@@ -4265,7 +4476,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 
 // checkTagExists checks if the constructed tag already exists in the filename
 func checkTagExists(tag, filename string) bool {
-	logging.PrintD(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
+	logging.D(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
 
 	return strings.Contains(filename, tag)
 }
@@ -4277,7 +4488,9 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/config"
+	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
+	tags "metarr/internal/metadata/tags"
 	"metarr/internal/models"
 	backup "metarr/internal/utils/fs/backup"
 	logging "metarr/internal/utils/logging"
@@ -4295,7 +4508,7 @@ type JSONFileRW struct {
 
 // NewJSONFileRW creates a new instance of the JSON file reader/writer
 func NewJSONFileRW(file *os.File) *JSONFileRW {
-	logging.PrintD(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
+	logging.D(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
 	return &JSONFileRW{
 		File: file,
 	}
@@ -4322,10 +4535,10 @@ func (rw *JSONFileRW) DecodeMetadata(file *os.File) (map[string]interface{}, err
 
 	switch {
 	case len(input) <= 0, input == nil:
-		logging.PrintD(3, "Metadata not stored, is blank: %v", input)
+		logging.D(3, "Metadata not stored, is blank: %v", input)
 	default:
 		rw.Meta = input
-		logging.PrintD(3, "Decoded and stored metadata: %v", rw.Meta)
+		logging.D(3, "Decoded and stored metadata: %v", rw.Meta)
 	}
 
 	return rw.Meta, nil
@@ -4348,7 +4561,7 @@ func (rw *JSONFileRW) RefreshMetadata() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("failed to decode JSON: %w", err)
 	}
 
-	logging.PrintD(3, "Decoded metadata: %v", rw.Meta)
+	logging.D(3, "Decoded metadata: %v", rw.Meta)
 
 	return rw.Meta, nil
 }
@@ -4359,7 +4572,7 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
-	logging.PrintD(3, "Entering WriteMetadata for file '%s'", rw.File.Name())
+	logging.D(3, "Entering WriteMetadata for file '%s'", rw.File.Name())
 	noFileOW := config.GetBool(keys.NoFileOverwrite)
 	metaOW := config.GetBool(keys.MOverwrite)
 
@@ -4380,25 +4593,26 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 		if field == "all-credits" {
 			continue
 		}
+
 		if value != nil && *value != "" {
 			currentVal, exists := rw.Meta[field]
 			if !exists {
-				logging.PrintD(3, "Adding new field '%s' with value '%s'", field, *value)
+				logging.D(3, "Adding new field '%s' with value '%s'", field, *value)
 				rw.Meta[field] = *value
 				updated = true
 			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *value || metaOW {
-				logging.PrintD(3, "Updating field '%s' from '%v' to '%s'", field, currentVal, *value)
+				logging.D(3, "Updating field '%s' from '%v' to '%s'", field, currentVal, *value)
 				rw.Meta[field] = *value
 				updated = true
 			} else {
-				logging.PrintD(3, "Skipping field '%s' - value unchanged and overwrite not forced", field)
+				logging.D(3, "Skipping field '%s' - value unchanged and overwrite not forced", field)
 			}
 		}
 	}
 
 	// Return if no updates
 	if !updated {
-		logging.PrintD(2, "No fields were updated")
+		logging.D(2, "No fields were updated")
 		return rw.Meta, nil
 	}
 	// Format the updated metadata for writing to file
@@ -4411,78 +4625,155 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 		return rw.Meta, err
 	}
 
-	logging.PrintD(3, "Successfully updated JSON file with new metadata")
+	logging.D(3, "Successfully updated JSON file with new metadata")
 	return rw.Meta, nil
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
 func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (bool, error) {
 
+	logging.D(5, "Entering MakeMetaEdits.\nData: %v", data)
+
 	var (
 		edited, ok bool
-		pfx        []*models.MetaReplacePrefix
-		sfx        []*models.MetaReplaceSuffix
-		new        []*models.MetaNewField
+		trimPfx    []*models.MetaTrimPrefix
+		trimSfx    []*models.MetaTrimSuffix
+
+		apnd []*models.MetaAppend
+		pfx  []*models.MetaPrefix
+
+		new []*models.MetaNewField
+
+		replace []*models.MetaReplace
 	)
 
-	if len(fd.ModelMPfxReplace) > 0 {
-		logging.PrintI("Model for file '%s' applying preset meta prefix replacements", fd.OriginalVideoBaseName)
-		pfx = fd.ModelMPfxReplace
-
-	} else if config.IsSet(keys.MReplacePfx) {
-		if pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix); !ok {
-			logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", pfx)
+	// Replacements
+	if len(fd.ModelMReplace) > 0 {
+		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
+		replace = fd.ModelMReplace
+	} else if config.IsSet(keys.MReplaceText) {
+		if replace, ok = config.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
+			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
 
-	if len(fd.ModelMSfxReplace) > 0 {
-		logging.PrintI("Model for file '%s' applying preset meta suffix replacements", fd.OriginalVideoBaseName)
-		sfx = fd.ModelMSfxReplace
-
-	} else if config.IsSet(keys.MReplaceSfx) {
-		if sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix); !ok {
-			logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", pfx)
+	// Field trim
+	if len(fd.ModelMTrimPrefix) > 0 {
+		logging.I("Model for file '%s' trimming prefixes", fd.OriginalVideoBaseName)
+		trimPfx = fd.ModelMTrimPrefix
+	} else if config.IsSet(keys.MTrimPrefix) {
+		if trimPfx, ok = config.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
+			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
 
+	if len(fd.ModelMTrimSuffix) > 0 {
+		logging.I("Model for file '%s' trimming suffixes", fd.OriginalVideoBaseName)
+		trimSfx = fd.ModelMTrimSuffix
+	} else if config.IsSet(keys.MTrimSuffix) {
+		if trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
+			logging.E(0, "Could not retrieve suffix trim, wrong type: '%T'", trimSfx)
+		}
+	}
+
+	// Append and prefix
+	if len(fd.ModelMAppend) > 0 {
+		logging.I("Model for file '%s' adding appends", fd.OriginalVideoBaseName)
+		apnd = fd.ModelMAppend
+	} else if config.IsSet(keys.MAppend) {
+		if apnd, ok = config.Get(keys.MAppend).([]*models.MetaAppend); !ok {
+			logging.E(0, "Could not retrieve appends, wrong type: '%T'", apnd)
+		}
+	}
+
+	if len(fd.ModelMPrefix) > 0 {
+		logging.I("Model for file '%s' adding prefixes", fd.OriginalVideoBaseName)
+		pfx = fd.ModelMPrefix
+	} else if config.IsSet(keys.MPrefix) {
+		if pfx, ok = config.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
+			logging.E(0, "Could not retrieve prefix, wrong type: '%T'", pfx)
+		}
+	}
+
+	// New fields
 	if len(fd.ModelMNewField) > 0 {
-		logging.PrintI("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
+		logging.I("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
 		new = fd.ModelMNewField
-
 	} else if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
-		if !ok {
-			logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+		if new, ok = config.Get(keys.MNewField).([]*models.MetaNewField); !ok {
+			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+		}
+	}
+
+	// Make edits:
+	// Replace
+	if len(replace) > 0 {
+		if ok, err := rw.replaceJson(data, replace); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	// Trim
+	if len(trimPfx) > 0 {
+		if ok, err := rw.trimJsonPrefix(data, trimPfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	if len(trimSfx) > 0 {
+		if ok, err := rw.trimJsonSuffix(data, trimSfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	// Append and prefix
+	if len(apnd) > 0 {
+		if ok, err := rw.jsonAppend(data, apnd); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
 		}
 	}
 
 	if len(pfx) > 0 {
-		newPrefix, err := rw.replaceMetaPrefix(data, pfx)
-		if err != nil {
-			logging.PrintE(0, err.Error())
-		}
-		if newPrefix {
+		if ok, err := rw.jsonPrefix(data, pfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
 			edited = true
 		}
 	}
 
-	if len(sfx) > 0 {
-		newSuffix, err := rw.replaceMetaSuffix(data, sfx)
-		if err != nil {
-			logging.PrintE(0, err.Error())
-		}
-		if newSuffix {
-			edited = true
-		}
-	}
-
+	// Add new
 	if len(new) > 0 {
-		newField, err := rw.addNewMetaField(data, fd.ModelMOverwrite, new)
-		if err != nil {
-			logging.PrintE(0, err.Error())
-		}
-		if newField {
+		if ok, err := rw.addNewJsonField(data, fd.ModelMOverwrite, new); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
 			edited = true
+		}
+	}
+
+	// Add date tag
+	if config.IsSet(keys.MDateTagMap) {
+		logging.D(3, "Adding metafield date tag...")
+		if dateTagMap, ok := config.Get(keys.MDateTagMap).(map[string]*models.MetaDateTag); ok {
+			if len(dateTagMap) > 0 {
+
+				if ok, err := rw.jsonFieldDateTag(data, dateTagMap, fd); err != nil {
+					logging.E(0, err.Error())
+				} else if ok {
+					edited = true
+				}
+			} else {
+				logging.E(0, "dateTagMap grabbed empty")
+			}
+		} else {
+			logging.E(0, "Got null or wrong type for %s: %T", keys.MDateTagMap, dateTagMap)
 		}
 	}
 
@@ -4497,7 +4788,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 	}
 
 	fmt.Println()
-	logging.PrintS(0, "Successfully applied metadata edits to: %v", file.Name())
+	logging.S(0, "Successfully applied metadata edits to: %v", file.Name())
 
 	return edited, nil
 }
@@ -4518,7 +4809,7 @@ func (rw *JSONFileRW) refreshMetadataInternal(file *os.File) error {
 		return fmt.Errorf("failed to decode JSON: %w", err)
 	}
 
-	logging.PrintD(3, "Decoded metadata: %v", rw.Meta)
+	logging.D(3, "Decoded metadata: %v", rw.Meta)
 	return nil
 }
 
@@ -4540,77 +4831,158 @@ func (rw *JSONFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 	return nil
 }
 
-// replaceMetaSuffix applies suffix replacement to the fields in the JSON data
-func (rw *JSONFileRW) replaceMetaSuffix(data map[string]interface{}, sfx []*models.MetaReplaceSuffix) (bool, error) {
+// replaceMeta makes user defined meta replacements
+func (rw *JSONFileRW) replaceJson(data map[string]interface{}, replace []*models.MetaReplace) (bool, error) {
 
-	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", data)
+	logging.D(5, "Entering replaceJson with data: %v", data)
 
-	if len(sfx) == 0 {
-		logging.PrintE(0, "No new suffix replacements found", keys.MReplaceSfx)
-		return false, nil // No replacements to apply
+	if len(replace) == 0 {
+		logging.E(0, "Called replaceMeta without replacements")
+		return false, nil
 	}
 
-	newAddition := false
-	for _, replace := range sfx {
-		if replace.Field == "" || replace.Suffix == "" {
+	edited := false
+	for _, replacement := range replace {
+		if replacement.Field == "" || replacement.Value == "" {
 			continue
 		}
 
-		if value, found := data[replace.Field]; found {
-
-			if strValue, ok := value.(string); ok {
-
-				logging.PrintD(2, "Identified input JSON field '%v', trimming off '%v'", value, replace.Suffix)
-
-				if strings.HasSuffix(strValue, replace.Suffix) {
-					newValue := strings.TrimSuffix(strValue, replace.Suffix) + replace.Replacement
-					newValue = strings.TrimSpace(newValue)
-
-					logging.PrintD(2, "Changing '%v' to new value '%v'", replace.Field, newValue)
-					data[replace.Field] = newValue
-					newAddition = true
-				}
+		if val, exists := data[replacement.Field]; exists {
+			if strVal, ok := val.(string); ok {
+				logging.D(3, "Identified field '%s', replacing '%s' with '%s'", replacement.Field, replacement.Value, replacement.Replacement)
+				data[replacement.Field] = strings.ReplaceAll(strVal, replacement.Value, replacement.Replacement)
+				edited = true
 			}
 		}
 	}
-	logging.PrintD(3, "After meta suffix replace: %v", data)
-
-	return newAddition, nil
+	logging.D(5, "After meta replace: %v", data)
+	return edited, nil
 }
 
-// replaceMetaPrefix applies prefix replacement to the fields in the JSON data
-func (rw *JSONFileRW) replaceMetaPrefix(data map[string]interface{}, pfx []*models.MetaReplacePrefix) (bool, error) {
+// trimMetaPrefix trims defined prefixes from specified fields
+func (rw *JSONFileRW) trimJsonPrefix(data map[string]interface{}, trimPfx []*models.MetaTrimPrefix) (bool, error) {
 
-	if len(pfx) == 0 {
-		logging.PrintE(0, "No new prefix replacements found", keys.MReplacePfx)
-		return false, nil // No replacements to apply
+	logging.D(5, "Entering trimJsonPrefix with data: %v", data)
+
+	if len(trimPfx) == 0 {
+		logging.E(0, "Called trimMetaPrefix without prefixes to trim")
+		return false, nil
 	}
 
-	newAddition := false
-	for _, replace := range pfx {
-		if replace.Field == "" || replace.Prefix == "" {
+	edited := false
+	for _, prefix := range trimPfx {
+		if prefix.Field == "" || prefix.Prefix == "" {
 			continue
 		}
 
-		if value, found := data[replace.Field]; found {
-			if strValue, ok := value.(string); ok {
-
-				if strings.HasPrefix(strValue, replace.Prefix) {
-					newValue := strings.TrimPrefix(strValue, replace.Prefix) + replace.Replacement
-					newValue = strings.TrimSpace(newValue)
-					data[replace.Field] = newValue
-					newAddition = true
-				}
+		if val, exists := data[prefix.Field]; exists {
+			if strVal, ok := val.(string); ok {
+				logging.D(3, "Identified field '%s', trimming '%s'", prefix.Field, prefix.Prefix)
+				data[prefix.Field] = strings.TrimPrefix(strVal, prefix.Prefix)
+				edited = true
 			}
 		}
 	}
-	logging.PrintD(3, "After meta prefix replace: %v", data)
+	logging.D(5, "After prefix trim: %v", data)
+	return edited, nil
+}
 
-	return newAddition, nil
+// trimMetaSuffix trims defined suffixes from specified fields
+func (rw *JSONFileRW) trimJsonSuffix(data map[string]interface{}, trimSfx []*models.MetaTrimSuffix) (bool, error) {
+
+	logging.D(5, "Entering trimJsonSuffix with data: %v", data)
+
+	if len(trimSfx) == 0 {
+		logging.E(0, "Called trimMetaSuffix without prefixes to trim")
+		return false, nil
+	}
+
+	edited := false
+	for _, suffix := range trimSfx {
+		if suffix.Field == "" || suffix.Suffix == "" {
+			continue
+		}
+
+		if val, exists := data[suffix.Field]; exists {
+			if strVal, ok := val.(string); ok {
+				logging.D(3, "Identified field '%s', trimming '%s'", suffix.Field, suffix.Suffix)
+				data[suffix.Field] = strings.TrimSuffix(strVal, suffix.Suffix)
+				edited = true
+			}
+		}
+	}
+	logging.D(5, "After suffix trim: %v", data)
+	return edited, nil
+}
+
+// metaAppend appends to the fields in the JSON data
+func (rw *JSONFileRW) jsonAppend(data map[string]interface{}, apnd []*models.MetaAppend) (bool, error) {
+
+	logging.D(5, "Entering jsonAppend with data: %v", data)
+
+	if len(apnd) == 0 {
+		logging.E(0, "No new suffixes to append", keys.MAppend)
+		return false, nil // No replacements to apply
+	}
+
+	edited := false
+	for _, suffix := range apnd {
+		if suffix.Field == "" || suffix.Suffix == "" {
+			continue
+		}
+
+		if value, exists := data[suffix.Field]; exists {
+			if strVal, ok := value.(string); ok {
+				logging.D(3, "Identified input JSON field '%v', appending '%v'", suffix.Field, suffix.Suffix)
+				strVal += suffix.Suffix
+				data[suffix.Field] = strVal
+				edited = true
+			}
+		}
+	}
+	logging.D(5, "After meta suffix append: %v", data)
+
+	return edited, nil
+}
+
+// metaPrefix applies prefixes to the fields in the JSON data
+func (rw *JSONFileRW) jsonPrefix(data map[string]interface{}, pfx []*models.MetaPrefix) (bool, error) {
+
+	logging.D(5, "Entering jsonPrefix with data: %v", data)
+
+	if len(pfx) == 0 {
+		logging.E(0, "No new prefix replacements found", keys.MPrefix)
+		return false, nil // No replacements to apply
+	}
+
+	edited := false
+	for _, prefix := range pfx {
+		if prefix.Field == "" || prefix.Prefix == "" {
+			continue
+		}
+
+		if value, found := data[prefix.Field]; found {
+			if strVal, ok := value.(string); ok {
+				logging.D(3, "Identified input JSON field '%v', adding prefix '%v'", prefix.Field, prefix.Prefix)
+				strVal = prefix.Prefix + strVal
+				data[prefix.Field] = strVal
+				edited = true
+
+			}
+		}
+	}
+	logging.D(5, "After adding prefixes: %v", data)
+
+	return edited, nil
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool, new []*models.MetaNewField) (bool, error) {
+func (rw *JSONFileRW) addNewJsonField(data map[string]interface{}, modelOW bool, new []*models.MetaNewField) (bool, error) {
+
+	if len(new) == 0 {
+		logging.E(0, "No new field additions found", keys.MNewField)
+		return false, nil
+	}
 
 	var (
 		metaOW,
@@ -4624,12 +4996,7 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool,
 		metaPS = config.GetBool(keys.MPreserve)
 	}
 
-	if len(new) == 0 {
-		logging.PrintE(0, "No new field additions found", keys.MNewField)
-		return false, nil
-	}
-
-	logging.PrintD(3, "Retrieved additions for new field data: %v", new)
+	logging.D(3, "Retrieved additions for new field data: %v", new)
 	processedFields := make(map[string]bool, len(new))
 
 	newAddition := false
@@ -4651,7 +5018,7 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool,
 			// Check for context cancellation before proceeding
 			select {
 			case <-ctx.Done():
-				logging.PrintI("Operation canceled for field: %s", addition.Field)
+				logging.I("Operation canceled for field: %s", addition.Field)
 				return false, fmt.Errorf("operation canceled")
 			default:
 				// Proceed
@@ -4667,31 +5034,31 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool,
 
 					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 					if err != nil {
-						logging.PrintE(0, err.Error())
+						logging.E(0, err.Error())
 					}
 					switch reply {
 					case "Y":
-						logging.PrintD(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, rw.File.Name())
+						logging.D(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, rw.File.Name())
 						config.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
 					case "y":
-						logging.PrintD(2, "Received meta overwrite reply as 'y' for %s in %s", existingValue, rw.File.Name())
+						logging.D(2, "Received meta overwrite reply as 'y' for %s in %s", existingValue, rw.File.Name())
 						addition.Field = strings.TrimSpace(addition.Field)
-						logging.PrintD(3, "Adjusted field from '%s' to '%s'\n", data[addition.Field], addition.Field)
+						logging.D(3, "Adjusted field from '%s' to '%s'\n", data[addition.Field], addition.Field)
 
 						data[addition.Field] = addition.Value
 						processedFields[addition.Field] = true
 						newAddition = true
 
 					case "N":
-						logging.PrintD(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, rw.File.Name())
+						logging.D(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, rw.File.Name())
 						config.Set(keys.MPreserve, true)
 						metaPS = true
 						fallthrough
 					case "n":
-						logging.PrintD(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, rw.File.Name())
-						logging.Print("Skipping field '%s'\n", addition.Field)
+						logging.D(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, rw.File.Name())
+						logging.P("Skipping field '%s'\n", addition.Field)
 						processedFields[addition.Field] = true
 					}
 				} else if metaOW { // FieldOverwrite is set
@@ -4711,9 +5078,70 @@ func (rw *JSONFileRW) addNewMetaField(data map[string]interface{}, modelOW bool,
 			newAddition = true
 		}
 	}
-	logging.PrintD(3, "JSON after transformations: %v", data)
+	logging.D(3, "JSON after transformations: %v", data)
 
 	return newAddition, nil
+}
+
+// jsonFieldDateTag sets date tags in designated meta fields
+func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap map[string]*models.MetaDateTag, fd *models.FileData) (bool, error) {
+
+	logging.D(2, "Making metadata date tag for '%s'...", fd.OriginalVideoBaseName)
+
+	if len(dateTagMap) == 0 {
+		logging.D(3, "No date tag operations to perform")
+		return false, nil
+	}
+	if fd == nil {
+		return false, fmt.Errorf("JsonFieldDateTag called with null FileData model")
+	}
+
+	edited := false
+	for field, dateTag := range dateTagMap {
+		if dateTag == nil {
+			logging.E(0, "Nil date tag configuration for field '%s'", field)
+			continue
+		}
+
+		val, exists := data[field]
+		if !exists {
+			logging.D(3, "Field '%s' not found in metadata", field)
+			continue
+		}
+
+		strVal, ok := val.(string)
+		if !ok {
+			logging.D(3, "Field '%s' is not a string value, type: %T", field, val)
+			continue
+		}
+
+		// Generate the date tag
+		tag, err := tags.MetafieldDateTag(data, strVal, dateTag.Format)
+		if err != nil {
+			return false, fmt.Errorf("failed to generate date tag for field '%s': %w", field, err)
+		}
+		if len(tag) < 3 {
+			return false, fmt.Errorf("generated date tag too short for field '%s': '%s'", field, tag)
+		}
+
+		// Apply the tag based on location
+		switch dateTag.Loc {
+		case enums.DATE_TAG_LOC_PFX:
+			data[field] = tag + " " + strVal
+			logging.I("Added date tag '%s' as prefix to field '%s'", tag, field)
+			edited = true
+
+		case enums.DATE_TAG_LOC_SFX:
+			data[field] = strVal + " " + tag
+			logging.I("Added date tag '%s' as suffix to field '%s'", tag, field)
+			edited = true
+
+		default:
+			return false, fmt.Errorf("invalid date tag location enum: %v", dateTag.Loc)
+		}
+	}
+
+	return edited, nil
 }
 package metadata
 
@@ -4742,7 +5170,7 @@ type NFOFileRW struct {
 
 // NewNFOFileRW creates a new instance of the NFO file reader/writer
 func NewNFOFileRW(file *os.File) *NFOFileRW {
-	logging.PrintD(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
+	logging.D(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
 	return &NFOFileRW{
 		File: file,
 	}
@@ -4780,7 +5208,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	}
 
 	rw.Model = input
-	logging.PrintD(3, "Decoded metadata: %v", rw.Model)
+	logging.D(3, "Decoded metadata: %v", rw.Model)
 
 	return rw.Model, nil
 }
@@ -4802,13 +5230,13 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 		return nil, fmt.Errorf("failed to decode xml: %w", err)
 	}
 
-	logging.PrintD(3, "Decoded metadata: %v", rw.Model)
+	logging.D(3, "Decoded metadata: %v", rw.Model)
 
 	return rw.Model, nil
 }
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file
-func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, wd *models.MetadataWebData) (bool, error) {
+func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileData) (bool, error) {
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
 		return false, fmt.Errorf("invalid XML: missing movie tag")
@@ -4816,73 +5244,134 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, wd *models.Metada
 
 	var (
 		edited, ok bool
-		pfx        []*models.MetaReplacePrefix
-		sfx        []*models.MetaReplaceSuffix
-		new        []*models.MetaNewField
+		newContent string
+		err        error
+
+		trimPfx []*models.MetaTrimPrefix
+		trimSfx []*models.MetaTrimSuffix
+
+		apnd []*models.MetaAppend
+		pfx  []*models.MetaPrefix
+
+		new []*models.MetaNewField
+
+		replace []*models.MetaReplace
 	)
 
-	if config.IsSet(keys.MReplacePfx) {
-		pfx, ok = config.Get(keys.MReplacePfx).([]*models.MetaReplacePrefix)
-		if !ok {
-			return false, fmt.Errorf("invalid prefix configuration")
-		}
-	}
-	if config.IsSet(keys.MReplaceSfx) {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
-		if !ok {
-			return false, fmt.Errorf("invalid suffix configuration")
-		}
-	}
-	if config.IsSet(keys.MNewField) {
-		new, ok = config.Get(keys.MNewField).([]*models.MetaNewField)
-		if !ok {
-			return false, fmt.Errorf("invalid new field configuration")
+	// Replacements
+	if len(fd.ModelMReplace) > 0 {
+		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
+		replace = fd.ModelMReplace
+	} else if config.IsSet(keys.MReplaceText) {
+		if replace, ok = config.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
+			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
 
-	// Track content at each step
-	currentContent := data
-
-	// Add new fields first
-	if len(new) > 0 {
-		modified, updated, err := rw.addMetaFields(currentContent)
-		if err != nil {
-			logging.PrintE(0, "New field addition error: %v", err)
+	// Field trim
+	if len(fd.ModelMTrimPrefix) > 0 {
+		logging.I("Model for file '%s' trimming prefixes", fd.OriginalVideoBaseName)
+		trimPfx = fd.ModelMTrimPrefix
+	} else if config.IsSet(keys.MTrimPrefix) {
+		if trimPfx, ok = config.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
+			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
-		if updated {
-			currentContent = string(modified)
+	}
+
+	if len(fd.ModelMTrimSuffix) > 0 {
+		logging.I("Model for file '%s' trimming suffixes", fd.OriginalVideoBaseName)
+		trimSfx = fd.ModelMTrimSuffix
+	} else if config.IsSet(keys.MTrimSuffix) {
+		if trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
+			logging.E(0, "Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
+		}
+	}
+
+	// Append and prefix
+	if len(fd.ModelMAppend) > 0 {
+		logging.I("Model for file '%s' adding appends", fd.OriginalVideoBaseName)
+		apnd = fd.ModelMAppend
+	} else if config.IsSet(keys.MAppend) {
+		if apnd, ok = config.Get(keys.MAppend).([]*models.MetaAppend); !ok {
+			logging.E(0, "Count not retrieve appends, wrong type: '%T'", apnd)
+		}
+	}
+
+	if len(fd.ModelMPrefix) > 0 {
+		logging.I("Model for file '%s' adding prefixes", fd.OriginalVideoBaseName)
+		pfx = fd.ModelMPrefix
+	} else if config.IsSet(keys.MPrefix) {
+		if pfx, ok = config.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
+			logging.E(0, "Count not retrieve prefix, wrong type: '%T'", pfx)
+		}
+	}
+
+	// New fields
+	if len(fd.ModelMNewField) > 0 {
+		logging.I("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
+		new = fd.ModelMNewField
+	} else if config.IsSet(keys.MNewField) {
+		if new, ok = config.Get(keys.MNewField).([]*models.MetaNewField); !ok {
+			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+		}
+	}
+
+	// Make edits:
+	// Replace
+	if len(replace) > 0 {
+		if newContent, ok, err = rw.replaceXml(data, replace); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
 			edited = true
 		}
-		logging.PrintD(3, "After new field additions: %s", currentContent)
 	}
 
-	// Prefix replacements
+	// Trim
+	if len(trimPfx) > 0 {
+		if newContent, ok, err = rw.trimXmlPrefix(data, trimPfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	if len(trimSfx) > 0 {
+		if newContent, ok, err = rw.trimXmlSuffix(data, trimSfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	// Append and prefix
+	if len(apnd) > 0 {
+		if newContent, ok, err = rw.xmlAppend(data, apnd); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
 	if len(pfx) > 0 {
-		modified, updated, err := rw.replaceMetaPrefix(currentContent)
-		if err != nil {
-			logging.PrintE(0, "Prefix replacement error: %v", err)
-		}
-		if updated {
-			currentContent = string(modified)
+		if newContent, ok, err = rw.xmlPrefix(data, pfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
 			edited = true
 		}
 	}
 
-	// Suffix replacements
-	if len(sfx) > 0 {
-		modified, updated, err := rw.replaceMetaSuffix(currentContent)
-		if err != nil {
-			logging.PrintE(0, "Suffix replacement error: %v", err)
-		}
-		if updated {
-			currentContent = string(modified)
+	// Add new
+	if len(new) > 0 {
+		if newContent, ok, err = rw.addNewXmlFields(data, fd.ModelMOverwrite, new); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
 			edited = true
 		}
 	}
 
 	// Only write if changes were made
 	if edited {
-		if err := rw.writeMetadataToFile(file, []byte(currentContent)); err != nil {
+		if err := rw.writeMetadataToFile(file, []byte(newContent)); err != nil {
 			return false, fmt.Errorf("failed to refresh metadata: %w", err)
 		}
 	}
@@ -4949,27 +5438,23 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 	return writer.Flush()
 }
 
-// replaceMetaSuffix applies suffix replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve suffixes, wrong type: '%T'", sfx)
-	}
+// replaceMeta applies meta replacement to the fields in the xml data
+func (rw *NFOFileRW) replaceXml(data string, replace []*models.MetaReplace) (string, bool, error) {
 
-	logging.PrintD(3, "Entering replaceMetaSuffix with data: %v", string(data))
+	logging.D(5, "Entering replaceXml with data: %v", string(data))
 
-	if len(sfx) == 0 {
+	if len(replace) == 0 {
 		return data, false, nil // No replacements to apply
 	}
 
-	newAddition := false
-	for _, replace := range sfx {
-		if replace.Field == "" || replace.Suffix == "" {
+	edited := false
+	for _, replacement := range replace {
+		if replacement.Field == "" || replacement.Value == "" {
 			continue
 		}
 
-		startTag := fmt.Sprintf("<%s>", replace.Field)
-		endTag := fmt.Sprintf("</%s>", replace.Field)
+		startTag := fmt.Sprintf("<%s>", replacement.Field)
+		endTag := fmt.Sprintf("</%s>", replacement.Field)
 
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
@@ -4980,42 +5465,33 @@ func (rw *NFOFileRW) replaceMetaSuffix(data string) (string, bool, error) {
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.PrintD(2, "Identified input xml field '%v', trimming off '%v'", content, replace.Suffix)
+		logging.D(2, "Identified input xml field '%s', replacing '%s' with '%s'", replacement.Field, replacement.Value, replacement.Replacement)
 
-		if strings.HasSuffix(data, replace.Suffix) {
-			newContent := strings.TrimSuffix(data, replace.Suffix) + replace.Replacement
-			newContent = strings.TrimSpace(newContent)
-
-			logging.PrintD(2, "Changing '%v' to new value '%v'", replace.Field, newContent)
-
-			data = data[:contentStart] + newContent + data[endIdx:]
-			newAddition = true
-		}
+		content = strings.ReplaceAll(content, replacement.Value, replacement.Replacement)
+		data = data[:contentStart] + content + data[endIdx:]
+		edited = true
 	}
-	return data, newAddition, nil
+	logging.D(5, "After meta replacements: %v", data)
+	return data, edited, nil
 }
 
-// replaceMetaPrefix applies Prefix replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
-	sfx, ok := config.Get(keys.MReplaceSfx).([]*models.MetaReplacePrefix)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve prefixes, wrong type: '%T'", sfx)
-	}
+// trimMetaPrefix applies meta replacement to the fields in the xml data
+func (rw *NFOFileRW) trimXmlPrefix(data string, trimPfx []*models.MetaTrimPrefix) (string, bool, error) {
 
-	logging.PrintD(3, "Entering replaceMetaPrefix with data: %v", data)
+	logging.D(5, "Entering trimXmlPrefix with data: %v", string(data))
 
-	if len(sfx) == 0 {
+	if len(trimPfx) == 0 {
 		return data, false, nil // No replacements to apply
 	}
 
-	newAddition := false
-	for _, replace := range sfx {
-		if replace.Field == "" || replace.Prefix == "" {
+	edited := false
+	for _, prefix := range trimPfx {
+		if prefix.Field == "" || prefix.Prefix == "" {
 			continue
 		}
 
-		startTag := fmt.Sprintf("<%s>", replace.Field)
-		endTag := fmt.Sprintf("</%s>", replace.Field)
+		startTag := fmt.Sprintf("<%s>", prefix.Field)
+		endTag := fmt.Sprintf("</%s>", prefix.Field)
 
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
@@ -5026,36 +5502,147 @@ func (rw *NFOFileRW) replaceMetaPrefix(data string) (string, bool, error) {
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.PrintD(2, "Identified input xml field '%v', trimming off '%v'", content, replace.Prefix)
+		logging.D(2, "Identified input xml field '%s', trimming prefix '%s'", prefix.Field, prefix.Prefix)
 
-		if strings.HasPrefix(data, replace.Prefix) {
-			newContent := strings.TrimPrefix(data, replace.Prefix) + replace.Replacement
-			newContent = strings.TrimSpace(newContent)
-
-			logging.PrintD(2, "Changing '%v' to new value '%v'", replace.Field, newContent)
-
-			data = data[:contentStart] + newContent + data[endIdx:]
-			newAddition = true
-		}
+		content = strings.TrimPrefix(content, prefix.Prefix)
+		data = data[:contentStart] + content + data[endIdx:]
+		edited = true
 	}
-	return data, newAddition, nil
+	logging.D(5, "After trimming prefixes: %v", data)
+	return data, edited, nil
+}
+
+// trimMetaSuffix trims specified
+func (rw *NFOFileRW) trimXmlSuffix(data string, trimSfx []*models.MetaTrimSuffix) (string, bool, error) {
+
+	logging.D(5, "Entering trimXmlSuffix with data: %v", string(data))
+
+	if len(trimSfx) == 0 {
+		return data, false, nil // No replacements to apply
+	}
+
+	edited := false
+	for _, suffix := range trimSfx {
+		if suffix.Field == "" || suffix.Suffix == "" {
+			continue
+		}
+
+		startTag := fmt.Sprintf("<%s>", suffix.Field)
+		endTag := fmt.Sprintf("</%s>", suffix.Field)
+
+		startIdx := strings.Index(data, startTag)
+		endIdx := strings.Index(data, endTag)
+		if startIdx == -1 || endIdx == -1 {
+			continue // One or both tags missing
+		}
+
+		contentStart := startIdx + len(startTag)
+		content := strings.TrimSpace(data[contentStart:endIdx])
+
+		logging.D(2, "Identified input xml field '%s', trimming suffix '%s'", suffix.Field, suffix.Suffix)
+
+		content = strings.TrimSuffix(content, suffix.Suffix)
+		data = data[:contentStart] + content + data[endIdx:]
+		edited = true
+	}
+	logging.D(5, "After meta replacements: %v", data)
+	return data, edited, nil
+}
+
+// trimMetaPrefix applies meta replacement to the fields in the xml data
+func (rw *NFOFileRW) xmlPrefix(data string, pfx []*models.MetaPrefix) (string, bool, error) {
+
+	logging.D(5, "Entering xmlPrefix with data: %v", string(data))
+
+	if len(pfx) == 0 {
+		return data, false, nil // No replacements to apply
+	}
+
+	edited := false
+	for _, prefix := range pfx {
+		if prefix.Field == "" || prefix.Prefix == "" {
+			continue
+		}
+
+		startTag := fmt.Sprintf("<%s>", prefix.Field)
+		endTag := fmt.Sprintf("</%s>", prefix.Field)
+
+		startIdx := strings.Index(data, startTag)
+		endIdx := strings.Index(data, endTag)
+		if startIdx == -1 || endIdx == -1 {
+			continue // One or both tags missing
+		}
+
+		contentStart := startIdx + len(startTag)
+		content := strings.TrimSpace(data[contentStart:endIdx])
+
+		logging.D(2, "Identified input xml field '%s', adding prefix '%s'", prefix.Field, prefix.Prefix)
+
+		data = data[:contentStart] + prefix.Prefix + content + data[endIdx:]
+		edited = true
+	}
+	logging.D(5, "After trimming prefixes: %v", data)
+	return data, edited, nil
+}
+
+// trimMetaSuffix trims specified
+func (rw *NFOFileRW) xmlAppend(data string, apnd []*models.MetaAppend) (string, bool, error) {
+
+	logging.D(5, "Entering xmlAppend with data: %v", string(data))
+
+	if len(apnd) == 0 {
+		return data, false, nil // No replacements to apply
+	}
+
+	edited := false
+	for _, append := range apnd {
+		if append.Field == "" || append.Suffix == "" {
+			continue
+		}
+
+		startTag := fmt.Sprintf("<%s>", append.Field)
+		endTag := fmt.Sprintf("</%s>", append.Field)
+
+		startIdx := strings.Index(data, startTag)
+		endIdx := strings.Index(data, endTag)
+		if startIdx == -1 || endIdx == -1 {
+			continue // One or both tags missing
+		}
+
+		contentStart := startIdx + len(startTag)
+		content := strings.TrimSpace(data[contentStart:endIdx])
+
+		logging.D(2, "Identified input xml field '%s', appending suffix '%s'", append.Field, append.Suffix)
+
+		data = data[:contentStart] + content + append.Suffix + data[endIdx:]
+		edited = true
+	}
+	logging.D(5, "After meta replacements: %v", data)
+	return data, edited, nil
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
-	new, ok := config.Get(keys.MNewField).([]*models.MetaNewField)
-	if !ok {
-		logging.PrintE(0, "Could not retrieve new fields, wrong type: '%T'", new)
-	}
-	metaOW := config.GetBool(keys.MOverwrite)
-	metaPS := config.GetBool(keys.MPreserve)
+func (rw *NFOFileRW) addNewXmlFields(data string, ow bool, new []*models.MetaNewField) (string, bool, error) {
+
+	var (
+		metaOW,
+		metaPS bool
+	)
+
+	logging.D(5, "Entering addNewXmlFields with data: %v", string(data))
 
 	if len(new) == 0 {
-		logging.PrintD(2, "Key %s is not set in Viper", keys.MNewField)
-		return data, false, nil
+		return data, false, nil // No replacements to apply
 	}
 
-	logging.PrintD(3, "Retrieved additions for new field data: %v", new)
+	if ow {
+		metaOW = true
+	} else {
+		metaOW = config.GetBool(keys.MOverwrite)
+		metaPS = config.GetBool(keys.MPreserve)
+	}
+
+	logging.D(3, "Retrieved additions for new field data: %v", new)
 
 	newAddition := false
 	ctx := context.Background()
@@ -5072,7 +5659,7 @@ func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 			actorNameCheck := fmt.Sprintf("<name>%s</name>", rw.flattenField(addition.Value))
 
 			if strings.Contains(flatData, actorNameCheck) {
-				logging.PrintI("Actor '%s' is already inserted in the metadata, no need to add...", addition.Value)
+				logging.I("Actor '%s' is already inserted in the metadata, no need to add...", addition.Value)
 			} else {
 				if modified, ok := rw.addNewActorField(data, addition.Value); ok {
 					data = modified
@@ -5105,7 +5692,7 @@ func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 			// Check for context cancellation
 			select {
 			case <-ctx.Done():
-				logging.PrintI("Operation canceled for field: %s", addition.Field)
+				logging.I("Operation canceled for field: %s", addition.Field)
 				return data, false, fmt.Errorf("operation canceled")
 			default:
 				// Proceed
@@ -5117,7 +5704,7 @@ func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 
 				reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 				if err != nil {
-					logging.PrintE(0, err.Error())
+					logging.E(0, err.Error())
 				}
 
 				switch reply {
@@ -5133,7 +5720,7 @@ func (rw *NFOFileRW) addMetaFields(data string) (string, bool, error) {
 					metaPS = true
 					fallthrough
 				case "n":
-					logging.PrintD(2, "Skipping field: %s", addition.Field)
+					logging.D(2, "Skipping field: %s", addition.Field)
 				}
 			} else if metaOW {
 				data = data[:startContent] + addition.Value + data[endIdx:]
@@ -5166,13 +5753,13 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		// No cast tag exists, create new structure
 		movieStart := strings.Index(data, "<movie>")
 		if movieStart == -1 {
-			logging.PrintE(0, "Invalid XML structure: no movie tag found")
+			logging.E(0, "Invalid XML structure: no movie tag found")
 			return data, false
 		}
 
 		movieEnd := strings.Index(data, "</movie>")
 		if movieEnd == -1 {
-			logging.PrintE(0, "Invalid XML structure: no closing movie tag found")
+			logging.E(0, "Invalid XML structure: no closing movie tag found")
 			return data, false
 		}
 
@@ -5182,7 +5769,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		// Find the right spot to insert
 		contentStart := movieStart + len("<movie>")
 		if contentStart >= len(data) {
-			logging.PrintE(0, "Invalid XML structure: movie tag at end of data")
+			logging.E(0, "Invalid XML structure: movie tag at end of data")
 			return data, false
 		}
 
@@ -5191,7 +5778,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 
 	// Cast exists, validate indices
 	if castStart == -1 || castEnd == -1 || castStart >= len(data) || castEnd > len(data) {
-		logging.PrintE(0, "Invalid XML structure: mismatched cast tags")
+		logging.E(0, "Invalid XML structure: mismatched cast tags")
 		return data, false
 	}
 
@@ -5277,9 +5864,13 @@ type FileData struct {
 	NFOFileRW  NFOFileRW
 
 	// Own transformations
-	ModelMSfxReplace    []*MetaReplaceSuffix
-	ModelMPfxReplace    []*MetaReplacePrefix
-	ModelMNewField      []*MetaNewField
+	ModelMAppend     []*MetaAppend
+	ModelMNewField   []*MetaNewField
+	ModelMPrefix     []*MetaPrefix
+	ModelMReplace    []*MetaReplace
+	ModelMTrimPrefix []*MetaTrimPrefix
+	ModelMTrimSuffix []*MetaTrimSuffix
+
 	ModelFileSfxReplace []*FilenameReplaceSuffix
 
 	// Misc
@@ -5303,7 +5894,7 @@ type JSONFileRW interface {
 type NFOFileRW interface {
 	DecodeMetadata(file *os.File) (*NFOData, error)
 	RefreshMetadata() (*NFOData, error)
-	MakeMetaEdits(data string, file *os.File, wd *MetadataWebData) (bool, error)
+	MakeMetaEdits(data string, file *os.File, fd *FileData) (bool, error)
 }
 package models
 
@@ -5312,24 +5903,32 @@ import (
 	"net/http"
 )
 
-func NewMetaReplaceSuffix(f, s, r string) *MetaReplaceSuffix {
-	return &MetaReplaceSuffix{
-		Field:       f,
-		Suffix:      s,
-		Replacement: r,
-	}
+// func NewMetaReplaceSuffix(f, s, r string) *MetaReplaceSuffix {
+// 	return &MetaReplaceSuffix{
+// 		Field:       f,
+// 		Suffix:      s,
+// 		Replacement: r,
+// 	}
+// }
+
+type MetaAppend struct {
+	Field  string
+	Suffix string
 }
 
-type MetaReplaceSuffix struct {
-	Field       string
-	Suffix      string
-	Replacement string
+type MetaPrefix struct {
+	Field  string
+	Prefix string
 }
 
-type MetaReplacePrefix struct {
-	Field       string
-	Prefix      string
-	Replacement string
+type MetaTrimPrefix struct {
+	Field  string
+	Prefix string
+}
+
+type MetaTrimSuffix struct {
+	Field  string
+	Suffix string
 }
 
 type MetaNewField struct {
@@ -5337,18 +5936,22 @@ type MetaNewField struct {
 	Value string
 }
 
+type MetaDateTag struct {
+	Loc    enums.MetaDateTagLocation
+	Format enums.DateFormat
+}
+
+type MetaReplace struct {
+	Field       string
+	Value       string
+	Replacement string
+}
+
 type FilenameDatePrefix struct {
 	YearLength  int
 	MonthLength int
 	DayLength   int
-	Order       enums.FilenameDateFormat
-}
-
-func NewFilenameReplaceSuffix(s, r string) *FilenameReplaceSuffix {
-	return &FilenameReplaceSuffix{
-		Suffix:      s,
-		Replacement: r,
-	}
+	Order       enums.DateFormat
 }
 
 type FilenameReplaceSuffix struct {
@@ -5499,6 +6102,11 @@ type SelectorRule struct {
 	Process  func(string) string
 	JsonPath []string
 }
+
+type CustomCookieSource struct {
+	Browser string
+	Dir     string
+}
 package processing
 
 import (
@@ -5549,7 +6157,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
 		}
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 	}
@@ -5562,7 +6170,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 		}
 		if err != nil {
-			logging.PrintE(0, "Error fetching video files: %v", err)
+			logging.E(0, "Error fetching video files: %v", err)
 			os.Exit(1)
 		}
 
@@ -5570,7 +6178,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		if !skipVideos {
 			matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap)
 			if err != nil {
-				logging.PrintE(0, "Error matching videos with metadata: %v", err)
+				logging.E(0, "Error matching videos with metadata: %v", err)
 				os.Exit(1)
 			}
 		} else {
@@ -5584,8 +6192,8 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
-	logging.PrintI("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
-	logging.PrintD(3, "Matched metafiles: %v", matchedFiles)
+	logging.I("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
+	logging.D(3, "Matched metafiles: %v", matchedFiles)
 
 	for _, fileData := range matchedFiles {
 		var (
@@ -5596,17 +6204,17 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		if !config.IsSet(keys.SkipVideos) || metaChanges() {
 			switch fileData.MetaFileType {
 			case enums.METAFILE_JSON:
-				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
+				logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
 				processedData, err = reader.ProcessJSONFile(fileData)
 
 			case enums.METAFILE_NFO:
-				logging.PrintD(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
+				logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
 				processedData, err = reader.ProcessNFOFiles(fileData)
 			}
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("error processing metadata for file: %w", err)
-				logging.PrintE(0, errMsg.Error())
+				logging.E(0, errMsg.Error())
 				return
 			}
 			processedDataArray = append(processedDataArray, processedData)
@@ -5626,9 +6234,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
 			fmt.Printf("\nFailed to cleanup temp files: %v", err)
-			logging.PrintE(0, "Failed to cleanup temp files", err)
+			logging.E(0, "Failed to cleanup temp files", err)
 		}
-		logging.PrintI("Process was interrupted by a syscall", nil)
+		logging.I("Process was interrupted by a syscall", nil)
 
 		wg.Wait()
 		os.Exit(0)
@@ -5645,7 +6253,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	err = cleanupTempFiles(videoMap)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.PrintE(0, "Failed to cleanup temp files: %v", err)
+		logging.E(0, "Failed to cleanup temp files: %v", err)
 	}
 
 	var (
@@ -5655,9 +6263,9 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 	if config.IsSet(keys.Rename) {
 		if replaceToStyle, ok = config.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
-			logging.PrintE(0, "Received wrong type for rename style. Got %T", replaceToStyle)
+			logging.E(0, "Received wrong type for rename style. Got %T", replaceToStyle)
 		} else {
-			logging.PrintD(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
+			logging.D(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
 		}
 	}
 
@@ -5666,18 +6274,18 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	err = transformations.FileRename(processedDataArray, replaceToStyle)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.PrintE(0, "Failed to rename files: %v", err)
+		logging.E(0, "Failed to rename files: %v", err)
 	} else {
-		logging.PrintS(0, "Successfully formatted file names in directory: %v", inputVideoDir)
+		logging.S(0, "Successfully formatted file names in directory: %v", inputVideoDir)
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
 
-		logging.PrintS(0, "Successfully processed all videos in directory (%v) with no errors.", inputVideoDir)
+		logging.S(0, "Successfully processed all videos in directory (%v) with no errors.", inputVideoDir)
 		fmt.Println()
 	} else {
 
-		logging.PrintE(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
+		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
 		fmt.Println()
 	}
 }
@@ -5715,9 +6323,9 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		isVideoFile := fileData.OriginalVideoPath != ""
 
 		if isVideoFile {
-			logging.PrintI("Processing file: %s", fileName)
+			logging.I("Processing file: %s", fileName)
 		} else {
-			logging.PrintI("Processing metadata file: %s", fileName)
+			logging.I("Processing metadata file: %s", fileName)
 		}
 
 		if isVideoFile && !skipVideos {
@@ -5725,12 +6333,12 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
-				logging.PrintE(0, errMsg.Error())
+				logging.E(0, errMsg.Error())
 			} else {
-				logging.PrintS(0, "Successfully processed video %s", fileName)
+				logging.S(0, "Successfully processed video %s", fileName)
 			}
 		} else {
-			logging.PrintS(0, "Successfully processed metadata for %s", fileName)
+			logging.S(0, "Successfully processed metadata for %s", fileName)
 		}
 
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
@@ -5752,25 +6360,45 @@ import (
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 )
 
+var (
+	muResource sync.Mutex
+)
+
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
+	var (
+		resourceMsg bool
+		backoff     = time.Second
+		maxBackoff  = 10 * time.Second
+	)
 
-	var resourceMsg bool
-	audioMemoryThreshold := config.GetUint64(keys.MinMemMB)
+	memoryThreshold := config.GetUint64(keys.MinMemMB)
 
 	for {
 		// Fetch system resources and determine if processing can proceed
-		proceed, availableMemory, CPUUsage, err := checkSysResources(audioMemoryThreshold)
+		muResource.Lock()
+		proceed, availableMemory, CPUUsage, err := checkSysResources(memoryThreshold)
+		muResource.Unlock()
+
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
-			logging.PrintE(0, "Error checking system resources: %v", err)
+			logging.E(0, "Error checking system resources: %v", err)
+
+			time.Sleep(backoff)
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			continue
 		}
+
 		if proceed {
 			resourceMsg = false
 			break
@@ -5778,11 +6406,16 @@ func sysResourceLoop(fileStr string) {
 
 		// Log resource info only once when insufficient resources are detected
 		if !resourceMsg {
-			logging.PrintI("Not enough system resources to process %s, waiting...", fileStr)
-			logging.PrintD(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(1024*1024), CPUUsage)
+			logging.I("Not enough system resources to process %s, waiting...", fileStr)
+			logging.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(1024*1024), CPUUsage)
 			resourceMsg = true
 		}
-		time.Sleep(1 * time.Second) // Wait before checking again
+
+		time.Sleep(backoff)
+		backoff *= 2
+		if backoff > maxBackoff {
+			backoff = maxBackoff
+		}
 	}
 }
 
@@ -5825,20 +6458,25 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 
 // metaChanges determines if metadata should be processed
 func metaChanges() bool {
-	response := false
-	if config.IsSet(keys.MReplacePfx) {
-		response = true
+	if config.IsSet(keys.MAppend) {
+		return true
 	}
-	if config.IsSet(keys.MReplaceSfx) {
-		response = true
+	if config.IsSet(keys.MPrefix) {
+		return true
 	}
 	if config.IsSet(keys.MNewField) {
-		response = true
+		return true
+	}
+	if config.IsSet(keys.MTrimPrefix) {
+		return true
+	}
+	if config.IsSet(keys.MTrimSuffix) {
+		return true
 	}
 	if config.IsSet(keys.FileDateFmt) {
-		response = true
+		return true
 	}
-	return response
+	return false
 }
 package transformations
 
@@ -5853,49 +6491,73 @@ import (
 // files for censored.tv videos
 func CensoredTvTransformations(fd *models.FileData) {
 
-	logging.PrintI("Making preset censored.tv meta replacements")
+	logging.I("Making preset censored.tv meta replacements")
 
-	censoredTvMSuffixes(fd)
+	censoredTvTrimSuffixes(fd)
 	censoredTvFSuffixes(fd)
 }
 
 // censoredTvMSuffixes adds meta suffix replacements
-func censoredTvMSuffixes(fd *models.FileData) {
+func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	var (
-		sfx []*models.MetaReplaceSuffix
-		ok  bool
+		trimSfx []*models.MetaTrimSuffix
+		ok      bool
 	)
 
-	flagSet := config.IsSet(keys.MReplaceSfx)
-
-	if flagSet {
-		sfx, ok = config.Get(keys.MReplaceSfx).([]*models.MetaReplaceSuffix)
+	if config.IsSet(keys.MTrimSuffix) {
+		trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix)
 		if !ok {
-			logging.PrintE(2, "Got type %T, may be null", sfx)
+			logging.E(2, "Got type %T, may be null", trimSfx)
 		}
 	}
 
-	var new = make([]*models.MetaReplaceSuffix, 0, 4)
-	new = append(new, models.NewMetaReplaceSuffix("title", " (1)", ""))
-	new = append(new, models.NewMetaReplaceSuffix("fulltitle", " (1)", ""))
-	new = append(new, models.NewMetaReplaceSuffix("id", "-1", ""))
-	new = append(new, models.NewMetaReplaceSuffix("display_id", "-1", ""))
+	var new = make([]*models.MetaTrimSuffix, 0, 4)
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "title",
+		Suffix: " (1)",
+	})
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "fulltitle",
+		Suffix: " (1)",
+	})
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "id",
+		Suffix: "-1",
+	})
+
+	new = append(new, &models.MetaTrimSuffix{
+		Field:  "display_id",
+		Suffix: "-1",
+	})
 
 	for _, newSuffix := range new {
 		exists := false
-		for _, existingSuffix := range sfx {
+		for _, existingSuffix := range trimSfx {
 			if existingSuffix.Field == newSuffix.Field {
 				exists = true
 				break
 			}
 		}
 		if !exists {
-			logging.PrintI("Adding new censored.tv meta suffix replacement: %v", newSuffix)
-			sfx = append(sfx, newSuffix)
+			logging.I("Adding new censored.tv meta suffix replacement: %v", newSuffix)
+			trimSfx = append(trimSfx, newSuffix)
 		}
 	}
-	fd.ModelMSfxReplace = sfx
+
+	if logging.Level >= 2 {
+		var entries []string
+		for _, entry := range trimSfx {
+			entries = append(entries, "("+entry.Field+":")
+			entries = append(entries, entry.Suffix+")")
+		}
+		logging.I("After adding preset suffixes, suffixes to be trimmed for '%s': %v", fd.OriginalVideoBaseName, entries)
+	}
+
+	fd.ModelMTrimSuffix = trimSfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements
@@ -5908,21 +6570,21 @@ func censoredTvFSuffixes(fd *models.FileData) {
 	if config.IsSet(keys.FilenameReplaceSfx) {
 		existingSfx, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok {
-			logging.PrintE(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
+			logging.E(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
 		} else {
 			sfx = existingSfx
 		}
 	}
 
-	logging.PrintD(3, "Retrieved file name: %s", v)
+	logging.D(3, "Retrieved file name: %s", v)
 	vExt := ""
 	if len(v) > 1 {
 		check := v[len(v)-2:]
-		logging.PrintD(3, "Got last element of file name: %s", check)
+		logging.D(3, "Got last element of file name: %s", check)
 		switch check {
 		case " 1", "_1":
 			vExt = check
-			logging.PrintD(2, "Found file name suffix: %s", vExt)
+			logging.D(2, "Found file name suffix: %s", vExt)
 		}
 	}
 
@@ -5937,12 +6599,15 @@ func censoredTvFSuffixes(fd *models.FileData) {
 
 	// Add suffix if it does not already exist
 	if !alreadyExists {
-		sfx = append(sfx, models.NewFilenameReplaceSuffix(vExt, ""))
-		logging.PrintI("Added filename suffix replacement '%s'", vExt)
+		sfx = append(sfx, &models.FilenameReplaceSuffix{
+			Suffix:      "_1",
+			Replacement: "",
+		})
+		logging.I("Added filename suffix replacement '%s'", vExt)
 	}
 
 	fd.ModelFileSfxReplace = sfx
-	logging.PrintI("Total filename suffix replacements: %d", len(sfx))
+	logging.I("Total filename suffix replacements: %d", len(sfx))
 }
 package transformations
 
@@ -5961,7 +6626,12 @@ import (
 // FileRename formats the file names
 func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
 
-	var vidExt string
+	var (
+		vidExt,
+		renamedVideo,
+		renamedMeta string
+	)
+
 	skipVideos := config.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
@@ -5970,20 +6640,22 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 
 		videoBase := fd.FinalVideoBaseName
 		originalVPath := fd.FinalVideoPath
-		vidExt = filepath.Ext(fd.OriginalVideoPath)
 
-		renamedVideo := ""
-		renamedMeta := ""
+		if config.IsSet(keys.OutputFiletype) {
+			vidExt = config.GetString(keys.OutputFiletype)
+		} else {
+			vidExt = filepath.Ext(fd.OriginalVideoPath)
+		}
 
 		if !skipVideos {
-			renamedVideo = renameVideo(videoBase, style, fd)
+			renamedVideo = renameFile(videoBase, style, fd)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
 
-			logging.PrintD(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
+			logging.D(2, "Renamed video to %s and metafile to %s", renamedVideo, renamedMeta)
 		} else {
-			renamedMeta = renameMeta(metaBase, style, fd)
+			renamedMeta = renameFile(metaBase, style, fd)
 
-			logging.PrintD(2, "Renamed metafile to %s", renamedMeta)
+			logging.D(2, "Renamed metafile to %s", renamedMeta)
 		}
 
 		var err error
@@ -5998,7 +6670,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		renamedVideo = strings.TrimSpace(renamedVideo)
 		renamedMeta = strings.TrimSpace(renamedMeta)
 
-		logging.PrintD(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
+		logging.D(2, "Rename replacements:\n\nVideo: %v\nMetafile: %v\n\n", renamedVideo, renamedMeta)
 
 		// Construct final output filepaths
 		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt)
@@ -6017,81 +6689,50 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		var deletedMeta bool
 		if config.IsSet(keys.MetaPurge) {
 			if err, deletedMeta = fsWriter.DeleteMetafile(renamedMPath); err != nil {
-				logging.PrintE(0, "Failed to purge metafile: %v", err)
+				logging.E(0, "Failed to purge metafile: %v", err)
 			}
 		}
 
 		if config.IsSet(keys.MoveOnComplete) {
 			if err := fsWriter.MoveFile(deletedMeta); err != nil {
-				logging.PrintE(0, "Failed to move to destination folder: %v", err)
+				logging.E(0, "Failed to move to destination folder: %v", err)
 			}
 		}
 	}
 	return nil
 }
 
-// Performs name transformations for video files
-func renameVideo(videoBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
-	logging.PrintD(2, "Processing video base name: %q", videoBase)
-
-	if config.IsSet(keys.FilenameReplaceSfx) {
-
-		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
-		if !ok && len(fd.ModelFileSfxReplace) == 0 {
-			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-			return videoBase
-		} else {
-			suffixes = fd.ModelFileSfxReplace
-		}
-
-		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-			return videoBase
-		}
-
-		// Transformations
-		if len(suffixes) > 0 {
-			videoBase = replaceSuffix(videoBase, suffixes)
-		}
-	}
-
-	if style != enums.RENAMING_SKIP {
-		videoBase = applyNamingStyle(style, videoBase)
-	} else {
-		logging.PrintD(1, "No naming style selected, skipping rename style")
-	}
-	return videoBase
-}
-
 // Performs name transformations for metafiles
-func renameMeta(metaBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
-	logging.PrintD(2, "Processing metafile base name: %q", metaBase)
+func renameFile(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
+	logging.D(2, "Processing metafile base name: %q", fileBase)
 
-	if config.IsSet(keys.FilenameReplaceSfx) {
+	var (
+		suffixes []*models.FilenameReplaceSuffix
+		ok       bool
+	)
 
-		suffixes, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if len(fd.ModelFileSfxReplace) > 0 {
+		suffixes = fd.ModelFileSfxReplace
+	} else if config.IsSet(keys.FilenameReplaceSfx) {
+		suffixes, ok = config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok && len(fd.ModelFileSfxReplace) == 0 {
-			logging.PrintE(0, "Got wrong type %T for filename replace suffixes", suffixes)
-			return metaBase
-		} else {
-			suffixes = fd.ModelFileSfxReplace
+			logging.E(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			return fileBase
 		}
+	}
 
-		if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
-			return metaBase
-		}
-
-		// Transformations
-		if len(suffixes) > 0 {
-			metaBase = replaceSuffix(metaBase, suffixes)
-		}
+	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+		return fileBase
+	} else if len(suffixes) > 0 {
+		fileBase = replaceSuffix(fileBase, suffixes)
 	}
 
 	if style != enums.RENAMING_SKIP {
-		metaBase = applyNamingStyle(style, metaBase)
+		fileBase = applyNamingStyle(style, fileBase)
 	} else {
-		logging.PrintD(1, "No naming style selected, skipping rename style")
+		logging.D(1, "No naming style selected, skipping rename style")
 	}
-	return metaBase
+	return fileBase
 }
 package transformations
 
@@ -6129,7 +6770,7 @@ func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 	case enums.METAFILE_NFO:
 		return m.NFOBaseName, m.NFODirectory, m.NFOFilePath
 	default:
-		logging.PrintE(0, "No metafile type set in model %v", m)
+		logging.E(0, "No metafile type set in model %v", m)
 		return "", "", ""
 	}
 }
@@ -6143,7 +6784,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 	case enums.RENAMING_UNDERSCORES:
 		output = strings.ReplaceAll(input, " ", "_")
 	default:
-		logging.PrintI("Skipping space or underscore renaming conventions...")
+		logging.I("Skipping space or underscore renaming conventions...")
 		output = input
 	}
 	return output
@@ -6221,7 +6862,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 			b.Reset()
 		}
 
-		logging.PrintD(2, "Made contraction replacements for file '%s'", filename)
+		logging.D(2, "Made contraction replacements for file '%s'", filename)
 		return filename
 	}
 
@@ -6236,27 +6877,31 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 // replaceSuffix applies configured suffix replacements to a filename.
 func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
 
-	logging.PrintD(2, "Received filename %q", filename)
+	logging.D(2, "Received filename %s", filename)
 
-	if suffixes == nil {
-		logging.PrintD(1, "No suffix replacements configured, keeping original filename: %q", filename)
+	if len(suffixes) == 0 {
+		logging.D(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	logging.PrintD(2, "Processing filename %q with suffixes: %v", filename, suffixes)
+	logging.D(2, "Processing filename %s with suffixes: %v", filename, suffixes)
 
 	var result string
 	for _, suffix := range suffixes {
-		logging.PrintD(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
+		logging.D(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
 
 		if strings.HasSuffix(filename, suffix.Suffix) {
 			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
-			logging.PrintD(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
+			logging.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
 		}
 	}
 
-	logging.PrintD(2, "Suffix replacement complete: %q -> %q", filename, result)
-	return result
+	if result != "" {
+		logging.D(2, "Suffix replacement complete: %s -> %s", filename, result)
+		return result
+	}
+
+	return filename
 }
 
 // replaceLoneS performs replacements without regex
@@ -6334,12 +6979,136 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 package utils
 
 import (
+	consts "metarr/internal/domain/constants"
+)
+
+// cookieFilePatterns holds the various filenames for cookie/auth related files by browser
+var cookieFilePatterns = map[string][]string{
+
+	consts.BrowserFirefox: {
+		// Core cookie and storage files
+		"cookies.sqlite",
+		"cookies.sqlite-shm",
+		"cookies.sqlite-wal",
+		"storage.sqlite",
+		"storage.sqlite-shm",
+		"storage.sqlite-wal",
+		"webappsstore.sqlite",
+
+		// Encryption and security
+		"key*.db",
+		"key*.db-journal",
+		"cert9.db",
+		"cert8.db",
+		"pkcs11.txt",
+		"secmod.db",
+		"logins.json",
+		"passwords.json",
+		"signons.sqlite",
+
+		// History and places
+		"places.sqlite",
+		"places.sqlite-shm",
+		"places.sqlite-wal",
+		"favicons.sqlite",
+		"favicons.sqlite-shm",
+		"favicons.sqlite-wal",
+
+		// Session and preferences
+		"prefs.js",
+		"user.js",
+		"sessionstore.js",
+		"sessionstore.jsonlz4",
+		"sessionCheckpoints.json",
+		"permissions.sqlite",
+		"extensions.json",
+		"containers.json",
+	},
+
+	consts.BrowserChrome: {
+		// Core files
+		"Cookies",
+		"Cookies-journal",
+		"Login Data",
+		"Login Data-journal",
+		"Web Data",
+		"Web Data-journal",
+
+		// Local storage
+		"Local Storage/*",
+		"IndexedDB/*",
+
+		// Preferences and sync
+		"Preferences",
+		"Secure Preferences",
+		"Session Storage/*",
+
+		// History
+		"History",
+		"History-journal",
+		"Visited Links",
+
+		// Authentication
+		"Origin Bound Certs",
+		"*.jwt", // Auth token
+		"Network/*",
+		"Extension Cookies",
+		"Extension Cookies-journal",
+	},
+
+	consts.BrowserEdge: { // Similar to Chrome as it's Chromium-based
+		"Cookies",
+		"Cookies-journal",
+		"Login Data",
+		"Login Data-journal",
+		"Web Data",
+		"Web Data-journal",
+		"Local Storage/*",
+		"IndexedDB/*",
+		"Preferences",
+		"Secure Preferences",
+		"Session Storage/*",
+		"History",
+		"History-journal",
+		"Network/*",
+		"Extension Cookies",
+		"Extension Cookies-journal",
+		"*.jwt",           // Edge-specific
+		"Microsoft Edge*", // Edge-specific files
+	},
+
+	consts.BrowserSafari: { // macOS only
+		"Cookies.binarycookies",
+		"Cookies.plist",
+		"LastSession.plist",
+		"History.db",
+		"History.db-shm",
+		"History.db-wal",
+		"Downloads.plist",
+		"Extensions.plist",
+		"Databases/*",
+		"LocalStorage/*",
+		"WebKit/WebsiteData/*",
+		"Preferences.plist",
+		"TopSites.plist",
+		"ApplicationCache.db",
+		"Cache.db",
+		"PerSite/*",
+		"SafeBrowsing/*",
+	},
+}
+package utils
+
+import (
 	"fmt"
 	"metarr/internal/config"
 	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/browserutils/kooky"
@@ -6371,7 +7140,7 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	// If a cookie file path is provided, use it
 	if cookieFilePath != "" {
-		logging.PrintD(2, "Reading cookies from specified file: %s", cookieFilePath)
+		logging.D(2, "Reading cookies from specified file: %s", cookieFilePath)
 		kookyCookies, err := readCookieFile(cookieFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read cookies from file: %v", err)
@@ -6388,30 +7157,30 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 
 	for _, store := range allStores {
 		browserName := store.Browser()
-		logging.PrintD(2, "Attempting to read cookies from %s", browserName)
+		logging.D(2, "Attempting to read cookies from %s", browserName)
 		attemptedBrowsers[browserName] = true
 
 		cookies, err := store.ReadCookies(kooky.Valid, kooky.Domain(baseURL))
 		if err != nil {
-			logging.PrintD(2, "Failed to read cookies from %s: %v", browserName, err)
+			logging.D(2, "Failed to read cookies from %s: %v", browserName, err)
 			continue
 		}
 
 		if len(cookies) > 0 {
-			logging.PrintI("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
+			logging.I("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
 			allCookies = append(allCookies, convertToHTTPCookies(cookies)...)
 		} else {
-			logging.PrintD(2, "No cookies found for %s", browserName)
+			logging.D(2, "No cookies found for %s", browserName)
 		}
 	}
 
 	// Log summary of attempted browsers
-	logging.PrintI("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
+	logging.I("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
 
 	if len(allCookies) == 0 {
-		logging.PrintI("No cookies found for '%s', proceeding without cookies", url)
+		logging.I("No cookies found for '%s', proceeding without cookies", url)
 	} else {
-		logging.PrintI("Found a total of %d cookies for '%s'", len(allCookies), url)
+		logging.I("Found a total of %d cookies for '%s'", len(allCookies), url)
 	}
 
 	return allCookies, nil
@@ -6483,6 +7252,76 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 
 	return cookies, nil
 }
+
+// newCustomCookieSource validates and retrieves a custom cookie source profile
+func newCustomCookieSource() (*models.CustomCookieSource, error) {
+
+	if !config.IsSet(keys.CookiePath) {
+		logging.D(2, "No custom cookie directory sent in")
+		return nil, nil
+	}
+
+	cDir := config.GetString(keys.CookiePath)
+	cDir = filepath.Clean(cDir)
+
+	info, err := os.Stat(cDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("cookie directory does not exist: %w", err)
+		}
+		return nil, err
+	}
+
+	if !info.IsDir() {
+		return nil, fmt.Errorf("cookie directory sent in as file, should be directory")
+	}
+
+	dirContents, err := os.ReadDir(cDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var cSource models.CustomCookieSource
+	foundFiles := make(map[string][]string, len(cookieFilePatterns))
+
+	for browser, patterns := range cookieFilePatterns {
+		for _, pattern := range patterns {
+			// For each file in directory
+			for _, dirFile := range dirContents {
+
+				fileName := dirFile.Name()
+				match, err := filepath.Match(pattern, fileName)
+				if err != nil {
+					logging.D(2, "Pattern matching error: %v", err)
+					continue
+				}
+
+				if match {
+					foundFiles[browser] = append(foundFiles[browser], fileName)
+				}
+			}
+			if len(foundFiles[browser]) == len(cookieFilePatterns[browser]) {
+				logging.S(0, "Got all required cookie and auth files for browser %s", browser)
+				cSource.Browser = browser
+				cSource.Dir = cDir
+				break
+			}
+		}
+	}
+
+	if cSource.Browser == "" {
+		for browser, files := range foundFiles {
+			if len(files) > 0 {
+				logging.D(2, "Found %d files for %s: %v", len(files), browser, files)
+
+				cSource.Browser = browser
+				cSource.Dir = cDir
+			}
+		}
+	}
+
+	return &cSource, nil
+}
 package utils
 
 import (
@@ -6541,7 +7380,7 @@ func BitchuteComParseDate(date string) string {
 	if len(dateSplit) >= 3 {
 		digit, err = strconv.Atoi(dateSplit[0])
 		if err != nil {
-			logging.PrintE(0, "Failed to convert string to digits: %v", err)
+			logging.E(0, "Failed to convert string to digits: %v", err)
 		}
 		unit = strings.TrimSuffix(strings.ToLower(dateSplit[1]), "s") // handles both "hour" and "hours"
 
@@ -6569,11 +7408,11 @@ func BitchuteComParseDate(date string) string {
 		case "year":
 			return now.AddDate(-digit, 0, 0).Format(time.RFC3339)
 		default:
-			logging.PrintE(0, "Unknown time unit: %s", unit)
+			logging.E(0, "Unknown time unit: %s", unit)
 			return ""
 		}
 	}
-	logging.PrintE(0, "Wrong date length passed in")
+	logging.E(0, "Wrong date length passed in")
 	return ""
 }
 package utils
@@ -6606,7 +7445,7 @@ var CensoredTvRules = map[enums.WebClassTags][]*models.SelectorRule{
 // censoredTvChannelName gets the channel name from the URL string
 func CensoredTvChannelName(url string) string {
 	if url == "" {
-		logging.PrintE(0, "url passed in empty")
+		logging.E(0, "url passed in empty")
 		return ""
 	}
 	urlSplit := strings.Split(url, "/")
@@ -6619,7 +7458,7 @@ func CensoredTvChannelName(url string) string {
 	}
 
 	if channel == "" {
-		logging.PrintE(0, "failed to fill channel name from url, out of bounds?")
+		logging.E(0, "failed to fill channel name from url, out of bounds?")
 	}
 	channel = strings.ReplaceAll(channel, "-", " ")
 
@@ -6745,12 +7584,12 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
 	w.Cookies, err = getBrowserCookies(w.WebpageURL)
 	if err != nil {
-		logging.PrintE(2, "Was unable to grab browser cookies: %v", err)
+		logging.E(2, "Was unable to grab browser cookies: %v", err)
 	}
 	for _, try := range w.TryURLs {
 		data, err = scrape(try, w.Cookies, find, false)
 		if err != nil {
-			logging.PrintE(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
+			logging.E(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
 		} else {
 			break
 		}
@@ -6784,13 +7623,13 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 	case strings.Contains(url, "bitchute.com") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using bitchute.com preset scraper")
+		logging.I("Using bitchute.com preset scraper")
 		setupPresetScraping(c, tag, presets.BitchuteComRules, &result, url)
 
 	case strings.Contains(url, "censored.tv") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using censored.tv preset scraper")
+		logging.I("Using censored.tv preset scraper")
 		if tag == enums.WEBCLASS_CREDITS {
 			return presets.CensoredTvChannelName(url), nil
 		}
@@ -6799,17 +7638,17 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 	case strings.Contains(url, "rumble.com") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using rumble.com preset scraper")
+		logging.I("Using rumble.com preset scraper")
 		setupPresetScraping(c, tag, presets.RumbleComRules, &result, url)
 
 	case strings.Contains(url, "odysee.com") && !skipPresets:
 
 		custom = true
-		logging.PrintI("Using odysee.com preset scraper")
+		logging.I("Using odysee.com preset scraper")
 		setupPresetScraping(c, tag, presets.OdyseeComRules, &result, url)
 
 	default:
-		logging.PrintI("Generic scrape attempt...")
+		logging.I("Generic scrape attempt...")
 		setupGenericScraping(c, tag, &result, url)
 	}
 
@@ -6829,7 +7668,7 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 		case "":
 			return "", scrapeError
 		default:
-			logging.PrintE(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
+			logging.E(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
 			return result, nil
 		}
 	}
@@ -6865,7 +7704,7 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 				}
 
 				if value != "" {
-					logging.PrintS(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
+					logging.S(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
 					*result = rule.Process(value)
 				}
 			})
@@ -6906,7 +7745,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 		text := strings.TrimSpace(e.Text)
 
 		if classAttr != "" {
-			logging.PrintD(2, "Checking element with class: '%s'", classAttr)
+			logging.D(2, "Checking element with class: '%s'", classAttr)
 		}
 
 		for _, t := range tags {
@@ -6919,7 +7758,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 				}
 
 				*result = text
-				logging.PrintI("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
+				logging.I("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
 					result, classAttr, idAttr, url)
 				return
 			}
@@ -6993,7 +7832,7 @@ func BackupFile(file *os.File) error {
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)
-	logging.PrintD(3, "Creating backup of file '%s' as '%s'", originalFilePath, backupFilePath)
+	logging.D(3, "Creating backup of file '%s' as '%s'", originalFilePath, backupFilePath)
 
 	// Open the backup file for writing
 	backupFile, err := os.Create(backupFilePath)
@@ -7015,7 +7854,7 @@ func BackupFile(file *os.File) error {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
 	}
 
-	logging.PrintD(3, "Backup successfully created at '%s'", backupFilePath)
+	logging.D(3, "Backup successfully created at '%s'", backupFilePath)
 	return nil
 }
 
@@ -7030,7 +7869,7 @@ func generateBackupFilename(originalFilePath string) string {
 func RenameToBackup(filename string) (backupName string, err error) {
 
 	if filename == "" {
-		logging.PrintE(0, "filename was passed in to backup empty")
+		logging.E(0, "filename was passed in to backup empty")
 	}
 
 	backupName = generateBackupFilename(filename)
@@ -7067,21 +7906,21 @@ var (
 func InitFetchFilesVars() error {
 
 	if inVExts, ok := config.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
-		logging.PrintD(2, "Received video extensions enum: %v", inVExts)
+		logging.D(2, "Received video extensions enum: %v", inVExts)
 		videoExtensions = setVideoExtensions(inVExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
 
 	if inMExts, ok := config.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
-		logging.PrintD(2, "Received video extensions enum: %v", inMExts)
+		logging.D(2, "Received video extensions enum: %v", inMExts)
 		metaExtensions = setMetaExtensions(inMExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
 
 	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
-	logging.PrintD(2, "Setting prefix filter: %v", inputPrefixes)
+	logging.D(2, "Setting prefix filter: %v", inputPrefixes)
 
 	return nil
 }
@@ -7093,7 +7932,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		return nil, fmt.Errorf("error reading video directory: %w", err)
 	}
 
-	logging.Print("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
+	logging.P("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
 
 	videoFiles := make(map[string]*models.FileData, len(files))
 
@@ -7114,9 +7953,9 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 
 			if !strings.HasSuffix(m.OriginalVideoBaseName, consts.OldTag) {
 				videoFiles[file.Name()] = m
-				logging.PrintI("Added video to queue: %v", filenameBase)
+				logging.I("Added video to queue: %v", filenameBase)
 			} else {
-				logging.PrintI("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.OldTag)
+				logging.I("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.OldTag)
 			}
 		}
 	}
@@ -7140,7 +7979,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		if !file.IsDir() {
 			ext := filepath.Ext(file.Name())
 
-			logging.PrintD(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
+			logging.D(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
 
 			if config.IsSet(keys.FilePrefixes) {
 				if !HasPrefix(file.Name(), inputPrefixes) {
@@ -7151,10 +7990,10 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			var match bool
 			for _, mExt := range metaExtensions {
 				if ext != mExt {
-					logging.PrintD(3, "Extension '%s' does not match '%s'", ext, mExt)
+					logging.D(3, "Extension '%s' does not match '%s'", ext, mExt)
 					continue
 				}
-				logging.PrintS(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
+				logging.S(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
 				match = true
 				break
 			}
@@ -7171,7 +8010,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			switch ext {
 			case consts.MExtJSON:
 
-				logging.PrintD(1, "Detected JSON file '%s'", file.Name())
+				logging.D(1, "Detected JSON file '%s'", file.Name())
 				m.JSONFilePath = filePath
 				m.JSONBaseName = baseName
 				m.JSONDirectory = metaDir.Name()
@@ -7179,7 +8018,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 
 			case consts.MExtNFO:
 
-				logging.PrintD(1, "Detected NFO file '%s'", file.Name())
+				logging.D(1, "Detected NFO file '%s'", file.Name())
 				m.NFOFilePath = filePath
 				m.NFOBaseName = baseName
 				m.NFODirectory = metaDir.Name()
@@ -7189,7 +8028,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			if !strings.Contains(baseName, consts.OldTag) {
 				metaFiles[file.Name()] = m
 			} else {
-				logging.PrintI("Skipping file '%s' containing backup tag ('%s')", baseName, consts.OldTag)
+				logging.I("Skipping file '%s' containing backup tag ('%s')", baseName, consts.OldTag)
 			}
 		}
 	}
@@ -7198,7 +8037,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		return nil, fmt.Errorf("no meta files with extensions: %v and prefixes: %v found in directory: %s", metaExtensions, inputPrefixes, metaDir.Name())
 	}
 
-	logging.PrintD(3, "Returning meta files %v", metaFiles)
+	logging.D(3, "Returning meta files %v", metaFiles)
 	return metaFiles, nil
 }
 
@@ -7213,7 +8052,7 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error)
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
 	videoData.VideoFile = videoFile
 
-	logging.PrintD(3, "Created video file data for single file: %s", filename)
+	logging.D(3, "Created video file data for single file: %s", filename)
 
 	videoMap[filename] = videoData
 	return videoMap, nil
@@ -7234,7 +8073,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 		fileData.JSONFilePath = metaFile.Name()
 		fileData.JSONBaseName = strings.TrimSuffix(filename, ext)
 		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
-		logging.PrintD(3, "Created JSON metadata file data for single file: %s", filename)
+		logging.D(3, "Created JSON metadata file data for single file: %s", filename)
 
 	case consts.MExtNFO:
 
@@ -7242,7 +8081,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 		fileData.NFOFilePath = metaFile.Name()
 		fileData.NFOBaseName = strings.TrimSuffix(filename, ext)
 		fileData.NFODirectory = filepath.Dir(metaFile.Name())
-		logging.PrintD(3, "Created NFO metadata file data for single file: %s", filename)
+		logging.D(3, "Created NFO metadata file data for single file: %s", filename)
 
 	default:
 		return nil, fmt.Errorf("unsupported metadata file type: %s", ext)
@@ -7254,7 +8093,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
-	logging.PrintD(3, "Entering metadata and video file matching loop...")
+	logging.D(3, "Entering metadata and video file matching loop...")
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 
@@ -7312,7 +8151,7 @@ import (
 func HasFileExtension(fileName string, extensions []string) bool {
 
 	if extensions == nil {
-		logging.PrintE(0, "No extensions picked.")
+		logging.E(0, "No extensions picked.")
 		return false
 	}
 
@@ -7478,7 +8317,7 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 			metaBase = strings.TrimSuffix(metaBase, consts.MExtNFO)
 
 		default:
-			logging.PrintD(1, "Common suffix not found for metafile (%s)", metaBase)
+			logging.D(1, "Common suffix not found for metafile (%s)", metaBase)
 		}
 	}
 	return metaBase
@@ -7491,6 +8330,7 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	logging "metarr/internal/utils/logging"
@@ -7518,7 +8358,7 @@ func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta strin
 		same++
 	}
 
-	logging.PrintD(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+	logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
 		skipVids, srcVideo, destVideo, srcMeta, destMeta, same)
 	return &FSFileWriter{
 		SkipVids:  skipVids,
@@ -7534,7 +8374,7 @@ func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	logging.PrintD(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
+	logging.D(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
 		fs.SrcMeta, fs.DestMeta)
 
 	if !fs.SkipVids {
@@ -7543,15 +8383,16 @@ func (fs *FSFileWriter) WriteResults() error {
 				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 			}
 		} else {
-			logging.PrintD(2, "Video source and destination files are equal, not moving/renaming...")
+			logging.D(2, "Video source and destination files are equal, not moving/renaming...")
 		}
 	}
+
 	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
 	} else {
-		logging.PrintD(2, "Metadata source and destination files are equal, not moving/renaming...")
+		logging.D(2, "Metadata source and destination files are equal, not moving/renaming...")
 	}
 
 	return nil
@@ -7612,7 +8453,7 @@ func (fs *FSFileWriter) copyFile(src, dst string) error {
 		return fmt.Errorf("entered source file '%s' and destination '%s' file as the same name and same path", src, dst)
 	}
 
-	logging.PrintI("Copying:\n'%s'\nto\n'%s'...", src, dst)
+	logging.I("Copying:\n'%s'\nto\n'%s'...", src, dst)
 
 	// Validate source file
 	sourceInfo, err := os.Stat(src)
@@ -7678,7 +8519,7 @@ func (fs *FSFileWriter) copyFile(src, dst string) error {
 
 	// Set same permissions as source
 	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
-		logging.PrintI("Failed to set file permissions, is destination folder remote? (%v)", err)
+		logging.I("Failed to set file permissions, is destination folder remote? (%v)", err)
 	}
 
 	// Verify destination file
@@ -7720,9 +8561,11 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 		return nil
 	}
 
+	logging.S(0, "Moved file from '%s' to '%s'", src, dst)
+
 	// If cross-device error, fall back to copy+delete
 	if strings.Contains(err.Error(), "invalid cross-device link") {
-		logging.PrintD(1, "Falling back to copy for moving %s to %s", src, dst)
+		logging.D(1, "Falling back to copy for moving '%s' to '%s'", src, dst)
 
 		// Copy the file
 		if err := fs.copyFile(src, dst); err != nil {
@@ -7743,7 +8586,7 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 
 		// Remove source after successful copy and verification
 		if err := os.Remove(src); err != nil {
-			logging.PrintE(0, "Failed to remove source file after verified copy: %v", err)
+			logging.E(0, "Failed to remove source file after verified copy: %v", err)
 			// Operation successful, do not return error, just log the error
 		}
 		return nil
@@ -7770,15 +8613,17 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 	case enums.PURGEMETA_ALL:
 		// Continue
 	case enums.PURGEMETA_JSON:
-		if ext != ".json" {
-			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+		if ext != consts.MExtJSON {
+			logging.D(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
 			return nil, false
 		}
+
 	case enums.PURGEMETA_NFO:
-		if ext != ".nfo" {
-			logging.PrintD(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+		if ext != consts.MExtNFO {
+			logging.D(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
 			return nil, false
 		}
+
 	case enums.PURGEMETA_NONE:
 		return fmt.Errorf("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
 	default:
@@ -7799,10 +8644,10 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 	}
 
 	if err := os.Remove(file); err != nil {
-		return fmt.Errorf("unable to delete JSON file: %w", err), false
+		return fmt.Errorf("unable to delete meta file: %w", err), false
 	}
 
-	logging.PrintS(0, "Successfully deleted metafile. Bye bye '%s'!", file)
+	logging.S(0, "Successfully deleted metafile. Bye bye '%s'!", file)
 
 	return nil, true
 }
@@ -7863,7 +8708,7 @@ var (
 	mu    sync.Mutex
 )
 
-func PrintE(l int, format string, args ...interface{}) string {
+func E(l int, format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -7885,13 +8730,13 @@ func PrintE(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.RedError + format + " " + tag + "\n")
 		}
 		fmt.Print(msg)
-		Write(msg, l)
+		writeLog(msg, l)
 	}
 
 	return msg
 }
 
-func PrintS(l int, format string, args ...interface{}) string {
+func S(l int, format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -7908,12 +8753,12 @@ func PrintS(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.GreenSuccess + format + " \n")
 		}
 		fmt.Print(msg)
-		Write(msg, l)
+		writeLog(msg, l)
 	}
 	return msg
 }
 
-func PrintD(l int, format string, args ...interface{}) string {
+func D(l int, format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -7935,12 +8780,12 @@ func PrintD(l int, format string, args ...interface{}) string {
 			msg = fmt.Sprintf(consts.YellowDebug + format + " " + tag + "\n")
 		}
 		fmt.Print(msg)
-		Write(msg, l)
+		writeLog(msg, l)
 	}
 	return msg
 }
 
-func PrintI(format string, args ...interface{}) string {
+func I(format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -7952,12 +8797,12 @@ func PrintI(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(consts.BlueInfo + format + "\n")
 	}
 	fmt.Print(msg)
-	Write(msg, 0)
+	writeLog(msg, 0)
 
 	return msg
 }
 
-func Print(format string, args ...interface{}) string {
+func P(format string, args ...interface{}) string {
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -7969,7 +8814,7 @@ func Print(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(format + "\n")
 	}
 	fmt.Print(msg)
-	Write(msg, 0)
+	writeLog(msg, 0)
 
 	return msg
 }
@@ -8013,7 +8858,7 @@ func SetupLogging(targetDir string) error {
 }
 
 // Write writes error information to the log file
-func Write(msg string, level int) {
+func writeLog(msg string, level int) {
 	// Do not add mutex
 	if Loggable && level < 2 {
 		if !strings.HasPrefix(msg, "\n") {
@@ -8029,7 +8874,7 @@ func Write(msg string, level int) {
 }
 
 // WriteArray writes an array of error information to the log file
-func WriteArray(msgs []string, args ...interface{}) {
+func writeLogArray(msgs []string) {
 	if Loggable {
 
 		if ansiEscape == nil {
@@ -8134,7 +8979,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	b.WriteString("'" + filename + "'")
 	b.WriteString(" =================\n\n")
 
-	logging.Print(b.String())
+	logging.P(b.String())
 }
 
 // Function to print the fields of a struct using reflection
@@ -8184,7 +9029,7 @@ func PrintGrabbedFields(fieldType string, p *map[string]string) {
 	defer muPrint.Unlock()
 
 	fmt.Println()
-	logging.PrintI("Found and stored %s metadata fields from metafile:", fieldType)
+	logging.I("Found and stored %s metadata fields from metafile:", fieldType)
 	fmt.Println()
 
 	for printKey, printVal := range printMap {
@@ -8226,24 +9071,24 @@ func InitUserInputReader() {
 // preserve all in the queue, or move through value by value
 func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 
-	logging.PrintD(3, "Entering PromptUser dialogue...")
+	logging.D(3, "Entering PromptUser dialogue...")
 	ctx := context.Background()
 
 	if decisionMade {
 		// If overwriteAll, return "Y" without waiting
 		if ow {
 
-			logging.PrintD(3, "Overwrite all is set...")
+			logging.D(3, "Overwrite all is set...")
 			return "Y", nil
 		} else if ps {
 
-			logging.PrintD(3, "Preserve all is set...")
+			logging.D(3, "Preserve all is set...")
 			return "N", nil
 		}
 	}
 
 	fmt.Println()
-	logging.PrintI(promptMsg)
+	logging.I(promptMsg)
 
 	// Wait for user input
 	select {
@@ -8255,7 +9100,7 @@ func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 		return response, nil
 
 	case <-ctx.Done():
-		logging.PrintI("Operation canceled during input.")
+		logging.I("Operation canceled during input.")
 		return "", fmt.Errorf("operation canceled")
 	}
 }
@@ -8285,7 +9130,7 @@ var startTime time.Time
 
 func init() {
 	startTime = time.Now()
-	logging.PrintI("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.I("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
 }
 
 func main() {
@@ -8343,7 +9188,7 @@ func main() {
 
 	if !config.GetBool("execute") {
 		fmt.Println()
-		logging.PrintI(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
+		logging.I(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
 		fmt.Println()
 		return // Exit early if not meant to execute
 	}
@@ -8364,7 +9209,7 @@ func main() {
 		inputVideoDir = config.GetString(keys.VideoDir)
 		openVideo, err = os.Open(inputVideoDir)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openVideo.Close()
@@ -8375,7 +9220,7 @@ func main() {
 		inputVideo = config.GetString(keys.VideoFile)
 		openVideo, err = os.Open(inputVideo)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openVideo.Close()
@@ -8394,7 +9239,7 @@ func main() {
 		inputMetaDir = config.GetString(keys.JsonDir)
 		openJson, err = os.Open(inputMetaDir)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openJson.Close()
@@ -8407,7 +9252,7 @@ func main() {
 		inputMeta = config.GetString(keys.JsonFile)
 		openJson, err = os.Open(inputMeta)
 		if err != nil {
-			logging.PrintE(0, "Error: %v", err)
+			logging.E(0, "Error: %v", err)
 			os.Exit(1)
 		}
 		defer openJson.Close()
@@ -8424,12 +9269,12 @@ func main() {
 			fmt.Printf("\n\nNotice: Log file was not created\nReason: %s\n\n", err)
 		}
 	} else {
-		logging.PrintI("Directory and file strings were entered empty. Exiting...")
+		logging.I("Directory and file strings were entered empty. Exiting...")
 		os.Exit(1)
 	}
 
 	if err := fsRead.InitFetchFilesVars(); err != nil {
-		logging.PrintE(0, "Failed to initialize variables to fetch files. Exiting...")
+		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
 		os.Exit(1)
 	}
 
@@ -8445,6 +9290,6 @@ func main() {
 	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
 
 	endTime := time.Now()
-	logging.PrintI("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
-	logging.PrintI("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
+	logging.I("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.I("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
 }

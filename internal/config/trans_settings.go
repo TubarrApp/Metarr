@@ -41,17 +41,20 @@ func validateMetaOps() error {
 		return nil
 	}
 
-	newLen, apndLen, pfxLen, trimSfxLen, trimPfxLen, replaceLen := metaOpsMapLength(metaOpsInput)
+	newLen, apndLen, pfxLen, trimSfxLen, trimPfxLen, replaceLen, dTagLen := metaOpsMapLength(metaOpsInput)
 
+	// Add and replace
 	newField := make([]*models.MetaNewField, 0, newLen)
+	replace := make([]*models.MetaReplace, 0, replaceLen)
 
+	// Prefixes and suffixes
 	apnd := make([]*models.MetaAppend, 0, apndLen)
 	pfx := make([]*models.MetaPrefix, 0, pfxLen)
-
 	trimSfx := make([]*models.MetaTrimSuffix, 0, trimSfxLen)
 	trimPfx := make([]*models.MetaTrimPrefix, 0, trimPfxLen)
 
-	replace := make([]*models.MetaReplace, 0, replaceLen)
+	// Misc
+	dateTag := make(map[string]*models.MetaDateTag, dTagLen)
 
 	for _, op := range metaOpsInput {
 
@@ -66,7 +69,7 @@ func validateMetaOps() error {
 		operation := parts[1]
 		value := parts[2]
 
-		switch operation {
+		switch strings.ToLower(operation) {
 		case "add":
 			newFieldModel := &models.MetaNewField{
 				Field: field,
@@ -131,6 +134,35 @@ func validateMetaOps() error {
 			logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
 			fmt.Println()
 
+		case "date-tag":
+			if len(parts) != 4 {
+				return fmt.Errorf("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+			}
+
+			var loc enums.MetaDateTagLocation
+
+			switch strings.ToLower(value) {
+			case "prefix":
+				loc = enums.DATE_TAG_LOC_PFX
+			case "suffix":
+				loc = enums.DATE_TAG_LOC_SFX
+			default:
+				return fmt.Errorf("date tag location must be prefix, or suffix")
+			}
+
+			if e, err := dateEnum(parts[3]); err != nil {
+				return err
+			} else {
+				dateTag[field] = &models.MetaDateTag{
+					Loc:    loc,
+					Format: e,
+				}
+
+				fmt.Println()
+				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
+				fmt.Println()
+			}
+
 		default:
 			return fmt.Errorf("unrecognized meta operation '%s' (valid operations: add, append, prefix, trim-suffix, trim-prefix)", parts[1])
 		}
@@ -166,11 +198,16 @@ func validateMetaOps() error {
 		Set(keys.MReplaceText, replace)
 	}
 
+	if len(dateTag) > 0 {
+		logging.I("Adding date tags: %v", dateTag)
+		Set(keys.MDateTagMap, dateTag)
+	}
+
 	return nil
 }
 
 // metaOpsMapLength quickly grabs the lengths needed for each map
-func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, replace int) {
+func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag int) {
 	for _, op := range metaOpsInput {
 		if i := strings.IndexByte(op, ':'); i >= 0 {
 			if j := strings.IndexByte(op[i+1:], ':'); j >= 0 {
@@ -189,15 +226,17 @@ func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, 
 					pfxTrim++
 				case "replace":
 					replace++
+				case "date-tag":
+					dTag++
 				}
 			}
 		}
 
 	}
 	fmt.Println()
-	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\n", new, apnd, pfx, sfxTrim, pfxTrim, replace)
+	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d", new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag)
 	fmt.Println()
-	return new, apnd, pfx, sfxTrim, pfxTrim, replace
+	return new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag
 }
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
@@ -254,39 +293,51 @@ func setRenameFlag() {
 // initDateReplaceFormat initializes the user's preferred format for dates
 func initDateReplaceFormat() error {
 
-	var formatEnum enums.FilenameDateFormat
-	dateFmt := GetString(keys.InputFileDatePfx)
+	if IsSet(keys.InputFileDatePfx) {
+		dateFmt := GetString(keys.InputFileDatePfx)
 
-	// Trim whitespace for more robust validation
-	dateFmt = strings.TrimSpace(dateFmt)
+		// Trim whitespace for more robust validation
+		dateFmt = strings.TrimSpace(dateFmt)
 
-	if dateFmt == "" || len(dateFmt) == 0 {
-		formatEnum = enums.FILEDATE_SKIP
-	} else if len(dateFmt) != 3 {
-		return fmt.Errorf("invalid date format entered, please enter three characters (where 'Y' is yyyy and 'y' is yy)")
+		formatEnum, err := dateEnum(dateFmt)
+		if err != nil {
+			return err
+		}
+
+		Set(keys.FileDateFmt, formatEnum)
+		logging.D(1, "Set file date format to %v", formatEnum)
+	}
+	return nil
+}
+
+// dateEnum returns the date format enum type
+func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
+
+	if len(dateFmt) < 2 {
+		return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as '%s', please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
 	} else {
 		switch dateFmt {
 		case "Ymd":
-			formatEnum = enums.FILEDATE_YYYY_MM_DD
+			return enums.DATEFMT_YYYY_MM_DD, nil
 		case "ymd":
-			formatEnum = enums.FILEDATE_YY_MM_DD
+			return enums.DATEFMT_YY_MM_DD, nil
 		case "Ydm":
-			formatEnum = enums.FILEDATE_YYYY_DD_MM
+			return enums.DATEFMT_YYYY_DD_MM, nil
 		case "ydm":
-			formatEnum = enums.FILEDATE_YY_DD_MM
+			return enums.DATEFMT_YY_DD_MM, nil
 		case "dmY":
-			formatEnum = enums.FILEDATE_DD_MM_YYYY
+			return enums.DATEFMT_DD_MM_YYYY, nil
 		case "dmy":
-			formatEnum = enums.FILEDATE_DD_MM_YY
+			return enums.DATEFMT_DD_MM_YY, nil
 		case "mdY":
-			formatEnum = enums.FILEDATE_MM_DD_YYYY
+			return enums.DATEFMT_MM_DD_YYYY, nil
 		case "mdy":
-			formatEnum = enums.FILEDATE_MM_DD_YY
-		default:
-			return fmt.Errorf("invalid date format entered, please enter three characters (where capital Y is yyyy and y is yy)")
+			return enums.DATEFMT_MM_DD_YY, nil
+		case "md":
+			return enums.DATEFMT_MM_DD, nil
+		case "dm":
+			return enums.DATEFMT_DD_MM, nil
 		}
 	}
-	Set(keys.FileDateFmt, formatEnum)
-	logging.D(1, "Set file date format to %v", formatEnum)
-	return nil
+	return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as '%s', please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
 }
