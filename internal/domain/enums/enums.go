@@ -64,6 +64,13 @@ const (
 	DATE_TAG_LOC_SFX
 )
 
+type MetaDateTaggingType int
+
+const (
+	DATE_TAG_ADD_OP MetaDateTaggingType = iota
+	DATE_TAG_DEL_OP
+)
+
 // Web tags
 type MetaFiletypeFound int
 

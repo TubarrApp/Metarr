@@ -89,7 +89,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		logging.I("No date metadata found")
 	}
 
-	if config.IsSet(keys.MDateTagMap) {
+	if config.IsSet(keys.MDateTagMap) || config.IsSet(keys.MDelDateTagMap) {
 		ok, err = jsonRW.MakeDateTagEdits(data, file, fd)
 		if err != nil {
 			logging.E(0, err.Error())

@@ -306,6 +306,8 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 // the dates may not yet be scraped when the initial MakeMetaEdits runs
 func (rw *JSONFileRW) MakeDateTagEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (edited bool, err error) {
 
+	logging.D(4, "Entering MakeDateTagEdits for file '%s'", file.Name())
+
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
@@ -315,13 +317,35 @@ func (rw *JSONFileRW) MakeDateTagEdits(data map[string]interface{}, file *os.Fil
 		return false, err
 	}
 
+	logging.D(4, "About to perform MakeDateTagEdits operations for file '%s'", file.Name())
+
+	if config.IsSet(keys.MDelDateTagMap) {
+		logging.D(3, "Stripping metafield date tag...")
+		if delDateTagMap, ok := config.Get(keys.MDelDateTagMap).(map[string]*models.MetaDateTag); ok {
+
+			if len(delDateTagMap) > 0 {
+
+				if ok, err := rw.jsonFieldDateTag(data, delDateTagMap, fd, enums.DATE_TAG_DEL_OP); err != nil {
+					logging.E(0, err.Error())
+				} else if ok {
+					edited = true
+				}
+			} else {
+				logging.E(0, "delDateTagMap grabbed empty")
+			}
+		} else {
+			logging.E(0, "Got null or wrong type for %s: %T", keys.MDelDateTagMap, delDateTagMap)
+		}
+	}
+
 	// Add date tag
 	if config.IsSet(keys.MDateTagMap) {
 		logging.D(3, "Adding metafield date tag...")
 		if dateTagMap, ok := config.Get(keys.MDateTagMap).(map[string]*models.MetaDateTag); ok {
+
 			if len(dateTagMap) > 0 {
 
-				if ok, err := rw.jsonFieldDateTag(data, dateTagMap, fd); err != nil {
+				if ok, err := rw.jsonFieldDateTag(data, dateTagMap, fd, enums.DATE_TAG_ADD_OP); err != nil {
 					logging.E(0, err.Error())
 				} else if ok {
 					edited = true
@@ -641,7 +665,7 @@ func (rw *JSONFileRW) addNewJsonField(data map[string]interface{}, modelOW bool,
 }
 
 // jsonFieldDateTag sets date tags in designated meta fields
-func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap map[string]*models.MetaDateTag, fd *models.FileData) (bool, error) {
+func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap map[string]*models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
 
 	logging.D(2, "Making metadata date tag for '%s'...", fd.OriginalVideoBaseName)
 
@@ -682,21 +706,51 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 		}
 
 		// Check if it already exists
-		if tags.MetaDateTagExists(tag, strVal) {
-			return false, nil
+		if op == enums.DATE_TAG_ADD_OP {
+			if tags.MetaDateTagExists(tag, strVal) {
+				return false, nil
+			}
 		}
 
 		// Apply the tag based on location
 		switch dateTag.Loc {
 		case enums.DATE_TAG_LOC_PFX:
-			data[field] = tag + " " + strVal
-			logging.I("Added date tag '%s' as prefix to field '%s'", tag, field)
-			edited = true
+
+			switch op {
+			case enums.DATE_TAG_DEL_OP:
+				before := strVal
+				data[field] = cleanFieldValue(strings.TrimPrefix(strVal, tag))
+				if data[field] != before {
+					logging.I("Deleted date tag '%s' prefix from field '%s'", tag, field)
+					edited = true
+				} else {
+					logging.I("Failed to strip date tag from '%s'", before)
+				}
+
+			case enums.DATE_TAG_ADD_OP:
+				data[field] = tag + " " + strVal
+				logging.I("Added date tag '%s' as prefix to field '%s'", tag, field)
+				edited = true
+			}
 
 		case enums.DATE_TAG_LOC_SFX:
-			data[field] = strVal + " " + tag
-			logging.I("Added date tag '%s' as suffix to field '%s'", tag, field)
-			edited = true
+
+			switch op {
+			case enums.DATE_TAG_DEL_OP:
+				before := strVal
+				data[field] = cleanFieldValue(strings.TrimSuffix(strVal, tag))
+				if data[field] != before {
+					logging.I("Deleted date tag '%s' suffix from field '%s'", tag, field)
+					edited = true
+				} else {
+					logging.I("Failed to strip date tag from '%s'", before)
+				}
+
+			case enums.DATE_TAG_ADD_OP:
+				data[field] = strVal + " " + tag
+				logging.I("Added date tag '%s' as suffix to field '%s'", tag, field)
+				edited = true
+			}
 
 		default:
 			return false, fmt.Errorf("invalid date tag location enum: %v", dateTag.Loc)
@@ -704,4 +758,11 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 	}
 
 	return edited, nil
+}
+
+// cleanFieldValue trims leading/trailing whitespaces after deletions
+func cleanFieldValue(value string) string {
+	cleaned := strings.TrimSpace(value)
+	cleaned = strings.Join(strings.Fields(cleaned), " ")
+	return cleaned
 }

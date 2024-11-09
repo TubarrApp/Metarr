@@ -87,7 +87,8 @@ const (
 	MTrimPrefix  string = "metaTrimPrefix"
 	MTrimSuffix  string = "metaTrimSuffix"
 
-	MDateTagMap string = "metaDateTagMap"
+	MDateTagMap    string = "metaDateTagMap"
+	MDelDateTagMap string = "metaDelDateTagMap"
 )
 
 // Contains the fields which accept multiple entries as string arrays

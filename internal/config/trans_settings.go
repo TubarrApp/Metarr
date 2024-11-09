@@ -7,11 +7,24 @@ import (
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 var (
 	filenameReplaceSuffixInput []string
 )
+
+type metaOpsLen struct {
+	newLen,
+	apndLen,
+	pfxLen,
+	trimSfxLen,
+	trimPfxLen,
+	replaceLen,
+	dTagLen,
+	delDTagLen int
+}
 
 // initTextReplace initializes text replacement functions
 func initTextReplace() error {
@@ -41,20 +54,22 @@ func validateMetaOps() error {
 		return nil
 	}
 
-	newLen, apndLen, pfxLen, trimSfxLen, trimPfxLen, replaceLen, dTagLen := metaOpsMapLength(metaOpsInput)
+	m := metaOpsLen{}
+	m = metaOpsMapLength(metaOpsInput, m)
 
 	// Add and replace
-	newField := make([]*models.MetaNewField, 0, newLen)
-	replace := make([]*models.MetaReplace, 0, replaceLen)
+	newField := make([]*models.MetaNewField, 0, m.newLen)
+	replace := make([]*models.MetaReplace, 0, m.replaceLen)
 
 	// Prefixes and suffixes
-	apnd := make([]*models.MetaAppend, 0, apndLen)
-	pfx := make([]*models.MetaPrefix, 0, pfxLen)
-	trimSfx := make([]*models.MetaTrimSuffix, 0, trimSfxLen)
-	trimPfx := make([]*models.MetaTrimPrefix, 0, trimPfxLen)
+	apnd := make([]*models.MetaAppend, 0, m.apndLen)
+	pfx := make([]*models.MetaPrefix, 0, m.pfxLen)
+	trimSfx := make([]*models.MetaTrimSuffix, 0, m.trimSfxLen)
+	trimPfx := make([]*models.MetaTrimPrefix, 0, m.trimPfxLen)
 
-	// Misc
-	dateTag := make(map[string]*models.MetaDateTag, dTagLen)
+	// Date tagging
+	dateTag := make(map[string]*models.MetaDateTag, m.dTagLen)
+	delDateTag := make(map[string]*models.MetaDateTag, m.delDTagLen)
 
 	for _, op := range metaOpsInput {
 
@@ -138,7 +153,6 @@ func validateMetaOps() error {
 			if len(parts) != 4 {
 				return fmt.Errorf("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
-
 			var loc enums.MetaDateTagLocation
 
 			switch strings.ToLower(value) {
@@ -149,7 +163,6 @@ func validateMetaOps() error {
 			default:
 				return fmt.Errorf("date tag location must be prefix, or suffix")
 			}
-
 			if e, err := dateEnum(parts[3]); err != nil {
 				return err
 			} else {
@@ -157,9 +170,34 @@ func validateMetaOps() error {
 					Loc:    loc,
 					Format: e,
 				}
-
 				fmt.Println()
 				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
+				fmt.Println()
+			}
+
+		case "delete-date-tag":
+			if len(parts) != 4 {
+				return fmt.Errorf("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+			}
+			var loc enums.MetaDateTagLocation
+
+			switch strings.ToLower(value) {
+			case "prefix":
+				loc = enums.DATE_TAG_LOC_PFX
+			case "suffix":
+				loc = enums.DATE_TAG_LOC_SFX
+			default:
+				return fmt.Errorf("date tag location must be prefix, or suffix")
+			}
+			if e, err := dateEnum(parts[3]); err != nil {
+				return err
+			} else {
+				delDateTag[field] = &models.MetaDateTag{
+					Loc:    loc,
+					Format: e,
+				}
+				fmt.Println()
+				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
 				fmt.Println()
 			}
 
@@ -170,44 +208,50 @@ func validateMetaOps() error {
 
 	if len(apnd) > 0 {
 		logging.I("Appending: %v", apnd)
-		Set(keys.MAppend, apnd)
+		viper.Set(keys.MAppend, apnd)
 	}
 
 	if len(newField) > 0 {
 		logging.I("New meta fields: %v", newField)
-		Set(keys.MNewField, newField)
+		viper.Set(keys.MNewField, newField)
 	}
 
 	if len(pfx) > 0 {
 		logging.I("Prefixing: %v", apnd)
-		Set(keys.MPrefix, pfx)
+		viper.Set(keys.MPrefix, pfx)
 	}
 
 	if len(trimPfx) > 0 {
 		logging.I("Trimming prefix: %v", trimPfx)
-		Set(keys.MTrimPrefix, trimPfx)
+		viper.Set(keys.MTrimPrefix, trimPfx)
 	}
 
 	if len(trimSfx) > 0 {
 		logging.I("Trimming suffix: %v", trimSfx)
-		Set(keys.MTrimSuffix, trimSfx)
+		viper.Set(keys.MTrimSuffix, trimSfx)
 	}
 
 	if len(replace) > 0 {
 		logging.I("Replacing text: %v", replace)
-		Set(keys.MReplaceText, replace)
+		viper.Set(keys.MReplaceText, replace)
 	}
 
 	if len(dateTag) > 0 {
 		logging.I("Adding date tags: %v", dateTag)
-		Set(keys.MDateTagMap, dateTag)
+		viper.Set(keys.MDateTagMap, dateTag)
+	}
+
+	if len(delDateTag) > 0 {
+		logging.I("Deleting date tags: %v", delDateTag)
+		viper.Set(keys.MDelDateTagMap, delDateTag)
 	}
 
 	return nil
 }
 
 // metaOpsMapLength quickly grabs the lengths needed for each map
-func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag int) {
+func metaOpsMapLength(metaOpsInput []string, m metaOpsLen) metaOpsLen {
+
 	for _, op := range metaOpsInput {
 		if i := strings.IndexByte(op, ':'); i >= 0 {
 			if j := strings.IndexByte(op[i+1:], ':'); j >= 0 {
@@ -215,28 +259,30 @@ func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, 
 
 				switch op {
 				case "set":
-					new++
+					m.newLen++
 				case "append":
-					apnd++
+					m.apndLen++
 				case "prefix":
-					pfx++
+					m.pfxLen++
 				case "trim-suffix":
-					sfxTrim++
+					m.trimSfxLen++
 				case "trim-prefix":
-					pfxTrim++
+					m.trimPfxLen++
 				case "replace":
-					replace++
+					m.replaceLen++
 				case "date-tag":
-					dTag++
+					m.dTagLen++
+				case "delete-date-tag":
+					m.delDTagLen++
 				}
 			}
 		}
 
 	}
 	fmt.Println()
-	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d", new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag)
+	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d\nDelete date tags: %d", m.newLen, m.apndLen, m.pfxLen, m.trimSfxLen, m.trimPfxLen, m.replaceLen, m.dTagLen, m.delDTagLen)
 	fmt.Println()
-	return new, apnd, pfx, sfxTrim, pfxTrim, replace, dTag
+	return m
 }
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
@@ -255,7 +301,7 @@ func validateFilenameSuffixReplace() error {
 	}
 	if len(filenameReplaceSuffix) > 0 {
 		logging.I("Meta replace suffixes: %v", filenameReplaceSuffix)
-		Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+		viper.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
 	}
 	return nil
 }
@@ -287,7 +333,7 @@ func setRenameFlag() {
 		logging.D(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RENAMING_SKIP
 	}
-	Set(keys.Rename, renameFlag)
+	viper.Set(keys.Rename, renameFlag)
 }
 
 // initDateReplaceFormat initializes the user's preferred format for dates
@@ -304,7 +350,7 @@ func initDateReplaceFormat() error {
 			return err
 		}
 
-		Set(keys.FileDateFmt, formatEnum)
+		viper.Set(keys.FileDateFmt, formatEnum)
 		logging.D(1, "Set file date format to %v", formatEnum)
 	}
 	return nil
