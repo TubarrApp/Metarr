@@ -28,6 +28,9 @@ func BackupFile(file *os.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to get current file position: %w", err)
 	}
+	defer func() {
+		file.Seek(currentPos, io.SeekStart)
+	}()
 
 	muBackup.Lock()
 	defer muBackup.Unlock()
@@ -49,11 +52,6 @@ func BackupFile(file *os.File) error {
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
-	}
-
-	// Restore original position
-	if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-		return fmt.Errorf("failed to restore file position: %w", err)
 	}
 
 	logging.D(3, "Backup successfully created at '%s'", backupFilePath)

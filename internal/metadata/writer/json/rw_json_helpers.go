@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
 )
@@ -18,14 +19,28 @@ func (rw *JSONFileRW) writeJsonToFile(file *os.File, data map[string]interface{}
 		return fmt.Errorf("nil data provided")
 	}
 
-	rw.muFileWrite.Lock()
-	defer rw.muFileWrite.Unlock()
-
 	// Marshal data
 	updatedFileContent, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal updated JSON: %w", err)
 	}
+
+	// Begin file ops
+	rw.muFileWrite.Lock()
+	defer rw.muFileWrite.Unlock()
+
+	currentPos, err := file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return fmt.Errorf("failed to get current position: %w", err)
+	}
+	success := false
+	defer func() {
+		if !success {
+			if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
+				logging.E(0, err.Error())
+			}
+		}
+	}()
 
 	// Seek file start
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -46,6 +61,7 @@ func (rw *JSONFileRW) writeJsonToFile(file *os.File, data map[string]interface{}
 		return fmt.Errorf("failed to sync file: %w", err)
 	}
 
+	success = true
 	return nil
 }
 
