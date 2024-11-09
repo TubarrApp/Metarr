@@ -12,7 +12,7 @@ import (
 )
 
 // fillTimestamps grabs timestamp metadata from JSON
-func fillTimestamps(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 	var (
 		err             error
 		gotRelevantDate bool

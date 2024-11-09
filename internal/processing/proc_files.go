@@ -42,46 +42,90 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		videoMap,
 		metaMap,
 		matchedFiles map[string]*models.FileData
-
 		err error
 	)
 
 	// Process metadata, checking if it’s a directory or a single file
 	if openMeta != nil {
 		fileInfo, _ := openMeta.Stat()
+
 		if fileInfo.IsDir() {
-			metaMap, err = fsRead.GetMetadataFiles(openMeta)
+			if fileInfo.Size() == 0 {
+				failedVideos = append(failedVideos, failedVideo{
+					filename: openMeta.Name(),
+					err:      "Meta directory size is 0",
+				})
+			} else {
+				metaMap, err = fsRead.GetMetadataFiles(openMeta)
+			}
 		} else {
-			metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
+			if fileInfo.Size() == 0 {
+				failedVideos = append(failedVideos, failedVideo{
+					filename: openMeta.Name(),
+					err:      "Meta file size is 0",
+				})
+			} else {
+				metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
+			}
 		}
 		if err != nil {
 			logging.E(0, "Error: %v", err)
+
+			failedVideos = append(failedVideos, failedVideo{
+				filename: openMeta.Name(),
+				err:      err.Error(),
+			})
+
 			os.Exit(1)
 		}
 	}
 	// Process video files, checking if it’s a directory or a single file
 	if openVideo != nil {
 		fileInfo, _ := openVideo.Stat()
+
 		if fileInfo.IsDir() {
-			videoMap, err = fsRead.GetVideoFiles(openVideo)
-		} else if !skipVideos {
-			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
-		}
-		if err != nil {
-			logging.E(0, "Error fetching video files: %v", err)
-			os.Exit(1)
+			if fileInfo.Size() == 0 {
+				failedVideos = append(failedVideos, failedVideo{
+					filename: openVideo.Name(),
+					err:      "Video directory size is 0",
+				})
+			} else {
+				videoMap, err = fsRead.GetVideoFiles(openVideo)
+			}
 		}
 
-		// Match video and metadata files
-		if !skipVideos {
-			matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap)
-			if err != nil {
-				logging.E(0, "Error matching videos with metadata: %v", err)
-				os.Exit(1)
-			}
+	} else if !skipVideos {
+		fileInfo, _ := openVideo.Stat()
+
+		if fileInfo.Size() == 0 {
+			failedVideos = append(failedVideos, failedVideo{
+				filename: openVideo.Name(),
+				err:      "Video file size is 0",
+			})
 		} else {
-			matchedFiles = metaMap
+			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 		}
+	}
+	if err != nil {
+		logging.E(0, "Error fetching video files: %v", err)
+
+		failedVideos = append(failedVideos, failedVideo{
+			filename: openVideo.Name(),
+			err:      err.Error(),
+		})
+
+		os.Exit(1)
+	}
+
+	// Match video and metadata files
+	if !skipVideos {
+		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap)
+		if err != nil {
+			logging.E(0, "Error matching videos with metadata: %v", err)
+			os.Exit(1)
+		}
+	} else {
+		matchedFiles = metaMap
 	}
 
 	config.Set(keys.VideoMap, videoMap)

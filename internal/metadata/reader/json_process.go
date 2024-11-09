@@ -60,8 +60,14 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 
 	logging.D(3, "%v", data)
 
-	process.FillWebpageDetails(fd, data)
-	logging.I("URLs grabbed: %s", w.TryURLs)
+	var (
+		ok,
+		gotTime bool
+	)
+
+	if ok = process.FillWebpageDetails(fd, data); ok {
+		logging.I("URLs grabbed: %s", w.TryURLs)
+	}
 
 	if len(w.TryURLs) > 0 {
 		transformations.TryTransPresets(w.TryURLs, fd)
@@ -79,8 +85,22 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		}
 	}
 
-	var ok bool
-	if data, ok = process.FillMetaFields(fd, data); !ok {
+	if data, ok = process.FillTimestamps(fd, data); !ok {
+		logging.I("No date metadata found")
+	}
+
+	if config.IsSet(keys.MDateTagMap) {
+		ok, err = jsonRW.MakeDateTagEdits(data, file, fd)
+		if err != nil {
+			logging.E(0, err.Error())
+		} else if !ok {
+			logging.E(0, "Did not make date tag edits for metadata, tag already exists?")
+		}
+	} else {
+		logging.D(4, "Skipping making metadata date tag edits, key not set")
+	}
+
+	if data, ok = process.FillMetaFields(fd, data, gotTime); !ok {
 		logging.D(2, "Some metafields were unfilled")
 	}
 
@@ -102,17 +122,6 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		} else {
 			logging.D(1, "Set file date tag format to skip, not making date tag for '%s'", file.Name())
 		}
-	}
-
-	if config.IsSet(keys.MDateTagMap) {
-		ok, err = jsonRW.MakeDateTagEdits(data, file, fd)
-		if err != nil {
-			logging.E(0, err.Error())
-		} else if !ok {
-			logging.E(0, "Did not make date tag edits for metadata, tag already exists?")
-		}
-	} else {
-		logging.D(4, "Skipping making metadata date tag edits, key not set")
 	}
 
 	// Add new filename tag for files
