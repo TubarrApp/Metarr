@@ -20,13 +20,13 @@ const (
 const (
 	JComment          = "comment"
 	JDescription      = "description"
-	JFallbackTitle    = "title"
+	JFulltitle        = "fulltitle"
 	JLongDescription  = "longdescription"
 	JLong_Description = "long_description"
 	JSubtitle         = "subtitle"
 	JSummary          = "summary"
 	JSynopsis         = "synopsis"
-	JTitle            = "fulltitle"
+	JTitle            = "title"
 )
 
 const (

@@ -89,8 +89,8 @@ type MetadataCredits struct {
 }
 
 type MetadataTitlesDescs struct {
-	Title            string `json:"fulltitle" xml:"title"`
-	FallbackTitle    string `json:"title" xml:"originaltitle"`
+	Fulltitle        string `json:"fulltitle" xml:"title"`
+	Title            string `json:"title" xml:"originaltitle"`
 	Subtitle         string `json:"subtitle" xml:"subtitle"`
 	Description      string `json:"description" xml:"description"`
 	LongDescription  string `json:"longdescription" xml:"plot"`

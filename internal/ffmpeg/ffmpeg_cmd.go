@@ -54,9 +54,11 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 // addTitlesDescs adds all title/description-related metadata
 func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
-	if t.Title == "" && t.FallbackTitle != "" {
-		t.Title = t.FallbackTitle
+	// Prefer fulltitle if possible (also exists in the JSON processing func)
+	if t.Title == "" && t.Fulltitle != "" {
+		t.Title = t.Fulltitle
 	}
+
 	if t.LongDescription == "" && t.Long_Description != "" {
 		t.LongDescription = t.Long_Description
 	}

@@ -55,9 +55,9 @@ func MP4MetaMatches(fd *models.FileData) bool {
 			existing: strings.TrimSpace(ffData.Format.Tags.Synopsis),
 			new:      strings.TrimSpace(t.Synopsis),
 		},
-		consts.JFallbackTitle: {
+		consts.JTitle: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Title),
-			new:      strings.TrimSpace(t.FallbackTitle),
+			new:      strings.TrimSpace(t.Title),
 		},
 		consts.JCreationTime: {
 			existing: safeGetDatePart(ffData.Format.Tags.CreationTime),

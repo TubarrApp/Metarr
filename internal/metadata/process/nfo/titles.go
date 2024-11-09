@@ -14,7 +14,7 @@ func fillNFOTitles(fd *models.FileData) bool {
 
 	fieldMap := map[string]*string{
 		consts.NTitle:         &t.Title,
-		consts.NOriginalTitle: &t.FallbackTitle,
+		consts.NOriginalTitle: &t.Fulltitle,
 		consts.NTagline:       &t.Subtitle,
 	}
 
@@ -29,8 +29,8 @@ func fillNFOTitles(fd *models.FileData) bool {
 		}
 	}
 	if n.Title.Original != "" {
-		if t.FallbackTitle == "" {
-			t.FallbackTitle = n.Title.Original
+		if t.Fulltitle == "" {
+			t.Fulltitle = n.Title.Original
 		}
 		if t.Title == "" {
 			t.Title = n.Title.Original

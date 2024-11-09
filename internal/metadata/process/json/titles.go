@@ -19,12 +19,12 @@ func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 	for key, value := range data {
 		if val, ok := value.(string); ok && val != "" {
 			switch {
-			case key == consts.JTitle:
-				t.Title = val
+			case key == consts.JFulltitle:
+				t.Fulltitle = val
 				printMap[key] = val
 
-			case key == consts.JFallbackTitle:
-				t.FallbackTitle = val
+			case key == consts.JTitle:
+				t.Title = val
 				printMap[key] = val
 
 			case key == consts.JSubtitle:
@@ -33,9 +33,13 @@ func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 			}
 		}
 	}
-	if t.Title == "" && t.FallbackTitle != "" {
-		t.Title = t.FallbackTitle
+
+	if t.Fulltitle != "" {
+		t.Title = t.Fulltitle
+	} else if t.Fulltitle == "" && t.Title != "" {
+		t.Fulltitle = t.Title
 	}
+
 	if t.Title == "" {
 		title := browser.ScrapeMeta(w, enums.WEBCLASS_TITLE)
 		if title != "" {
