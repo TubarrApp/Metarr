@@ -276,6 +276,26 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 		}
 	}
 
+	// Marshal the updated JSON back to a byte slice
+	updatedFileContent, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal updated JSON: %w", err)
+	}
+
+	if err = rw.writeMetadataToFile(file, updatedFileContent); err != nil {
+		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
+	}
+
+	fmt.Println()
+	logging.S(0, "Successfully applied metadata edits to: %v", file.Name())
+
+	return edited, nil
+}
+
+// MakeDateTagEdits is a public function to add date tags into the metafile, this is useful because
+// the dates may not yet be scraped when the initial MakeMetaEdits runs
+func (rw *JSONFileRW) MakeDateTagEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (edited bool, err error) {
+
 	// Add date tag
 	if config.IsSet(keys.MDateTagMap) {
 		logging.D(3, "Adding metafield date tag...")
@@ -306,7 +326,7 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 	}
 
 	fmt.Println()
-	logging.S(0, "Successfully applied metadata edits to: %v", file.Name())
+	logging.S(0, "Successfully applied date tag meta edits to: %v", file.Name())
 
 	return edited, nil
 }

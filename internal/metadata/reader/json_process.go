@@ -104,6 +104,17 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		}
 	}
 
+	if config.IsSet(keys.MDateTagMap) {
+		ok, err = jsonRW.MakeDateTagEdits(data, file, fd)
+		if err != nil {
+			logging.E(0, err.Error())
+		} else if !ok {
+			logging.E(0, "Did not create date tag for metadata")
+		}
+	} else {
+		logging.D(4, "Skipping making metadata date tag edits, key not set")
+	}
+
 	// Add new filename tag for files
 	if config.IsSet(keys.MFilenamePfx) {
 		logging.D(3, "About to make prefix tag for: %v", file.Name())
