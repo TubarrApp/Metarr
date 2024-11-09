@@ -43,7 +43,7 @@ func MP4MetaMatches(fd *models.FileData) bool {
 	}
 
 	// Map of metadata to check
-	fieldMap := map[string]struct {
+	metaCheckMap := map[string]struct {
 		existing string
 		new      string
 	}{
@@ -82,14 +82,16 @@ func MP4MetaMatches(fd *models.FileData) bool {
 	matches := true
 
 	// Check each field
-	for key, values := range fieldMap {
-		pair := fmt.Sprintf("Key: %s, Value: %s", key, values.existing)
-		ffContent = append(ffContent, pair)
+	for key, values := range metaCheckMap {
+		printVals := fmt.Sprintf("Currently in video: Key=%s, Value=%s, New Value=%s", key, values.existing, values.new)
+		ffContent = append(ffContent, printVals)
 
 		if values.new != values.existing {
-			logging.D(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nAlready in video as: '%s'. Will process video.",
+			logging.D(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nIn video as: '%s'. Will process video.",
 				fd.OriginalVideoBaseName, key, values.new, values.existing)
 			matches = false
+		} else {
+			logging.D(2, "Detected key '%s' as being the same.\nFFprobe: '%s'\nMetafile: '%s'", key, values.existing, values.new)
 		}
 	}
 

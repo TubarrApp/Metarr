@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/config"
+	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
@@ -24,7 +25,13 @@ var (
 	processedVideoFiles int32
 
 	processedDataArray []*models.FileData
+	failedVideos       []failedVideo
 )
+
+type failedVideo struct {
+	filename string
+	err      string
+}
 
 // processFiles is the main program function to process folder entries
 func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
@@ -104,9 +111,15 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			}
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
-				errMsg := fmt.Errorf("error processing metadata for file: %w", err)
+				errMsg := fmt.Errorf("error processing metadata for file '%s': %w", fileData.OriginalVideoPath, err)
 				logging.E(0, errMsg.Error())
-				return
+
+				failedVideos = append(failedVideos, failedVideo{
+					filename: fileData.OriginalVideoPath,
+					err:      errMsg.Error(),
+				})
+
+				continue
 			}
 			processedDataArray = append(processedDataArray, processedData)
 		} else {
@@ -128,6 +141,16 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			logging.E(0, "Failed to cleanup temp files", err)
 		}
 		logging.I("Process was interrupted by a syscall", nil)
+
+		if len(failedVideos) > 0 {
+			logging.P(consts.RedError + "Failed videos:")
+			for _, failed := range failedVideos {
+				fmt.Println()
+				logging.P("Filename: %v", failed.filename)
+				logging.P("Error: %v", failed.err)
+			}
+			fmt.Println()
+		}
 
 		wg.Wait()
 		os.Exit(0)
@@ -177,6 +200,15 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	} else {
 
 		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
+
+		if len(failedVideos) > 0 {
+			logging.P(consts.RedError + "Failed videos:")
+			for _, failed := range failedVideos {
+				fmt.Println()
+				logging.P("Filename: %v", failed.filename)
+				logging.P("Error: %v", failed.err)
+			}
+		}
 		fmt.Println()
 	}
 }
@@ -225,6 +257,12 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
 				logging.E(0, errMsg.Error())
+
+				failedVideos = append(failedVideos, failedVideo{
+					filename: fileName,
+					err:      errMsg.Error(),
+				})
+
 			} else {
 				logging.S(0, "Successfully processed video %s", fileName)
 			}

@@ -48,7 +48,7 @@ func (rw *JSONFileRW) DecodeMetadata(file *os.File) (map[string]interface{}, err
 	// Decode to map
 	input := make(map[string]interface{})
 	if err := decoder.Decode(&input); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON: %w", err)
+		return nil, fmt.Errorf("failed to decode JSON in DecodeMetadata: %w", err)
 	}
 
 	switch {
@@ -76,7 +76,7 @@ func (rw *JSONFileRW) RefreshMetadata() (map[string]interface{}, error) {
 	decoder := json.NewDecoder(rw.File)
 
 	if err := decoder.Decode(&rw.Meta); err != nil {
-		return nil, fmt.Errorf("failed to decode JSON: %w", err)
+		return nil, fmt.Errorf("failed to decode JSON in RefreshMetadata: %w", err)
 	}
 
 	logging.D(3, "Decoded metadata: %v", rw.Meta)
@@ -100,6 +100,7 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 			return rw.Meta, fmt.Errorf("failed to create a backup of file '%s'", rw.File.Name())
 		}
 	}
+
 	// Refresh metadata without lock
 	if err := rw.refreshMetadataInternal(rw.File); err != nil {
 		return rw.Meta, err
@@ -151,6 +152,15 @@ func (rw *JSONFileRW) WriteMetadata(fieldMap map[string]*string) (map[string]int
 func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (bool, error) {
 
 	logging.D(5, "Entering MakeMetaEdits.\nData: %v", data)
+
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	// Refresh metadata without lock
+	if err := rw.refreshMetadataInternal(rw.File); err != nil {
+		logging.E(0, err.Error())
+		return false, err
+	}
 
 	var (
 		edited, ok bool
@@ -296,6 +306,15 @@ func (rw *JSONFileRW) MakeMetaEdits(data map[string]interface{}, file *os.File, 
 // the dates may not yet be scraped when the initial MakeMetaEdits runs
 func (rw *JSONFileRW) MakeDateTagEdits(data map[string]interface{}, file *os.File, fd *models.FileData) (edited bool, err error) {
 
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
+
+	// Refresh metadata without lock
+	if err := rw.refreshMetadataInternal(rw.File); err != nil {
+		logging.E(0, err.Error())
+		return false, err
+	}
+
 	// Add date tag
 	if config.IsSet(keys.MDateTagMap) {
 		logging.D(3, "Adding metafield date tag...")
@@ -344,7 +363,7 @@ func (rw *JSONFileRW) refreshMetadataInternal(file *os.File) error {
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&rw.Meta); err != nil {
-		return fmt.Errorf("failed to decode JSON: %w", err)
+		return fmt.Errorf("failed to decode JSON in refreshMetadataInternal: %w", err)
 	}
 
 	logging.D(3, "Decoded metadata: %v", rw.Meta)
