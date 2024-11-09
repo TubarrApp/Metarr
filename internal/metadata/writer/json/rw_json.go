@@ -37,9 +37,6 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]interface{}, error) 
 		return nil, fmt.Errorf("nil file handle provided")
 	}
 
-	rw.mu.Lock()
-	defer rw.mu.Unlock()
-
 	// Seek start
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
