@@ -4,24 +4,33 @@ import (
 	"fmt"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
+	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
 
-// MakeDATEFMTTag attempts to create the date tag for files using metafile data
-func MakeFileDateTag(metadata map[string]interface{}, fileName string, dateFmt enums.DateFormat) (string, error) {
+// MakeDateTag attempts to create the date tag for files using metafile data
+func MakeDateTag(metadata map[string]interface{}, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
 
 	if dateFmt == enums.DATEFMT_SKIP {
-		logging.D(1, "Skip set, not making file date tag for '%s'", fileName)
+		logging.D(1, "Skip set, not making file date tag for '%s'", fd.OriginalVideoBaseName)
 		return "", nil
 	}
 
-	date, found := extractDateFromMetadata(metadata)
-	if !found {
-		logging.E(0, "No dates found in JSON file")
-		return "", nil
+	var (
+		date  string
+		found bool
+	)
+
+	if fd.MDates.FormattedDate == "" {
+		date, found = extractDateFromMetadata(metadata)
+		if !found {
+			logging.E(0, "No dates found in JSON file")
+			return "", nil
+		}
+	} else {
+		date = fd.MDates.FormattedDate
 	}
 
 	year, month, day, err := parseDateComponents(date, dateFmt)
@@ -32,53 +41,17 @@ func MakeFileDateTag(metadata map[string]interface{}, fileName string, dateFmt e
 	dateStr, err := formatDateString(year, month, day, dateFmt)
 	if dateStr == "" || err != nil {
 		logging.E(0, "Failed to create date string")
-		return "[]", nil
-	}
-
-	dateTag := "[" + dateStr + "]"
-	if checkTagExists(dateTag, filepath.Base(fileName)) {
-		logging.D(2, "Tag '%s' already detected in name, skipping...", dateTag)
-		return "[]", nil
-	}
-
-	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, filepath.Base(fileName))
-	return dateTag, nil
-}
-
-// MakeDATEFMTTag attempts to create the date tag for files using metafile data
-func MetafieldDateTag(metadata map[string]interface{}, fieldVal string, dateFmt enums.DateFormat) (string, error) {
-
-	if dateFmt == enums.DATEFMT_SKIP {
-		logging.D(1, "Skip set, not making date tag for field '%s'", fieldVal)
 		return "", nil
 	}
 
-	if len(metadata) == 0 {
-		return "[]", fmt.Errorf("metadata sent in empty")
-	}
-
-	date, found := extractDateFromMetadata(metadata)
-	if !found {
-		logging.E(0, "No dates found in JSON file")
-		return "[]", nil
-	}
-
-	year, month, day, err := parseDateComponents(date, dateFmt)
-	if err != nil {
-		return "[]", fmt.Errorf("failed to parse date components: %w", err)
-	}
-
-	dateStr, err := formatDateString(year, month, day, dateFmt)
-	if dateStr == "" || err != nil {
-		logging.E(0, "Failed to create date string")
-		return "[]", nil
-	}
-
 	dateTag := "[" + dateStr + "]"
+	if checkTagExists(dateTag, fd.OriginalVideoBaseName) {
+		logging.D(2, "Tag '%s' already detected in name, skipping...", dateTag)
+		return "", nil
+	}
 
-	logging.S(0, "Made date tag '%s' for field with data '%s'", dateTag, fieldVal)
+	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, fd.OriginalVideoBaseName)
 	return dateTag, nil
-
 }
 
 // MetaTagAlreadyExists determines if the tag already exists in the metadata

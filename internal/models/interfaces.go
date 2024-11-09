@@ -4,10 +4,11 @@ import "os"
 
 // Metadata read/write interface
 type JSONFileRW interface {
-	DecodeMetadata(file *os.File) (map[string]interface{}, error)
-	RefreshMetadata() (map[string]interface{}, error)
-	WriteMetadata(fieldMap map[string]*string) (map[string]interface{}, error)
-	MakeMetaEdits(data map[string]interface{}, file *os.File, fd *FileData) (bool, error)
+	DecodeJSON(file *os.File) (map[string]interface{}, error)
+	RefreshJSON() (map[string]interface{}, error)
+	WriteJSON(fieldMap map[string]*string) (map[string]interface{}, error)
+	MakeJSONEdits(file *os.File, fd *FileData) (bool, error)
+	JSONDateTagEdits(file *os.File, fd *FileData) (edited bool, err error)
 }
 
 // Metadata read/write interface

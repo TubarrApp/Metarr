@@ -83,7 +83,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			}
 		}
 
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
 			return data, true
@@ -142,7 +142,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			if t.FormattedDate == "" {
 				dates.FormatAllDates(fd)
 			}
-			rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+			rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 			switch {
 			case err != nil:
 				logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)

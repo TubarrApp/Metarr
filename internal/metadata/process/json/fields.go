@@ -7,7 +7,7 @@ import (
 )
 
 // Primary function to fill out meta fields before writing
-func FillMetaFields(fd *models.FileData, data map[string]interface{}, gotTime bool) (map[string]interface{}, bool) {
+func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
 	var (
 		ok   bool
@@ -32,17 +32,6 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}, gotTime bo
 		allFilled = false
 	} else if meta != nil {
 		data = meta
-	}
-
-	if !gotTime {
-		if meta, ok = FillTimestamps(fd, data); !ok {
-			logging.I("No date metadata found")
-			allFilled = false
-		} else {
-			if meta != nil {
-				data = meta
-			}
-		}
 	}
 
 	if meta, ok = fillDescriptions(fd, data); !ok {

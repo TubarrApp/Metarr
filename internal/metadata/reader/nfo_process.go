@@ -3,7 +3,7 @@ package metadata
 import (
 	"fmt"
 	nfo "metarr/internal/metadata/process/nfo"
-	writer "metarr/internal/metadata/writer"
+	nfoRw "metarr/internal/metadata/writer/nfo"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"os"
@@ -25,7 +25,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 	}
 	defer file.Close()
 
-	nfoRW := writer.NewNFOFileRW(file)
+	nfoRW := nfoRw.NewNFOFileRW(file)
 	if nfoRW != nil {
 		// Store NFO RW in model
 		fd.NFOFileRW = nfoRW

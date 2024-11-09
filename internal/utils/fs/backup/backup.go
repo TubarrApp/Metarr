@@ -8,6 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+)
+
+var (
+	muBackup sync.Mutex
 )
 
 // createBackup creates a backup copy of the original file before modifying it.
@@ -18,6 +23,20 @@ func BackupFile(file *os.File) error {
 	backupFilePath := generateBackupFilename(originalFilePath)
 	logging.D(3, "Creating backup of file '%s' as '%s'", originalFilePath, backupFilePath)
 
+	// Current position
+	currentPos, err := file.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return fmt.Errorf("failed to get current file position: %w", err)
+	}
+
+	muBackup.Lock()
+	defer muBackup.Unlock()
+
+	// Seek to start for backup
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return fmt.Errorf("failed to seek to beginning of original file: %w", err)
+	}
+
 	// Open the backup file for writing
 	backupFile, err := os.Create(backupFilePath)
 	if err != nil {
@@ -25,17 +44,16 @@ func BackupFile(file *os.File) error {
 	}
 	defer backupFile.Close()
 
-	// Seek to the beginning of the original file (not the backup file)
-	_, err = file.Seek(0, io.SeekStart)
-	if err != nil {
-		return fmt.Errorf("failed to seek to beginning of original file: %w", err)
-	}
-
 	// Copy the content of the original file to the backup file
 	buf := make([]byte, 4*1024*1024)
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
+	}
+
+	// Restore original position
+	if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
+		return fmt.Errorf("failed to restore file position: %w", err)
 	}
 
 	logging.D(3, "Backup successfully created at '%s'", backupFilePath)

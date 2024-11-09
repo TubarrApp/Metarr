@@ -9,7 +9,7 @@ import (
 	process "metarr/internal/metadata/process/json"
 	check "metarr/internal/metadata/reader/check_existing"
 	tags "metarr/internal/metadata/tags"
-	writer "metarr/internal/metadata/writer"
+	jsonRw "metarr/internal/metadata/writer/json"
 	"metarr/internal/models"
 	"metarr/internal/transformations"
 	logging "metarr/internal/utils/logging"
@@ -48,49 +48,52 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	defer file.Close()
 
 	// Grab and store metadata reader/writer
-	jsonRW := writer.NewJSONFileRW(file)
+	jsonRW := jsonRw.NewJSONFileRW(file)
 	if jsonRW != nil {
 		fd.JSONFileRW = jsonRW
 	}
 
-	data, err := fd.JSONFileRW.DecodeMetadata(file)
+	// Decode metadata from file
+	data, err := fd.JSONFileRW.DecodeJSON(file)
 	if err != nil {
 		return nil, err
 	}
-
 	logging.D(3, "%v", data)
 
-	var (
-		ok,
-		gotTime bool
-	)
+	var ok bool
 
+	// Get web data first (before MakeMetaEdits in case of transformation presets)
 	if ok = process.FillWebpageDetails(fd, data); ok {
 		logging.I("URLs grabbed: %s", w.TryURLs)
 	}
 
 	if len(w.TryURLs) > 0 {
-		transformations.TryTransPresets(w.TryURLs, fd)
+		if match := transformations.TryTransPresets(w.TryURLs, fd); match == "" {
+			logging.D(1, "No presets found for video '%s' URLs %v", fd.OriginalVideoBaseName, w.TryURLs)
+		}
 	}
 
-	// Make metadata adjustments per user selection
-	edited, err := fd.JSONFileRW.MakeMetaEdits(data, file, fd)
-	if err != nil {
+	// Make metadata adjustments per user selection or transformation preset
+	if edited, err := fd.JSONFileRW.MakeJSONEdits(file, fd); err != nil {
 		return nil, err
-	}
-	if edited {
+	} else if edited {
 		logging.D(2, "Refreshing JSON metadata after edits were made...")
-		if data, err = fd.JSONFileRW.RefreshMetadata(); err != nil {
+		if data, err = fd.JSONFileRW.RefreshJSON(); err != nil {
 			return nil, err
 		}
 	}
 
+	// Fill timestamps and make/delete date tag ammendments
 	if data, ok = process.FillTimestamps(fd, data); !ok {
 		logging.I("No date metadata found")
 	}
 
+	if fd.MDates.FormattedDate == "" {
+		dates.FormatAllDates(fd)
+	}
+
 	if config.IsSet(keys.MDateTagMap) || config.IsSet(keys.MDelDateTagMap) {
-		ok, err = jsonRW.MakeDateTagEdits(data, file, fd)
+		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
 			logging.E(0, err.Error())
 		} else if !ok {
@@ -100,22 +103,19 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		logging.D(4, "Skipping making metadata date tag edits, key not set")
 	}
 
-	if data, ok = process.FillMetaFields(fd, data, gotTime); !ok {
+	// Fill other metafields
+	if data, ok = process.FillMetaFields(fd, data); !ok {
 		logging.D(2, "Some metafields were unfilled")
 	}
 
-	if fd.MDates.FormattedDate == "" {
-		dates.FormatAllDates(fd)
-	}
-
-	// Make date tag
+	// Make filename date tag
 	logging.D(3, "About to make date tag for: %v", file.Name())
 	if config.IsSet(keys.FileDateFmt) {
 
 		if dateFmt, ok := config.Get(keys.FileDateFmt).(enums.DateFormat); !ok {
 			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
 		} else if dateFmt != enums.DATEFMT_SKIP {
-			fd.FilenameDateTag, err = tags.MakeFileDateTag(data, file.Name(), dateFmt)
+			fd.FilenameDateTag, err = tags.MakeDateTag(data, fd, dateFmt)
 			if err != nil {
 				logging.E(0, "Failed to make date tag: %v", err)
 			}

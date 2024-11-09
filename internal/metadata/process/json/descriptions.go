@@ -76,7 +76,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 
 	switch {
 	case filled:
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		switch {
 		case err != nil:
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
@@ -102,7 +102,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		}
 
 		// Insert new scraped fields into file
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
 			logging.E(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
 		} else if rtn != nil {

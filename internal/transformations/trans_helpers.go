@@ -13,16 +13,17 @@ import (
 
 // TryTransPresets checks if any URLs in the video metadata have a known match.
 // Applies preset transformations for those which match.
-func TryTransPresets(urls []string, fd *models.FileData) (found bool) {
+func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 
 	for _, url := range urls {
 		switch {
 		case strings.Contains(url, "censored.tv"):
 			presets.CensoredTvTransformations(fd)
-			found = true
+			logging.I("Found transformation preset for URL '%s'", url)
+			return url
 		}
 	}
-	return found
+	return ""
 }
 
 // getMetafileData retrieves meta type specific data.

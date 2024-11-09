@@ -13,7 +13,7 @@ import (
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
-	metaOW := config.GetBool(keys.MOverwrite)
+	var dataFilled bool
 
 	c := fd.MCredits
 	w := fd.MWebData
@@ -36,15 +36,19 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		consts.JComposer:        &c.Composer,
 	}
 
-	dataFilled := unpackJSON("credits", fieldMap, data)
+	if dataFilled = unpackJSON("credits", fieldMap, data); dataFilled {
+		logging.D(2, "Decoded credits JSON into field map")
+	}
 
 	// Check if filled
 	for key, val := range fieldMap {
+
 		if val == nil {
 			logging.E(0, "Value is null")
 			continue
 		}
-		if *val == "" || metaOW {
+
+		if *val == "" || config.GetBool(keys.MOverwrite) {
 			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", key)
 			*val = fillEmptyCredits(c)
 			logging.D(2, "Set value to '%s'", *val)
@@ -56,9 +60,11 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		}
 	}
 
+	// Return if data filled or no web data, else scrape
 	switch {
 	case dataFilled:
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+
+		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		switch {
 		case err != nil:
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
@@ -69,10 +75,12 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		}
 
 	case w.WebpageURL == "":
+
 		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
 		return data, false
 	}
 
+	// Scrape for missing data (write back to file if found)
 	credits := browser.ScrapeMeta(w, enums.WEBCLASS_CREDITS)
 	if credits != "" {
 		for _, value := range fieldMap {
@@ -81,7 +89,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 			}
 		}
 
-		rtn, err := fd.JSONFileRW.WriteMetadata(fieldMap)
+		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		switch {
 		case err != nil:
 			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
