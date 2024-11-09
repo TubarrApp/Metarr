@@ -26,6 +26,7 @@ func NewJSONFileRW(file *os.File) *JSONFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
 	return &JSONFileRW{
 		File: file,
+		Meta: make(map[string]interface{}),
 	}
 }
 
