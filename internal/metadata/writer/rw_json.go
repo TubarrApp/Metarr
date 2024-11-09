@@ -662,6 +662,11 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 			return false, fmt.Errorf("generated date tag too short for field '%s': '%s'", field, tag)
 		}
 
+		// Check if it already exists
+		if tags.MetaDateTagExists(tag, strVal) {
+			return false, nil
+		}
+
 		// Apply the tag based on location
 		switch dateTag.Loc {
 		case enums.DATE_TAG_LOC_PFX:

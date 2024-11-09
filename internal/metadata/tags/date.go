@@ -75,14 +75,19 @@ func MetafieldDateTag(metadata map[string]interface{}, fieldVal string, dateFmt 
 	}
 
 	dateTag := "[" + dateStr + "]"
-	if strings.Contains(fieldVal, dateTag) {
-		logging.D(2, "Tag '%s' already detected in metafield, skipping...", dateTag)
-		return "[]", nil
-	}
 
 	logging.S(0, "Made date tag '%s' for field with data '%s'", dateTag, fieldVal)
 	return dateTag, nil
 
+}
+
+// MetaTagAlreadyExists determines if the tag already exists in the metadata
+func MetaDateTagExists(tag, fieldVal string) bool {
+	if strings.Contains(fieldVal, tag) {
+		logging.D(2, "Tag '%s' already detected in metafield, skipping...", tag)
+		return true
+	}
+	return false
 }
 
 // extractDateFromMetadata attempts to find a date in the metadata using predefined fields

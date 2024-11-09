@@ -70,7 +70,7 @@ func validateMetaOps() error {
 		value := parts[2]
 
 		switch strings.ToLower(operation) {
-		case "add":
+		case "set":
 			newFieldModel := &models.MetaNewField{
 				Field: field,
 				Value: value,
@@ -214,7 +214,7 @@ func metaOpsMapLength(metaOpsInput []string) (new, apnd, pfx, sfxTrim, pfxTrim, 
 				op = op[i+1 : i+1+j]
 
 				switch op {
-				case "add":
+				case "set":
 					new++
 				case "append":
 					apnd++

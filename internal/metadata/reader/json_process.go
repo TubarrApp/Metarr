@@ -109,7 +109,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		if err != nil {
 			logging.E(0, err.Error())
 		} else if !ok {
-			logging.E(0, "Did not create date tag for metadata")
+			logging.E(0, "Did not make date tag edits for metadata, tag already exists?")
 		}
 	} else {
 		logging.D(4, "Skipping making metadata date tag edits, key not set")
@@ -163,6 +163,7 @@ func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 	case ".mp4":
 		return check.MP4MetaMatches(fd)
 	default:
+		logging.I("Checks not currently implemented for this filetype")
 		return false
 	}
 }
