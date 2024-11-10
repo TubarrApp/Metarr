@@ -110,18 +110,28 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 
 	// Make filename date tag
 	logging.D(3, "About to make date tag for: %v", file.Name())
-	if config.IsSet(keys.FileDateFmt) {
 
-		if dateFmt, ok := config.Get(keys.FileDateFmt).(enums.DateFormat); !ok {
+	if config.IsSet(keys.FileDateFmt) {
+		dateFmt, ok := config.Get(keys.FileDateFmt).(enums.DateFormat)
+
+		switch {
+		case !ok:
 			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
-		} else if dateFmt != enums.DATEFMT_SKIP {
-			fd.FilenameDateTag, err = tags.MakeDateTag(data, fd, dateFmt)
+
+		case dateFmt != enums.DATEFMT_SKIP:
+
+			dateTag, err := tags.MakeDateTag(data, fd, dateFmt)
 			if err != nil {
 				logging.E(0, "Failed to make date tag: %v", err)
 			}
-		} else {
+			if !tags.TagAlreadyExists(dateTag, file.Name()) {
+				fd.FilenameDateTag = dateTag
+			}
+
+		default:
 			logging.D(1, "Set file date tag format to skip, not making date tag for '%s'", file.Name())
 		}
+
 	}
 
 	// Add new filename tag for files

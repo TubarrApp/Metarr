@@ -96,7 +96,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		err  error
 	)
 	if scrapedDate != "" {
-		date, err = dates.ParseStringDate(scrapedDate)
+		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
 			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return false

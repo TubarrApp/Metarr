@@ -295,7 +295,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 }
 
 // JSONDateTagEdits is a public function to add date tags into the metafile, this is useful because
-// the dates may not yet be scraped when the initial MakeMetaEdits runs
+// the dates may not yet be scraped when the initial MakeJSONEdits runs
 func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 
 	logging.D(4, "Entering MakeDateTagEdits for file '%s'", file.Name())

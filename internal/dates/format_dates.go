@@ -2,16 +2,16 @@ package dates
 
 import (
 	"fmt"
+	enums "metarr/internal/domain/enums"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
-	"strconv"
 	"strings"
 
 	"github.com/araddon/dateparse"
 )
 
-// ParseAndFormatDate parses and formats the inputted date string
-func ParseStringDate(dateString string) (string, error) {
+// ParseWordDate parses and formats the inputted word date (e.g. Jan 2nd)
+func ParseWordDate(dateString string) (string, error) {
 
 	t, err := dateparse.ParseAny(dateString)
 	if err != nil {
@@ -58,61 +58,6 @@ func ParseNumDate(dateNum string) (string, error) {
 	return dateStr, nil
 }
 
-// Convert a numerical month to a word
-func monthStringSwitch(month string) string {
-	var monthStr string
-	switch month {
-	case "01":
-		monthStr = "Jan"
-	case "02":
-		monthStr = "Feb"
-	case "03":
-		monthStr = "Mar"
-	case "04":
-		monthStr = "Apr"
-	case "05":
-		monthStr = "May"
-	case "06":
-		monthStr = "Jun"
-	case "07":
-		monthStr = "Jul"
-	case "08":
-		monthStr = "Aug"
-	case "09":
-		monthStr = "Sep"
-	case "10":
-		monthStr = "Oct"
-	case "11":
-		monthStr = "Nov"
-	case "12":
-		monthStr = "Dec"
-	default:
-		logging.E(0, "Failed to make month string from month number '%s'", month)
-		monthStr = "Jan"
-	}
-	return monthStr
-}
-
-// Affix a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
-func dayStringSwitch(day string) string {
-	if thCheck, err := strconv.Atoi(day); err != nil {
-		logging.E(0, "Failed to convert date string to number")
-		return day
-	} else if thCheck > 10 && thCheck < 20 {
-		return day + "th"
-	}
-	switch {
-	case strings.HasSuffix(day, "1"):
-		return day + "st"
-	case strings.HasSuffix(day, "2"):
-		return day + "nd"
-	case strings.HasSuffix(day, "3"):
-		return day + "rd"
-	default:
-		return day + "th"
-	}
-}
-
 // YyyyMmDd converts inputted date strings into the user's defined format
 func YyyyMmDd(date string) (string, bool) {
 
@@ -135,6 +80,28 @@ func YyyyMmDd(date string) (string, bool) {
 	}
 	logging.D(3, "Returning empty or short date element (%s) without formatting", date)
 	return date, false
+}
+
+// formatDateString formats the date as a hyphenated string
+func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string, error) {
+	var parts [3]string
+
+	switch dateFmt {
+	case enums.DATEFMT_YYYY_MM_DD, enums.DATEFMT_YY_MM_DD:
+		parts = [3]string{year, month, day}
+	case enums.DATEFMT_YYYY_DD_MM, enums.DATEFMT_YY_DD_MM:
+		parts = [3]string{year, day, month}
+	case enums.DATEFMT_DD_MM_YYYY, enums.DATEFMT_DD_MM_YY:
+		parts = [3]string{day, month, year}
+	case enums.DATEFMT_MM_DD_YYYY, enums.DATEFMT_MM_DD_YY:
+		parts = [3]string{month, day, year}
+	}
+
+	result := joinNonEmpty(parts)
+	if result == "" {
+		return "", fmt.Errorf("no valid date components found")
+	}
+	return result, nil
 }
 
 // FormatAllDates formats timestamps into a hyphenated form

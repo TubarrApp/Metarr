@@ -6,6 +6,7 @@ import (
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
 	presets "metarr/internal/transformations/presets"
+	utils "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
 	"strings"
 	"unicode"
@@ -16,8 +17,11 @@ import (
 func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 
 	for _, url := range urls {
+
+		_, domain, _, _ := utils.ExtractDomainName(url)
+
 		switch {
-		case strings.Contains(url, "censored.tv"):
+		case strings.Contains(domain, "censored.tv"):
 			presets.CensoredTvTransformations(fd)
 			logging.I("Found transformation preset for URL '%s'", url)
 			return url

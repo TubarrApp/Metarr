@@ -106,7 +106,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 
 	var date string
 	if scrapedDate != "" {
-		date, err = dates.ParseStringDate(scrapedDate)
+		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
 			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return data, false

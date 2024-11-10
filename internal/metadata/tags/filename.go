@@ -16,7 +16,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 
 	tagFields := config.GetStringSlice(keys.MFilenamePfx)
 	if len(tagFields) == 0 {
-		return "[]"
+		return ""
 	}
 
 	var b strings.Builder
@@ -53,17 +53,12 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	logging.D(1, "Made metatag '%s' from file '%s'", tag, file.Name())
 
 	if tag != "[]" {
-		if checkTagExists(tag, filepath.Base(file.Name())) {
+		if TagAlreadyExists(tag, filepath.Base(file.Name())) {
 			logging.D(2, "Tag '%s' already detected in name, skipping...", tag)
-			tag = "[]"
+			tag = ""
+		} else {
+			return tag
 		}
 	}
-	return tag
-}
-
-// checkTagExists checks if the constructed tag already exists in the filename
-func checkTagExists(tag, filename string) bool {
-	logging.D(3, "Checking if tag '%s' exists in filename '%s'", tag, filename)
-
-	return strings.Contains(filename, tag)
+	return ""
 }

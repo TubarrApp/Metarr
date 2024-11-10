@@ -305,18 +305,13 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 
 		// Generate the date tag
 		tag, err := tags.MakeDateTag(data, fd, dateTag.Format)
-		if err != nil {
+		if err != nil || tag == "" {
 			return false, fmt.Errorf("failed to generate date tag for field '%s': %w", field, err)
 		}
-		if len(tag) < 3 {
-			return false, fmt.Errorf("generated date tag too short for field '%s': '%s'", field, tag)
-		}
 
-		// Check if it already exists
-		if op == enums.DATE_TAG_ADD_OP {
-			if tags.MetaDateTagExists(tag, strVal) {
-				return false, nil
-			}
+		if tags.TagAlreadyExists(tag, strVal) {
+			logging.I("Tag '%s' already exists in field '%s'", tag, strVal)
+			return false, nil
 		}
 
 		// Apply the tag based on location
@@ -331,7 +326,7 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 					logging.I("Deleted date tag '%s' prefix from field '%s'", tag, field)
 					edited = true
 				} else {
-					logging.I("Failed to strip date tag from '%s'", before)
+					logging.E(0, "Failed to strip date tag from '%s'", before)
 				}
 
 			case enums.DATE_TAG_ADD_OP:
@@ -350,7 +345,7 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 					logging.I("Deleted date tag '%s' suffix from field '%s'", tag, field)
 					edited = true
 				} else {
-					logging.I("Failed to strip date tag from '%s'", before)
+					logging.E(0, "Failed to strip date tag from '%s'", before)
 				}
 
 			case enums.DATE_TAG_ADD_OP:

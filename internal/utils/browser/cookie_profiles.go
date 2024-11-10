@@ -78,7 +78,7 @@ var cookieFilePatterns = map[string][]string{
 		"Extension Cookies-journal",
 	},
 
-	consts.BrowserEdge: { // Similar to Chrome as it's Chromium-based
+	consts.BrowserEdge: { // Similar to Chrome
 		"Cookies",
 		"Cookies-journal",
 		"Login Data",
@@ -95,11 +95,11 @@ var cookieFilePatterns = map[string][]string{
 		"Network/*",
 		"Extension Cookies",
 		"Extension Cookies-journal",
-		"*.jwt",           // Edge-specific
+		"*.jwt",
 		"Microsoft Edge*", // Edge-specific files
 	},
 
-	consts.BrowserSafari: { // macOS only
+	consts.BrowserSafari: {
 		"Cookies.binarycookies",
 		"Cookies.plist",
 		"LastSession.plist",

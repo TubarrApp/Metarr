@@ -54,8 +54,7 @@ func validateMetaOps() error {
 		return nil
 	}
 
-	m := metaOpsLen{}
-	m = metaOpsMapLength(metaOpsInput, m)
+	m := metaOpsMapLength(metaOpsInput, metaOpsLen{})
 
 	// Add and replace
 	newField := make([]*models.MetaNewField, 0, m.newLen)

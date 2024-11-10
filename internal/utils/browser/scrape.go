@@ -201,7 +201,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 
 				*result = text
 				logging.I("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
-					result, classAttr, idAttr, url)
+					*result, classAttr, idAttr, url)
 				return
 			}
 		}
