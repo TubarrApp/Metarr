@@ -124,7 +124,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 			if err != nil {
 				logging.E(0, "Failed to make date tag: %v", err)
 			}
-			if !tags.TagAlreadyExists(dateTag, file.Name()) {
+			if !strings.Contains(dateTag, file.Name()) {
 				fd.FilenameDateTag = dateTag
 			}
 

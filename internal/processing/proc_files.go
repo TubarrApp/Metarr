@@ -92,8 +92,16 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			} else {
 				videoMap, err = fsRead.GetVideoFiles(openVideo)
 			}
+		} else {
+			if fileInfo.Size() == 0 {
+				failedVideos = append(failedVideos, failedVideo{
+					filename: openVideo.Name(),
+					err:      "Video file size is 0",
+				})
+			} else {
+				videoMap, err = fsRead.GetSingleVideoFile(openVideo)
+			}
 		}
-
 	} else if !skipVideos {
 		fileInfo, _ := openVideo.Stat()
 

@@ -309,7 +309,7 @@ func (rw *JSONFileRW) jsonFieldDateTag(data map[string]interface{}, dateTagMap m
 			return false, fmt.Errorf("failed to generate date tag for field '%s': %w", field, err)
 		}
 
-		if tags.TagAlreadyExists(tag, strVal) {
+		if strings.Contains(tag, strVal) {
 			logging.I("Tag '%s' already exists in field '%s'", tag, strVal)
 			return false, nil
 		}
