@@ -32,6 +32,7 @@ func initTextReplace() error {
 	// Parse rename flag
 	setRenameFlag()
 
+	logging.D(0, "About to validate meta operations")
 	// Meta operations
 	if err := validateMetaOps(); err != nil {
 		return err
@@ -48,6 +49,8 @@ func initTextReplace() error {
 // validateMetaOps parses the meta transformation operations
 func validateMetaOps() error {
 
+	logging.D(1, "Validating meta operations...")
+
 	metaOpsInput := viper.GetStringSlice(keys.MetaOps)
 	if len(metaOpsInput) == 0 {
 		logging.D(2, "No metadata operations passed in")
@@ -58,10 +61,15 @@ func validateMetaOps() error {
 
 	// Add and replace
 	newField := make([]*models.MetaNewField, 0, m.newLen)
+	models.SetOverrideMap = make(map[enums.OverrideMetaType]string, m.newLen)
+
 	replace := make([]*models.MetaReplace, 0, m.replaceLen)
+	models.ReplaceOverrideMap = make(map[enums.OverrideMetaType]*models.MOverrideReplacePair, m.replaceLen)
 
 	// Prefixes and suffixes
 	apnd := make([]*models.MetaAppend, 0, m.apndLen)
+	models.AppendOverrideMap = make(map[enums.OverrideMetaType]string, m.apndLen)
+
 	pfx := make([]*models.MetaPrefix, 0, m.pfxLen)
 	trimSfx := make([]*models.MetaTrimSuffix, 0, m.trimSfxLen)
 	trimPfx := make([]*models.MetaTrimPrefix, 0, m.trimPfxLen)
@@ -85,6 +93,11 @@ func validateMetaOps() error {
 
 		switch strings.ToLower(operation) {
 		case "set":
+			switch field {
+			case "all-credits", "credits-all":
+				models.SetOverrideMap[enums.OVERRIDE_META_CREDITS] = value
+			}
+
 			newFieldModel := &models.MetaNewField{
 				Field: field,
 				Value: value,
@@ -95,6 +108,11 @@ func validateMetaOps() error {
 			fmt.Println()
 
 		case "append":
+			switch field {
+			case "all-credits", "credits-all":
+				models.AppendOverrideMap[enums.OVERRIDE_META_CREDITS] = value
+			}
+
 			apndModel := &models.MetaAppend{
 				Field:  field,
 				Suffix: value,
@@ -138,11 +156,20 @@ func validateMetaOps() error {
 			if len(parts) != 4 {
 				return fmt.Errorf("replacement should be in format 'field:replace:text:replacement'")
 			}
+
+			switch field {
+			case "all-credits", "credits-all":
+				models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS] = &models.MOverrideReplacePair{
+					Value:       value,
+					Replacement: parts[3],
+				}
+			}
 			rModel := &models.MetaReplace{
 				Field:       field,
 				Value:       value,
 				Replacement: parts[3],
 			}
+
 			replace = append(replace, rModel)
 			fmt.Println()
 			logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)

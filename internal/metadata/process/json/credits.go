@@ -8,6 +8,7 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
+	"strings"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
@@ -19,21 +20,19 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 	w := fd.MWebData
 
 	fieldMap := map[string]*string{
-		// Order by importance
-		consts.JOverrideCredits: &c.Override, // Users can assign to this flag to override all credits
-		consts.JCreator:         &c.Creator,
-		consts.JPerformer:       &c.Performer,
-		consts.JAuthor:          &c.Author,
-		consts.JArtist:          &c.Artist, // May be alias for "author" in some systems
-		consts.JChannel:         &c.Channel,
-		consts.JDirector:        &c.Director,
-		consts.JActor:           &c.Actor,
-		consts.JStudio:          &c.Studio,
-		consts.JProducer:        &c.Producer,
-		consts.JWriter:          &c.Writer,
-		consts.JUploader:        &c.Uploader,
-		consts.JPublisher:       &c.Publisher,
-		consts.JComposer:        &c.Composer,
+		consts.JCreator:   &c.Creator,
+		consts.JPerformer: &c.Performer,
+		consts.JAuthor:    &c.Author,
+		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
+		consts.JChannel:   &c.Channel,
+		consts.JDirector:  &c.Director,
+		consts.JActor:     &c.Actor,
+		consts.JStudio:    &c.Studio,
+		consts.JProducer:  &c.Producer,
+		consts.JWriter:    &c.Writer,
+		consts.JUploader:  &c.Uploader,
+		consts.JPublisher: &c.Publisher,
+		consts.JComposer:  &c.Composer,
 	}
 
 	if dataFilled = unpackJSON("credits", fieldMap, data); dataFilled {
@@ -58,6 +57,10 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		} else if *val != "" {
 			dataFilled = true
 		}
+	}
+
+	if filled := overrideAll(fieldMap); filled {
+		dataFilled = true
 	}
 
 	// Return if data filled or no web data, else scrape
@@ -153,4 +156,56 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 	default:
 		return ""
 	}
+}
+
+// overrideAll makes override replacements if existent
+func overrideAll(fieldMap map[string]*string) bool {
+
+	if fieldMap == nil {
+		logging.E(0, "fieldMap passed in null")
+		return false
+	}
+	filled := false
+
+	// Note order of operations
+	if len(models.ReplaceOverrideMap) > 0 {
+		if m, exists := models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
+			for _, entry := range fieldMap {
+				if entry == nil {
+					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
+					continue
+				}
+				*entry = strings.ReplaceAll(*entry, m.Value, m.Replacement)
+				filled = true
+			}
+		}
+	}
+
+	if len(models.SetOverrideMap) > 0 {
+		if val, exists := models.SetOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
+			for _, entry := range fieldMap {
+				if entry == nil {
+					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
+					continue
+				}
+				*entry = val
+				filled = true
+			}
+		}
+	}
+
+	if len(models.AppendOverrideMap) > 0 {
+		if val, exists := models.AppendOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
+			for _, entry := range fieldMap {
+				if entry == nil {
+					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
+					continue
+				}
+				*entry = *entry + val
+				filled = true
+			}
+		}
+	}
+
+	return filled
 }

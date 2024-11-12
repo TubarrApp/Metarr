@@ -26,6 +26,7 @@ type FSFileWriter struct {
 }
 
 func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta string) *FSFileWriter {
+
 	same := 0
 	if destVideo != srcVideo {
 		same++

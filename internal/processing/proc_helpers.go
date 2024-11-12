@@ -104,24 +104,24 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 }
 
 // metaChanges determines if metadata should be processed
-func metaChanges() bool {
-	if cfg.IsSet(keys.MAppend) {
-		return true
-	}
-	if cfg.IsSet(keys.MPrefix) {
-		return true
-	}
-	if cfg.IsSet(keys.MNewField) {
-		return true
-	}
-	if cfg.IsSet(keys.MTrimPrefix) {
-		return true
-	}
-	if cfg.IsSet(keys.MTrimSuffix) {
-		return true
-	}
-	if cfg.IsSet(keys.FileDateFmt) {
-		return true
-	}
-	return false
-}
+// func metaChanges() bool {
+// 	if cfg.IsSet(keys.MAppend) {
+// 		return true
+// 	}
+// 	if cfg.IsSet(keys.MPrefix) {
+// 		return true
+// 	}
+// 	if cfg.IsSet(keys.MNewField) {
+// 		return true
+// 	}
+// 	if cfg.IsSet(keys.MTrimPrefix) {
+// 		return true
+// 	}
+// 	if cfg.IsSet(keys.MTrimSuffix) {
+// 		return true
+// 	}
+// 	if cfg.IsSet(keys.FileDateFmt) {
+// 		return true
+// 	}
+// 	return false
+// }

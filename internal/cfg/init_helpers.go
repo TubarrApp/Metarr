@@ -9,19 +9,21 @@ import (
 // initFilesDirs initializes user flag settings for input files and directories
 func initFilesDirs() {
 
-	// Videos
-	rootCmd.PersistentFlags().StringP(keys.VideoDir, "v", ".", "Video directory")
-	viper.BindPFlag(keys.VideoDir, rootCmd.PersistentFlags().Lookup(keys.VideoDir))
+	// Batch
+	rootCmd.PersistentFlags().StringSlice(keys.BatchPairsInput, nil, "Pairs of video and JSON directories (e.g. '/videodir:/metadir')")
+	viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput))
 
-	rootCmd.PersistentFlags().StringP(keys.VideoFile, "V", ".", "Video file")
-	viper.BindPFlag(keys.VideoFile, rootCmd.PersistentFlags().Lookup(keys.VideoFile))
+	rootCmd.PersistentFlags().StringSliceP(keys.VideoDirs, "v", nil, "A directory containing videos")
+	viper.BindPFlag(keys.VideoDirs, rootCmd.PersistentFlags().Lookup(keys.VideoDirs))
 
-	// JSON
-	rootCmd.PersistentFlags().StringP(keys.JsonDir, "j", ".", "JSON directory")
-	viper.BindPFlag(keys.JsonDir, rootCmd.PersistentFlags().Lookup(keys.JsonDir))
+	rootCmd.PersistentFlags().StringSliceP(keys.VideoFiles, "V", nil, "A video file")
+	viper.BindPFlag(keys.VideoFiles, rootCmd.PersistentFlags().Lookup(keys.VideoFiles))
 
-	rootCmd.PersistentFlags().StringP(keys.JsonFile, "J", ".", "JSON file")
-	viper.BindPFlag(keys.JsonFile, rootCmd.PersistentFlags().Lookup(keys.JsonFile))
+	rootCmd.PersistentFlags().StringSliceP(keys.JsonDirs, "j", nil, "A directory containing videos")
+	viper.BindPFlag(keys.JsonDirs, rootCmd.PersistentFlags().Lookup(keys.JsonDirs))
+
+	rootCmd.PersistentFlags().StringSliceP(keys.JsonFiles, "J", nil, "A directory containing videos")
+	viper.BindPFlag(keys.JsonFiles, rootCmd.PersistentFlags().Lookup(keys.JsonFiles))
 
 	// Cookies
 	rootCmd.PersistentFlags().String(keys.CookiePath, "", "Specify cookie location")

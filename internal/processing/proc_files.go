@@ -24,9 +24,8 @@ var (
 	totalVideoFiles,
 	processedMetaFiles,
 	processedVideoFiles int32
-
-	processedDataArray []*models.FileData
-	failedVideos       []failedVideo
+	failedVideos []failedVideo
+	muPrint      sync.Mutex
 )
 
 type failedVideo struct {
@@ -35,95 +34,77 @@ type failedVideo struct {
 }
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
+func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 
-	skipVideos := cfg.GetBool(keys.SkipVideos)
+	cancel := batch.Core.Cancel
+	cleanupChan := batch.Core.Cleanup
+	ctx := batch.Core.Ctx
+	wg := batch.Core.Wg
+
+	// Reset counts
+	atomic.StoreInt32(&totalMetaFiles, 0)
+	atomic.StoreInt32(&totalVideoFiles, 0)
+	atomic.StoreInt32(&processedMetaFiles, 0)
+	atomic.StoreInt32(&processedVideoFiles, 0)
 
 	var (
 		videoMap,
 		metaMap,
 		matchedFiles map[string]*models.FileData
-		err error
+
+		processedDataArray []*models.FileData
+		err                error
+		skipVideos         bool
 	)
 
-	// Process metadata, checking if it’s a directory or a single file
-	if openMeta != nil {
-		fileInfo, _ := openMeta.Stat()
+	if cfg.IsSet(keys.SkipVideos) {
+		skipVideos = cfg.GetBool(keys.SkipVideos)
+	} else {
+		skipVideos = batch.SkipVideos
+	}
 
-		if fileInfo.IsDir() {
-			if fileInfo.Size() == 0 {
-				failedVideos = append(failedVideos, failedVideo{
-					filename: openMeta.Name(),
-					err:      "Meta directory size is 0",
-				})
-			} else {
-				metaMap, err = fsRead.GetMetadataFiles(openMeta)
-			}
-		} else {
-			if fileInfo.Size() == 0 {
-				failedVideos = append(failedVideos, failedVideo{
-					filename: openMeta.Name(),
-					err:      "Meta file size is 0",
-				})
-			} else {
-				metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
-			}
-		}
+	// Batch is a directory request...
+	if batch.IsDirs {
+		metaMap, err = fsRead.GetMetadataFiles(openMeta)
 		if err != nil {
-			logging.E(0, "Error: %v", err)
-
+			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
 			})
+		}
 
-			os.Exit(1)
+		if !skipVideos {
+			videoMap, err = fsRead.GetVideoFiles(openVideo)
+			if err != nil {
+				failedVideos = append(failedVideos, failedVideo{
+					filename: openVideo.Name(),
+					err:      err.Error(),
+				})
+			}
 		}
 	}
-	// Process video files, checking if it’s a directory or a single file
-	if openVideo != nil {
-		fileInfo, _ := openVideo.Stat()
 
-		if fileInfo.IsDir() {
-			if fileInfo.Size() == 0 {
-				failedVideos = append(failedVideos, failedVideo{
-					filename: openVideo.Name(),
-					err:      "Video directory size is 0",
-				})
-			} else {
-				videoMap, err = fsRead.GetVideoFiles(openVideo)
-			}
-		} else {
-			if fileInfo.Size() == 0 {
-				failedVideos = append(failedVideos, failedVideo{
-					filename: openVideo.Name(),
-					err:      "Video file size is 0",
-				})
-			} else {
-				videoMap, err = fsRead.GetSingleVideoFile(openVideo)
-			}
-		}
-	} else if !skipVideos {
-		fileInfo, _ := openVideo.Stat()
-
-		if fileInfo.Size() == 0 {
+	// Batch is a file request...
+	if !batch.IsDirs {
+		metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
+		if err != nil {
+			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
-				filename: openVideo.Name(),
-				err:      "Video file size is 0",
+				filename: openMeta.Name(),
+				err:      err.Error(),
 			})
-		} else {
-			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 		}
-	}
-	if err != nil {
-		logging.E(0, "Error fetching video files: %v", err)
 
-		failedVideos = append(failedVideos, failedVideo{
-			filename: openVideo.Name(),
-			err:      err.Error(),
-		})
-
-		os.Exit(1)
+		if !skipVideos {
+			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
+			if err != nil {
+				failedVideos = append(failedVideos, failedVideo{
+					filename: openVideo.Name(),
+					err:      err.Error(),
+				})
+			}
+		}
 	}
 
 	// Match video and metadata files
@@ -140,7 +121,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
-	logging.I("Found %d file(s) to process in the directoryfmt.Printf", totalMetaFiles+totalVideoFiles)
+	logging.I("Found %d file(s) to process in the directory", totalMetaFiles+totalVideoFiles)
 	logging.D(3, "Matched metafiles: %v", matchedFiles)
 
 	for _, fileData := range matchedFiles {
@@ -149,32 +130,27 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			err           error
 		)
 
-		if !cfg.IsSet(keys.SkipVideos) || metaChanges() {
-			switch fileData.MetaFileType {
-			case enums.METAFILE_JSON:
-				logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-				processedData, err = reader.ProcessJSONFile(fileData)
+		switch fileData.MetaFileType {
+		case enums.METAFILE_JSON:
+			logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
+			processedData, err = reader.ProcessJSONFile(fileData)
 
-			case enums.METAFILE_NFO:
-				logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
-				processedData, err = reader.ProcessNFOFiles(fileData)
-			}
-			if err != nil {
-				logging.ErrorArray = append(logging.ErrorArray, err)
-				errMsg := fmt.Errorf("error processing metadata for file '%s': %w", fileData.OriginalVideoPath, err)
-				logging.E(0, errMsg.Error())
-
-				failedVideos = append(failedVideos, failedVideo{
-					filename: fileData.OriginalVideoPath,
-					err:      errMsg.Error(),
-				})
-
-				continue
-			}
-			processedDataArray = append(processedDataArray, processedData)
-		} else {
-			processedDataArray = append(processedDataArray, fileData)
+		case enums.METAFILE_NFO:
+			logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
+			processedData, err = reader.ProcessNFOFiles(fileData)
 		}
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			errMsg := fmt.Errorf("error processing metadata for file '%s': %w", fileData.OriginalVideoPath, err)
+			logging.E(0, errMsg.Error())
+
+			failedVideos = append(failedVideos, failedVideo{
+				filename: fileData.OriginalVideoPath,
+				err:      errMsg.Error(),
+			})
+			continue
+		}
+		processedDataArray = append(processedDataArray, processedData)
 	}
 
 	// Goroutine to handle signals and cleanup
@@ -208,8 +184,10 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 
 	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
 
-	for fileName, fileData := range matchedFiles {
-		executeFile(ctx, wg, sem, fileName, fileData)
+	if !skipVideos {
+		for fileName, fileData := range matchedFiles {
+			executeFile(ctx, wg, sem, fileName, fileData)
+		}
 	}
 
 	wg.Wait()
@@ -274,10 +252,12 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
 		total := atomic.LoadInt32(&totalMetaFiles)
 
-		fmt.Printf("\n====================================================\n")
+		muPrint.Lock()
+		fmt.Printf("\n==============================================================\n")
 		fmt.Printf("    Processed metafile %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining: %d\n", total-currentFile)
-		fmt.Printf("====================================================\n\n")
+		fmt.Printf("    Remaining in '%s': %d\n", fileData.JSONDirectory, total-currentFile)
+		fmt.Printf("==============================================================\n\n")
+		muPrint.Unlock()
 
 		sem <- struct{}{}
 		defer func() {
@@ -324,10 +304,12 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
 		total = atomic.LoadInt32(&totalVideoFiles)
 
-		fmt.Printf("\n====================================================\n")
+		muPrint.Lock()
+		fmt.Printf("\n==============================================================\n")
 		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining: %d\n", total-currentFile)
-		fmt.Printf("====================================================\n\n")
+		fmt.Printf("    Remaining in '%s': %d\n", fileData.JSONDirectory, total-currentFile)
+		fmt.Printf("==============================================================\n\n")
+		muPrint.Unlock()
 
 	}(fileName, fileData)
 }

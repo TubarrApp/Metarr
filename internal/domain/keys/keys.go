@@ -2,11 +2,17 @@ package domain
 
 // Terminal keys
 const (
-	VideoDir  string = "video-dir"
-	VideoFile string = "video-file"
+	BatchPairsInput string = "batch-pairs"
+	// VideoDir        string = "video-dir"
+	// VideoFile       string = "video-file"
 
-	JsonDir   string = "json-dir"
-	JsonFile  string = "json-file"
+	VideoDirs  string = "video-dir"
+	VideoFiles string = "video-file"
+	JsonDirs   string = "json-dir"
+	JsonFiles  string = "json-file"
+
+	// JsonDir   string = "json-dir"
+	// JsonFile  string = "json-file"
 	MetaPurge string = "purge-metafile"
 
 	CookiePath string = "cookie-dir"
@@ -49,6 +55,7 @@ const (
 
 // Files and directories
 const (
+	BatchPairs     string = "batchPairs"
 	OpenVideo      string = "openVideo"
 	OpenJson       string = "openJson"
 	MetaPurgeEnum  string = "metaPurgeEnum"

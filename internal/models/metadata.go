@@ -5,13 +5,14 @@ import (
 	"net/http"
 )
 
-// func NewMetaReplaceSuffix(f, s, r string) *MetaReplaceSuffix {
-// 	return &MetaReplaceSuffix{
-// 		Field:       f,
-// 		Suffix:      s,
-// 		Replacement: r,
-// 	}
-// }
+var AppendOverrideMap map[enums.OverrideMetaType]string
+var ReplaceOverrideMap map[enums.OverrideMetaType]*MOverrideReplacePair
+var SetOverrideMap map[enums.OverrideMetaType]string
+
+type MOverrideReplacePair struct {
+	Value       string
+	Replacement string
+}
 
 type MetaAppend struct {
 	Field  string

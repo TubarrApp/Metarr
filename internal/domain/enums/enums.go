@@ -19,6 +19,21 @@ const (
 	META_EXTS_NFO
 )
 
+// OverrideMetaType holds the value for the type of metafield to override all values of (e.g. "credits")
+type OverrideMetaType int
+
+const (
+	OVERRIDE_META_NONE OverrideMetaType = iota
+	OVERRIDE_META_CREDITS
+)
+
+type MetaOpType int
+
+const (
+	METAOPS_NONE MetaOpType = iota
+	METAOPS_SET
+)
+
 // User system graphics hardware for transcoding
 type SysGPU int
 

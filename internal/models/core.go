@@ -1,8 +1,10 @@
 package models
 
 import (
+	"context"
 	enums "metarr/internal/domain/enums"
 	"os"
+	"sync"
 )
 
 func NewFileData() *FileData {
@@ -69,4 +71,11 @@ type FileData struct {
 	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`
 	MetaAlreadyExists bool                    `json:"-" xml:"-"`
 	ModelMOverwrite   bool
+}
+
+type Core struct {
+	Cleanup chan os.Signal
+	Ctx     context.Context
+	Cancel  context.CancelFunc
+	Wg      *sync.WaitGroup
 }

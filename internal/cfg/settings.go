@@ -5,6 +5,7 @@ import (
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
@@ -49,6 +50,9 @@ func init() {
 
 	// Special functions
 	initProgramFunctions()
+
+	// Text replacement initialization
+	initTextReplace()
 }
 
 // Execute is the primary initializer of Viper
@@ -100,6 +104,7 @@ func execute() error {
 		return err
 	}
 
+	logging.D(1, "Initializing text replace")
 	if err := initTextReplace(); err != nil {
 		return err
 	}
@@ -114,70 +119,139 @@ func execute() error {
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
 
-	videoFile := strings.TrimSpace(viper.GetString(keys.VideoFile))
-	videoFileSet := viper.IsSet(keys.VideoFile)
+	var (
+		videoFiles, videoDirs,
+		jsonFiles, jsonDirs []string
+	)
 
-	videoDir := strings.TrimSpace(viper.GetString(keys.VideoDir))
-	videoDirSet := viper.IsSet(keys.VideoDir)
+	videoFileSet := viper.IsSet(keys.VideoFiles)
+	videoDirSet := viper.IsSet(keys.VideoDirs)
+	jsonFileSet := viper.IsSet(keys.JsonFiles)
+	jsonDirSet := viper.IsSet(keys.JsonDirs)
 
-	jsonFile := strings.TrimSpace(viper.GetString(keys.JsonFile))
-	jsonFileSet := viper.IsSet(keys.JsonFile)
-
-	jsonDir := strings.TrimSpace(viper.GetString(keys.JsonDir))
-	jsonDirSet := viper.IsSet(keys.JsonDir)
-
-	// Validate configuration
-	if jsonFileSet {
-		if jsonDirSet {
-			return fmt.Errorf("cannot set both the JSON file and the JSON directory")
-		}
-		if videoDirSet {
-			return fmt.Errorf("cannot set singular metadata file for whole video directory")
-		}
-	}
 	if videoFileSet {
-		if videoDirSet {
-			return fmt.Errorf("cannot set singular video file AND video directory")
-		}
-		viper.Set(keys.SingleFile, true)
+		videoFiles = viper.GetStringSlice(keys.VideoFiles)
 	}
 
-	// Check files and dirs exist
-	if viper.IsSet(keys.JsonFile) {
-		if _, err := os.Stat(jsonFile); err != nil {
-			return fmt.Errorf("file '%s' does not exist", jsonFile)
-		}
-		if fileInfo, _ := os.Stat(jsonFile); fileInfo.IsDir() {
-			return fmt.Errorf("entered directory '%s' as a file", jsonFile)
+	if videoDirSet {
+		videoDirs = viper.GetStringSlice(keys.VideoDirs)
+	}
+
+	if jsonFileSet {
+		jsonFiles = viper.GetStringSlice(keys.JsonFiles)
+	}
+
+	if jsonDirSet {
+		jsonDirs = viper.GetStringSlice(keys.JsonDirs)
+	}
+
+	if len(videoDirs) > len(jsonDirs) || len(videoFiles) > len(jsonFiles) {
+		return fmt.Errorf("invalid configuration, please enter a meta directory/file for each video directory/file")
+	}
+
+	var tasks []*models.Batch
+
+	vDirCount := 0
+	vFileCount := 0
+
+	// Make directory batches
+	if len(videoDirs) > 0 {
+		for i := range videoDirs {
+			vInfo, err := os.Stat(videoDirs[i])
+			if !vInfo.IsDir() {
+				return fmt.Errorf("file '%s' entered instead of directory", vInfo.Name())
+			}
+			if err != nil {
+				return err
+			}
+
+			jInfo, err := os.Stat(jsonDirs[i])
+			if !jInfo.IsDir() {
+				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
+			}
+			if err != nil {
+				return err
+			}
+
+			tasks = append(tasks, &models.Batch{
+				Video:  videoDirs[i],
+				Json:   jsonDirs[i],
+				IsDirs: true,
+			})
+			vDirCount++
 		}
 	}
 
-	if viper.IsSet(keys.JsonDir) {
-		if _, err := os.Stat(jsonDir); err != nil {
-			return fmt.Errorf("directory '%s' does not exist", jsonDir)
-		}
-		if fileInfo, _ := os.Stat(jsonDir); !fileInfo.IsDir() {
-			return fmt.Errorf("entered file '%s' as a directory", jsonDir)
+	// Remnant JSON directories
+	if len(jsonDirs) > vDirCount {
+		j := jsonDirs[vDirCount:]
+
+		for i := range j {
+			jInfo, err := os.Stat(j[i])
+			if !jInfo.IsDir() {
+				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
+			}
+			if err != nil {
+				return err
+			}
+			tasks = append(tasks, &models.Batch{
+				Json:       j[i],
+				IsDirs:     true,
+				SkipVideos: true,
+			})
 		}
 	}
 
-	if viper.IsSet(keys.VideoFile) {
-		if _, err := os.Stat(videoFile); err != nil {
-			return fmt.Errorf("file '%s' does not exist", videoFile)
+	// Make file batches
+	if len(videoFiles) > 0 {
+		for i := range videoFiles {
+			vInfo, err := os.Stat(videoFiles[i])
+			if vInfo.IsDir() {
+				return fmt.Errorf("directory '%s' entered instead of file", vInfo.Name())
+			}
+			if err != nil {
+				return err
+			}
+
+			jInfo, err := os.Stat(jsonDirs[i])
+			if jInfo.IsDir() {
+				return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
+			}
+			if err != nil {
+				return err
+			}
+
+			tasks = append(tasks, &models.Batch{
+				Video:  videoDirs[i],
+				Json:   jsonDirs[i],
+				IsDirs: false,
+			})
+			vFileCount++
 		}
-		if fileInfo, _ := os.Stat(videoFile); fileInfo.IsDir() {
-			return fmt.Errorf("entered directory '%s' as a file", videoFile)
+
+		// Remnant JSON files
+		if len(jsonFiles) > vFileCount {
+			j := jsonFiles[vFileCount:]
+
+			for i := range j {
+				jInfo, err := os.Stat(j[i])
+				if !jInfo.IsDir() {
+					return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
+				}
+				if err != nil {
+					return err
+				}
+				tasks = append(tasks, &models.Batch{
+					Json:       j[i],
+					IsDirs:     false,
+					SkipVideos: true,
+				})
+			}
 		}
 	}
 
-	if viper.IsSet(keys.VideoDir) {
-		if _, err := os.Stat(videoDir); err != nil {
-			return fmt.Errorf("directory '%s' does not exist", videoDir)
-		}
-		if fileInfo, _ := os.Stat(videoDir); !fileInfo.IsDir() {
-			return fmt.Errorf("entered file '%s' as a directory", videoDir)
-		}
-	}
+	logging.I("Got %d batch jobs to perform.", len(tasks))
+	viper.Set(keys.BatchPairs, tasks)
 
 	return nil
 }

@@ -6,13 +6,13 @@ import (
 	"log"
 	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
 	"metarr/internal/processing"
 	fsRead "metarr/internal/utils/fs/read"
 	logging "metarr/internal/utils/logging"
 	prompt "metarr/internal/utils/prompt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"runtime/pprof"
 	"runtime/trace"
 	"sync"
@@ -33,11 +33,6 @@ func init() {
 }
 
 func main() {
-	var (
-		err       error
-		directory string
-	)
-
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Println()
@@ -56,96 +51,34 @@ func main() {
 	cfg.Set(keys.Context, ctx)
 	defer cancel()
 
-	var (
-		inputVideoDir,
-		inputVideo string
-
-		openVideo *os.File
-	)
-	if cfg.IsSet(keys.VideoDir) {
-
-		inputVideoDir = cfg.GetString(keys.VideoDir)
-		openVideo, err = os.Open(inputVideoDir)
-		if err != nil {
-			logging.E(0, "Error: %v", err)
-			os.Exit(1)
-		}
-		defer openVideo.Close()
-		directory = inputVideoDir
-
-	} else if cfg.IsSet(keys.VideoFile) {
-
-		inputVideo = cfg.GetString(keys.VideoFile)
-		openVideo, err = os.Open(inputVideo)
-		if err != nil {
-			logging.E(0, "Error: %v", err)
-			os.Exit(1)
-		}
-		defer openVideo.Close()
-		directory = filepath.Dir(inputVideo)
-	}
-	cfg.Set(keys.OpenVideo, openVideo)
-
-	var (
-		inputMetaDir,
-		inputMeta string
-
-		openJson *os.File
-	)
-	if cfg.IsSet(keys.JsonDir) {
-
-		inputMetaDir = cfg.GetString(keys.JsonDir)
-		openJson, err = os.Open(inputMetaDir)
-		if err != nil {
-			logging.E(0, "Error: %v", err)
-			os.Exit(1)
-		}
-		defer openJson.Close()
-		if directory == "" {
-			directory = inputMetaDir
-		}
-
-	} else if cfg.IsSet(keys.JsonFile) {
-
-		inputMeta = cfg.GetString(keys.JsonFile)
-		openJson, err = os.Open(inputMeta)
-		if err != nil {
-			logging.E(0, "Error: %v", err)
-			os.Exit(1)
-		}
-		defer openJson.Close()
-		if directory == "" {
-			directory = filepath.Dir(inputMeta)
-		}
-	}
-	cfg.Set(keys.OpenJson, openJson)
-
-	// Setup logging
-	if directory != "" {
-		err = logging.SetupLogging(directory)
-		if err != nil {
-			fmt.Printf("\n\nNotice: Log file was not created\nReason: %s\n\n", err)
-		}
-	} else {
-		logging.I("Directory and file strings were entered empty. Exiting...")
-		os.Exit(1)
-	}
+	// Program control
+	var wg sync.WaitGroup
+	cfg.Set(keys.WaitGroup, &wg)
+	cleanupChan := make(chan os.Signal, 1)
+	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
 
 	if err := fsRead.InitFetchFilesVars(); err != nil {
 		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
 		os.Exit(1)
 	}
 
-	// Program control
-	var wg sync.WaitGroup
-	cfg.Set(keys.WaitGroup, &wg)
-
-	cleanupChan := make(chan os.Signal, 1)
-	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
 	prompt.InitUserInputReader()
 
-	// Proceed to process files (videos, metadata files, etc...)
-	processing.ProcessFiles(ctx, cancel, &wg, cleanupChan, openVideo, openJson)
+	if cfg.IsSet(keys.BatchPairs) {
+		batch, ok := cfg.Get(keys.BatchPairs).([]*models.Batch)
+		if !ok {
+			logging.E(0, "Wrong type")
+		}
+
+		for _, b := range batch {
+			b.Core.Cancel = cancel
+			b.Core.Ctx = ctx
+			b.Core.Wg = &wg
+			b.Core.Cleanup = cleanupChan
+		}
+
+		processing.StartBatchLoop()
+	}
 
 	endTime := time.Now()
 	logging.I("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
