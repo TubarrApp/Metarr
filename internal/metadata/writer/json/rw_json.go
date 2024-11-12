@@ -86,6 +86,7 @@ func (rw *JSONFileRW) RefreshJSON() (map[string]interface{}, error) {
 
 // WriteJSON inserts metadata into the JSON file from a map
 func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interface{}, error) {
+
 	if fieldMap == nil {
 		return nil, fmt.Errorf("fieldMap cannot be nil")
 	}
@@ -93,31 +94,29 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 	// Create a copy of the current metadata
 	currentMeta := rw.copyMeta()
 
-	logging.D(4, "Entering WriteMetadata for file '%s' with overwrite flag: %v",
-		rw.File.Name(), cfg.GetBool(keys.MOverwrite))
+	logging.D(4, "Entering WriteMetadata for file '%s'", rw.File.Name())
 
 	// Update metadata with new fields
 	updated := false
 	for field, value := range fieldMap {
-		logging.D(4, "Processing field '%s' with value '%v'", field, value)
+		if field == "all-credits" {
+			continue
+		}
 
 		if value != nil && *value != "" {
+
 			if currentVal, exists := currentMeta[field]; !exists {
 				logging.D(3, "Adding new field '%s' with value '%s'", field, *value)
 				currentMeta[field] = *value
 				updated = true
-			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *value {
-				logging.D(3, "Field exists - currentStrVal: '%v', new value: '%v', overwrite flag: %v",
-					currentStrVal, *value, cfg.GetBool(keys.MOverwrite))
 
-				if cfg.GetBool(keys.MOverwrite) {
-					logging.D(3, "Overwrite enabled - updating field '%s' from '%v' to '%s'",
-						field, currentVal, *value)
-					currentMeta[field] = *value
-					updated = true
-				} else {
-					logging.D(3, "Overwrite disabled - skipping field '%s'", field)
-				}
+			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *value || cfg.GetBool(keys.MOverwrite) {
+				logging.D(3, "Updating field '%s' from '%v' to '%s'", field, currentVal, *value)
+				currentMeta[field] = *value
+				updated = true
+
+			} else {
+				logging.D(3, "Skipping field '%s' - value unchanged and overwrite not forced", field)
 			}
 		}
 	}
@@ -287,6 +286,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
 	}
 
+	// Save the meta back into the model
 	rw.updateMeta(currentMeta)
 
 	fmt.Println()

@@ -166,83 +166,110 @@ func (rw *JSONFileRW) jsonPrefix(data map[string]interface{}, pfx []*models.Meta
 
 // setJsonField can insert a new field which does not yet exist into the metadata file
 func (rw *JSONFileRW) setJsonField(data map[string]interface{}, modelOW bool, new []*models.MetaNewField) (bool, error) {
+
 	if len(new) == 0 {
 		logging.E(0, "No new field additions found", keys.MNewField)
 		return false, nil
 	}
 
-	// Determine overwrite behavior
-	metaOW := cfg.GetBool(keys.MOverwrite)
-	metaPS := cfg.GetBool(keys.MPreserve)
+	var (
+		metaOW,
+		metaPS bool
+	)
 
 	if !cfg.IsSet(keys.MOverwrite) && !cfg.IsSet(keys.MPreserve) {
+		logging.I("Model is set to overwrite")
 		metaOW = modelOW
-		metaPS = false
+	} else {
+		metaOW = cfg.GetBool(keys.MOverwrite)
+		metaPS = cfg.GetBool(keys.MPreserve)
+		logging.I("Meta OW: %v Meta Preserve: %v", metaOW, metaPS)
 	}
 
+	logging.D(3, "Retrieved additions for new field data: %v", new)
 	processedFields := make(map[string]bool, len(new))
+
 	newAddition := false
 	ctx := context.Background()
-
 	for _, addition := range new {
 		if addition.Field == "" || addition.Value == "" {
 			continue
 		}
 
-		// Skip if already processed
-		if _, alreadyProcessed := processedFields[addition.Field]; alreadyProcessed {
-			continue
-		}
-
-		existingValue, exists := data[addition.Field]
-
-		// If field doesn't exist or overwrite is enabled, add/update it
-		if !exists || metaOW {
+		// If field doesn't exist at all, add it
+		if _, exists := data[addition.Field]; !exists {
 			data[addition.Field] = addition.Value
 			processedFields[addition.Field] = true
 			newAddition = true
 			continue
 		}
+		if !metaOW {
 
-		// If preserve is enabled, skip
-		if metaPS {
-			continue
-		}
-
-		// Handle interactive prompt if neither overwrite nor preserve is enabled
-		select {
-		case <-ctx.Done():
-			logging.I("Operation canceled for field: %s", addition.Field)
-			return false, fmt.Errorf("operation canceled")
-		default:
-			promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
-				addition.Field, existingValue, rw.File.Name())
-
-			reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
-			if err != nil {
-				logging.E(0, err.Error())
+			// Check for context cancellation before proceeding
+			select {
+			case <-ctx.Done():
+				logging.I("Operation canceled for field: %s", addition.Field)
+				return false, fmt.Errorf("operation canceled")
+			default:
+				// Proceed
+			}
+			if _, alreadyProcessed := processedFields[addition.Field]; alreadyProcessed {
 				continue
 			}
 
-			switch reply {
-			case "Y":
-				cfg.Set(keys.MOverwrite, true)
-				metaOW = true
-				fallthrough
-			case "y":
-				data[addition.Field] = addition.Value
-				newAddition = true
-			case "N":
-				cfg.Set(keys.MPreserve, true)
-				metaPS = true
-			case "n":
-				logging.P("Skipping field '%s'\n", addition.Field)
+			if existingValue, exists := data[addition.Field]; exists {
+
+				if !metaOW && !metaPS {
+					promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue", addition.Field, existingValue, rw.File.Name())
+
+					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
+					if err != nil {
+						logging.E(0, err.Error())
+					}
+					switch reply {
+					case "Y":
+						logging.D(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, rw.File.Name())
+						cfg.Set(keys.MOverwrite, true)
+						metaOW = true
+						fallthrough
+					case "y":
+						logging.D(2, "Received meta overwrite reply as 'y' for %s in %s", existingValue, rw.File.Name())
+						addition.Field = strings.TrimSpace(addition.Field)
+						logging.D(3, "Adjusted field from '%s' to '%s'\n", data[addition.Field], addition.Field)
+
+						data[addition.Field] = addition.Value
+						processedFields[addition.Field] = true
+						newAddition = true
+
+					case "N":
+						logging.D(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, rw.File.Name())
+						cfg.Set(keys.MPreserve, true)
+						metaPS = true
+						fallthrough
+					case "n":
+						logging.D(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, rw.File.Name())
+						logging.P("Skipping field '%s'\n", addition.Field)
+						processedFields[addition.Field] = true
+					}
+				} else if metaOW { // FieldOverwrite is set
+
+					data[addition.Field] = addition.Value
+					processedFields[addition.Field] = true
+					newAddition = true
+
+				} else if metaPS { // FieldPreserve is set
+					continue
+				}
 			}
+		} else {
+			// Add the field if it doesn't exist yet, or overwrite is true
+			data[addition.Field] = addition.Value
 			processedFields[addition.Field] = true
+			newAddition = true
 		}
 	}
-
 	logging.D(3, "JSON after transformations: %v", data)
+
 	return newAddition, nil
 }
 
