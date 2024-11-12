@@ -160,8 +160,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		apnd []*models.MetaAppend
 		pfx  []*models.MetaPrefix
 
-		new []*models.MetaNewField
-
+		new     []*models.MetaNewField
 		replace []*models.MetaReplace
 	)
 

@@ -36,11 +36,9 @@ func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 	if decisionMade {
 		// If overwriteAll, return "Y" without waiting
 		if ow {
-
 			logging.D(3, "Overwrite all is set...")
 			return "Y", nil
 		} else if ps {
-
 			logging.D(3, "Preserve all is set...")
 			return "N", nil
 		}

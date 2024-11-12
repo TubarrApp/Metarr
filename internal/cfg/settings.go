@@ -154,23 +154,25 @@ func checkFileDirs() error {
 	vDirCount := 0
 	vFileCount := 0
 
+	logging.I("Finding video and JSON directories...")
+
 	// Make directory batches
 	if len(videoDirs) > 0 {
 		for i := range videoDirs {
 			vInfo, err := os.Stat(videoDirs[i])
+			if err != nil {
+				return err
+			}
 			if !vInfo.IsDir() {
 				return fmt.Errorf("file '%s' entered instead of directory", vInfo.Name())
 			}
-			if err != nil {
-				return err
-			}
 
 			jInfo, err := os.Stat(jsonDirs[i])
-			if !jInfo.IsDir() {
-				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
-			}
 			if err != nil {
 				return err
+			}
+			if !jInfo.IsDir() {
+				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
 			}
 
 			tasks = append(tasks, &models.Batch{
@@ -182,18 +184,21 @@ func checkFileDirs() error {
 		}
 	}
 
+	logging.I("Got %d directory pairs to process, %d singular JSON directories", vDirCount, len(jsonDirs)-vDirCount)
+
 	// Remnant JSON directories
 	if len(jsonDirs) > vDirCount {
 		j := jsonDirs[vDirCount:]
 
 		for i := range j {
 			jInfo, err := os.Stat(j[i])
-			if !jInfo.IsDir() {
-				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
-			}
 			if err != nil {
 				return err
 			}
+			if !jInfo.IsDir() {
+				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
+			}
+
 			tasks = append(tasks, &models.Batch{
 				Json:       j[i],
 				IsDirs:     true,
@@ -202,45 +207,50 @@ func checkFileDirs() error {
 		}
 	}
 
+	logging.I("Finding video and JSON files...")
+
 	// Make file batches
 	if len(videoFiles) > 0 {
 		for i := range videoFiles {
 			vInfo, err := os.Stat(videoFiles[i])
+			if err != nil {
+				return err
+			}
 			if vInfo.IsDir() {
 				return fmt.Errorf("directory '%s' entered instead of file", vInfo.Name())
 			}
+
+			jInfo, err := os.Stat(jsonFiles[i])
 			if err != nil {
 				return err
 			}
-
-			jInfo, err := os.Stat(jsonDirs[i])
 			if jInfo.IsDir() {
 				return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
 			}
-			if err != nil {
-				return err
-			}
 
 			tasks = append(tasks, &models.Batch{
-				Video:  videoDirs[i],
-				Json:   jsonDirs[i],
+				Video:  videoFiles[i],
+				Json:   jsonFiles[i],
 				IsDirs: false,
 			})
 			vFileCount++
 		}
 
+		logging.I("Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
+
 		// Remnant JSON files
 		if len(jsonFiles) > vFileCount {
-			j := jsonFiles[vFileCount:]
+			j := jsonFiles[vFileCount-1:]
 
 			for i := range j {
 				jInfo, err := os.Stat(j[i])
-				if !jInfo.IsDir() {
-					return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
-				}
 				if err != nil {
 					return err
 				}
+				if jInfo.IsDir() {
+					return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
+				}
+
 				tasks = append(tasks, &models.Batch{
 					Json:       j[i],
 					IsDirs:     false,

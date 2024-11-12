@@ -44,6 +44,10 @@ func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 		}
 	}
 
+	if t.Title == "" && t.Fulltitle != "" {
+		t.Title = t.Fulltitle
+	}
+
 	if t.Fulltitle == "" && t.Title != "" {
 		t.Fulltitle = t.Title
 	}

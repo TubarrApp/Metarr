@@ -101,11 +101,13 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	}
 
 	// Move/copy video and metadata file
-	if fs.DestVideo != "" {
-		destVBase := filepath.Base(fs.DestVideo)
-		destVTarget := filepath.Join(dst, destVBase)
-		if err := fs.moveOrCopyFile(fs.DestVideo, destVTarget); err != nil {
-			return fmt.Errorf("failed to move video file: %w", err)
+	if !fs.SkipVids {
+		if fs.DestVideo != "" {
+			destVBase := filepath.Base(fs.DestVideo)
+			destVTarget := filepath.Join(dst, destVBase)
+			if err := fs.moveOrCopyFile(fs.DestVideo, destVTarget); err != nil {
+				return fmt.Errorf("failed to move video file: %w", err)
+			}
 		}
 	}
 

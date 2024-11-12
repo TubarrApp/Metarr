@@ -15,6 +15,7 @@ import (
 	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -24,6 +25,7 @@ var (
 	totalVideoFiles,
 	processedMetaFiles,
 	processedVideoFiles int32
+
 	failedVideos []failedVideo
 	muPrint      sync.Mutex
 )
@@ -211,10 +213,14 @@ func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 		}
 	}
 
+	// var inputVideoDir string
 	inputJsonDir, _ := filepath.Abs(openMeta.Name())
-	inputVideoDir, _ := filepath.Abs(openVideo.Name())
+	inputJsonDir = strings.TrimSuffix(inputJsonDir, openMeta.Name())
+	// if !skipVideos {
+	// 	inputVideoDir, _ = filepath.Abs(openVideo.Name())
+	// }
 
-	err = transformations.FileRename(processedDataArray, replaceToStyle)
+	err = transformations.FileRename(processedDataArray, replaceToStyle, skipVideos)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to rename files: %v", err)
@@ -223,22 +229,24 @@ func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
+		logging.S(0, "Successfully processed all files in directory (%v) with no errors.", inputJsonDir)
 
-		logging.S(0, "Successfully processed all videos in directory (%v) with no errors.", inputVideoDir)
 		fmt.Println()
 	} else {
 
-		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
+		if logging.ErrorArray != nil {
+			logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
 
-		if len(failedVideos) > 0 {
-			logging.P(consts.RedError + "Failed videos:")
-			for _, failed := range failedVideos {
-				fmt.Println()
-				logging.P("Filename: %v", failed.filename)
-				logging.P("Error: %v", failed.err)
+			if len(failedVideos) > 0 {
+				logging.P(consts.RedError + "Failed videos:")
+				for _, failed := range failedVideos {
+					fmt.Println()
+					logging.P("Filename: %v", failed.filename)
+					logging.P("Error: %v", failed.err)
+				}
 			}
+			fmt.Println()
 		}
-		fmt.Println()
 	}
 }
 

@@ -24,6 +24,8 @@ func StartBatchLoop() {
 		return
 	}
 
+	job := 1
+
 	// Begin iteration...
 	for _, batch := range batches {
 		var (
@@ -32,7 +34,10 @@ func StartBatchLoop() {
 			err       error
 		)
 
-		if !batch.SkipVideos {
+		logging.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
+		skipVideos := cfg.GetBool(keys.SkipVideos) || batch.SkipVideos
+
+		if !skipVideos {
 			openVideo, err = os.Open(batch.Video)
 			if err != nil {
 				logging.E(0, "Failed to open %s", batch.Video)
@@ -44,7 +49,11 @@ func StartBatchLoop() {
 		openJson, err = os.Open(batch.Json)
 		if err != nil {
 			logging.E(0, "Failed to open %s", batch.Json)
-			openVideo.Close()
+
+			if !skipVideos {
+				openVideo.Close()
+			}
+
 			continue
 		}
 		defer openJson.Close()
@@ -62,12 +71,14 @@ func StartBatchLoop() {
 		}
 
 		ProcessFiles(batch, openVideo, openJson)
-		logging.I("Finished tasks for video file/dir '%s' and JSON file/dir '%s'", openVideo.Name(), openJson.Name())
+		logging.I("Finished tasks for video file/dir '%s' and JSON file/dir '%s'", batch.Video, batch.Json)
 
 		// Reset for next loop
-		openVideo.Close()
+		if !skipVideos {
+			openVideo.Close()
+		}
 		openJson.Close()
+		job++
 	}
-
 	logging.I("All batch tasks finished!")
 }

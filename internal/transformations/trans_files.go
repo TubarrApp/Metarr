@@ -14,14 +14,12 @@ import (
 )
 
 // FileRename formats the file names
-func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error {
+func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVideos bool) error {
 	var (
 		vidExt,
 		renamedVideo,
 		renamedMeta string
 	)
-
-	skipVideos := cfg.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
 
@@ -78,6 +76,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 
 		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVPath, originalVPath, renamedMPath, originalMPath)
 
+		logging.I("Writing final file transformations to filesystem...")
 		if err := fsWriter.WriteResults(); err != nil {
 			return err
 		}
