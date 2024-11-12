@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -79,7 +79,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	if !config.IsSet(keys.MoveOnComplete) {
+	if !cfg.IsSet(keys.MoveOnComplete) {
 		return nil
 	}
 
@@ -87,7 +87,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return fmt.Errorf("video and metafile source strings both empty")
 	}
 
-	dst := config.GetString(keys.MoveOnComplete)
+	dst := cfg.GetString(keys.MoveOnComplete)
 	dst = filepath.Clean(dst)
 
 	// Check destination directory
@@ -273,11 +273,11 @@ func (fs *FSFileWriter) moveOrCopyFile(src, dst string) error {
 // DeleteJSON safely removes JSON metadata files once file operations are complete
 func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 
-	if !config.IsSet(keys.MetaPurgeEnum) {
+	if !cfg.IsSet(keys.MetaPurgeEnum) {
 		return fmt.Errorf("meta purge enum not set"), false
 	}
 
-	e, ok := config.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
+	e, ok := cfg.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
 	if !ok {
 		return fmt.Errorf("wrong type for purge metafile enum. Got %T", e), false
 	}

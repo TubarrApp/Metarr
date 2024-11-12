@@ -1,4 +1,4 @@
-package config
+package cfg
 
 import (
 	"fmt"
@@ -48,7 +48,7 @@ func initTextReplace() error {
 // validateMetaOps parses the meta transformation operations
 func validateMetaOps() error {
 
-	metaOpsInput := GetStringSlice(keys.MetaOps)
+	metaOpsInput := viper.GetStringSlice(keys.MetaOps)
 	if len(metaOpsInput) == 0 {
 		logging.D(2, "No metadata operations passed in")
 		return nil
@@ -309,7 +309,7 @@ func validateFilenameSuffixReplace() error {
 func setRenameFlag() {
 
 	var renameFlag enums.ReplaceToStyle
-	argRenameFlag := GetString(keys.RenameStyle)
+	argRenameFlag := viper.GetString(keys.RenameStyle)
 
 	// Trim whitespace for more robust validation
 	argRenameFlag = strings.TrimSpace(argRenameFlag)
@@ -338,8 +338,8 @@ func setRenameFlag() {
 // initDateReplaceFormat initializes the user's preferred format for dates
 func initDateReplaceFormat() error {
 
-	if IsSet(keys.InputFileDatePfx) {
-		dateFmt := GetString(keys.InputFileDatePfx)
+	if viper.IsSet(keys.InputFileDatePfx) {
+		dateFmt := viper.GetString(keys.InputFileDatePfx)
 
 		// Trim whitespace for more robust validation
 		dateFmt = strings.TrimSpace(dateFmt)

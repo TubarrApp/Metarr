@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	config "metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -48,7 +48,7 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 			continue
 		}
 
-		if *val == "" || config.GetBool(keys.MOverwrite) {
+		if *val == "" || cfg.GetBool(keys.MOverwrite) {
 			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", key)
 			*val = fillEmptyCredits(c)
 			logging.D(2, "Set value to '%s'", *val)

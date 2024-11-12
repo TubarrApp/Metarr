@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -24,21 +24,21 @@ var (
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops
 func InitFetchFilesVars() error {
 
-	if inVExts, ok := config.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
+	if inVExts, ok := cfg.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
 		logging.D(2, "Received video extensions enum: %v", inVExts)
 		videoExtensions = setVideoExtensions(inVExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
 
-	if inMExts, ok := config.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
+	if inMExts, ok := cfg.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
 		logging.D(2, "Received video extensions enum: %v", inMExts)
 		metaExtensions = setMetaExtensions(inMExts)
 	} else {
 		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
 
-	inputPrefixes = SetPrefixFilter(config.GetStringSlice(keys.FilePrefixes))
+	inputPrefixes = SetPrefixFilter(cfg.GetStringSlice(keys.FilePrefixes))
 	logging.D(2, "Setting prefix filter: %v", inputPrefixes)
 
 	return nil
@@ -58,7 +58,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	for _, file := range files {
 		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
 
-			if config.IsSet(keys.FilePrefixes) {
+			if cfg.IsSet(keys.FilePrefixes) {
 				if !HasPrefix(file.Name(), inputPrefixes) {
 					continue
 				}
@@ -100,7 +100,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 
 			logging.D(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
 
-			if config.IsSet(keys.FilePrefixes) {
+			if cfg.IsSet(keys.FilePrefixes) {
 				if !HasPrefix(file.Name(), inputPrefixes) {
 					continue
 				}

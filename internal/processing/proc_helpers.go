@@ -2,7 +2,7 @@ package processing
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
@@ -26,7 +26,7 @@ func sysResourceLoop(fileStr string) {
 		maxBackoff  = 10 * time.Second
 	)
 
-	memoryThreshold := config.GetUint64(keys.MinMemMB)
+	memoryThreshold := cfg.GetUint64(keys.MinMemMB)
 
 	for {
 		// Fetch system resources and determine if processing can proceed
@@ -78,7 +78,7 @@ func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
 		return false, 0, 0, err
 	}
 
-	maxCpuUsage := config.GetFloat64(keys.MaxCPU)
+	maxCpuUsage := cfg.GetFloat64(keys.MaxCPU)
 	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCpuUsage), vMem.Available, cpuPct[0], nil
 }
 
@@ -105,22 +105,22 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 
 // metaChanges determines if metadata should be processed
 func metaChanges() bool {
-	if config.IsSet(keys.MAppend) {
+	if cfg.IsSet(keys.MAppend) {
 		return true
 	}
-	if config.IsSet(keys.MPrefix) {
+	if cfg.IsSet(keys.MPrefix) {
 		return true
 	}
-	if config.IsSet(keys.MNewField) {
+	if cfg.IsSet(keys.MNewField) {
 		return true
 	}
-	if config.IsSet(keys.MTrimPrefix) {
+	if cfg.IsSet(keys.MTrimPrefix) {
 		return true
 	}
-	if config.IsSet(keys.MTrimSuffix) {
+	if cfg.IsSet(keys.MTrimSuffix) {
 		return true
 	}
-	if config.IsSet(keys.FileDateFmt) {
+	if cfg.IsSet(keys.FileDateFmt) {
 		return true
 	}
 	return false

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/processing"
 	fsRead "metarr/internal/utils/fs/read"
@@ -25,62 +25,26 @@ var startTime time.Time
 func init() {
 	startTime = time.Now()
 	logging.I("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
+
+	// Benchmarking
+	if cfg.GetBool(keys.Benchmarking) {
+		setupBenchmarking()
+	}
 }
 
 func main() {
-
 	var (
 		err       error
 		directory string
 	)
 
-	// TESTING FUNCTIONS
-	if config.GetBool(keys.Benchmarking) {
-		// CPU profile
-		cpuFile, err := os.Create("cpu.prof")
-		if err != nil {
-			log.Fatal("could not create CPU profile: ", err)
-		}
-		defer cpuFile.Close() // Don't forget to close the file
-		if err := pprof.StartCPUProfile(cpuFile); err != nil {
-			log.Fatal("could not start CPU profile: ", err)
-		}
-		defer pprof.StopCPUProfile()
-
-		// Memory profile
-		memFile, err := os.Create("mem.prof")
-		if err != nil {
-			log.Fatal("could not create memory profile: ", err)
-		}
-		defer memFile.Close()
-		defer func() {
-			if config.GetBool(keys.Benchmarking) {
-				if err := pprof.WriteHeapProfile(memFile); err != nil {
-					log.Fatal("could not write memory profile: ", err)
-				}
-			}
-		}()
-
-		// Trace
-		traceFile, err := os.Create("trace.out")
-		if err != nil {
-			log.Fatal("could not create trace file: ", err)
-		}
-		defer traceFile.Close()
-		if err := trace.Start(traceFile); err != nil {
-			log.Fatal("could not start trace: ", err)
-		}
-		defer trace.Stop()
-	}
-	// END OF TESTING FUNCTIONS: MEM TEST WRITE AT BOTTOM
-
-	if err := config.Execute(); err != nil {
+	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Println()
 		os.Exit(1)
 	}
 
-	if !config.GetBool("execute") {
+	if !cfg.GetBool("execute") {
 		fmt.Println()
 		logging.I(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
 		fmt.Println()
@@ -89,7 +53,7 @@ func main() {
 
 	// Handle cleanup on interrupt or termination signals
 	ctx, cancel := context.WithCancel(context.Background())
-	config.Set(keys.Context, ctx)
+	cfg.Set(keys.Context, ctx)
 	defer cancel()
 
 	var (
@@ -98,9 +62,9 @@ func main() {
 
 		openVideo *os.File
 	)
-	if config.IsSet(keys.VideoDir) {
+	if cfg.IsSet(keys.VideoDir) {
 
-		inputVideoDir = config.GetString(keys.VideoDir)
+		inputVideoDir = cfg.GetString(keys.VideoDir)
 		openVideo, err = os.Open(inputVideoDir)
 		if err != nil {
 			logging.E(0, "Error: %v", err)
@@ -109,9 +73,9 @@ func main() {
 		defer openVideo.Close()
 		directory = inputVideoDir
 
-	} else if config.IsSet(keys.VideoFile) {
+	} else if cfg.IsSet(keys.VideoFile) {
 
-		inputVideo = config.GetString(keys.VideoFile)
+		inputVideo = cfg.GetString(keys.VideoFile)
 		openVideo, err = os.Open(inputVideo)
 		if err != nil {
 			logging.E(0, "Error: %v", err)
@@ -120,7 +84,7 @@ func main() {
 		defer openVideo.Close()
 		directory = filepath.Dir(inputVideo)
 	}
-	config.Set(keys.OpenVideo, openVideo)
+	cfg.Set(keys.OpenVideo, openVideo)
 
 	var (
 		inputMetaDir,
@@ -128,9 +92,9 @@ func main() {
 
 		openJson *os.File
 	)
-	if config.IsSet(keys.JsonDir) {
+	if cfg.IsSet(keys.JsonDir) {
 
-		inputMetaDir = config.GetString(keys.JsonDir)
+		inputMetaDir = cfg.GetString(keys.JsonDir)
 		openJson, err = os.Open(inputMetaDir)
 		if err != nil {
 			logging.E(0, "Error: %v", err)
@@ -141,9 +105,9 @@ func main() {
 			directory = inputMetaDir
 		}
 
-	} else if config.IsSet(keys.JsonFile) {
+	} else if cfg.IsSet(keys.JsonFile) {
 
-		inputMeta = config.GetString(keys.JsonFile)
+		inputMeta = cfg.GetString(keys.JsonFile)
 		openJson, err = os.Open(inputMeta)
 		if err != nil {
 			logging.E(0, "Error: %v", err)
@@ -154,7 +118,7 @@ func main() {
 			directory = filepath.Dir(inputMeta)
 		}
 	}
-	config.Set(keys.OpenJson, openJson)
+	cfg.Set(keys.OpenJson, openJson)
 
 	// Setup logging
 	if directory != "" {
@@ -174,7 +138,7 @@ func main() {
 
 	// Program control
 	var wg sync.WaitGroup
-	config.Set(keys.WaitGroup, &wg)
+	cfg.Set(keys.WaitGroup, &wg)
 
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
@@ -186,4 +150,42 @@ func main() {
 	endTime := time.Now()
 	logging.I("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
 	logging.I("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
+}
+
+func setupBenchmarking() {
+	// CPU profile
+	cpuFile, err := os.Create("cpu.prof")
+	if err != nil {
+		log.Fatal("could not create CPU profile: ", err)
+	}
+	defer cpuFile.Close() // Don't forget to close the file
+	if err := pprof.StartCPUProfile(cpuFile); err != nil {
+		log.Fatal("could not start CPU profile: ", err)
+	}
+	defer pprof.StopCPUProfile()
+
+	// Memory profile
+	memFile, err := os.Create("mem.prof")
+	if err != nil {
+		log.Fatal("could not create memory profile: ", err)
+	}
+	defer memFile.Close()
+	defer func() {
+		if cfg.GetBool(keys.Benchmarking) {
+			if err := pprof.WriteHeapProfile(memFile); err != nil {
+				log.Fatal("could not write memory profile: ", err)
+			}
+		}
+	}()
+
+	// Trace
+	traceFile, err := os.Create("trace.out")
+	if err != nil {
+		log.Fatal("could not create trace file: ", err)
+	}
+	defer traceFile.Close()
+	if err := trace.Start(traceFile); err != nil {
+		log.Fatal("could not start trace: ", err)
+	}
+	defer trace.Stop()
 }

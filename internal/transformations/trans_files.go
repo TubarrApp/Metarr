@@ -2,7 +2,7 @@ package transformations
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -21,7 +21,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		renamedMeta string
 	)
 
-	skipVideos := config.GetBool(keys.SkipVideos)
+	skipVideos := cfg.GetBool(keys.SkipVideos)
 
 	for _, fd := range dataArray {
 		metaBase, metaDir, originalMPath := getMetafileData(fd)
@@ -31,8 +31,8 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		originalVPath := fd.FinalVideoPath
 
 		// Ensure we have the proper video extension
-		if config.IsSet(keys.OutputFiletype) {
-			vidExt = validate.ValidateExtension(config.GetString(keys.OutputFiletype))
+		if cfg.IsSet(keys.OutputFiletype) {
+			vidExt = validate.ValidateExtension(cfg.GetString(keys.OutputFiletype))
 			if vidExt == "" {
 				vidExt = filepath.Ext(originalVPath)
 			}
@@ -80,13 +80,13 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle) error 
 		}
 
 		var deletedMeta bool
-		if config.IsSet(keys.MetaPurge) {
+		if cfg.IsSet(keys.MetaPurge) {
 			if err, deletedMeta = fsWriter.DeleteMetafile(renamedMPath); err != nil {
 				logging.E(0, "Failed to purge metafile: %v", err)
 			}
 		}
 
-		if config.IsSet(keys.MoveOnComplete) {
+		if cfg.IsSet(keys.MoveOnComplete) {
 			if err := fsWriter.MoveFile(deletedMeta); err != nil {
 				logging.E(0, "Failed to move to destination folder: %v", err)
 			}
@@ -106,8 +106,8 @@ func renameFile(fileBase string, style enums.ReplaceToStyle, fd *models.FileData
 
 	if len(fd.ModelFileSfxReplace) > 0 {
 		suffixes = fd.ModelFileSfxReplace
-	} else if config.IsSet(keys.FilenameReplaceSfx) {
-		suffixes, ok = config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	} else if cfg.IsSet(keys.FilenameReplaceSfx) {
+		suffixes, ok = cfg.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok && len(fd.ModelFileSfxReplace) == 0 {
 			logging.E(0, "Got wrong type %T for filename replace suffixes", suffixes)
 			return fileBase

@@ -2,7 +2,7 @@ package ffmpeg
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -25,15 +25,15 @@ func ExecuteVideo(fd *models.FileData) error {
 	origExt := filepath.Ext(origPath)
 
 	// Extension validation - now checks length and format immediately
-	if config.IsSet(keys.OutputFiletype) {
-		if outExt = validate.ValidateExtension(config.GetString(keys.OutputFiletype)); outExt == "" {
+	if cfg.IsSet(keys.OutputFiletype) {
+		if outExt = validate.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
 			logging.E(0, "Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
 	} else {
 		if origExt != "" && strings.HasPrefix(origExt, ".") {
 			outExt = origExt
-			config.Set(keys.OutputFiletype, outExt)
+			cfg.Set(keys.OutputFiletype, outExt)
 		} else {
 			return fmt.Errorf("unable to set file extension, malformed? Input: %s, Output: %s", origExt, outExt)
 		}
@@ -94,7 +94,7 @@ func ExecuteVideo(fd *models.FileData) error {
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
 		logging.I("Original file not type %s, removing '%s'", outExt, origPath)
 
-	} else if config.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+	} else if cfg.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
 		// Set the final video path based on output extension
 		if outExt == "" {
 			outExt = filepath.Ext(fd.OriginalVideoPath)
-			config.Set(keys.OutputFiletype, outExt)
+			cfg.Set(keys.OutputFiletype, outExt)
 		}
 
 		// Save final video path into model

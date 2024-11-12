@@ -2,7 +2,7 @@ package ffmpeg
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -186,8 +186,8 @@ func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
 
 // setGPUAcceleration sets appropriate GPU acceleration flags
 func (b *ffCommandBuilder) setGPUAcceleration() {
-	if config.IsSet(keys.GPUEnum) {
-		gpuFlag, ok := config.Get(keys.GPUEnum).(enums.SysGPU)
+	if cfg.IsSet(keys.GPUEnum) {
+		gpuFlag, ok := cfg.Get(keys.GPUEnum).(enums.SysGPU)
 		if ok {
 			switch gpuFlag {
 			case enums.GPU_NVIDIA:

@@ -3,7 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -14,6 +14,7 @@ import (
 	fsRead "metarr/internal/utils/fs/read"
 	logging "metarr/internal/utils/logging"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
@@ -36,7 +37,7 @@ type failedVideo struct {
 // processFiles is the main program function to process folder entries
 func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, cleanupChan chan os.Signal, openVideo, openMeta *os.File) {
 
-	skipVideos := config.GetBool(keys.SkipVideos)
+	skipVideos := cfg.GetBool(keys.SkipVideos)
 
 	var (
 		videoMap,
@@ -136,9 +137,6 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		matchedFiles = metaMap
 	}
 
-	config.Set(keys.VideoMap, videoMap)
-	config.Set(keys.MetaMap, metaMap)
-
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
@@ -151,7 +149,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 			err           error
 		)
 
-		if !config.IsSet(keys.SkipVideos) || metaChanges() {
+		if !cfg.IsSet(keys.SkipVideos) || metaChanges() {
 			switch fileData.MetaFileType {
 			case enums.METAFILE_JSON:
 				logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
@@ -208,7 +206,7 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		os.Exit(0)
 	}()
 
-	sem := make(chan struct{}, config.GetInt(keys.Concurrency))
+	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
 
 	for fileName, fileData := range matchedFiles {
 		executeFile(ctx, wg, sem, fileName, fileData)
@@ -227,22 +225,23 @@ func ProcessFiles(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitG
 		ok             bool
 	)
 
-	if config.IsSet(keys.Rename) {
-		if replaceToStyle, ok = config.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
+	if cfg.IsSet(keys.Rename) {
+		if replaceToStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
 			logging.E(0, "Received wrong type for rename style. Got %T", replaceToStyle)
 		} else {
 			logging.D(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
 		}
 	}
 
-	inputVideoDir := config.GetString(keys.JsonDir)
+	inputJsonDir, _ := filepath.Abs(openMeta.Name())
+	inputVideoDir, _ := filepath.Abs(openVideo.Name())
 
 	err = transformations.FileRename(processedDataArray, replaceToStyle)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to rename files: %v", err)
 	} else {
-		logging.S(0, "Successfully formatted file names in directory: %v", inputVideoDir)
+		logging.S(0, "Successfully formatted file names in directory: %v", inputJsonDir)
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
@@ -294,7 +293,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 
 		sysResourceLoop(fileName)
 
-		skipVideos := config.GetBool(keys.SkipVideos)
+		skipVideos := cfg.GetBool(keys.SkipVideos)
 		isVideoFile := fileData.OriginalVideoPath != ""
 
 		if isVideoFile {

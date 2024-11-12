@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
@@ -37,7 +37,7 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 		return nil, fmt.Errorf("failed to extract base domain: %v", err)
 	}
 
-	cookieFilePath := config.GetString(keys.CookiePath)
+	cookieFilePath := cfg.GetString(keys.CookiePath)
 
 	// If a cookie file path is provided, use it
 	if cookieFilePath != "" {
@@ -157,12 +157,12 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 // newCustomCookieSource validates and retrieves a custom cookie source profile
 func newCustomCookieSource() (*models.CustomCookieSource, error) {
 
-	if !config.IsSet(keys.CookiePath) {
+	if !cfg.IsSet(keys.CookiePath) {
 		logging.D(2, "No custom cookie directory sent in")
 		return nil, nil
 	}
 
-	cDir := config.GetString(keys.CookiePath)
+	cDir := cfg.GetString(keys.CookiePath)
 	cDir = filepath.Clean(cDir)
 
 	info, err := os.Stat(cDir)

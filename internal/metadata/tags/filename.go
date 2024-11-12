@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
 	logging "metarr/internal/utils/logging"
@@ -14,7 +14,7 @@ import (
 func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	logging.D(5, "Entering makeFilenameTag with data %v", metadata)
 
-	tagFields := config.GetStringSlice(keys.MFilenamePfx)
+	tagFields := cfg.GetStringSlice(keys.MFilenamePfx)
 	if len(tagFields) == 0 {
 		return ""
 	}

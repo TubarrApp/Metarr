@@ -6,7 +6,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
@@ -117,8 +117,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	if len(fd.ModelMReplace) > 0 {
 		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
 		replace = fd.ModelMReplace
-	} else if config.IsSet(keys.MReplaceText) {
-		if replace, ok = config.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
+	} else if cfg.IsSet(keys.MReplaceText) {
+		if replace, ok = cfg.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
 			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
@@ -127,8 +127,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	if len(fd.ModelMTrimPrefix) > 0 {
 		logging.I("Model for file '%s' trimming prefixes", fd.OriginalVideoBaseName)
 		trimPfx = fd.ModelMTrimPrefix
-	} else if config.IsSet(keys.MTrimPrefix) {
-		if trimPfx, ok = config.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
+	} else if cfg.IsSet(keys.MTrimPrefix) {
+		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
 			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
@@ -136,8 +136,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	if len(fd.ModelMTrimSuffix) > 0 {
 		logging.I("Model for file '%s' trimming suffixes", fd.OriginalVideoBaseName)
 		trimSfx = fd.ModelMTrimSuffix
-	} else if config.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
+	} else if cfg.IsSet(keys.MTrimSuffix) {
+		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
 			logging.E(0, "Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
 		}
 	}
@@ -146,8 +146,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	if len(fd.ModelMAppend) > 0 {
 		logging.I("Model for file '%s' adding appends", fd.OriginalVideoBaseName)
 		apnd = fd.ModelMAppend
-	} else if config.IsSet(keys.MAppend) {
-		if apnd, ok = config.Get(keys.MAppend).([]*models.MetaAppend); !ok {
+	} else if cfg.IsSet(keys.MAppend) {
+		if apnd, ok = cfg.Get(keys.MAppend).([]*models.MetaAppend); !ok {
 			logging.E(0, "Count not retrieve appends, wrong type: '%T'", apnd)
 		}
 	}
@@ -155,8 +155,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	if len(fd.ModelMPrefix) > 0 {
 		logging.I("Model for file '%s' adding prefixes", fd.OriginalVideoBaseName)
 		pfx = fd.ModelMPrefix
-	} else if config.IsSet(keys.MPrefix) {
-		if pfx, ok = config.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
+	} else if cfg.IsSet(keys.MPrefix) {
+		if pfx, ok = cfg.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
 			logging.E(0, "Count not retrieve prefix, wrong type: '%T'", pfx)
 		}
 	}
@@ -165,8 +165,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	if len(fd.ModelMNewField) > 0 {
 		logging.I("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
 		new = fd.ModelMNewField
-	} else if config.IsSet(keys.MNewField) {
-		if new, ok = config.Get(keys.MNewField).([]*models.MetaNewField); !ok {
+	} else if cfg.IsSet(keys.MNewField) {
+		if new, ok = cfg.Get(keys.MNewField).([]*models.MetaNewField); !ok {
 			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
 		}
 	}
@@ -493,8 +493,8 @@ func (rw *NFOFileRW) addNewXmlFields(data string, ow bool, new []*models.MetaNew
 	if ow {
 		metaOW = true
 	} else {
-		metaOW = config.GetBool(keys.MOverwrite)
-		metaPS = config.GetBool(keys.MPreserve)
+		metaOW = cfg.GetBool(keys.MOverwrite)
+		metaPS = cfg.GetBool(keys.MPreserve)
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", new)
@@ -564,14 +564,14 @@ func (rw *NFOFileRW) addNewXmlFields(data string, ow bool, new []*models.MetaNew
 
 				switch reply {
 				case "Y":
-					config.Set(keys.MOverwrite, true)
+					cfg.Set(keys.MOverwrite, true)
 					metaOW = true
 					fallthrough
 				case "y":
 					data = data[:startContent] + addition.Value + data[endIdx:]
 					newAddition = true
 				case "N":
-					config.Set(keys.MPreserve, true)
+					cfg.Set(keys.MPreserve, true)
 					metaPS = true
 					fallthrough
 				case "n":

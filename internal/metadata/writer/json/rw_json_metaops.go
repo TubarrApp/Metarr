@@ -3,7 +3,7 @@ package metadata
 import (
 	"context"
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	tags "metarr/internal/metadata/tags"
@@ -177,11 +177,11 @@ func (rw *JSONFileRW) setJsonField(data map[string]interface{}, modelOW bool, ne
 		metaPS bool
 	)
 
-	if !config.IsSet(keys.MOverwrite) && !config.IsSet(keys.MPreserve) {
+	if !cfg.IsSet(keys.MOverwrite) && !cfg.IsSet(keys.MPreserve) {
 		metaOW = modelOW
 	} else {
-		metaOW = config.GetBool(keys.MOverwrite)
-		metaPS = config.GetBool(keys.MPreserve)
+		metaOW = cfg.GetBool(keys.MOverwrite)
+		metaPS = cfg.GetBool(keys.MPreserve)
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", new)
@@ -227,7 +227,7 @@ func (rw *JSONFileRW) setJsonField(data map[string]interface{}, modelOW bool, ne
 					switch reply {
 					case "Y":
 						logging.D(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, rw.File.Name())
-						config.Set(keys.MOverwrite, true)
+						cfg.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
 					case "y":
@@ -241,7 +241,7 @@ func (rw *JSONFileRW) setJsonField(data map[string]interface{}, modelOW bool, ne
 
 					case "N":
 						logging.D(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, rw.File.Name())
-						config.Set(keys.MPreserve, true)
+						cfg.Set(keys.MPreserve, true)
 						metaPS = true
 						fallthrough
 					case "n":

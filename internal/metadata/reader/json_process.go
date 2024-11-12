@@ -2,7 +2,7 @@ package metadata
 
 import (
 	"fmt"
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	"metarr/internal/dates"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -92,7 +92,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		dates.FormatAllDates(fd)
 	}
 
-	if config.IsSet(keys.MDateTagMap) || config.IsSet(keys.MDelDateTagMap) {
+	if cfg.IsSet(keys.MDateTagMap) || cfg.IsSet(keys.MDelDateTagMap) {
 		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
 			logging.E(0, err.Error())
@@ -111,8 +111,8 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	// Make filename date tag
 	logging.D(3, "About to make date tag for: %v", file.Name())
 
-	if config.IsSet(keys.FileDateFmt) {
-		dateFmt, ok := config.Get(keys.FileDateFmt).(enums.DateFormat)
+	if cfg.IsSet(keys.FileDateFmt) {
+		dateFmt, ok := cfg.Get(keys.FileDateFmt).(enums.DateFormat)
 
 		switch {
 		case !ok:
@@ -135,7 +135,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Add new filename tag for files
-	if config.IsSet(keys.MFilenamePfx) {
+	if cfg.IsSet(keys.MFilenamePfx) {
 		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
 	}
@@ -154,10 +154,10 @@ func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 	logging.D(4, "Entering filetypeMetaCheckSwitch with '%s'", fd.OriginalVideoPath)
 
 	var outExt string
-	outFlagSet := config.IsSet(keys.OutputFiletype)
+	outFlagSet := cfg.IsSet(keys.OutputFiletype)
 
 	if outFlagSet {
-		outExt = config.GetString(keys.OutputFiletype)
+		outExt = cfg.GetString(keys.OutputFiletype)
 	} else {
 		outExt = filepath.Ext(fd.OriginalVideoPath)
 		logging.D(2, "Got output extension as %s", outExt)

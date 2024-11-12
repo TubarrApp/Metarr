@@ -1,7 +1,7 @@
 package transformations
 
 import (
-	config "metarr/internal/config"
+	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
@@ -25,8 +25,8 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		ok      bool
 	)
 
-	if config.IsSet(keys.MTrimSuffix) {
-		trimSfx, ok = config.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix)
+	if cfg.IsSet(keys.MTrimSuffix) {
+		trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix)
 		if !ok {
 			logging.E(2, "Got type %T, may be null", trimSfx)
 		}
@@ -87,8 +87,8 @@ func censoredTvFSuffixes(fd *models.FileData) {
 
 	v := fd.OriginalVideoBaseName
 
-	if config.IsSet(keys.FilenameReplaceSfx) {
-		existingSfx, ok := config.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+	if cfg.IsSet(keys.FilenameReplaceSfx) {
+		existingSfx, ok := cfg.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
 		if !ok {
 			logging.E(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
 		} else {

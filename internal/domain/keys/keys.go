@@ -51,8 +51,6 @@ const (
 const (
 	OpenVideo      string = "openVideo"
 	OpenJson       string = "openJson"
-	VideoMap       string = "videoMap"
-	MetaMap        string = "metaMap"
 	MetaPurgeEnum  string = "metaPurgeEnum"
 	OutputFiletype string = "outputFiletype"
 )

@@ -1,7 +1,7 @@
 package metadata
 
 import (
-	"metarr/internal/config"
+	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -28,8 +28,8 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 	}
 	filled := unpackJSON("descriptions", fieldMap, data)
 
-	datePfx := config.GetBool(keys.MDescDatePfx)
-	dateSfx := config.GetBool(keys.MDescDateSfx)
+	datePfx := cfg.GetBool(keys.MDescDatePfx)
+	dateSfx := cfg.GetBool(keys.MDescDateSfx)
 
 	if (datePfx || dateSfx) && t.StringDate != "" {
 
