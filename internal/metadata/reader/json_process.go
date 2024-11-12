@@ -58,6 +58,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	logging.D(3, "%v", data)
 
 	var ok bool
@@ -131,7 +132,6 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		default:
 			logging.D(1, "Set file date tag format to skip, not making date tag for '%s'", file.Name())
 		}
-
 	}
 
 	// Add new filename tag for files

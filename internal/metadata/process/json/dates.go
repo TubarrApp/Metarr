@@ -73,7 +73,9 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 	case gotRelevantDate:
 
 		logging.D(3, "Got a relevant date, proceeding...")
-		print.PrintGrabbedFields("time and date", &printMap)
+		if logging.Level > -1 {
+			print.PrintGrabbedFields("time and date", &printMap)
+		}
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
 		} else {
@@ -95,7 +97,9 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 	case w.WebpageURL == "":
 
 		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
-		print.PrintGrabbedFields("time and date", &printMap)
+		if logging.Level > -1 {
+			print.PrintGrabbedFields("time and date", &printMap)
+		}
 		return data, false
 	}
 
@@ -137,7 +141,9 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			printMap[consts.JDate] = t.Date
 			printMap[consts.JYear] = t.Year
 
-			print.PrintGrabbedFields("time and date", &printMap)
+			if logging.Level > -1 {
+				print.PrintGrabbedFields("time and date", &printMap)
+			}
 
 			if t.FormattedDate == "" {
 				dates.FormatAllDates(fd)

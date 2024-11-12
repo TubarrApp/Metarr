@@ -82,7 +82,9 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 	logging.D(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
 
-	print.PrintGrabbedFields("web details", &printMap)
+	if logging.Level > -1 {
+		print.PrintGrabbedFields("web details", &printMap)
+	}
 
 	return isFilled
 }

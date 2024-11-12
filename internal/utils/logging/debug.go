@@ -17,6 +17,9 @@ var (
 )
 
 func E(l int, format string, args ...interface{}) string {
+	if Level == -1 {
+		return ""
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -45,6 +48,9 @@ func E(l int, format string, args ...interface{}) string {
 }
 
 func S(l int, format string, args ...interface{}) string {
+	if Level == -1 {
+		return ""
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -67,6 +73,9 @@ func S(l int, format string, args ...interface{}) string {
 }
 
 func D(l int, format string, args ...interface{}) string {
+	if Level == -1 {
+		return ""
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -94,6 +103,9 @@ func D(l int, format string, args ...interface{}) string {
 }
 
 func I(format string, args ...interface{}) string {
+	if Level == -1 {
+		return ""
+	}
 
 	mu.Lock()
 	defer mu.Unlock()
@@ -120,6 +132,23 @@ func P(format string, args ...interface{}) string {
 		msg = fmt.Sprintf(format+"\n", args...)
 	} else {
 		msg = fmt.Sprintf(format + "\n")
+	}
+	fmt.Print(msg)
+	writeLog(msg, 0)
+
+	return msg
+}
+
+func Spec(format string, args ...interface{}) string {
+
+	mu.Lock()
+	defer mu.Unlock()
+	var msg string
+
+	if len(args) != 0 && args != nil {
+		msg = fmt.Sprintf(consts.BlueInfo+format+"\n\n", args...)
+	} else {
+		msg = fmt.Sprintf(consts.BlueInfo + format + "\n\n")
 	}
 	fmt.Print(msg)
 	writeLog(msg, 0)

@@ -285,10 +285,10 @@ func verifyMetaOverwritePreserve() {
 
 // verifyDebugLevel checks and sets the debugging level to use
 func verifyDebugLevel() {
-	debugLevel := viper.GetUint16(keys.DebugLevel)
+	debugLevel := viper.GetInt(keys.DebugLevel)
 	if debugLevel > 5 {
 		debugLevel = 5
-	} else if debugLevel == 0 {
+	} else if debugLevel > -2 {
 		logging.I("Debugging level: %v", debugLevel)
 	}
 	viper.Set(keys.DebugLevel, debugLevel)

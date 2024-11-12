@@ -15,6 +15,7 @@ func (rw *JSONFileRW) writeJsonToFile(file *os.File, data map[string]interface{}
 	if file == nil {
 		return fmt.Errorf("nil file handle provided")
 	}
+
 	if data == nil {
 		return fmt.Errorf("nil data provided")
 	}

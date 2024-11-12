@@ -64,7 +64,9 @@ func unpackJSON(fieldType string, fieldMap map[string]*string, metadata map[stri
 			}
 		}
 	}
-	print.PrintGrabbedFields(fieldType, &printMap)
+	if logging.Level > -1 {
+		print.PrintGrabbedFields(fieldType, &printMap)
+	}
 
 	return dataFilled
 }
