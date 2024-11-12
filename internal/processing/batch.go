@@ -8,6 +8,7 @@ import (
 	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var logInit bool
@@ -62,9 +63,12 @@ func StartBatchLoop() {
 		if !logInit {
 			dir, err := filepath.Abs(openJson.Name())
 			if err != nil {
-				logging.E(0, "Failed to initialize logging on this run")
+				logging.E(0, "Failed to initialize logging on this run, could not get absolute path of %v", openJson.Name())
+			}
+			dir = strings.TrimSuffix(dir, openJson.Name())
+			logging.I("Setting log file at '%s'", dir)
 
-			} else if err = logging.SetupLogging(dir); err != nil {
+			if err = logging.SetupLogging(dir); err != nil {
 				fmt.Printf("\n\nNotice: Log file was not created\nReason: %s\n\n", err)
 			}
 			logInit = true
