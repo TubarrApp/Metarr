@@ -53,7 +53,7 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	logging.D(1, "Made metatag '%s' from file '%s'", tag, file.Name())
 
 	if tag != "[]" {
-		if strings.Contains(tag, filepath.Base(file.Name())) {
+		if strings.Contains(filepath.Base(file.Name()), tag) {
 			logging.D(2, "Tag '%s' already detected in name, skipping...", tag)
 			tag = ""
 		} else {
