@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"metarr/internal/cfg"
 	"metarr/internal/dates"
+	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	process "metarr/internal/metadata/process/json"
@@ -179,7 +180,7 @@ func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 
 	// Run metadata checks in all other cases
 	switch currentExt {
-	case ".mp4":
+	case consts.ExtMP4:
 		return check.MP4MetaMatches(fd)
 	default:
 		logging.I("Checks not currently implemented for this filetype")

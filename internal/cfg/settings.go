@@ -416,7 +416,7 @@ func verifyResourceLimits() {
 
 // Verify the output filetype is valid for FFmpeg
 func verifyOutputFiletype() {
-	if !viper.IsSet(keys.OutputFiletype) {
+	if !viper.IsSet(keys.OutputFiletypeInput) {
 		return
 	}
 

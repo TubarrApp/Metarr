@@ -31,13 +31,10 @@ func ExecuteVideo(fd *models.FileData) error {
 			outExt = origExt
 		}
 	} else {
-		if origExt != "" && strings.HasPrefix(origExt, ".") {
-			outExt = origExt
-			cfg.Set(keys.OutputFiletype, outExt)
-		} else {
-			return fmt.Errorf("unable to set file extension, malformed? Input: %s, Output: %s", origExt, outExt)
-		}
+		return fmt.Errorf("unable to set file extension, malformed? Input: %s, Output: %s", origExt, outExt)
 	}
+
+	logging.I("Will execute video from extension '%s' to extension '%s'", origExt, outExt)
 
 	if dontProcess(fd, outExt) {
 		return nil
@@ -127,12 +124,6 @@ func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
 		logging.I("Metadata already exists in the file, skipping processing...")
 		origPath := fd.OriginalVideoPath
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-
-		// Set the final video path based on output extension
-		if outExt == "" {
-			outExt = filepath.Ext(fd.OriginalVideoPath)
-			cfg.Set(keys.OutputFiletype, outExt)
-		}
 
 		// Save final video path into model
 		fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt

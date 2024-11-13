@@ -13,12 +13,14 @@ func initFilesDirs() {
 	rootCmd.PersistentFlags().StringSlice(keys.BatchPairsInput, nil, "Pairs of video and JSON directories (e.g. '/videodir:/metadir')")
 	viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput))
 
+	// Videos
 	rootCmd.PersistentFlags().StringSliceP(keys.VideoDirs, "v", nil, "A directory containing videos")
 	viper.BindPFlag(keys.VideoDirs, rootCmd.PersistentFlags().Lookup(keys.VideoDirs))
 
 	rootCmd.PersistentFlags().StringSliceP(keys.VideoFiles, "V", nil, "A video file")
 	viper.BindPFlag(keys.VideoFiles, rootCmd.PersistentFlags().Lookup(keys.VideoFiles))
 
+	// JSON
 	rootCmd.PersistentFlags().StringSliceP(keys.JsonDirs, "j", nil, "A directory containing videos")
 	viper.BindPFlag(keys.JsonDirs, rootCmd.PersistentFlags().Lookup(keys.JsonDirs))
 
