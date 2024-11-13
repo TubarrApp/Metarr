@@ -9,32 +9,23 @@ import (
 // Primary function to fill out meta fields before writing
 func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
 
-	var (
-		ok   bool
-		meta map[string]interface{}
-	)
 	allFilled := true
 
-	if len(fd.MWebData.TryURLs) == 0 {
-		if !FillWebpageDetails(fd, data) {
-			logging.I("No URL metadata found")
-			allFilled = false
-		}
-	}
-
-	if !fillTitles(fd, data) {
+	if meta, ok := fillTitles(fd, data); !ok {
 		logging.I("No title metadata found")
 		allFilled = false
+	} else if meta != nil {
+		data = meta
 	}
 
-	if meta, ok = fillCredits(fd, data); !ok {
+	if meta, ok := fillCredits(fd, data); !ok {
 		logging.I("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
 		data = meta
 	}
 
-	if meta, ok = fillDescriptions(fd, data); !ok {
+	if meta, ok := fillDescriptions(fd, data); !ok {
 		logging.I("No description metadata found")
 		allFilled = false
 	} else if meta != nil {
@@ -44,29 +35,29 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 }
 
 // unpackJSON decodes JSON for metafields
-func unpackJSON(fieldType string, fieldMap map[string]*string, metadata map[string]interface{}) bool {
+func unpackJSON(ftype string, fmap map[string]*string, json map[string]interface{}) bool {
 
-	dataFilled := false
-	printMap := make(map[string]string, len(fieldMap))
+	filled := false
+	pmap := make(map[string]string, len(fmap))
 
-	// Iterate through the decoded JSON to match fields against
-	// the passed in map of fields to fill
-	for key, value := range metadata {
-		if strVal, ok := value.(string); ok {
-			if field, exists := fieldMap[key]; exists && field != nil && *field == "" {
+	// Match decoded JSON to field map
+	for k, v := range json {
+		if val, ok := v.(string); ok {
+			logging.D(3, "Checking field '%s' with value '%s'", k, val)
+			if field, exists := fmap[k]; exists && field != nil && *field == "" {
 
-				*field = strVal
-				dataFilled = true
+				*field = val
+				filled = true
 
-				if printMap[key] == "" {
-					printMap[key] = strVal
+				if pmap[k] == "" {
+					pmap[k] = val
 				}
 			}
 		}
 	}
 	if logging.Level > -1 {
-		print.PrintGrabbedFields(fieldType, &printMap)
+		print.PrintGrabbedFields(ftype, &pmap)
 	}
 
-	return dataFilled
+	return filled
 }

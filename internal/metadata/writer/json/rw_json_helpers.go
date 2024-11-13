@@ -1,29 +1,56 @@
 package metadata
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	logging "metarr/internal/utils/logging"
 	"os"
 	"strings"
+	"sync"
 )
 
-// writeJsonToFile is a private metadata writing helper function
-func (rw *JSONFileRW) writeJsonToFile(file *os.File, data map[string]interface{}) error {
+// Map buffer
+var metaMapPool = sync.Pool{
+	New: func() interface{} {
+		return make(map[string]interface{}, 81) // 81 objects in tested JSON file received from yt-dlp
+	},
+}
 
+// JSON pool buffer
+var jsonBufferPool = sync.Pool{
+	New: func() interface{} {
+		return bytes.NewBuffer(make([]byte, 0, 4096)) // i.e. 4KiB
+	},
+}
+
+// writeJSONToFile is a private metadata writing helper function
+func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]interface{}) error {
 	if file == nil {
-		return fmt.Errorf("nil file handle provided")
+		return fmt.Errorf("file passed in nil")
 	}
 
-	if data == nil {
-		return fmt.Errorf("nil data provided")
+	if j == nil {
+		return fmt.Errorf("JSON metadata passed in nil")
 	}
+
+	if rw.buffer == nil {
+		buf := jsonBufferPool.Get().(*bytes.Buffer)
+		rw.buffer = buf
+	}
+	rw.buffer.Reset()
+	defer jsonBufferPool.Put(rw.buffer)
+
+	if rw.encoder == nil {
+		enc := json.NewEncoder(rw.buffer)
+		rw.encoder = enc
+	}
+	rw.encoder.SetIndent("", "  ")
 
 	// Marshal data
-	updatedFileContent, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal updated JSON: %w", err)
+	if err := rw.encoder.Encode(j); err != nil {
+		return fmt.Errorf("marshal error: %w", err)
 	}
 
 	// Begin file ops
@@ -53,7 +80,7 @@ func (rw *JSONFileRW) writeJsonToFile(file *os.File, data map[string]interface{}
 		return fmt.Errorf("failed to truncate file: %w", err)
 	}
 
-	if _, err := file.Write(updatedFileContent); err != nil {
+	if _, err := rw.buffer.WriteTo(file); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
@@ -66,23 +93,16 @@ func (rw *JSONFileRW) writeJsonToFile(file *os.File, data map[string]interface{}
 	return nil
 }
 
-// cleanFieldValue trims leading/trailing whitespaces after deletions
-func cleanFieldValue(value string) string {
-	cleaned := strings.TrimSpace(value)
-	cleaned = strings.Join(strings.Fields(cleaned), " ")
-	return cleaned
-}
-
 // copyMeta creates a deep copy of the metadata map under read lock
 func (rw *JSONFileRW) copyMeta() map[string]interface{} {
 	rw.mu.RLock()
 	defer rw.mu.RUnlock()
 
 	if rw.Meta == nil {
-		return make(map[string]interface{})
+		return metaMapPool.Get().(map[string]interface{})
 	}
 
-	currentMeta := make(map[string]interface{}, len(rw.Meta))
+	currentMeta := metaMapPool.Get().(map[string]interface{})
 	for k, v := range rw.Meta {
 		currentMeta[k] = v
 	}
@@ -92,10 +112,23 @@ func (rw *JSONFileRW) copyMeta() map[string]interface{} {
 // updateMeta safely updates the metadata map under write lock
 func (rw *JSONFileRW) updateMeta(newMeta map[string]interface{}) {
 	if newMeta == nil {
-		newMeta = make(map[string]interface{})
+		newMeta = metaMapPool.Get().(map[string]interface{})
 	}
 
 	rw.mu.Lock()
-	defer rw.mu.Unlock()
+	oldMeta := rw.Meta
 	rw.Meta = newMeta
+	rw.mu.Unlock()
+
+	if oldMeta != nil {
+		clear(oldMeta)
+		metaMapPool.Put(oldMeta)
+	}
+}
+
+// cleanFieldValue trims leading/trailing whitespaces after deletions
+func cleanFieldValue(value string) string {
+	cleaned := strings.TrimSpace(value)
+	cleaned = strings.Join(strings.Fields(cleaned), " ")
+	return cleaned
 }

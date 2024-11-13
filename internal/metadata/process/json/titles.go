@@ -10,36 +10,37 @@ import (
 )
 
 // fillTitles grabs the fulltitle ("title")
-func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
-	var dataFilled bool
+func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
 
 	t := fd.MTitleDesc
 	w := fd.MWebData
 
-	printMap := make(map[string]string, len(data))
+	printMap := make(map[string]string, len(json))
+
 	fieldMap := map[string]*string{
 		consts.JTitle:     &t.Title,
 		consts.JFulltitle: &t.Fulltitle,
 		consts.JSubtitle:  &t.Subtitle,
 	}
-	if dataFilled = unpackJSON("titles", fieldMap, data); dataFilled {
+
+	if filled := unpackJSON("titles", fieldMap, json); filled {
 		logging.D(2, "Decoded titles JSON into field map")
 	}
 
-	for key, value := range data {
-		if val, ok := value.(string); ok && val != "" {
+	for k, v := range json {
+		if val, ok := v.(string); ok && val != "" {
 			switch {
-			case key == consts.JFulltitle:
+			case k == consts.JFulltitle:
 				t.Fulltitle = val
-				printMap[key] = val
+				printMap[k] = val
 
-			case key == consts.JTitle:
+			case k == consts.JTitle:
 				t.Title = val
-				printMap[key] = val
+				printMap[k] = val
 
-			case key == consts.JSubtitle:
+			case k == consts.JSubtitle:
 				t.Subtitle = val
-				printMap[key] = val
+				printMap[k] = val
 			}
 		}
 	}
@@ -53,6 +54,8 @@ func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 	}
 
 	if t.Title == "" {
+		logging.I("Title is blank, scraping web for missing title data...")
+
 		title := browser.ScrapeMeta(w, enums.WEBCLASS_TITLE)
 		if title != "" {
 			t.Title = title
@@ -63,5 +66,11 @@ func fillTitles(fd *models.FileData, data map[string]interface{}) bool {
 		print.PrintGrabbedFields("title", &printMap)
 	}
 
-	return t.Title != ""
+	data, err := fd.JSONFileRW.WriteJSON(fieldMap)
+	if err != nil {
+		logging.E(0, err.Error())
+		return data, false
+	}
+
+	return data, true
 }

@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,8 @@ type JSONFileRW struct {
 	muFileWrite sync.Mutex
 	Meta        map[string]interface{}
 	File        *os.File
+	encoder     *json.Encoder
+	buffer      *bytes.Buffer
 }
 
 // NewJSONFileRW creates a new instance of the JSON file reader/writer
@@ -26,15 +29,14 @@ func NewJSONFileRW(file *os.File) *JSONFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
 	return &JSONFileRW{
 		File: file,
-		Meta: make(map[string]interface{}),
+		Meta: metaMapPool.Get().(map[string]interface{}),
 	}
 }
 
 // DecodeJSON parses and stores JSON metadata into a map and returns it
 func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]interface{}, error) {
-
 	if file == nil {
-		return nil, fmt.Errorf("nil file handle provided")
+		return nil, fmt.Errorf("file passed in nil")
 	}
 
 	currentPos, err := file.Seek(0, io.SeekCurrent)
@@ -57,38 +59,36 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]interface{}, error) 
 
 	// Decode to map
 	decoder := json.NewDecoder(file)
-	input := make(map[string]interface{})
+	data := metaMapPool.Get().(map[string]interface{})
 
-	if err := decoder.Decode(&input); err != nil {
+	if err := decoder.Decode(&data); err != nil {
 		return nil, fmt.Errorf("failed to decode JSON in DecodeMetadata: %w", err)
 	}
 
 	switch {
-	case len(input) <= 0, input == nil:
-		logging.D(3, "Metadata not stored, is blank: %v", input)
-		return input, nil
+	case len(data) == 0, data == nil:
+		logging.D(3, "Metadata not stored, is blank: %v", data)
+		return data, nil
 	default:
-		rw.updateMeta(input)
-		logging.D(5, "Decoded and stored metadata: %v", input)
-		return input, nil
+		rw.updateMeta(data)
+		logging.D(5, "Decoded and stored metadata: %v", data)
+		success = true
+		return data, nil
 	}
 }
 
 // RefreshJSON reloads the metadata map from the file after updates
 func (rw *JSONFileRW) RefreshJSON() (map[string]interface{}, error) {
-
 	if rw.File == nil {
-		return nil, fmt.Errorf("no file handle available")
+		return nil, fmt.Errorf("file passed in nil")
 	}
-
 	return rw.DecodeJSON(rw.File)
 }
 
 // WriteJSON inserts metadata into the JSON file from a map
 func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interface{}, error) {
-
 	if fieldMap == nil {
-		return nil, fmt.Errorf("fieldMap cannot be nil")
+		return nil, fmt.Errorf("field map passed in nil")
 	}
 
 	// Create a copy of the current metadata
@@ -135,7 +135,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 	}
 
 	// Write file
-	if err := rw.writeJsonToFile(rw.File, currentMeta); err != nil {
+	if err := rw.writeJSONToFile(rw.File, currentMeta); err != nil {
 		return currentMeta, err
 	}
 
@@ -147,6 +147,9 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 
 // MakeJSONEdits applies a series of transformations and writes the final result to the file
 func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, error) {
+	if file == nil {
+		return false, fmt.Errorf("file passed in nil")
+	}
 
 	currentMeta := rw.copyMeta()
 
@@ -225,7 +228,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Make edits:
 	// Replace
 	if len(replace) > 0 {
-		if ok, err := rw.replaceJson(currentMeta, replace); err != nil {
+		if ok, err := replaceJSON(currentMeta, replace); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -234,7 +237,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// Trim
 	if len(trimPfx) > 0 {
-		if ok, err := rw.trimJsonPrefix(currentMeta, trimPfx); err != nil {
+		if ok, err := trimJSONPrefix(currentMeta, trimPfx); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -242,7 +245,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	if len(trimSfx) > 0 {
-		if ok, err := rw.trimJsonSuffix(currentMeta, trimSfx); err != nil {
+		if ok, err := trimJSONSuffix(currentMeta, trimSfx); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -251,7 +254,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// Append and prefix
 	if len(apnd) > 0 {
-		if ok, err := rw.jsonAppend(currentMeta, apnd); err != nil {
+		if ok, err := jsonAppend(currentMeta, apnd); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -259,7 +262,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	if len(pfx) > 0 {
-		if ok, err := rw.jsonPrefix(currentMeta, pfx); err != nil {
+		if ok, err := jsonPrefix(currentMeta, pfx); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -268,7 +271,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// Add new
 	if len(new) > 0 {
-		if ok, err := rw.setJsonField(currentMeta, fd.ModelMOverwrite, new); err != nil {
+		if ok, err := setJSONField(currentMeta, rw.File.Name(), fd.ModelMOverwrite, new); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -281,7 +284,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	// Write new metadata to file
-	if err := rw.writeJsonToFile(file, currentMeta); err != nil {
+	if err := rw.writeJSONToFile(file, currentMeta); err != nil {
 		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
 	}
 
@@ -297,6 +300,9 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 // JSONDateTagEdits is a public function to add date tags into the metafile, this is useful because
 // the dates may not yet be scraped when the initial MakeJSONEdits runs
 func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
+	if file == nil {
+		return false, fmt.Errorf("file passed in nil")
+	}
 
 	logging.D(4, "Entering MakeDateTagEdits for file '%s'", file.Name())
 
@@ -311,7 +317,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 			if len(delDateTagMap) > 0 {
 
-				if ok, err := rw.jsonFieldDateTag(currentMeta, delDateTagMap, fd, enums.DATE_TAG_DEL_OP); err != nil {
+				if ok, err := jsonFieldDateTag(currentMeta, delDateTagMap, fd, enums.DATE_TAG_DEL_OP); err != nil {
 					logging.E(0, err.Error())
 				} else if ok {
 					edited = true
@@ -331,7 +337,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 			if len(dateTagMap) > 0 {
 
-				if ok, err := rw.jsonFieldDateTag(currentMeta, dateTagMap, fd, enums.DATE_TAG_ADD_OP); err != nil {
+				if ok, err := jsonFieldDateTag(currentMeta, dateTagMap, fd, enums.DATE_TAG_ADD_OP); err != nil {
 					logging.E(0, err.Error())
 				} else if ok {
 					edited = true
@@ -350,7 +356,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	}
 
 	// Write back to file
-	if err = rw.writeJsonToFile(file, currentMeta); err != nil {
+	if err = rw.writeJSONToFile(file, currentMeta); err != nil {
 		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
 	}
 

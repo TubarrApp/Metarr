@@ -110,6 +110,12 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		logging.D(2, "Some metafields were unfilled")
 	}
 
+	// Save data back to model
+	jsonRW.Meta = data
+	if _, err := jsonRW.RefreshJSON(); err != nil {
+		return nil, err
+	}
+
 	// Make filename date tag
 	logging.D(3, "About to make date tag for: %v", file.Name())
 
