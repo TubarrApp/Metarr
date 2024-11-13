@@ -36,7 +36,7 @@ type failedVideo struct {
 }
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(batch *models.Batch, core *models.Core, openVideo, openMeta *os.File) {
+func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
 
 	cancel := core.Cancel
 	cleanupChan := core.Cleanup

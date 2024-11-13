@@ -102,15 +102,15 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		newContent string
 		err        error
 
-		trimPfx []*models.MetaTrimPrefix
-		trimSfx []*models.MetaTrimSuffix
+		trimPfx []models.MetaTrimPrefix
+		trimSfx []models.MetaTrimSuffix
 
-		apnd []*models.MetaAppend
-		pfx  []*models.MetaPrefix
+		apnd []models.MetaAppend
+		pfx  []models.MetaPrefix
 
-		new []*models.MetaNewField
+		new []models.MetaNewField
 
-		replace []*models.MetaReplace
+		replace []models.MetaReplace
 	)
 
 	// Replacements
@@ -118,7 +118,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
 		replace = fd.ModelMReplace
 	} else if cfg.IsSet(keys.MReplaceText) {
-		if replace, ok = cfg.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
+		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
 			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
@@ -128,7 +128,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		logging.I("Model for file '%s' trimming prefixes", fd.OriginalVideoBaseName)
 		trimPfx = fd.ModelMTrimPrefix
 	} else if cfg.IsSet(keys.MTrimPrefix) {
-		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
+		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
 			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
@@ -137,7 +137,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		logging.I("Model for file '%s' trimming suffixes", fd.OriginalVideoBaseName)
 		trimSfx = fd.ModelMTrimSuffix
 	} else if cfg.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
+		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
 			logging.E(0, "Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
 		}
 	}
@@ -147,7 +147,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		logging.I("Model for file '%s' adding appends", fd.OriginalVideoBaseName)
 		apnd = fd.ModelMAppend
 	} else if cfg.IsSet(keys.MAppend) {
-		if apnd, ok = cfg.Get(keys.MAppend).([]*models.MetaAppend); !ok {
+		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
 			logging.E(0, "Count not retrieve appends, wrong type: '%T'", apnd)
 		}
 	}
@@ -156,7 +156,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		logging.I("Model for file '%s' adding prefixes", fd.OriginalVideoBaseName)
 		pfx = fd.ModelMPrefix
 	} else if cfg.IsSet(keys.MPrefix) {
-		if pfx, ok = cfg.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
+		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
 			logging.E(0, "Count not retrieve prefix, wrong type: '%T'", pfx)
 		}
 	}
@@ -166,7 +166,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		logging.I("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
 		new = fd.ModelMNewField
 	} else if cfg.IsSet(keys.MNewField) {
-		if new, ok = cfg.Get(keys.MNewField).([]*models.MetaNewField); !ok {
+		if new, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
 			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
 		}
 	}
@@ -294,7 +294,7 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 }
 
 // replaceMeta applies meta replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceXml(data string, replace []*models.MetaReplace) (string, bool, error) {
+func (rw *NFOFileRW) replaceXml(data string, replace []models.MetaReplace) (string, bool, error) {
 
 	logging.D(5, "Entering replaceXml with data: %v", string(data))
 
@@ -331,7 +331,7 @@ func (rw *NFOFileRW) replaceXml(data string, replace []*models.MetaReplace) (str
 }
 
 // trimMetaPrefix applies meta replacement to the fields in the xml data
-func (rw *NFOFileRW) trimXmlPrefix(data string, trimPfx []*models.MetaTrimPrefix) (string, bool, error) {
+func (rw *NFOFileRW) trimXmlPrefix(data string, trimPfx []models.MetaTrimPrefix) (string, bool, error) {
 
 	logging.D(5, "Entering trimXmlPrefix with data: %v", string(data))
 
@@ -368,7 +368,7 @@ func (rw *NFOFileRW) trimXmlPrefix(data string, trimPfx []*models.MetaTrimPrefix
 }
 
 // trimMetaSuffix trims specified
-func (rw *NFOFileRW) trimXmlSuffix(data string, trimSfx []*models.MetaTrimSuffix) (string, bool, error) {
+func (rw *NFOFileRW) trimXmlSuffix(data string, trimSfx []models.MetaTrimSuffix) (string, bool, error) {
 
 	logging.D(5, "Entering trimXmlSuffix with data: %v", string(data))
 
@@ -405,7 +405,7 @@ func (rw *NFOFileRW) trimXmlSuffix(data string, trimSfx []*models.MetaTrimSuffix
 }
 
 // trimMetaPrefix applies meta replacement to the fields in the xml data
-func (rw *NFOFileRW) xmlPrefix(data string, pfx []*models.MetaPrefix) (string, bool, error) {
+func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (string, bool, error) {
 
 	logging.D(5, "Entering xmlPrefix with data: %v", string(data))
 
@@ -441,7 +441,7 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []*models.MetaPrefix) (string, b
 }
 
 // trimMetaSuffix trims specified
-func (rw *NFOFileRW) xmlAppend(data string, apnd []*models.MetaAppend) (string, bool, error) {
+func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (string, bool, error) {
 
 	logging.D(5, "Entering xmlAppend with data: %v", string(data))
 
@@ -477,7 +477,7 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []*models.MetaAppend) (string, 
 }
 
 // addNewField can insert a new field which does not yet exist into the metadata file
-func (rw *NFOFileRW) addNewXmlFields(data string, ow bool, new []*models.MetaNewField) (string, bool, error) {
+func (rw *NFOFileRW) addNewXmlFields(data string, ow bool, new []models.MetaNewField) (string, bool, error) {
 
 	var (
 		metaOW,

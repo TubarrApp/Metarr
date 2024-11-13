@@ -60,23 +60,23 @@ func validateMetaOps() error {
 	m := metaOpsMapLength(metaOpsInput, metaOpsLen{})
 
 	// Add and replace
-	newField := make([]*models.MetaNewField, 0, m.newLen)
+	newField := make([]models.MetaNewField, 0, m.newLen)
 	models.SetOverrideMap = make(map[enums.OverrideMetaType]string, m.newLen)
 
-	replace := make([]*models.MetaReplace, 0, m.replaceLen)
-	models.ReplaceOverrideMap = make(map[enums.OverrideMetaType]*models.MOverrideReplacePair, m.replaceLen)
+	replace := make([]models.MetaReplace, 0, m.replaceLen)
+	models.ReplaceOverrideMap = make(map[enums.OverrideMetaType]models.MOverrideReplacePair, m.replaceLen)
 
 	// Prefixes and suffixes
-	apnd := make([]*models.MetaAppend, 0, m.apndLen)
+	apnd := make([]models.MetaAppend, 0, m.apndLen)
 	models.AppendOverrideMap = make(map[enums.OverrideMetaType]string, m.apndLen)
 
-	pfx := make([]*models.MetaPrefix, 0, m.pfxLen)
-	trimSfx := make([]*models.MetaTrimSuffix, 0, m.trimSfxLen)
-	trimPfx := make([]*models.MetaTrimPrefix, 0, m.trimPfxLen)
+	pfx := make([]models.MetaPrefix, 0, m.pfxLen)
+	trimSfx := make([]models.MetaTrimSuffix, 0, m.trimSfxLen)
+	trimPfx := make([]models.MetaTrimPrefix, 0, m.trimPfxLen)
 
 	// Date tagging
-	dateTag := make(map[string]*models.MetaDateTag, m.dTagLen)
-	delDateTag := make(map[string]*models.MetaDateTag, m.delDTagLen)
+	dateTag := make(map[string]models.MetaDateTag, m.dTagLen)
+	delDateTag := make(map[string]models.MetaDateTag, m.delDTagLen)
 
 	for _, op := range metaOpsInput {
 
@@ -98,7 +98,7 @@ func validateMetaOps() error {
 				models.SetOverrideMap[enums.OVERRIDE_META_CREDITS] = value
 			}
 
-			newFieldModel := &models.MetaNewField{
+			newFieldModel := models.MetaNewField{
 				Field: field,
 				Value: value,
 			}
@@ -113,7 +113,7 @@ func validateMetaOps() error {
 				models.AppendOverrideMap[enums.OVERRIDE_META_CREDITS] = value
 			}
 
-			apndModel := &models.MetaAppend{
+			apndModel := models.MetaAppend{
 				Field:  field,
 				Suffix: value,
 			}
@@ -123,7 +123,7 @@ func validateMetaOps() error {
 			fmt.Println()
 
 		case "prefix":
-			pfxModel := &models.MetaPrefix{
+			pfxModel := models.MetaPrefix{
 				Field:  field,
 				Prefix: value,
 			}
@@ -133,7 +133,7 @@ func validateMetaOps() error {
 			fmt.Println()
 
 		case "trim-suffix":
-			tSfxModel := &models.MetaTrimSuffix{
+			tSfxModel := models.MetaTrimSuffix{
 				Field:  field,
 				Suffix: value,
 			}
@@ -143,7 +143,7 @@ func validateMetaOps() error {
 			fmt.Println()
 
 		case "trim-prefix":
-			tPfxModel := &models.MetaTrimPrefix{
+			tPfxModel := models.MetaTrimPrefix{
 				Field:  field,
 				Prefix: value,
 			}
@@ -159,12 +159,12 @@ func validateMetaOps() error {
 
 			switch field {
 			case "all-credits", "credits-all":
-				models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS] = &models.MOverrideReplacePair{
+				models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS] = models.MOverrideReplacePair{
 					Value:       value,
 					Replacement: parts[3],
 				}
 			}
-			rModel := &models.MetaReplace{
+			rModel := models.MetaReplace{
 				Field:       field,
 				Value:       value,
 				Replacement: parts[3],
@@ -192,7 +192,7 @@ func validateMetaOps() error {
 			if e, err := dateEnum(parts[3]); err != nil {
 				return err
 			} else {
-				dateTag[field] = &models.MetaDateTag{
+				dateTag[field] = models.MetaDateTag{
 					Loc:    loc,
 					Format: e,
 				}
@@ -218,7 +218,7 @@ func validateMetaOps() error {
 			if e, err := dateEnum(parts[3]); err != nil {
 				return err
 			} else {
-				delDateTag[field] = &models.MetaDateTag{
+				delDateTag[field] = models.MetaDateTag{
 					Loc:    loc,
 					Format: e,
 				}
@@ -313,14 +313,14 @@ func metaOpsMapLength(metaOpsInput []string, m metaOpsLen) metaOpsLen {
 
 // validateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
 func validateFilenameSuffixReplace() error {
-	filenameReplaceSuffix := make([]*models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
+	filenameReplaceSuffix := make([]models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
 		if len(parts) < 3 {
 			return fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
 		}
-		filenameReplaceSuffix = append(filenameReplaceSuffix, &models.FilenameReplaceSuffix{
+		filenameReplaceSuffix = append(filenameReplaceSuffix, models.FilenameReplaceSuffix{
 			Suffix:      parts[0],
 			Replacement: parts[1],
 		})

@@ -145,7 +145,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 }
 
 // replaceSuffix applies configured suffix replacements to a filename.
-func replaceSuffix(filename string, suffixes []*models.FilenameReplaceSuffix) string {
+func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) string {
 
 	logging.D(2, "Received filename %s", filename)
 

@@ -6,7 +6,7 @@ import (
 )
 
 var AppendOverrideMap map[enums.OverrideMetaType]string
-var ReplaceOverrideMap map[enums.OverrideMetaType]*MOverrideReplacePair
+var ReplaceOverrideMap map[enums.OverrideMetaType]MOverrideReplacePair
 var SetOverrideMap map[enums.OverrideMetaType]string
 
 type MOverrideReplacePair struct {

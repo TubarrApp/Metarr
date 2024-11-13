@@ -12,7 +12,7 @@ import (
 )
 
 // fillTimestamps grabs timestamp metadata from JSON
-func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 	var (
 		err             error
 		gotRelevantDate bool
@@ -88,10 +88,10 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
-			return data, true
+			return true
 		} else if rtn != nil {
 			data = rtn
-			return data, true
+			return true
 		}
 
 	case w.WebpageURL == "":
@@ -100,7 +100,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 		if logging.Level > -1 {
 			print.PrintGrabbedFields("time and date", &printMap)
 		}
-		return data, false
+		return false
 	}
 
 	scrapedDate := browser.ScrapeMeta(w, enums.WEBCLASS_DATE)
@@ -113,7 +113,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
 			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
-			return data, false
+			return false
 		} else {
 			if t.ReleaseDate == "" {
 				t.ReleaseDate = date
@@ -152,14 +152,14 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) (map[strin
 			switch {
 			case err != nil:
 				logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
-				return data, true
+				return true
 			case rtn != nil:
 				data = rtn
-				return data, true
+				return true
 			}
 		}
 	}
-	return data, false
+	return false
 }
 
 // fillEmptyTimestamps attempts to infer missing timestamps

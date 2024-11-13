@@ -71,20 +71,7 @@ func main() {
 	prompt.InitUserInputReader()
 
 	if cfg.IsSet(keys.BatchPairs) {
-
-		batch, ok := cfg.Get(keys.BatchPairs).([]*models.Batch)
-		if !ok {
-			logging.E(0, "Wrong type")
-		}
-
-		for _, b := range batch {
-			b.Core.Cancel = cancel
-			b.Core.Ctx = ctx
-			b.Core.Wg = &wg
-			b.Core.Cleanup = cleanupChan
-		}
 		processing.StartBatchLoop(core)
-
 	} else {
 		logging.I("No files or directories to process. Exiting.")
 	}

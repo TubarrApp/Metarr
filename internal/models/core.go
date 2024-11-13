@@ -58,14 +58,14 @@ type FileData struct {
 	NFOFileRW  NFOFileRW
 
 	// Own transformations
-	ModelMAppend     []*MetaAppend
-	ModelMNewField   []*MetaNewField
-	ModelMPrefix     []*MetaPrefix
-	ModelMReplace    []*MetaReplace
-	ModelMTrimPrefix []*MetaTrimPrefix
-	ModelMTrimSuffix []*MetaTrimSuffix
+	ModelMAppend     []MetaAppend
+	ModelMNewField   []MetaNewField
+	ModelMPrefix     []MetaPrefix
+	ModelMReplace    []MetaReplace
+	ModelMTrimPrefix []MetaTrimPrefix
+	ModelMTrimSuffix []MetaTrimSuffix
 
-	ModelFileSfxReplace []*FilenameReplaceSuffix
+	ModelFileSfxReplace []FilenameReplaceSuffix
 
 	// Misc
 	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`

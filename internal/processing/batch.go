@@ -19,7 +19,7 @@ func StartBatchLoop(core *models.Core) {
 		return
 	}
 
-	batches, ok := cfg.Get(keys.BatchPairs).([]*models.Batch)
+	batches, ok := cfg.Get(keys.BatchPairs).([]models.Batch)
 	if !ok {
 		logging.E(0, "Wrong type or null batch pair. Type: %T", batches)
 		return

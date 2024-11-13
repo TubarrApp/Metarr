@@ -21,35 +21,35 @@ func CensoredTvTransformations(fd *models.FileData) {
 func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	var (
-		trimSfx []*models.MetaTrimSuffix
+		trimSfx []models.MetaTrimSuffix
 		ok      bool
 	)
 
 	if cfg.IsSet(keys.MTrimSuffix) {
-		trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix)
+		trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix)
 		if !ok {
 			logging.E(2, "Got type %T, may be null", trimSfx)
 		}
 	}
 
-	var new = make([]*models.MetaTrimSuffix, 0, 4)
+	var new = make([]models.MetaTrimSuffix, 0, 4)
 
-	new = append(new, &models.MetaTrimSuffix{
+	new = append(new, models.MetaTrimSuffix{
 		Field:  "title",
 		Suffix: " (1)",
 	})
 
-	new = append(new, &models.MetaTrimSuffix{
+	new = append(new, models.MetaTrimSuffix{
 		Field:  "fulltitle",
 		Suffix: " (1)",
 	})
 
-	new = append(new, &models.MetaTrimSuffix{
+	new = append(new, models.MetaTrimSuffix{
 		Field:  "id",
 		Suffix: "-1",
 	})
 
-	new = append(new, &models.MetaTrimSuffix{
+	new = append(new, models.MetaTrimSuffix{
 		Field:  "display_id",
 		Suffix: "-1",
 	})
@@ -83,12 +83,12 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 // censoredTvFSuffixes adds filename suffix replacements
 func censoredTvFSuffixes(fd *models.FileData) {
 
-	var sfx []*models.FilenameReplaceSuffix
+	var sfx []models.FilenameReplaceSuffix
 
 	v := fd.OriginalVideoBaseName
 
 	if cfg.IsSet(keys.FilenameReplaceSfx) {
-		existingSfx, ok := cfg.Get(keys.FilenameReplaceSfx).([]*models.FilenameReplaceSuffix)
+		existingSfx, ok := cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
 		if !ok {
 			logging.E(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
 		} else {
@@ -119,7 +119,7 @@ func censoredTvFSuffixes(fd *models.FileData) {
 
 	// Add suffix if it does not already exist
 	if !alreadyExists {
-		sfx = append(sfx, &models.FilenameReplaceSuffix{
+		sfx = append(sfx, models.FilenameReplaceSuffix{
 			Suffix:      "_1",
 			Replacement: "",
 		})

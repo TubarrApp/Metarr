@@ -149,7 +149,7 @@ func checkFileDirs() error {
 		return fmt.Errorf("invalid configuration, please enter a meta directory/file for each video directory/file")
 	}
 
-	var tasks []*models.Batch
+	var tasks []models.Batch
 
 	vDirCount := 0
 	vFileCount := 0
@@ -175,7 +175,7 @@ func checkFileDirs() error {
 				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
 			}
 
-			tasks = append(tasks, &models.Batch{
+			tasks = append(tasks, models.Batch{
 				Video:  videoDirs[i],
 				Json:   jsonDirs[i],
 				IsDirs: true,
@@ -199,7 +199,7 @@ func checkFileDirs() error {
 				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
 			}
 
-			tasks = append(tasks, &models.Batch{
+			tasks = append(tasks, models.Batch{
 				Json:       j[i],
 				IsDirs:     true,
 				SkipVideos: true,
@@ -228,7 +228,7 @@ func checkFileDirs() error {
 				return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
 			}
 
-			tasks = append(tasks, &models.Batch{
+			tasks = append(tasks, models.Batch{
 				Video:  videoFiles[i],
 				Json:   jsonFiles[i],
 				IsDirs: false,
@@ -251,7 +251,7 @@ func checkFileDirs() error {
 					return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
 				}
 
-				tasks = append(tasks, &models.Batch{
+				tasks = append(tasks, models.Batch{
 					Json:       j[i],
 					IsDirs:     false,
 					SkipVideos: true,

@@ -7,7 +7,7 @@ import (
 )
 
 // OdyseeComRules holds rules for scraping odysee.com
-var OdyseeComRules = map[enums.WebClassTags][]*models.SelectorRule{
+var OdyseeComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 		{
 			Selector: "script[type='application/ld+json']",

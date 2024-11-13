@@ -14,7 +14,7 @@ import (
 )
 
 // replaceJSON makes user defined JSON replacements
-func replaceJSON(j map[string]interface{}, rplce []*models.MetaReplace) (bool, error) {
+func replaceJSON(j map[string]interface{}, rplce []models.MetaReplace) (bool, error) {
 
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
@@ -43,7 +43,7 @@ func replaceJSON(j map[string]interface{}, rplce []*models.MetaReplace) (bool, e
 }
 
 // trimJSONPrefix trims defined prefixes from specified fields
-func trimJSONPrefix(j map[string]interface{}, tPfx []*models.MetaTrimPrefix) (bool, error) {
+func trimJSONPrefix(j map[string]interface{}, tPfx []models.MetaTrimPrefix) (bool, error) {
 
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
@@ -72,7 +72,7 @@ func trimJSONPrefix(j map[string]interface{}, tPfx []*models.MetaTrimPrefix) (bo
 }
 
 // trimJSONSuffix trims defined suffixes from specified fields
-func trimJSONSuffix(j map[string]interface{}, tSfx []*models.MetaTrimSuffix) (bool, error) {
+func trimJSONSuffix(j map[string]interface{}, tSfx []models.MetaTrimSuffix) (bool, error) {
 
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
@@ -101,7 +101,7 @@ func trimJSONSuffix(j map[string]interface{}, tSfx []*models.MetaTrimSuffix) (bo
 }
 
 // jsonAppend appends to the fields in the JSON data
-func jsonAppend(j map[string]interface{}, apnd []*models.MetaAppend) (bool, error) {
+func jsonAppend(j map[string]interface{}, apnd []models.MetaAppend) (bool, error) {
 
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
@@ -133,7 +133,7 @@ func jsonAppend(j map[string]interface{}, apnd []*models.MetaAppend) (bool, erro
 }
 
 // metaPrefix applies prefixes to the fields in the JSON data
-func jsonPrefix(j map[string]interface{}, pfx []*models.MetaPrefix) (bool, error) {
+func jsonPrefix(j map[string]interface{}, pfx []models.MetaPrefix) (bool, error) {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
@@ -165,8 +165,7 @@ func jsonPrefix(j map[string]interface{}, pfx []*models.MetaPrefix) (bool, error
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file
-func setJSONField(j map[string]interface{}, file string, ow bool, new []*models.MetaNewField) (bool, error) {
-
+func setJSONField(j map[string]interface{}, file string, ow bool, new []models.MetaNewField) (bool, error) {
 	if len(new) == 0 {
 		logging.E(0, "No new field additions found", keys.MNewField)
 		return false, nil
@@ -203,9 +202,11 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []*models.
 			newAddition = true
 			continue
 		}
+
+		// Field already exists, check with user
 		if !metaOW {
 
-			// Check for context cancellation before proceeding
+			// Check for cancellation
 			select {
 			case <-ctx.Done():
 				logging.I("Operation canceled for field: %s", n.Field)
@@ -213,13 +214,14 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []*models.
 			default:
 				// Proceed
 			}
+
 			if _, alreadyProcessed := processedFields[n.Field]; alreadyProcessed {
 				continue
 			}
 
 			if existingValue, exists := j[n.Field]; exists {
 
-				if !metaOW && !metaPS {
+				if !metaPS {
 					promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue", n.Field, existingValue, file)
 
 					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
@@ -274,7 +276,7 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []*models.
 }
 
 // jsonFieldDateTag sets date tags in designated meta fields
-func jsonFieldDateTag(j map[string]interface{}, dtm map[string]*models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
+func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
 
 	logging.D(2, "Making metadata date tag for '%s'...", fd.OriginalVideoBaseName)
 
@@ -288,11 +290,6 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]*models.MetaDateT
 
 	edited := false
 	for fld, d := range dtm {
-		if d == nil {
-			logging.E(0, "Nil date tag configuration for field '%s'", fld)
-			continue
-		}
-
 		val, exists := j[fld]
 		if !exists {
 			logging.D(3, "Field '%s' not found in metadata", fld)
@@ -369,6 +366,5 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]*models.MetaDateT
 			return false, fmt.Errorf("invalid date tag location enum: %v", d.Loc)
 		}
 	}
-
 	return edited, nil
 }

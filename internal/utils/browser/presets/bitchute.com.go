@@ -10,7 +10,7 @@ import (
 )
 
 // BitchuteComRules holds rules for scraping bitchute.com
-var BitchuteComRules = map[enums.WebClassTags][]*models.SelectorRule{
+var BitchuteComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 
 		{Selector: "q-item__label ellipsis text-subtitle1 ellipsis", Process: strings.TrimSpace},

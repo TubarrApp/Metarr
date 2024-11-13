@@ -93,7 +93,6 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 
 	// Create a copy of the current metadata
 	currentMeta := rw.copyMeta()
-
 	logging.D(4, "Entering WriteMetadata for file '%s'", rw.File.Name())
 
 	// Update metadata with new fields
@@ -157,14 +156,12 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	var (
 		edited, ok bool
-		trimPfx    []*models.MetaTrimPrefix
-		trimSfx    []*models.MetaTrimSuffix
-
-		apnd []*models.MetaAppend
-		pfx  []*models.MetaPrefix
-
-		new     []*models.MetaNewField
-		replace []*models.MetaReplace
+		trimPfx    []models.MetaTrimPrefix
+		trimSfx    []models.MetaTrimSuffix
+		apnd       []models.MetaAppend
+		pfx        []models.MetaPrefix
+		new        []models.MetaNewField
+		replace    []models.MetaReplace
 	)
 
 	// Replacements
@@ -172,7 +169,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
 		replace = fd.ModelMReplace
 	} else if cfg.IsSet(keys.MReplaceText) {
-		if replace, ok = cfg.Get(keys.MReplaceText).([]*models.MetaReplace); !ok {
+		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
 			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
@@ -182,7 +179,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		logging.I("Model for file '%s' trimming prefixes", fd.OriginalVideoBaseName)
 		trimPfx = fd.ModelMTrimPrefix
 	} else if cfg.IsSet(keys.MTrimPrefix) {
-		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]*models.MetaTrimPrefix); !ok {
+		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
 			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
@@ -191,7 +188,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		logging.I("Model for file '%s' trimming suffixes", fd.OriginalVideoBaseName)
 		trimSfx = fd.ModelMTrimSuffix
 	} else if cfg.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]*models.MetaTrimSuffix); !ok {
+		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
 			logging.E(0, "Could not retrieve suffix trim, wrong type: '%T'", trimSfx)
 		}
 	}
@@ -201,7 +198,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		logging.I("Model for file '%s' adding appends", fd.OriginalVideoBaseName)
 		apnd = fd.ModelMAppend
 	} else if cfg.IsSet(keys.MAppend) {
-		if apnd, ok = cfg.Get(keys.MAppend).([]*models.MetaAppend); !ok {
+		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
 			logging.E(0, "Could not retrieve appends, wrong type: '%T'", apnd)
 		}
 	}
@@ -210,7 +207,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		logging.I("Model for file '%s' adding prefixes", fd.OriginalVideoBaseName)
 		pfx = fd.ModelMPrefix
 	} else if cfg.IsSet(keys.MPrefix) {
-		if pfx, ok = cfg.Get(keys.MPrefix).([]*models.MetaPrefix); !ok {
+		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
 			logging.E(0, "Could not retrieve prefix, wrong type: '%T'", pfx)
 		}
 	}
@@ -220,7 +217,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		logging.I("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
 		new = fd.ModelMNewField
 	} else if cfg.IsSet(keys.MNewField) {
-		if new, ok = cfg.Get(keys.MNewField).([]*models.MetaNewField); !ok {
+		if new, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
 			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
 		}
 	}
@@ -313,7 +310,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	// Delete date tag first, user's may want to delete and re-build
 	if cfg.IsSet(keys.MDelDateTagMap) {
 		logging.D(3, "Stripping metafield date tag...")
-		if delDateTagMap, ok := cfg.Get(keys.MDelDateTagMap).(map[string]*models.MetaDateTag); ok {
+		if delDateTagMap, ok := cfg.Get(keys.MDelDateTagMap).(map[string]models.MetaDateTag); ok {
 
 			if len(delDateTagMap) > 0 {
 
@@ -333,7 +330,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	// Add date tag
 	if cfg.IsSet(keys.MDateTagMap) {
 		logging.D(3, "Adding metafield date tag...")
-		if dateTagMap, ok := cfg.Get(keys.MDateTagMap).(map[string]*models.MetaDateTag); ok {
+		if dateTagMap, ok := cfg.Get(keys.MDateTagMap).(map[string]models.MetaDateTag); ok {
 
 			if len(dateTagMap) > 0 {
 
