@@ -162,8 +162,11 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		pfx        []models.MetaPrefix
 		new        []models.MetaNewField
 		replace    []models.MetaReplace
+		copyTo     []models.CopyToField
+		pasteFrom  []models.PasteFromField
 	)
 
+	// Initialize:
 	// Replacements
 	if len(fd.ModelMReplace) > 0 {
 		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
@@ -218,7 +221,20 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		new = fd.ModelMNewField
 	} else if cfg.IsSet(keys.MNewField) {
 		if new, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
-			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", new)
+		}
+	}
+
+	// Copy/paste
+	if cfg.IsSet(keys.MCopyToField) {
+		if copyTo, ok = cfg.Get(keys.MCopyToField).([]models.CopyToField); !ok {
+			logging.E(0, "Could not retrieve copy operations, wrong type: '%T'", copyTo)
+		}
+	}
+
+	if cfg.IsSet(keys.MPasteFromField) {
+		if pasteFrom, ok = cfg.Get(keys.MPasteFromField).([]models.PasteFromField); !ok {
+			logging.E(0, "Could not retrieve paste operations, wrong type: '%T'", pasteFrom)
 		}
 	}
 
@@ -260,6 +276,23 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	if len(pfx) > 0 {
 		if ok, err := jsonPrefix(currentMeta, pfx); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	// Copy/paste
+	if len(copyTo) > 0 {
+		if ok, err := copyToField(currentMeta, copyTo); err != nil {
+			logging.E(0, err.Error())
+		} else if ok {
+			edited = true
+		}
+	}
+
+	if len(pasteFrom) > 0 {
+		if ok, err := pasteFromField(currentMeta, pasteFrom); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true

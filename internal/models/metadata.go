@@ -14,6 +14,16 @@ type MOverrideReplacePair struct {
 	Replacement string
 }
 
+type CopyToField struct {
+	Field string
+	Dest  string
+}
+
+type PasteFromField struct {
+	Field  string
+	Origin string
+}
+
 type MetaAppend struct {
 	Field  string
 	Suffix string

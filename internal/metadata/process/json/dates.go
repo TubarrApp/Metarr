@@ -13,10 +13,6 @@ import (
 
 // fillTimestamps grabs timestamp metadata from JSON
 func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
-	var (
-		err             error
-		gotRelevantDate bool
-	)
 
 	t := fd.MDates
 	w := fd.MWebData
@@ -37,62 +33,59 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 
 	printMap := make(map[string]string, len(fieldMap))
 
-	for key, value := range data {
-		if strVal, ok := value.(string); ok {
-			if _, exists := fieldMap[key]; exists {
-
-				if len(strVal) >= 6 {
-					if formatted, ok := dates.YyyyMmDd(strVal); ok {
-						*fieldMap[key] = formatted
-						printMap[key] = formatted
-						gotRelevantDate = true
-						continue
-
-					} else {
-						*fieldMap[key] = strVal
-						printMap[key] = strVal
-						gotRelevantDate = true
-						continue
-					}
-				} else {
-					*fieldMap[key] = strVal
-					printMap[key] = strVal
-					gotRelevantDate = true
-					continue
-				}
-			}
+	var gotDate bool
+	for k, v := range data {
+		val, ok := v.(string)
+		if !ok {
+			continue
 		}
-		continue
+
+		fieldPtr, exists := fieldMap[k]
+		if !exists {
+			continue
+		}
+
+		var finalVal string
+		if len(val) >= 6 {
+			if formatted, ok := dates.YyyyMmDd(val); ok {
+				finalVal = formatted
+			} else {
+				finalVal = val
+			}
+		} else {
+			finalVal = val
+		}
+
+		*fieldPtr = finalVal
+		printMap[k] = finalVal
+		gotDate = true
 	}
 
 	if fillEmptyTimestamps(t) {
-		gotRelevantDate = true
+		gotDate = true
 	}
 
+	var err error
 	switch {
-	case gotRelevantDate:
+	case gotDate:
 
 		logging.D(3, "Got a relevant date, proceeding...")
+
 		if logging.Level > -1 {
 			print.PrintGrabbedFields("time and date", &printMap)
 		}
+
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
-		} else {
-			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
-			if err != nil {
-				logging.E(0, err.Error())
-			}
+		} else if t.StringDate, err = dates.ParseNumDate(t.FormattedDate); err != nil {
+			logging.E(0, err.Error())
 		}
 
-		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
-		if err != nil {
+		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
-			return true
-		} else if rtn != nil {
-			data = rtn
-			return true
 		}
+
+		return true
 
 	case w.WebpageURL == "":
 
@@ -114,50 +107,44 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 		if err != nil || date == "" {
 			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
 			return false
-		} else {
-			if t.ReleaseDate == "" {
-				t.ReleaseDate = date
-			}
-			if t.Date == "" {
-				t.Date = date
-			}
-			if t.Creation_Time == "" {
-				t.Creation_Time = date + "T00:00:00Z"
-			}
-			if t.UploadDate == "" {
-				t.UploadDate = date
-			}
-			if t.Originally_Available_At == "" {
-				t.Originally_Available_At = date
-			}
-			if t.FormattedDate == "" {
-				t.FormattedDate = date
-			}
-			if len(date) >= 4 {
-				t.Year = date[:4]
-			}
-
-			printMap[consts.JReleaseDate] = t.ReleaseDate
-			printMap[consts.JDate] = t.Date
-			printMap[consts.JYear] = t.Year
-
-			if logging.Level > -1 {
-				print.PrintGrabbedFields("time and date", &printMap)
-			}
-
-			if t.FormattedDate == "" {
-				dates.FormatAllDates(fd)
-			}
-			rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
-			switch {
-			case err != nil:
-				logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
-				return true
-			case rtn != nil:
-				data = rtn
-				return true
-			}
 		}
+		if t.ReleaseDate == "" {
+			t.ReleaseDate = date
+		}
+		if t.Date == "" {
+			t.Date = date
+		}
+		if t.Creation_Time == "" {
+			t.Creation_Time = date + "T00:00:00Z"
+		}
+		if t.UploadDate == "" {
+			t.UploadDate = date
+		}
+		if t.Originally_Available_At == "" {
+			t.Originally_Available_At = date
+		}
+		if t.FormattedDate == "" {
+			t.FormattedDate = date
+		}
+		if len(date) >= 4 {
+			t.Year = date[:4]
+		}
+
+		printMap[consts.JReleaseDate] = t.ReleaseDate
+		printMap[consts.JDate] = t.Date
+		printMap[consts.JYear] = t.Year
+
+		if logging.Level > -1 {
+			print.PrintGrabbedFields("time and date", &printMap)
+		}
+
+		if t.FormattedDate == "" {
+			dates.FormatAllDates(fd)
+		}
+		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
+			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
+		}
+		return true
 	}
 	return false
 }
@@ -165,12 +152,12 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 // fillEmptyTimestamps attempts to infer missing timestamps
 func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
-	gotRelevantDate := false
+	gotDate := false
 
 	// Infer from originally available date
 	if t.Originally_Available_At != "" && len(t.Originally_Available_At) >= 6 {
 
-		gotRelevantDate = true
+		gotDate = true
 		if t.Creation_Time == "" {
 			if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 				if !strings.ContainsRune(formatted, 'T') {
@@ -198,7 +185,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 	// Infer from release date
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
-		gotRelevantDate = true
+		gotDate = true
 		if t.Creation_Time == "" {
 			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 				t.Creation_Time = formatted + "T00:00:00Z"
@@ -222,7 +209,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	}
 	// Infer from date
 	if t.Date != "" && len(t.Date) >= 6 {
-		gotRelevantDate = true
+		gotDate = true
 		if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
 			t.Creation_Time = formatted + "T00:00:00Z"
 			if t.FormattedDate == "" {
@@ -317,5 +304,5 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			logging.D(1, "Changed creation time's year only. Got '%s'", t.Creation_Time)
 		}
 	}
-	return gotRelevantDate
+	return gotDate
 }

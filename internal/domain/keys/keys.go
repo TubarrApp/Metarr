@@ -85,6 +85,9 @@ const (
 	MOverwrite string = "meta-overwrite"
 	MPreserve  string = "meta-preserve"
 
+	MCopyToField    string = "copyToField"
+	MPasteFromField string = "pasteFromField"
+
 	MAppend      string = "metaAppend"
 	MNewField    string = "metaNewField"
 	MPrefix      string = "metaPrefix"

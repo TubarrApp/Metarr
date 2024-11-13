@@ -368,3 +368,64 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 	}
 	return edited, nil
 }
+
+// copyToField copies values from one meta field to another
+func copyToField(j map[string]interface{}, copy []models.CopyToField) (bool, error) {
+
+	logging.D(5, "Entering jsonPrefix with data: %v", j)
+
+	if len(copy) == 0 {
+		logging.E(0, "No new copy operations found")
+		return false, nil
+	}
+
+	edited := false
+	for _, c := range copy {
+		if c.Field == "" || c.Dest == "" {
+			continue
+		}
+
+		if value, found := j[c.Field]; found {
+
+			if val, ok := value.(string); ok {
+				logging.I("Identified input JSON field '%v', copying to field '%v'", c.Field, c.Dest)
+				j[c.Dest] = val
+				edited = true
+
+			}
+		}
+	}
+	logging.D(5, "After making copy operation changes: %v", j)
+
+	return edited, nil
+}
+
+// pasteFromField copies values from one meta field to another
+func pasteFromField(j map[string]interface{}, paste []models.PasteFromField) (bool, error) {
+
+	logging.D(5, "Entering jsonPrefix with data: %v", j)
+
+	if len(paste) == 0 {
+		logging.E(0, "No new paste operations found")
+		return false, nil
+	}
+
+	edited := false
+	for _, p := range paste {
+		if p.Field == "" || p.Origin == "" {
+			continue
+		}
+
+		if value, found := j[p.Origin]; found {
+
+			if val, ok := value.(string); ok {
+				logging.I("Identified input JSON field '%v', pasting to field '%v'", p.Origin, p.Field)
+				j[p.Field] = val
+				edited = true
+			}
+		}
+	}
+	logging.D(5, "After making paste operation changes: %v", j)
+
+	return edited, nil
+}

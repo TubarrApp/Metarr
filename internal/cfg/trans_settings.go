@@ -23,7 +23,9 @@ type metaOpsLen struct {
 	trimPfxLen,
 	replaceLen,
 	dTagLen,
-	delDTagLen int
+	delDTagLen,
+	copyToFieldLen,
+	pasteFromFieldLen int
 }
 
 // initTextReplace initializes text replacement functions
@@ -59,24 +61,32 @@ func validateMetaOps() error {
 
 	m := metaOpsMapLength(metaOpsInput, metaOpsLen{})
 
-	// Add and replace
+	// Add new field
 	newField := make([]models.MetaNewField, 0, m.newLen)
 	models.SetOverrideMap = make(map[enums.OverrideMetaType]string, m.newLen)
 
+	// Replacements
 	replace := make([]models.MetaReplace, 0, m.replaceLen)
 	models.ReplaceOverrideMap = make(map[enums.OverrideMetaType]models.MOverrideReplacePair, m.replaceLen)
 
-	// Prefixes and suffixes
+	// Append
 	apnd := make([]models.MetaAppend, 0, m.apndLen)
 	models.AppendOverrideMap = make(map[enums.OverrideMetaType]string, m.apndLen)
 
+	// Prefix
 	pfx := make([]models.MetaPrefix, 0, m.pfxLen)
+
+	// Trim prefix/suffix
 	trimSfx := make([]models.MetaTrimSuffix, 0, m.trimSfxLen)
 	trimPfx := make([]models.MetaTrimPrefix, 0, m.trimPfxLen)
 
-	// Date tagging
+	// Date tagging ops
 	dateTag := make(map[string]models.MetaDateTag, m.dTagLen)
 	delDateTag := make(map[string]models.MetaDateTag, m.delDTagLen)
+
+	// Copy to and from fields
+	copyToField := make([]models.CopyToField, 0, m.copyToFieldLen)
+	pasteFromField := make([]models.PasteFromField, 0, m.pasteFromFieldLen)
 
 	for _, op := range metaOpsInput {
 
@@ -150,6 +160,26 @@ func validateMetaOps() error {
 			trimPfx = append(trimPfx, tPfxModel)
 			fmt.Println()
 			logging.D(3, "Added new prefix trim op:\nField: %s\nPrefix: %s", tPfxModel.Field, tPfxModel.Prefix)
+			fmt.Println()
+
+		case "copy-to":
+			c := models.CopyToField{
+				Field: field,
+				Dest:  value,
+			}
+			copyToField = append(copyToField, c)
+			fmt.Println()
+			logging.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
+			fmt.Println()
+
+		case "paste-from":
+			p := models.PasteFromField{
+				Field:  field,
+				Origin: value,
+			}
+			pasteFromField = append(pasteFromField, p)
+			fmt.Println()
+			logging.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
 			fmt.Println()
 
 		case "replace":
@@ -262,6 +292,16 @@ func validateMetaOps() error {
 		viper.Set(keys.MReplaceText, replace)
 	}
 
+	if len(copyToField) > 0 {
+		logging.I("Copying to fields: %v", copyToField)
+		viper.Set(keys.MCopyToField, copyToField)
+	}
+
+	if len(pasteFromField) > 0 {
+		logging.I("Pasting from fields: %v", pasteFromField)
+		viper.Set(keys.MPasteFromField, pasteFromField)
+	}
+
 	if len(dateTag) > 0 {
 		logging.I("Adding date tags: %v", dateTag)
 		viper.Set(keys.MDateTagMap, dateTag)
@@ -300,13 +340,17 @@ func metaOpsMapLength(metaOpsInput []string, m metaOpsLen) metaOpsLen {
 					m.dTagLen++
 				case "delete-date-tag":
 					m.delDTagLen++
+				case "copy-to":
+					m.copyToFieldLen++
+				case "paste-from":
+					m.pasteFromFieldLen++
 				}
 			}
 		}
 
 	}
 	fmt.Println()
-	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d\nDelete date tags: %d", m.newLen, m.apndLen, m.pfxLen, m.trimSfxLen, m.trimPfxLen, m.replaceLen, m.dTagLen, m.delDTagLen)
+	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d\nDelete date tags: %d\nCopy operations: %d\nPaste operations: %d", m.newLen, m.apndLen, m.pfxLen, m.trimSfxLen, m.trimPfxLen, m.replaceLen, m.dTagLen, m.delDTagLen, m.copyToFieldLen, m.pasteFromFieldLen)
 	fmt.Println()
 	return m
 }
@@ -351,12 +395,12 @@ func setRenameFlag() {
 		renameFlag = enums.RENAMING_UNDERSCORES
 		logging.P("Rename style selected: %v", argRenameFlag)
 
-	case "fixes-only", "fixesonly":
+	case "fixes", "fix", "fixes-only", "fixesonly":
 		renameFlag = enums.RENAMING_FIXES_ONLY
 		logging.P("Rename style selected: %v", argRenameFlag)
 
 	default:
-		logging.D(1, "'Spaces' or 'underscores' not selected for renaming style, skipping these modifications.")
+		logging.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RENAMING_SKIP
 	}
 	viper.Set(keys.Rename, renameFlag)

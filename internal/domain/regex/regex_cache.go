@@ -12,35 +12,33 @@ var (
 	InvalidChars *regexp.Regexp
 	SpecialChars *regexp.Regexp
 
-	ContractionMapSpaced      map[string]*models.ContractionPattern
-	ContractionMapUnderscored map[string]*models.ContractionPattern
-	ContractionMapAll         map[string]*models.ContractionPattern
+	ContractionMapSpaced      map[string]models.ContractionPattern
+	ContractionMapUnderscored map[string]models.ContractionPattern
+	ContractionMapAll         map[string]models.ContractionPattern
 )
 
 // ContractionMapAllCompile compiles the regex pattern for spaced AND underscored contractions and returns
 // a model containing the regex and the replacement
-func ContractionMapAllCompile() map[string]*models.ContractionPattern {
+func ContractionMapAllCompile() map[string]models.ContractionPattern {
 	if ContractionMapAll == nil {
-		ContractionMapAll = make(map[string]*models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
+		ContractionMapAll = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
 
 		// Spaced map
 		for contraction, replacement := range consts.ContractionsSpaced {
 
-			ContractionMapAll[contraction] = &models.ContractionPattern{
+			ContractionMapAll[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
-			ContractionMapAll[contraction].Replacement = replacement
 		}
 
 		// Underscored map
 		for contraction, replacement := range consts.ContractionsUnderscored {
 
-			ContractionMapAll[contraction] = &models.ContractionPattern{
+			ContractionMapAll[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
-			ContractionMapAll[contraction].Replacement = replacement
 		}
 	}
 
@@ -49,17 +47,16 @@ func ContractionMapAllCompile() map[string]*models.ContractionPattern {
 
 // ContractionMapSpacesCompile compiles the regex pattern for spaced contractions and returns
 // a model containing the regex and the replacement
-func ContractionMapSpacesCompile() map[string]*models.ContractionPattern {
+func ContractionMapSpacesCompile() map[string]models.ContractionPattern {
 	if ContractionMapSpaced == nil {
-		ContractionMapSpaced = make(map[string]*models.ContractionPattern, len(consts.ContractionsSpaced))
+		ContractionMapSpaced = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced))
 
 		for contraction, replacement := range consts.ContractionsSpaced {
 
-			ContractionMapSpaced[contraction] = &models.ContractionPattern{
+			ContractionMapSpaced[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
-			ContractionMapSpaced[contraction].Replacement = replacement
 		}
 	}
 	return ContractionMapSpaced
@@ -67,17 +64,16 @@ func ContractionMapSpacesCompile() map[string]*models.ContractionPattern {
 
 // ContractionMapUnderscoresCompile compiles the regex pattern for underscored contractions and returns
 // a model containing the regex and the replacement
-func ContractionMapUnderscoresCompile() map[string]*models.ContractionPattern {
+func ContractionMapUnderscoresCompile() map[string]models.ContractionPattern {
 	if ContractionMapUnderscored == nil {
-		ContractionMapUnderscored = make(map[string]*models.ContractionPattern, len(consts.ContractionsUnderscored))
+		ContractionMapUnderscored = make(map[string]models.ContractionPattern, len(consts.ContractionsUnderscored))
 
 		for contraction, replacement := range consts.ContractionsUnderscored {
 
-			ContractionMapUnderscored[contraction] = &models.ContractionPattern{
+			ContractionMapUnderscored[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
-			ContractionMapUnderscored[contraction].Replacement = replacement
 		}
 	}
 	return ContractionMapUnderscored
