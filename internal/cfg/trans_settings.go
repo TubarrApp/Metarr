@@ -258,7 +258,7 @@ func validateMetaOps() error {
 			}
 
 		default:
-			return fmt.Errorf("unrecognized meta operation '%s' (valid operations: add, append, prefix, trim-suffix, trim-prefix)", parts[1])
+			return fmt.Errorf("unrecognized meta operation '%s' (valid operations: add, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, copy-from)", parts[1])
 		}
 	}
 
