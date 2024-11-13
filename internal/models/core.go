@@ -75,7 +75,7 @@ type FileData struct {
 
 type Core struct {
 	Cleanup chan os.Signal
-	Ctx     context.Context
 	Cancel  context.CancelFunc
+	Ctx     context.Context
 	Wg      *sync.WaitGroup
 }

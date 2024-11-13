@@ -52,10 +52,16 @@ func main() {
 	defer cancel()
 
 	// Program control
-	var wg sync.WaitGroup
-	cfg.Set(keys.WaitGroup, &wg)
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
+	var wg sync.WaitGroup
+
+	core := &models.Core{
+		Cleanup: cleanupChan,
+		Cancel:  cancel,
+		Ctx:     ctx,
+		Wg:      &wg,
+	}
 
 	if err := fsRead.InitFetchFilesVars(); err != nil {
 		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
@@ -65,6 +71,7 @@ func main() {
 	prompt.InitUserInputReader()
 
 	if cfg.IsSet(keys.BatchPairs) {
+
 		batch, ok := cfg.Get(keys.BatchPairs).([]*models.Batch)
 		if !ok {
 			logging.E(0, "Wrong type")
@@ -76,13 +83,16 @@ func main() {
 			b.Core.Wg = &wg
 			b.Core.Cleanup = cleanupChan
 		}
+		processing.StartBatchLoop(core)
 
-		processing.StartBatchLoop()
+	} else {
+		logging.I("No files or directories to process. Exiting.")
 	}
 
 	endTime := time.Now()
 	logging.I("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
 	logging.I("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
+	fmt.Println()
 }
 
 func setupBenchmarking() {

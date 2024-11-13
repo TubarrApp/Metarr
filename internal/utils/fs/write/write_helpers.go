@@ -5,8 +5,31 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	logging "metarr/internal/utils/logging"
 	"os"
+	"strings"
 )
+
+// shouldProcess determines if the file move/rename should be processed
+func (fs *FSFileWriter) shouldProcess(src, dst string, isVid bool) bool {
+	switch {
+	case fs.SkipVids && isVid:
+		logging.I("Not processing video files. Skip vids is %v", fs.SkipVids)
+		return false
+
+	case strings.EqualFold(src, dst):
+		logging.I("Not processing files. Source and destination match: Src: %v, Dest %v", src, dst)
+		return false
+
+	case src == "", dst == "":
+		logging.I("Not processing files. Source or destination path empty: Src: %v, Dest %v", fs.SrcVideo, fs.DestVideo)
+		return false
+
+	default:
+		logging.I("Processing file operations for '%s'", src)
+		return true
+	}
+}
 
 // calculateFileHash computes SHA-256 hash of a file
 func (fs *FSFileWriter) calculateFileHash(filepath string) ([]byte, error) {

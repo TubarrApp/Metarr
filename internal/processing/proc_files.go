@@ -36,12 +36,12 @@ type failedVideo struct {
 }
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
+func ProcessFiles(batch *models.Batch, core *models.Core, openVideo, openMeta *os.File) {
 
-	cancel := batch.Core.Cancel
-	cleanupChan := batch.Core.Cleanup
-	ctx := batch.Core.Ctx
-	wg := batch.Core.Wg
+	cancel := core.Cancel
+	cleanupChan := core.Cleanup
+	ctx := core.Ctx
+	wg := core.Wg
 
 	// Reset counts
 	atomic.StoreInt32(&totalMetaFiles, 0)
@@ -123,7 +123,7 @@ func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
-	logging.I("Found %d file(s) to process in the directory", totalMetaFiles+totalVideoFiles)
+	logging.I("Found %d file(s) to process", totalMetaFiles+totalVideoFiles)
 	logging.D(3, "Matched metafiles: %v", matchedFiles)
 
 	for _, fileData := range matchedFiles {
@@ -141,6 +141,8 @@ func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 			logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
 			processedData, err = reader.ProcessNFOFiles(fileData)
 		}
+
+		// Handle errors from meta processing above
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
 			errMsg := fmt.Errorf("error processing metadata for file '%s': %w", fileData.OriginalVideoPath, err)
@@ -171,6 +173,7 @@ func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 		logging.I("Process was interrupted by a syscall", nil)
 
 		if len(failedVideos) > 0 {
+
 			logging.P(consts.RedError + "Failed videos:")
 			for _, failed := range failedVideos {
 				fmt.Println()
@@ -213,48 +216,58 @@ func ProcessFiles(batch *models.Batch, openVideo, openMeta *os.File) {
 		}
 	}
 
-	// var inputVideoDir string
-	inputJsonDir, _ := filepath.Abs(openMeta.Name())
+	// Get directory string
+	var (
+		inputVideoDir, inputJsonDir, directory string
+	)
+
+	inputJsonDir, _ = filepath.Abs(openMeta.Name())
 	inputJsonDir = strings.TrimSuffix(inputJsonDir, openMeta.Name())
-	// if !skipVideos {
-	// 	inputVideoDir, _ = filepath.Abs(openVideo.Name())
-	// }
+
+	if !skipVideos {
+		inputVideoDir, _ = filepath.Abs(openVideo.Name())
+		inputVideoDir = strings.TrimSuffix(inputVideoDir, openMeta.Name())
+	}
+
+	switch {
+	case inputJsonDir != "":
+		directory = inputJsonDir
+	case inputVideoDir != "":
+		directory = inputVideoDir
+	default:
+		logging.E(0, "Not renaming file, no directory detected for this batch.")
+		logging.ErrorArray = append(logging.ErrorArray, fmt.Errorf("not renaming files in batch, both input JSON and input video directories could not be discerned"))
+		return
+	}
 
 	err = transformations.FileRename(processedDataArray, replaceToStyle, skipVideos)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to rename files: %v", err)
 	} else {
-		logging.S(0, "Successfully formatted file names in directory: %v", inputJsonDir)
+		logging.S(0, "Successfully formatted file names in directory: %s", directory)
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
-		logging.S(0, "Successfully processed all files in directory (%v) with no errors.", inputJsonDir)
-
-		fmt.Println()
+		logging.S(0, "Successfully processed all files in directory '%s' with no errors.", directory)
 	} else {
-
 		if logging.ErrorArray != nil {
 			logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
 
-			if len(failedVideos) > 0 {
-				logging.P(consts.RedError + "Failed videos:")
-				for _, failed := range failedVideos {
-					fmt.Println()
-					logging.P("Filename: %v", failed.filename)
-					logging.P("Error: %v", failed.err)
-				}
+			for _, failed := range failedVideos {
+				fmt.Println()
+				logging.P("Filename: %v", failed.filename)
+				logging.P("Error: %v", failed.err)
 			}
-			fmt.Println()
 		}
 	}
+	fmt.Println()
 }
 
 // processFile handles processing for both video and metadata files
 func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *models.FileData) {
 	wg.Add(1)
 	go func(fileName string, fileData *models.FileData) {
-
 		defer wg.Done()
 
 		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
@@ -290,7 +303,8 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 			logging.I("Processing metadata file: %s", fileName)
 		}
 
-		if isVideoFile && !skipVideos {
+		switch {
+		case isVideoFile && !skipVideos:
 			err := ffmpeg.ExecuteVideo(fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
@@ -301,11 +315,10 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 					filename: fileName,
 					err:      errMsg.Error(),
 				})
-
 			} else {
 				logging.S(0, "Successfully processed video %s", fileName)
 			}
-		} else {
+		default:
 			logging.S(0, "Successfully processed metadata for %s", fileName)
 		}
 

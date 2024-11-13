@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
 	logging "metarr/internal/utils/logging"
@@ -11,18 +12,22 @@ import (
 )
 
 // hasVideoExtension checks if the file has a valid video extension
-func HasFileExtension(fileName string, extensions []string) bool {
-
+func HasFileExtension(filename string, extensions map[string]bool) bool {
 	if extensions == nil {
-		logging.E(0, "No extensions picked.")
+		logging.E(0, "Extensions sent in nil.")
 		return false
 	}
 
-	for _, ext := range extensions {
-		if strings.HasSuffix(strings.ToLower(fileName), strings.ToLower(ext)) {
-			return true
-		}
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext == "" {
+		return false
 	}
+
+	if _, exists := extensions[ext]; exists {
+		logging.I("File '%s' has valid extension '%s', processing...", filename, ext)
+		return true
+	}
+	logging.D(3, "File '%s' does not appear to have an extension contained in the extensions map", filename)
 	return false
 }
 
@@ -42,51 +47,60 @@ func HasPrefix(fileName string, prefixes []string) bool {
 }
 
 // setVideoExtensions creates a list of extensions to filter
-func setVideoExtensions(exts []enums.ConvertFromFiletype) []string {
+func setVideoExtensions(exts []enums.ConvertFromFiletype) (map[string]bool, error) {
 
-	videoExtensions := make([]string, 0, len(consts.AllVidExtensions))
+	videoExtensions := make(map[string]bool, len(consts.AllVidExtensions))
 
 	for _, arg := range exts {
 		switch arg {
 		case enums.VID_EXTS_MKV:
-			videoExtensions = append(videoExtensions, ".mkv")
+			videoExtensions[consts.ExtMKV] = true
+
 		case enums.VID_EXTS_MP4:
-			videoExtensions = append(videoExtensions, ".mp4")
+			videoExtensions[consts.ExtMP4] = true
+
 		case enums.VID_EXTS_WEBM:
-			videoExtensions = append(videoExtensions, ".webm")
+			videoExtensions[consts.ExtWEBM] = true
+
 		case enums.VID_EXTS_ALL:
-			return consts.AllVidExtensions[:]
+			for key := range consts.AllVidExtensions {
+				videoExtensions[key] = true
+			}
 		}
 	}
 
 	if len(videoExtensions) == 0 {
-		return consts.AllVidExtensions[:]
+		return nil, fmt.Errorf("failed to set video extensions")
 	}
 
-	return videoExtensions
+	return videoExtensions, nil
 }
 
 // setMetaExtensions creates a lists of meta extensions to filter
-func setMetaExtensions(exts []enums.MetaFiletypeFilter) []string {
+func setMetaExtensions(exts []enums.MetaFiletypeFilter) (map[string]bool, error) {
 
-	metaExtensions := make([]string, 0, len(consts.AllMetaExtensions))
+	metaExtensions := make(map[string]bool, len(consts.AllMetaExtensions))
 
 	for _, arg := range exts {
 		switch arg {
 		case enums.META_EXTS_JSON:
-			metaExtensions = append(metaExtensions, ".json")
+			metaExtensions[consts.MExtJSON] = true
+
 		case enums.META_EXTS_NFO:
-			metaExtensions = append(metaExtensions, ".nfo")
+			metaExtensions[consts.MExtNFO] = true
+
 		case enums.META_EXTS_ALL:
-			return consts.AllMetaExtensions[:]
+			for key := range consts.AllMetaExtensions {
+				metaExtensions[key] = true
+			}
 		}
 	}
 
 	if len(metaExtensions) == 0 {
-		return consts.AllMetaExtensions[:]
+		return nil, fmt.Errorf("failed to set meta extensions")
 	}
 
-	return metaExtensions
+	return metaExtensions, nil
 }
 
 // setPrefixFilter sets a list of prefixes to filter
@@ -110,8 +124,8 @@ func GetDirStats(dir string) (vidCount, metaCount int) {
 		if !entry.IsDir() {
 			ext := strings.ToLower(filepath.Ext(entry.Name()))
 
-			for _, entry := range consts.AllVidExtensions {
-				if ext == entry {
+			for key := range consts.AllVidExtensions {
+				if ext == key {
 					vidCount++
 					continue
 				}

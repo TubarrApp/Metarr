@@ -16,28 +16,36 @@ import (
 
 // Variable cache
 var (
-	videoExtensions,
-	metaExtensions,
 	inputPrefixes []string
+
+	videoExtensions,
+	metaExtensions map[string]bool
 )
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops
-func InitFetchFilesVars() error {
+func InitFetchFilesVars() (err error) {
 
-	if inVExts, ok := cfg.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype); ok {
-		logging.D(2, "Received video extensions enum: %v", inVExts)
-		videoExtensions = setVideoExtensions(inVExts)
-	} else {
+	// Handle video extension input
+	inVExts, ok := cfg.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype)
+	if !ok {
 		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
 
-	if inMExts, ok := cfg.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter); ok {
-		logging.D(2, "Received video extensions enum: %v", inMExts)
-		metaExtensions = setMetaExtensions(inMExts)
-	} else {
+	if videoExtensions, err = setVideoExtensions(inVExts); err != nil {
+		return err
+	}
+
+	// Handle meta extension input
+	inMExts, ok := cfg.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter)
+	if !ok {
 		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
 
+	if metaExtensions, err = setMetaExtensions(inMExts); err != nil {
+		return err
+	}
+
+	// Set prefix filter
 	inputPrefixes = SetPrefixFilter(cfg.GetStringSlice(keys.FilePrefixes))
 	logging.D(2, "Setting prefix filter: %v", inputPrefixes)
 
@@ -70,11 +78,11 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 			m.OriginalVideoBaseName = strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
 			m.VideoDirectory = videoDir.Name()
 
-			if !strings.HasSuffix(m.OriginalVideoBaseName, consts.OldTag) {
+			if !strings.HasSuffix(m.OriginalVideoBaseName, consts.BackupTag) {
 				videoFiles[file.Name()] = m
 				logging.I("Added video to queue: %v", filenameBase)
 			} else {
-				logging.I("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.OldTag)
+				logging.I("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.BackupTag)
 			}
 		}
 	}
@@ -95,60 +103,59 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	metaFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
-		if !file.IsDir() {
-			ext := filepath.Ext(file.Name())
+		if file.IsDir() {
+			continue
+		}
 
-			logging.D(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
+		ext := filepath.Ext(file.Name())
+		logging.D(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
 
-			if cfg.IsSet(keys.FilePrefixes) {
-				if !HasPrefix(file.Name(), inputPrefixes) {
-					continue
-				}
-			}
-
-			var match bool
-			for _, mExt := range metaExtensions {
-				if ext != mExt {
-					logging.D(3, "Extension '%s' does not match '%s'", ext, mExt)
-					continue
-				}
-				logging.S(3, "Extension '%s' matches input meta extensions '%s'", ext, mExt)
-				match = true
-				break
-			}
-			if !match {
+		if cfg.IsSet(keys.FilePrefixes) {
+			if !HasPrefix(file.Name(), inputPrefixes) {
 				continue
 			}
+		}
 
-			filenameBase := filepath.Base(file.Name())
-			baseName := strings.TrimSuffix(filenameBase, ext)
-
-			m := models.NewFileData()
-			filePath := filepath.Join(metaDir.Name(), file.Name())
-
-			switch ext {
-			case consts.MExtJSON:
-
-				logging.D(1, "Detected JSON file '%s'", file.Name())
-				m.JSONFilePath = filePath
-				m.JSONBaseName = baseName
-				m.JSONDirectory = metaDir.Name()
-				m.MetaFileType = enums.METAFILE_JSON
-
-			case consts.MExtNFO:
-
-				logging.D(1, "Detected NFO file '%s'", file.Name())
-				m.NFOFilePath = filePath
-				m.NFOBaseName = baseName
-				m.NFODirectory = metaDir.Name()
-				m.MetaFileType = enums.METAFILE_NFO
+		var match bool
+		for range metaExtensions {
+			if !metaExtensions[ext] {
+				continue
 			}
+			match = true
+			break
+		}
+		if !match {
+			continue
+		}
 
-			if !strings.Contains(baseName, consts.OldTag) {
-				metaFiles[file.Name()] = m
-			} else {
-				logging.I("Skipping file '%s' containing backup tag ('%s')", baseName, consts.OldTag)
-			}
+		filenameBase := filepath.Base(file.Name())
+		baseName := strings.TrimSuffix(filenameBase, ext)
+
+		m := models.NewFileData()
+		filePath := filepath.Join(metaDir.Name(), file.Name())
+
+		switch ext {
+		case consts.MExtJSON:
+
+			logging.D(1, "Detected JSON file '%s'", file.Name())
+			m.JSONFilePath = filePath
+			m.JSONBaseName = baseName
+			m.JSONDirectory = metaDir.Name()
+			m.MetaFileType = enums.METAFILE_JSON
+
+		case consts.MExtNFO:
+
+			logging.D(1, "Detected NFO file '%s'", file.Name())
+			m.NFOFilePath = filePath
+			m.NFOBaseName = baseName
+			m.NFODirectory = metaDir.Name()
+			m.MetaFileType = enums.METAFILE_NFO
+		}
+
+		if !strings.Contains(baseName, consts.BackupTag) {
+			metaFiles[file.Name()] = m
+		} else {
+			logging.I("Skipping file '%s' containing backup tag ('%s')", baseName, consts.BackupTag)
 		}
 	}
 

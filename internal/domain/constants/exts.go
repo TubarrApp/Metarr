@@ -6,7 +6,10 @@ const (
 	Ext3G2  = ".3g2"
 	ExtASF  = ".asf"
 	ExtAVI  = ".avi"
+	ExtF4V  = ".f4v"
 	ExtFLV  = ".flv"
+	ExtOGM  = ".ogm"
+	ExtOGV  = ".ogv"
 	ExtM4V  = ".m4v"
 	ExtMKV  = ".mkv"
 	ExtMOV  = ".mov"
@@ -17,7 +20,9 @@ const (
 	ExtRM   = ".rm"
 	ExtRMVB = ".rmvb"
 	ExtTS   = ".ts"
+	ExtVOB  = ".vob"
 	ExtWEBM = ".webm"
+	ExtWMV  = ".wmv"
 )
 
 // Metafile extensions

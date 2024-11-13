@@ -27,16 +27,17 @@ type FSFileWriter struct {
 
 func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta string) *FSFileWriter {
 
-	same := 0
-	if destVideo != srcVideo {
-		same++
+	differ := 0
+	if !strings.EqualFold(destVideo, srcVideo) {
+		differ++
 	}
-	if destMeta != srcMeta {
-		same++
+	if !strings.EqualFold(destMeta, srcMeta) {
+		differ++
 	}
 
 	logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
-		skipVids, srcVideo, destVideo, srcMeta, destMeta, same)
+		skipVids, srcVideo, destVideo, srcMeta, destMeta, differ)
+
 	return &FSFileWriter{
 		SkipVids:  skipVids,
 		DestVideo: destVideo,
@@ -51,25 +52,20 @@ func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	logging.D(1, "Rename function final commands:\n\nVideo: Replacing '%v' with '%v'\nMetafile: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo,
-		fs.SrcMeta, fs.DestMeta)
-
-	if !fs.SkipVids {
-		if fs.SrcVideo != fs.DestVideo && fs.SrcVideo != "" && fs.DestVideo != "" {
-			if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
-				return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
-			}
-		} else {
-			logging.D(2, "Video source and destination files are equal, not moving/renaming...")
+	// Rename video file
+	if fs.shouldProcess(fs.SrcVideo, fs.DestVideo, true) {
+		logging.D(1, "Video rename function:\n\nVideo: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo)
+		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 		}
 	}
 
-	if fs.SrcMeta != fs.DestMeta && fs.SrcMeta != "" && fs.DestMeta != "" {
+	// Rename meta file
+	if fs.shouldProcess(fs.SrcMeta, fs.DestMeta, false) {
+		logging.D(1, "Rename function final commands:\n\nMetafile: Replacing '%v' with '%v'", fs.SrcMeta, fs.DestMeta)
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
-	} else {
-		logging.D(2, "Metadata source and destination files are equal, not moving/renaming...")
 	}
 
 	return nil

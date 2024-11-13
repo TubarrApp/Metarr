@@ -62,7 +62,7 @@ func BackupFile(file *os.File) error {
 func generateBackupFilename(originalFilePath string) string {
 	ext := filepath.Ext(originalFilePath)
 	base := strings.TrimSuffix(originalFilePath, ext)
-	return fmt.Sprintf(base + consts.OldTag + ext)
+	return fmt.Sprintf(base + consts.BackupTag + ext)
 }
 
 // RenameToBackup renames the passed in file

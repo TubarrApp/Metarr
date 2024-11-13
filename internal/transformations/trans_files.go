@@ -71,8 +71,19 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVi
 		logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
 		// Save into model
-		fd.RenamedVideoPath = renamedVPath
-		fd.RenamedMetaPath = renamedMPath
+		if !filepath.IsAbs(fd.RenamedVideoPath) {
+			fd.RenamedVideoPath, err = filepath.Abs(renamedVPath)
+			if err != nil {
+				return err
+			}
+		}
+
+		if !filepath.IsAbs(fd.RenamedMetaPath) {
+			fd.RenamedMetaPath, err = filepath.Abs(renamedMPath)
+			if err != nil {
+				return err
+			}
+		}
 
 		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVPath, originalVPath, renamedMPath, originalMPath)
 

@@ -13,7 +13,7 @@ import (
 
 var logInit bool
 
-func StartBatchLoop() {
+func StartBatchLoop(core *models.Core) {
 	if !cfg.IsSet(keys.BatchPairs) {
 		logging.I("No batches sent in?")
 		return
@@ -74,7 +74,7 @@ func StartBatchLoop() {
 			logInit = true
 		}
 
-		ProcessFiles(batch, openVideo, openJson)
+		ProcessFiles(batch, core, openVideo, openJson)
 		logging.I("Finished tasks for video file/dir '%s' and JSON file/dir '%s'", batch.Video, batch.Json)
 
 		// Reset for next loop

@@ -429,7 +429,7 @@ func verifyOutputFiletype() {
 	}
 
 	valid := false
-	for _, ext := range consts.AllVidExtensions {
+	for ext := range consts.AllVidExtensions {
 		if o != ext {
 			continue
 		} else {

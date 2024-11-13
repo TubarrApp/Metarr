@@ -2,19 +2,24 @@ package domain
 
 // File prefix and suffix
 const (
-	OldTag  = "_metarrbackup"
-	TempTag = "tmp_"
+	BackupTag = "_metarrbackup"
+	TempTag   = "tmp_"
 )
 
 var (
-	AllVidExtensions = [...]string{".3gp", ".avi", ".f4v", ".flv", ".m4v",
-		".mkv", ".mov", ".mp4", ".mpeg", ".mpg",
-		".ogm", ".ogv", ".ts", ".vob", ".webm",
-		".wmv"}
+	AllVidExtensions = map[string]bool{
+		Ext3G2: false, Ext3GP: false, ExtAVI: false, ExtF4V: false, ExtFLV: false,
+		ExtM4V: false, ExtMKV: false, ExtMOV: false, ExtMP4: false, ExtMPEG: false,
+		ExtMPG: false, ExtMTS: false, ExtOGM: false, ExtOGV: false, ExtRM: false,
+		ExtRMVB: false, ExtTS: false, ExtVOB: false, ExtWEBM: false, ExtWMV: false,
+		ExtASF: false,
+	}
 )
 
 var (
-	AllMetaExtensions = [...]string{".json", ".nfo"}
+	AllMetaExtensions = map[string]bool{
+		MExtJSON: false, MExtNFO: false,
+	}
 )
 
 // Webpage tags
