@@ -28,17 +28,20 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 	}
 
 	for k, v := range json {
+		logging.I("Checking title key '%s' exists in JSON", k)
 		if val, ok := v.(string); ok && val != "" {
-			switch {
-			case k == consts.JFulltitle:
+			logging.I("Title key '%s' exists with value '%s'", k, val)
+
+			switch k {
+			case consts.JFulltitle:
 				t.Fulltitle = val
 				printMap[k] = val
 
-			case k == consts.JTitle:
+			case consts.JTitle:
 				t.Title = val
 				printMap[k] = val
 
-			case k == consts.JSubtitle:
+			case consts.JSubtitle:
 				t.Subtitle = val
 				printMap[k] = val
 			}

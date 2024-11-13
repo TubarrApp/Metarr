@@ -86,7 +86,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Fill timestamps and make/delete date tag ammendments
-	if data, ok = process.FillTimestamps(fd, data); !ok {
+	if _, ok = process.FillTimestamps(fd, data); !ok {
 		logging.I("No date metadata found")
 	}
 
@@ -105,15 +105,14 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		logging.D(4, "Skipping making metadata date tag edits, key not set")
 	}
 
+	data, err = jsonRW.RefreshJSON()
+	if err != nil {
+		return nil, err
+	}
+
 	// Fill other metafields
 	if data, ok = process.FillMetaFields(fd, data); !ok {
 		logging.D(2, "Some metafields were unfilled")
-	}
-
-	// Save data back to model
-	jsonRW.Meta = data
-	if _, err := jsonRW.RefreshJSON(); err != nil {
-		return nil, err
 	}
 
 	// Make filename date tag

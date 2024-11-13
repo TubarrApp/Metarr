@@ -64,12 +64,12 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 	}
 
 	fields := map[string]string{
-		"title":           t.Title,
-		"subtitle":        t.Subtitle,
-		"description":     t.Description,
-		"longdescription": t.LongDescription,
-		"summary":         t.Summary,
-		"synopsis":        t.Synopsis,
+		consts.JTitle:           t.Title,
+		consts.JSubtitle:        t.Subtitle,
+		consts.JDescription:     t.Description,
+		consts.JLongDescription: t.LongDescription,
+		consts.JSummary:         t.Summary,
+		consts.JSynopsis:        t.Synopsis,
 	}
 
 	for field, value := range fields {
@@ -84,17 +84,17 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 
 	// Single value credits
 	fields := map[string]string{
-		"actor":     c.Actor,
-		"author":    c.Author,
-		"artist":    c.Artist,
-		"creator":   c.Creator,
-		"studio":    c.Studio,
-		"publisher": c.Publisher,
-		"producer":  c.Producer,
-		"performer": c.Performer,
-		"composer":  c.Composer,
-		"director":  c.Director,
-		"writer":    c.Writer,
+		consts.JActor:     c.Actor,
+		consts.JAuthor:    c.Author,
+		consts.JArtist:    c.Artist,
+		consts.JCreator:   c.Creator,
+		consts.JStudio:    c.Studio,
+		consts.JPublisher: c.Publisher,
+		consts.JProducer:  c.Producer,
+		consts.JPerformer: c.Performer,
+		consts.JComposer:  c.Composer,
+		consts.JDirector:  c.Director,
+		consts.JWriter:    c.Writer,
 	}
 
 	for field, value := range fields {
@@ -104,27 +104,27 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 	}
 
 	// Array credits (length already checked in function)
-	b.addArrayMetadata("actor", c.Actors)
-	b.addArrayMetadata("composer", c.Composers)
-	b.addArrayMetadata("artist", c.Artists)
-	b.addArrayMetadata("studio", c.Studios)
-	b.addArrayMetadata("performer", c.Performers)
-	b.addArrayMetadata("producer", c.Producers)
-	b.addArrayMetadata("publisher", c.Publishers)
-	b.addArrayMetadata("director", c.Directors)
-	b.addArrayMetadata("writer", c.Writers)
+	b.addArrayMetadata(consts.JActor, c.Actors)
+	b.addArrayMetadata(consts.JComposer, c.Composers)
+	b.addArrayMetadata(consts.JArtist, c.Artists)
+	b.addArrayMetadata(consts.JStudio, c.Studios)
+	b.addArrayMetadata(consts.JPerformer, c.Performers)
+	b.addArrayMetadata(consts.JProducer, c.Producers)
+	b.addArrayMetadata(consts.JPublisher, c.Publishers)
+	b.addArrayMetadata(consts.JDirector, c.Directors)
+	b.addArrayMetadata(consts.JWriter, c.Writers)
 }
 
 // addDates adds all date-related metadata
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 
 	fields := map[string]string{
-		"creation_time":           d.Creation_Time,
-		"date":                    d.Date,
-		"originally_available_at": d.Originally_Available_At,
-		"release_date":            d.ReleaseDate,
-		"upload_date":             d.UploadDate,
-		"year":                    d.Year,
+		consts.JCreationTime:        d.Creation_Time,
+		consts.JDate:                d.Date,
+		consts.JOriginallyAvailable: d.Originally_Available_At,
+		consts.JReleaseDate:         d.ReleaseDate,
+		consts.JUploadDate:          d.UploadDate,
+		consts.JYear:                d.Year,
 	}
 
 	for field, value := range fields {
@@ -249,6 +249,7 @@ func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
 	// Add all -metadata commands
 	for key, value := range b.metadataMap {
+		logging.I("Adding metadata argument: '-metadata %s=%s", key, strings.TrimSpace(value))
 		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, strings.TrimSpace(value)))
 	}
 
