@@ -31,7 +31,7 @@ func ExecuteVideo(fd *models.FileData) error {
 			outExt = origExt
 		}
 	} else {
-		return fmt.Errorf("unable to set file extension, malformed? Input: %s, Output: %s", origExt, outExt)
+		outExt = origExt
 	}
 
 	logging.I("Will execute video from extension '%s' to extension '%s'", origExt, outExt)

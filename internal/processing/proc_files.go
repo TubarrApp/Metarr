@@ -54,9 +54,8 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		metaMap,
 		matchedFiles map[string]*models.FileData
 
-		processedDataArray []*models.FileData
-		err                error
-		skipVideos         bool
+		err        error
+		skipVideos bool
 	)
 
 	if cfg.IsSet(keys.SkipVideos) {
@@ -128,18 +127,17 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 	for _, fileData := range matchedFiles {
 		var (
-			processedData *models.FileData
-			err           error
+			err error
 		)
 
 		switch fileData.MetaFileType {
 		case enums.METAFILE_JSON:
 			logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-			processedData, err = reader.ProcessJSONFile(fileData)
+			_, err = reader.ProcessJSONFile(fileData)
 
 		case enums.METAFILE_NFO:
 			logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
-			processedData, err = reader.ProcessNFOFiles(fileData)
+			_, err = reader.ProcessNFOFiles(fileData)
 		}
 
 		// Handle errors from meta processing above
@@ -154,7 +152,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 			})
 			continue
 		}
-		processedDataArray = append(processedDataArray, processedData)
+
 	}
 
 	// Goroutine to handle signals and cleanup
@@ -188,10 +186,16 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	}()
 
 	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
+	var processedModels []*models.FileData
 
 	if !skipVideos {
 		for fileName, fileData := range matchedFiles {
-			executeFile(ctx, wg, sem, fileName, fileData)
+			rtn, err := executeFile(ctx, wg, sem, fileName, fileData)
+			if err != nil {
+				logging.E(0, err.Error())
+				continue
+			}
+			processedModels = append(processedModels, rtn)
 		}
 	}
 
@@ -240,7 +244,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		return
 	}
 
-	err = transformations.FileRename(processedDataArray, replaceToStyle, skipVideos)
+	err = transformations.FileRename(processedModels, replaceToStyle, skipVideos)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to rename files: %v", err)
@@ -265,9 +269,13 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 }
 
 // processFile handles processing for both video and metadata files
-func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fileName string, fileData *models.FileData) {
+func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, filename string, fileData *models.FileData) (*models.FileData, error) {
+
+	resultChan := make(chan *models.FileData, 1)
+	errChan := make(chan error, 1)
+
 	wg.Add(1)
-	go func(fileName string, fileData *models.FileData) {
+	go func(filename string, fileData *models.FileData) {
 		defer wg.Done()
 
 		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
@@ -287,20 +295,21 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 
 		select {
 		case <-ctx.Done():
-			fmt.Printf("Skipping processing for %s due to cancellation\n", fileName)
+			errChan <- fmt.Errorf("did not process '%s' due to program cancellation", filename)
+			resultChan <- nil
 			return
 		default:
 		}
 
-		sysResourceLoop(fileName)
+		sysResourceLoop(filename)
 
 		skipVideos := cfg.GetBool(keys.SkipVideos)
 		isVideoFile := fileData.OriginalVideoPath != ""
 
 		if isVideoFile {
-			logging.I("Processing file: %s", fileName)
+			logging.I("Processing file: %s", filename)
 		} else {
-			logging.I("Processing metadata file: %s", fileName)
+			logging.I("Processing metadata file: %s", filename)
 		}
 
 		switch {
@@ -308,18 +317,18 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 			err := ffmpeg.ExecuteVideo(fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
-				errMsg := fmt.Errorf("failed to process video '%v': %w", fileName, err)
+				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
 				logging.E(0, errMsg.Error())
 
 				failedVideos = append(failedVideos, failedVideo{
-					filename: fileName,
+					filename: filename,
 					err:      errMsg.Error(),
 				})
 			} else {
-				logging.S(0, "Successfully processed video %s", fileName)
+				logging.S(0, "Successfully processed video %s", filename)
 			}
 		default:
-			logging.S(0, "Successfully processed metadata for %s", fileName)
+			logging.S(0, "Successfully processed metadata for %s", filename)
 		}
 
 		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
@@ -332,5 +341,16 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		fmt.Printf("==============================================================\n\n")
 		muPrint.Unlock()
 
-	}(fileName, fileData)
+		resultChan <- fileData
+		errChan <- nil
+
+	}(filename, fileData)
+
+	select {
+	case result := <-resultChan:
+		err := <-errChan
+		return result, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
