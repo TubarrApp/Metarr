@@ -347,7 +347,6 @@ func metaOpsMapLength(metaOpsInput []string, m metaOpsLen) metaOpsLen {
 				}
 			}
 		}
-
 	}
 	fmt.Println()
 	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d\nDelete date tags: %d\nCopy operations: %d\nPaste operations: %d", m.newLen, m.apndLen, m.pfxLen, m.trimSfxLen, m.trimPfxLen, m.replaceLen, m.dTagLen, m.delDTagLen, m.copyToFieldLen, m.pasteFromFieldLen)

@@ -99,7 +99,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		if err != nil {
 			logging.E(0, err.Error())
 		} else if !ok {
-			logging.E(0, "Did not make date tag edits for metadata, tag already exists?")
+			logging.D(1, "Did not make date tag edits for metadata, tag already exists?")
 		}
 	} else {
 		logging.D(4, "Skipping making metadata date tag edits, key not set")

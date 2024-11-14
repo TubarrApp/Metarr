@@ -12,7 +12,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 	var isFilled bool
 
-	priorityMap := [5]string{consts.JWebpageURL,
+	priorityMap := [...]string{consts.JWebpageURL,
 		consts.JURL,
 		consts.JReferer,
 		consts.JWebpageDomain,
