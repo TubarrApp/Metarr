@@ -21,17 +21,21 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 		consts.JSubtitle:  &t.Subtitle,
 	}
 
-	printMap := make(map[string]string, len(fieldMap))
-	defer func() {
-		if len(printMap) > 0 && logging.Level > 1 {
-			print.PrintGrabbedFields("title", printMap)
-		}
-	}()
+	var printMap map[string]string
+	if logging.Level > 1 {
+		printMap = make(map[string]string, len(fieldMap))
+		defer func() {
+			if len(printMap) > 0 {
+				print.PrintGrabbedFields("titles", printMap)
+			}
+		}()
+	}
 
 	if filled := unpackJSON(fieldMap, json); filled {
 		logging.D(2, "Decoded titles JSON into field map")
 	}
 
+	// Fill fieldMap entries
 	for k, ptr := range fieldMap {
 		if ptr == nil {
 			logging.E(0, "fieldMap entry pointer unexpectedly nil")

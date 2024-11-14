@@ -289,6 +289,11 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 
 // formatTimeStamp takes an input date and appends the T time string
 func formatTimeStamp(date string, b *strings.Builder) string {
+	if b == nil {
+		b = &strings.Builder{}
+		b.Grow(len(consts.TimeSfx) + 10)
+	}
+
 	b.Reset()
 	b.WriteString(date)
 	b.WriteString(consts.TimeSfx)

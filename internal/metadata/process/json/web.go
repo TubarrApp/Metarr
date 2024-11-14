@@ -11,6 +11,7 @@ import (
 func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 	var isFilled bool
+	w := fd.MWebData
 
 	priorityMap := [...]string{consts.JWebpageURL,
 		consts.JURL,
@@ -18,18 +19,21 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 		consts.JWebpageDomain,
 		consts.JDomain}
 
-	printMap := make(map[string]string, len(priorityMap))
-
-	if fd.MWebData.TryURLs == nil {
-		fd.MWebData.TryURLs = make([]string, 0, len(priorityMap))
+	if w.TryURLs == nil {
+		w.TryURLs = make([]string, 0, len(priorityMap))
 	}
 
-	defer func() {
-		if len(printMap) > 0 && logging.Level > 1 {
-			print.PrintGrabbedFields("web data", printMap)
-		}
-	}()
+	var printMap map[string]string
+	if logging.Level > 1 {
+		printMap = make(map[string]string, len(priorityMap))
+		defer func() {
+			if len(printMap) > 0 {
+				print.PrintGrabbedFields("web info", printMap)
+			}
+		}()
+	}
 
+	// Fill model using priorityMap keys
 	for _, k := range priorityMap {
 		v, exists := data[k]
 		if !exists {
@@ -43,67 +47,51 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 
 		switch {
 		case k == consts.JWebpageURL:
-
-			logging.D(3, "Got URL: %s", val)
-
-			if fd.MWebData.WebpageURL == "" {
-				fd.MWebData.WebpageURL = val
+			if webInfoFill(&w.WebpageURL, val, w) {
+				isFilled = true
 			}
-
-			if logging.Level > 1 {
-				printMap[k] = val
-			}
-			fd.MWebData.TryURLs = append(fd.MWebData.TryURLs, val)
-
-			isFilled = true
 
 		case k == consts.JURL:
-
-			logging.D(3, "Got URL: %s", val)
-
-			if fd.MWebData.VideoURL == "" {
-				fd.MWebData.VideoURL = val
+			if webInfoFill(&w.VideoURL, val, w) {
+				isFilled = true
 			}
-
-			if logging.Level > 1 {
-				printMap[k] = val
-			}
-			fd.MWebData.TryURLs = append(fd.MWebData.TryURLs, val)
-
-			isFilled = true
 
 		case k == consts.JReferer:
-
-			logging.D(3, "Got URL: %s", val)
-
-			if fd.MWebData.Referer == "" {
-				fd.MWebData.Referer = val
+			if webInfoFill(&w.Referer, val, w) {
+				isFilled = true
 			}
-
-			if logging.Level > 1 {
-				printMap[k] = val
-			}
-			fd.MWebData.TryURLs = append(fd.MWebData.TryURLs, val)
-
-			isFilled = true
 
 		case k == consts.JWebpageDomain, k == consts.JDomain:
 
-			logging.D(3, "Got URL: %s", val)
-
-			if fd.MWebData.Domain == "" {
-				fd.MWebData.Domain = val
+			if webInfoFill(&w.Domain, val, w) {
+				isFilled = true
 			}
 
-			if logging.Level > 1 {
-				printMap[k] = val
-			}
+		default:
+			continue
+		}
 
-			isFilled = true
+		if logging.Level > 1 && val != "" {
+			printMap[k] = val
 		}
 
 	}
-	logging.D(2, "Stored URLs for scraping missing fields: %v", fd.MWebData.TryURLs)
+	logging.D(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
 
 	return isFilled
+}
+
+// webInfoFill fills web info data into the model
+func webInfoFill(s *string, val string, w *models.MetadataWebData) (filled bool) {
+	if s == nil {
+		logging.E(0, "String passed in null")
+		return false
+	}
+	logging.D(3, "Got URL: %s", val)
+	if *s == "" {
+		*s = val
+	}
+
+	w.TryURLs = append(w.TryURLs, val)
+	return *s != ""
 }

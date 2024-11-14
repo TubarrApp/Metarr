@@ -35,40 +35,44 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		consts.JComposer:  &c.Composer,
 	}
 
-	if filled = unpackJSON(fieldMap, json); filled {
-		logging.D(2, "Decoded credits JSON into field map")
+	var printMap map[string]string
+	if logging.Level > 1 {
+		printMap = make(map[string]string, len(fieldMap))
+		defer func() {
+			if len(printMap) > 0 {
+				print.PrintGrabbedFields("credits", printMap)
+			}
+		}()
 	}
 
-	printMap := make(map[string]string, len(fieldMap))
-	defer func() {
-		if len(printMap) > 0 && logging.Level > 1 {
-			print.PrintGrabbedFields("credits", printMap)
-		}
-	}()
-
-	// Check if filled
-	for k, ptr := range fieldMap {
-		if ptr == nil {
-			logging.E(0, "Unexpected nil pointer in credits fieldMap")
-			continue
+	// Set using override will fill all values anyway
+	if len(models.SetOverrideMap) == 0 {
+		if filled = unpackJSON(fieldMap, json); filled {
+			logging.D(2, "Decoded credits JSON into field map")
 		}
 
-		if *ptr != "" {
+		// Check if filled
+		for k, ptr := range fieldMap {
+			if ptr == nil {
+				logging.E(0, "Unexpected nil pointer in credits fieldMap")
+				continue
+			}
+
+			if *ptr != "" {
+				if logging.Level > 1 {
+					printMap[k] = *ptr
+				}
+				filled = true
+				continue
+			}
+			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", k)
+
+			*ptr = fillEmptyCredits(c)
 			if logging.Level > 1 {
 				printMap[k] = *ptr
 			}
-			filled = true
-			continue
+			logging.D(2, "Set value to '%s'", *ptr)
 		}
-
-		logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", k)
-
-		*ptr = fillEmptyCredits(c)
-		if logging.Level > 1 {
-			printMap[k] = *ptr
-		}
-
-		logging.D(2, "Set value to '%s'", *ptr)
 	}
 
 	if printMap, overriden = overrideAll(fieldMap, printMap); overriden {
@@ -80,7 +84,6 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 	// Return if data filled or no web data, else scrape
 	switch {
 	case filled:
-
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
@@ -88,12 +91,11 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		}
 
 		if rtn != nil {
-			json = rtn
+			return rtn, true
 		}
 		return json, true
 
 	case w.WebpageURL == "":
-
 		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
 		return json, false
 	}
@@ -182,6 +184,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 	}
 
 	filled := false
+
 	// Note order of operations
 	if len(models.ReplaceOverrideMap) > 0 {
 		logging.I("Overriding credits with text replacements...")
@@ -193,9 +196,11 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 				}
 				logging.I("Overriding old '%s' by replacing '%s' with '%s'", *ptr, m.Value, m.Replacement)
 				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
+
 				if logging.Level > 1 {
 					printMap[k] = *ptr
 				}
+
 				filled = true
 			}
 		}
@@ -204,13 +209,18 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 	if len(models.SetOverrideMap) > 0 {
 		logging.I("Overriding credits with new values...")
 		if val, exists := models.SetOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
-			for _, ptr := range fieldMap {
+			for k, ptr := range fieldMap {
 				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
 				logging.I("Overriding old '%s' to '%s'", *ptr, val)
 				*ptr = val
+
+				if logging.Level > 1 {
+					printMap[k] = *ptr
+				}
+
 				filled = true
 			}
 		}
@@ -219,7 +229,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 	if len(models.AppendOverrideMap) > 0 {
 		logging.I("Overriding credits with appends...")
 		if val, exists := models.AppendOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
-			for _, ptr := range fieldMap {
+			for k, ptr := range fieldMap {
 				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
@@ -227,6 +237,11 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 
 				logging.I("Overriding old '%s' by appending it with '%s'", *ptr, val)
 				*ptr = *ptr + val
+
+				if logging.Level > 1 {
+					printMap[k] = *ptr
+				}
+
 				filled = true
 			}
 		}

@@ -55,12 +55,15 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		}
 	}
 
-	printMap := make(map[string]string, len(fieldMap))
-	defer func() {
-		if len(printMap) > 0 && logging.Level > 1 {
-			print.PrintGrabbedFields("descriptions", printMap)
-		}
-	}()
+	var printMap map[string]string
+	if logging.Level > 1 {
+		printMap = make(map[string]string, len(fieldMap))
+		defer func() {
+			if len(printMap) > 0 {
+				print.PrintGrabbedFields("descriptions", printMap)
+			}
+		}()
+	}
 
 	// Attempt to fill empty description fields by inference
 	for k, ptr := range fieldMap {
