@@ -13,7 +13,9 @@ import (
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
 
-	var filled bool
+	var (
+		filled, overriden bool
+	)
 
 	c := fd.MCredits
 	w := fd.MWebData
@@ -66,8 +68,10 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		logging.D(2, "Set value to '%s'", *ptr)
 	}
 
-	if printMap, filled = overrideAll(fieldMap, printMap); filled {
-		filled = true
+	if printMap, overriden = overrideAll(fieldMap, printMap); overriden {
+		if !filled {
+			filled = overriden
+		}
 	}
 
 	// Return if data filled or no web data, else scrape
