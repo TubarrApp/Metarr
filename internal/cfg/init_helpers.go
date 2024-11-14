@@ -133,7 +133,7 @@ func initFiltering() {
 func initProgramFunctions() {
 
 	// Debugging level
-	rootCmd.PersistentFlags().IntP(keys.DebugLevel, "d", 0, "Level of debugging (0 - 3)")
+	rootCmd.PersistentFlags().Int(keys.DebugLevel, 0, "Level of debugging (0 - 5)")
 	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
 
 	// Skip videos, only alter metafiles

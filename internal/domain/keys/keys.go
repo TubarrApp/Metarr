@@ -36,7 +36,7 @@ const (
 	MDescDatePfx string = "desc-date-prefix"
 	MDescDateSfx string = "desc-date-suffix"
 
-	DebugLevel      string = "debug-level"
+	DebugLevel      string = "debug"
 	SkipVideos      string = "skip-videos"
 	NoFileOverwrite string = "no-file-overwrite"
 

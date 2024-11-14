@@ -5,5 +5,4 @@ type Batch struct {
 	Json       string
 	IsDirs     bool
 	SkipVideos bool
-	Core       Core
 }

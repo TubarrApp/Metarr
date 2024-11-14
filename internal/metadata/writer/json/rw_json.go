@@ -97,25 +97,25 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 
 	// Update metadata with new fields
 	updated := false
-	for field, value := range fieldMap {
-		if field == "all-credits" {
+	for k, ptr := range fieldMap {
+		if ptr == nil {
 			continue
 		}
 
-		if value != nil && *value != "" {
+		if *ptr != "" {
 
-			if currentVal, exists := currentMeta[field]; !exists {
-				logging.D(3, "Adding new field '%s' with value '%s'", field, *value)
-				currentMeta[field] = *value
+			if currentVal, exists := currentMeta[k]; !exists {
+				logging.D(3, "Adding new field '%s' with value '%s'", k, *ptr)
+				currentMeta[k] = *ptr
 				updated = true
 
-			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *value || cfg.GetBool(keys.MOverwrite) {
-				logging.D(3, "Updating field '%s' from '%v' to '%s'", field, currentVal, *value)
-				currentMeta[field] = *value
+			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || cfg.GetBool(keys.MOverwrite) {
+				logging.D(3, "Updating field '%s' from '%v' to '%s'", k, currentVal, *ptr)
+				currentMeta[k] = *ptr
 				updated = true
 
 			} else {
-				logging.D(3, "Skipping field '%s' - value unchanged and overwrite not forced", field)
+				logging.D(3, "Skipping field '%s' - value unchanged and overwrite not forced", k)
 			}
 		}
 	}

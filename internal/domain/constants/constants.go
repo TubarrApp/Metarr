@@ -6,6 +6,8 @@ const (
 	TempTag   = "tmp_"
 )
 
+const TimeSfx = "T00:00:00Z"
+
 var (
 	AllVidExtensions = map[string]bool{
 		Ext3G2: false, Ext3GP: false, ExtAVI: false, ExtF4V: false, ExtFLV: false,

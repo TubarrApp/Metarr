@@ -72,11 +72,15 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		if *ptr == "" {
 			if ok := fillEmptyDescriptions(ptr, d); ok {
 				filled = true
-				printMap[k] = *ptr
+				if logging.Level > 1 {
+					printMap[k] = *ptr
+				}
 			}
 		} else {
 			filled = true
-			printMap[k] = *ptr
+			if logging.Level > 1 {
+				printMap[k] = *ptr
+			}
 		}
 	}
 

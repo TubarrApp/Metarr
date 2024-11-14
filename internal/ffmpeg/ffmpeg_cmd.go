@@ -1,7 +1,6 @@
 package ffmpeg
 
 import (
-	"fmt"
 	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
@@ -19,11 +18,13 @@ type ffCommandBuilder struct {
 	formatFlags []string
 	gpuAccel    []string
 	metadataMap map[string]string
+	builder     *strings.Builder
 }
 
 // newFfCommandBuilder creates a new FFmpeg command builder
 func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuilder {
 	return &ffCommandBuilder{
+		builder:     &strings.Builder{},
 		inputFile:   fd.OriginalVideoPath,
 		outputFile:  outputFile,
 		metadataMap: make(map[string]string),
@@ -177,8 +178,14 @@ func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
 	existing, exists := b.metadataMap[key]
 	newValue := strings.Join(values, "; ")
 
+	b.builder.Reset()
 	if exists && existing != "" {
-		b.metadataMap[key] = fmt.Sprintf("%s; %s", existing, newValue)
+		for i, v := range values {
+			if i > 0 {
+				b.builder.WriteString("; ")
+			}
+			b.builder.WriteString(v)
+		}
 	} else {
 		b.metadataMap[key] = newValue
 	}
@@ -249,8 +256,16 @@ func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
 	// Add all -metadata commands
 	for key, value := range b.metadataMap {
-		logging.I("Adding metadata argument: '-metadata %s=%s", key, strings.TrimSpace(value))
-		args = append(args, "-metadata", fmt.Sprintf("%s=%s", key, strings.TrimSpace(value)))
+
+		// Reset builder
+		b.builder.Reset()
+		b.builder.WriteString(key)
+		b.builder.WriteByte('=')
+		b.builder.WriteString(strings.TrimSpace(value))
+
+		// Write argument
+		logging.I("Adding metadata argument: '-metadata %s", b.builder.String())
+		args = append(args, "-metadata", b.builder.String())
 	}
 
 	if len(b.formatFlags) > 0 {

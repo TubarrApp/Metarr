@@ -15,18 +15,18 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 	t := fd.MTitleDesc
 	w := fd.MWebData
 
-	printMap := make(map[string]string, len(json))
-	defer func() {
-		if len(printMap) > 0 && logging.Level > 1 {
-			print.PrintGrabbedFields("title", printMap)
-		}
-	}()
-
 	fieldMap := map[string]*string{
 		consts.JTitle:     &t.Title,
 		consts.JFulltitle: &t.Fulltitle,
 		consts.JSubtitle:  &t.Subtitle,
 	}
+
+	printMap := make(map[string]string, len(fieldMap))
+	defer func() {
+		if len(printMap) > 0 && logging.Level > 1 {
+			print.PrintGrabbedFields("title", printMap)
+		}
+	}()
 
 	if filled := unpackJSON(fieldMap, json); filled {
 		logging.D(2, "Decoded titles JSON into field map")
@@ -52,7 +52,9 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 			*ptr = val
 		}
 
-		printMap[k] = val
+		if logging.Level > 1 {
+			printMap[k] = val
+		}
 	}
 
 	if t.Title == "" && t.Fulltitle != "" {

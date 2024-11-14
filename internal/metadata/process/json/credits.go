@@ -12,7 +12,6 @@ import (
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
 func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
-
 	var (
 		filled, overriden bool
 	)
@@ -55,7 +54,9 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		}
 
 		if *ptr != "" {
-			printMap[k] = *ptr
+			if logging.Level > 1 {
+				printMap[k] = *ptr
+			}
 			filled = true
 			continue
 		}
@@ -63,7 +64,9 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", k)
 
 		*ptr = fillEmptyCredits(c)
-		printMap[k] = *ptr
+		if logging.Level > 1 {
+			printMap[k] = *ptr
+		}
 
 		logging.D(2, "Set value to '%s'", *ptr)
 	}
@@ -172,37 +175,41 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 
 // overrideAll makes override replacements if existent
 func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[string]string, bool) {
-
+	logging.D(2, "Checking credits field overrides...")
 	if fieldMap == nil {
 		logging.E(0, "fieldMap passed in null")
 		return printMap, false
 	}
 
 	filled := false
-
 	// Note order of operations
 	if len(models.ReplaceOverrideMap) > 0 {
+		logging.I("Overriding credits with text replacements...")
 		if m, exists := models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-
+				logging.I("Overriding old '%s' by replacing '%s' with '%s'", *ptr, m.Value, m.Replacement)
 				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
-				printMap[k] = *ptr
+				if logging.Level > 1 {
+					printMap[k] = *ptr
+				}
 				filled = true
 			}
 		}
 	}
 
 	if len(models.SetOverrideMap) > 0 {
+		logging.I("Overriding credits with new values...")
 		if val, exists := models.SetOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
 			for _, ptr := range fieldMap {
 				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
+				logging.I("Overriding old '%s' to '%s'", *ptr, val)
 				*ptr = val
 				filled = true
 			}
@@ -210,13 +217,16 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 	}
 
 	if len(models.AppendOverrideMap) > 0 {
+		logging.I("Overriding credits with appends...")
 		if val, exists := models.AppendOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
-			for _, entry := range fieldMap {
-				if entry == nil {
+			for _, ptr := range fieldMap {
+				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				*entry = *entry + val
+
+				logging.I("Overriding old '%s' by appending it with '%s'", *ptr, val)
+				*ptr = *ptr + val
 				filled = true
 			}
 		}

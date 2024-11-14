@@ -19,6 +19,11 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 		consts.JDomain}
 
 	printMap := make(map[string]string, len(priorityMap))
+
+	if fd.MWebData.TryURLs == nil {
+		fd.MWebData.TryURLs = make([]string, 0, len(priorityMap))
+	}
+
 	defer func() {
 		if len(printMap) > 0 && logging.Level > 1 {
 			print.PrintGrabbedFields("web data", printMap)
@@ -44,7 +49,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 			if fd.MWebData.WebpageURL == "" {
 				fd.MWebData.WebpageURL = val
 			}
-			printMap[k] = val
+
+			if logging.Level > 1 {
+				printMap[k] = val
+			}
 			fd.MWebData.TryURLs = append(fd.MWebData.TryURLs, val)
 
 			isFilled = true
@@ -56,7 +64,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 			if fd.MWebData.VideoURL == "" {
 				fd.MWebData.VideoURL = val
 			}
-			printMap[k] = val
+
+			if logging.Level > 1 {
+				printMap[k] = val
+			}
 			fd.MWebData.TryURLs = append(fd.MWebData.TryURLs, val)
 
 			isFilled = true
@@ -68,7 +79,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 			if fd.MWebData.Referer == "" {
 				fd.MWebData.Referer = val
 			}
-			printMap[k] = val
+
+			if logging.Level > 1 {
+				printMap[k] = val
+			}
 			fd.MWebData.TryURLs = append(fd.MWebData.TryURLs, val)
 
 			isFilled = true
@@ -80,7 +94,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 			if fd.MWebData.Domain == "" {
 				fd.MWebData.Domain = val
 			}
-			printMap[k] = val
+
+			if logging.Level > 1 {
+				printMap[k] = val
+			}
 
 			isFilled = true
 		}

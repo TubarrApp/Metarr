@@ -1,6 +1,7 @@
 package ffmpeg
 
 import (
+	"context"
 	"fmt"
 	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
@@ -16,7 +17,7 @@ import (
 )
 
 // executeVideo writes metadata to a single video file
-func ExecuteVideo(fd *models.FileData) error {
+func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	var (
 		tmpOutPath, outExt string
 	)
@@ -65,7 +66,7 @@ func ExecuteVideo(fd *models.FileData) error {
 		return err
 	}
 
-	command := exec.Command("ffmpeg", args...)
+	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	logging.I("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout

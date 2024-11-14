@@ -6,31 +6,30 @@ import (
 )
 
 // Primary function to fill out meta fields before writing
-func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func FillJSONFields(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
 
 	allFilled := true
-
-	if meta, ok := fillTitles(fd, data); !ok {
+	if meta, ok := fillTitles(fd, json); !ok {
 		logging.I("No title metadata found")
 		allFilled = false
 	} else if meta != nil {
-		data = meta
+		json = meta
 	}
 
-	if meta, ok := fillCredits(fd, data); !ok {
+	if meta, ok := fillCredits(fd, json); !ok {
 		logging.I("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
-		data = meta
+		json = meta
 	}
 
-	if meta, ok := fillDescriptions(fd, data); !ok {
+	if meta, ok := fillDescriptions(fd, json); !ok {
 		logging.I("No description metadata found")
 		allFilled = false
 	} else if meta != nil {
-		data = meta
+		json = meta
 	}
-	return data, allFilled
+	return json, allFilled
 }
 
 // unpackJSON decodes JSON for metafields
@@ -58,7 +57,9 @@ func unpackJSON(fmap map[string]*string, json map[string]interface{}) bool {
 
 		if *ptr == "" {
 			*ptr = val
-			pmap[k] = val
+			if logging.Level > 1 {
+				pmap[k] = val
+			}
 			filled = true
 		}
 	}

@@ -23,22 +23,33 @@ func ParseDateComponents(date string, dateFmt enums.DateFormat) (year, month, da
 
 // Affix a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
 func dayStringSwitch(day string) string {
-	if thCheck, err := strconv.Atoi(day); err != nil {
+	var b strings.Builder
+	b.Grow(len(day) + 2)
+	b.WriteString(day)
+
+	num, err := strconv.Atoi(day)
+	if err != nil {
 		logging.E(0, "Failed to convert date string to number")
 		return day
-	} else if thCheck > 10 && thCheck < 20 {
-		return fmt.Sprintf("%sth", day)
 	}
-	switch {
-	case strings.HasSuffix(day, "1"):
-		return fmt.Sprintf("%sst", day)
-	case strings.HasSuffix(day, "2"):
-		return fmt.Sprintf("%snd", day)
-	case strings.HasSuffix(day, "3"):
-		return fmt.Sprintf("%srd", day)
+
+	if num > 10 && num < 20 {
+		b.WriteString("th")
+		return b.String()
+	}
+
+	switch num % 10 {
+	case 1:
+		b.WriteString(day + "st")
+	case 2:
+		b.WriteString(day + "nd")
+	case 3:
+		b.WriteString(day + "rd")
 	default:
-		return fmt.Sprintf("%sth", day)
+		b.WriteString(day + "th")
 	}
+
+	return b.String()
 }
 
 // Convert a numerical month to a word

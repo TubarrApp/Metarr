@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	consts "metarr/internal/domain/constants"
@@ -11,14 +12,15 @@ import (
 )
 
 // MP4MetaMatches checks FFprobe captured metadata from the video against the metafile
-func MP4MetaMatches(fd *models.FileData) bool {
+func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 
 	c := fd.MCredits
 	d := fd.MDates
 	t := fd.MTitleDesc
 
 	// FFprobe command fetches metadata from the video file
-	command := exec.Command(
+	command := exec.CommandContext(
+		ctx,
 		"ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",

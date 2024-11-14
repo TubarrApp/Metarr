@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"context"
 	"fmt"
 	"metarr/internal/cfg"
 	"metarr/internal/dates"
@@ -25,8 +26,7 @@ var (
 )
 
 // ProcessJSONFile reads a single JSON file and fills in the metadata
-func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
-
+func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
 	}
@@ -38,7 +38,6 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	defer mu.Unlock()
 
 	filePath := fd.JSONFilePath
-	w := fd.MWebData
 
 	// Open the file
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
@@ -60,18 +59,22 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 		return nil, err
 	}
 
+	if data == nil {
+		return nil, fmt.Errorf("json decoded nil")
+	}
+
 	logging.D(3, "%v", data)
 
 	var ok bool
 
 	// Get web data first (before MakeMetaEdits in case of transformation presets)
 	if ok = process.FillWebpageDetails(fd, data); ok {
-		logging.I("URLs grabbed: %s", w.TryURLs)
+		logging.I("URLs grabbed: %s", fd.MWebData.TryURLs)
 	}
 
-	if len(w.TryURLs) > 0 {
-		if match := transformations.TryTransPresets(w.TryURLs, fd); match == "" {
-			logging.D(1, "No presets found for video '%s' URLs %v", fd.OriginalVideoBaseName, w.TryURLs)
+	if len(fd.MWebData.TryURLs) > 0 {
+		if match := transformations.TryTransPresets(fd.MWebData.TryURLs, fd); match == "" {
+			logging.D(1, "No presets found for video '%s' URLs %v", fd.OriginalVideoBaseName, fd.MWebData.TryURLs)
 		}
 	}
 
@@ -112,7 +115,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Fill other metafields
-	if data, ok = process.FillMetaFields(fd, data); !ok {
+	if data, ok = process.FillJSONFields(fd, data); !ok {
 		logging.D(2, "Some metafields were unfilled")
 	}
 
@@ -148,7 +151,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	}
 
 	// Check if metadata is already existent in target file
-	if filetypeMetaCheckSwitch(fd) {
+	if filetypeMetaCheckSwitch(ctx, fd) {
 		logging.I("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
 		fd.MetaAlreadyExists = true
 	}
@@ -156,7 +159,7 @@ func ProcessJSONFile(fd *models.FileData) (*models.FileData, error) {
 	return fd, nil
 }
 
-func filetypeMetaCheckSwitch(fd *models.FileData) bool {
+func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 
 	logging.D(4, "Entering filetypeMetaCheckSwitch with '%s'", fd.OriginalVideoPath)
 
@@ -187,7 +190,7 @@ func filetypeMetaCheckSwitch(fd *models.FileData) bool {
 	// Run metadata checks in all other cases
 	switch currentExt {
 	case consts.ExtMP4:
-		return check.MP4MetaMatches(fd)
+		return check.MP4MetaMatches(ctx, fd)
 	default:
 		logging.I("Checks not currently implemented for this filetype")
 		return false

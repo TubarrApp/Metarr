@@ -11,7 +11,7 @@ import (
 	reader "metarr/internal/metadata/reader"
 	"metarr/internal/models"
 	"metarr/internal/transformations"
-	fsRead "metarr/internal/utils/fs/read"
+	read "metarr/internal/utils/fs/read"
 	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
@@ -36,7 +36,13 @@ type failedVideo struct {
 }
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
+func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
+
+	//
+	cancel := core.Cancel
+	cleanupChan := core.Cleanup
+	ctx := core.Ctx
+	wg := core.Wg
 
 	// Reset counts
 	atomic.StoreInt32(&totalMetaFiles, 0)
@@ -61,7 +67,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = fsRead.GetMetadataFiles(openMeta)
+		metaMap, err = read.GetMetadataFiles(openMeta)
 		if err != nil {
 			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
@@ -71,7 +77,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 		}
 
 		if !skipVideos {
-			videoMap, err = fsRead.GetVideoFiles(openVideo)
+			videoMap, err = read.GetVideoFiles(openVideo)
 			if err != nil {
 				failedVideos = append(failedVideos, failedVideo{
 					filename: openVideo.Name(),
@@ -83,7 +89,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 
 	// Batch is a file request...
 	if !batch.IsDirs {
-		metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
+		metaMap, err = read.GetSingleMetadataFile(openMeta)
 		if err != nil {
 			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
@@ -93,7 +99,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 		}
 
 		if !skipVideos {
-			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
+			videoMap, err = read.GetSingleVideoFile(openVideo)
 			if err != nil {
 				failedVideos = append(failedVideos, failedVideo{
 					filename: openVideo.Name(),
@@ -105,7 +111,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 
 	// Match video and metadata files
 	if !skipVideos {
-		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap)
+		matchedFiles, err = read.MatchVideoWithMetadata(videoMap, metaMap)
 		if err != nil {
 			logging.E(0, "Error matching videos with metadata: %v", err)
 			os.Exit(1)
@@ -128,7 +134,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 		switch fileData.MetaFileType {
 		case enums.METAFILE_JSON:
 			logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-			_, err = reader.ProcessJSONFile(fileData)
+			_, err = reader.ProcessJSONFile(ctx, fileData)
 
 		case enums.METAFILE_NFO:
 			logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
@@ -147,15 +153,14 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 			})
 			continue
 		}
-
 	}
 
 	// Goroutine to handle signals and cleanup
 	go func() {
-		<-batch.Core.Cleanup
+		<-cleanupChan
 
 		fmt.Println("\nSignal received, cleaning up temporary files...")
-		batch.Core.Cancel()
+		cancel()
 
 		err = cleanupTempFiles(videoMap)
 		if err != nil {
@@ -176,7 +181,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 			fmt.Println()
 		}
 
-		batch.Core.Wg.Wait()
+		wg.Wait()
 		os.Exit(0)
 	}()
 
@@ -185,7 +190,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 
 	if !skipVideos {
 		for fileName, fileData := range matchedFiles {
-			rtn, err := executeFile(batch.Core.Ctx, batch.Core.Wg, sem, fileName, fileData)
+			rtn, err := executeFile(ctx, wg, sem, fileName, fileData)
 			if err != nil {
 				logging.E(0, err.Error())
 				continue
@@ -194,7 +199,7 @@ func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 		}
 	}
 
-	batch.Core.Wg.Wait()
+	wg.Wait()
 
 	err = cleanupTempFiles(videoMap)
 	if err != nil {
@@ -272,6 +277,8 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 	wg.Add(1)
 	go func(filename string, fileData *models.FileData) {
 		defer wg.Done()
+		defer close(resultChan)
+		defer close(errChan)
 
 		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
 		total := atomic.LoadInt32(&totalMetaFiles)
@@ -309,7 +316,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 
 		switch {
 		case isVideoFile && !skipVideos:
-			err := ffmpeg.ExecuteVideo(fileData)
+			err := ffmpeg.ExecuteVideo(ctx, fileData)
 			if err != nil {
 				logging.ErrorArray = append(logging.ErrorArray, err)
 				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
