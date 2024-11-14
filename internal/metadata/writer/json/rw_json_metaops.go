@@ -333,7 +333,8 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 				}
 
 			case enums.DATE_TAG_ADD_OP:
-				j[fld] = tag + " " + strVal
+
+				j[fld] = fmt.Sprintf("%s %s", tag, strVal)
 				logging.I("Added date tag '%s' as prefix to field '%s'", tag, fld)
 				edited = true
 			}
@@ -357,7 +358,7 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 
 			case enums.DATE_TAG_ADD_OP:
 
-				j[fld] = strVal + " " + tag
+				j[fld] = fmt.Sprintf("%s %s", strVal, tag)
 				logging.I("Added date tag '%s' as suffix to field '%s'", tag, fld)
 				edited = true
 			}

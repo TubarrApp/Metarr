@@ -44,7 +44,7 @@ func MakeDateTag(metadata map[string]interface{}, fd *models.FileData, dateFmt e
 		return "", nil
 	}
 
-	dateTag := "[" + dateStr + "]"
+	dateTag := fmt.Sprintf("[%s]", dateStr)
 	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, fd.OriginalVideoBaseName)
 	return dateTag, nil
 }

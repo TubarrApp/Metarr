@@ -238,13 +238,15 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 	// Ensure XML declaration
 	if !strings.HasPrefix(content, "<?xml") {
-		content = `<?xml version="1.0" encoding="UTF-8"?>` + "\n" + content
+
+		content = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+%s`, content)
 	}
 
 	// Ensure movie tag exists
 	if !strings.Contains(content, "<movie>") {
 		content = strings.TrimSpace(content)
-		content = content + "\n<movie>\n</movie>"
+		content = fmt.Sprintf("%s\n<movie>\n</movie>", content)
 	}
 
 	return content

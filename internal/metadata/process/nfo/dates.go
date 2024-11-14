@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"fmt"
 	"metarr/internal/dates"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
@@ -26,6 +27,10 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 
 	gotRelevantDate := false
 	printMap := make(map[string]string, len(fieldMap))
+
+	defer func() {
+		print.PrintGrabbedFields("time and date", printMap)
+	}()
 
 	if n.Premiered != "" {
 		if rtn, ok := dates.YyyyMmDd(n.Premiered); ok && rtn != "" {
@@ -58,7 +63,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 			t.ReleaseDate = t.FormattedDate
 		}
 		if t.Creation_Time == "" {
-			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.FormattedDate)
 		}
 		gotRelevantDate = true
 	}
@@ -69,7 +74,6 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		var err error
 
 		logging.D(3, "Got a relevant date, proceeding...")
-		print.PrintGrabbedFields("time and date", &printMap)
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
 		} else {
@@ -82,7 +86,6 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	case w.WebpageURL == "":
 
 		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
-		print.PrintGrabbedFields("time and date", &printMap)
 		return false
 	}
 
@@ -108,7 +111,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 				t.Date = date
 			}
 			if t.Creation_Time == "" {
-				t.Creation_Time = date + "T00:00:00Z"
+				t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", date)
 			}
 			if t.UploadDate == "" {
 				t.UploadDate = date
@@ -126,8 +129,6 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 			printMap[consts.NPremiereDate] = t.ReleaseDate
 			printMap[consts.NAired] = t.Date
 			printMap[consts.NYear] = t.Year
-
-			print.PrintGrabbedFields("time and date", &printMap)
 
 			if t.FormattedDate == "" {
 				dates.FormatAllDates(fd)

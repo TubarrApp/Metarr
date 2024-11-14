@@ -134,10 +134,7 @@ func printStructFields(s interface{}) string {
 }
 
 // Print out the fetched fields
-func PrintGrabbedFields(fieldType string, p *map[string]string) {
-
-	printMap := *p
-
+func PrintGrabbedFields(fieldType string, p map[string]string) {
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
@@ -145,9 +142,9 @@ func PrintGrabbedFields(fieldType string, p *map[string]string) {
 	logging.I("Found and stored %s metadata fields from metafile:", fieldType)
 	fmt.Println()
 
-	for printKey, printVal := range printMap {
-		if printKey != "" && printVal != "" {
-			fmt.Printf(consts.ColorGreen + "Key: " + consts.ColorReset + printKey + consts.ColorYellow + "\nValue: " + consts.ColorReset + printVal + "\n")
+	for k, v := range p {
+		if k != "" && v != "" {
+			logging.P(fmt.Sprintf(consts.ColorGreen + "Key: " + consts.ColorReset + k + consts.ColorYellow + "\nValue: " + consts.ColorReset + v + "\n"))
 		}
 	}
 	fmt.Println()

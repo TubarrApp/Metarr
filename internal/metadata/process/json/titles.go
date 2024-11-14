@@ -16,6 +16,11 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 	w := fd.MWebData
 
 	printMap := make(map[string]string, len(json))
+	defer func() {
+		if len(printMap) > 0 && logging.Level > 1 {
+			print.PrintGrabbedFields("title", printMap)
+		}
+	}()
 
 	fieldMap := map[string]*string{
 		consts.JTitle:     &t.Title,
@@ -23,29 +28,31 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 		consts.JSubtitle:  &t.Subtitle,
 	}
 
-	if filled := unpackJSON("titles", fieldMap, json); filled {
+	if filled := unpackJSON(fieldMap, json); filled {
 		logging.D(2, "Decoded titles JSON into field map")
 	}
 
-	for k, v := range json {
-		logging.I("Checking title key '%s' exists in JSON", k)
-		if val, ok := v.(string); ok && val != "" {
-			logging.I("Title key '%s' exists with value '%s'", k, val)
-
-			switch k {
-			case consts.JFulltitle:
-				t.Fulltitle = val
-				printMap[k] = val
-
-			case consts.JTitle:
-				t.Title = val
-				printMap[k] = val
-
-			case consts.JSubtitle:
-				t.Subtitle = val
-				printMap[k] = val
-			}
+	for k, ptr := range fieldMap {
+		if ptr == nil {
+			logging.E(0, "fieldMap entry pointer unexpectedly nil")
+			continue
 		}
+
+		v, exists := json[k]
+		if !exists {
+			continue
+		}
+
+		val, ok := v.(string)
+		if !ok {
+			continue
+		}
+
+		if *ptr == "" {
+			*ptr = val
+		}
+
+		printMap[k] = val
 	}
 
 	if t.Title == "" && t.Fulltitle != "" {
@@ -63,10 +70,6 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 		if title != "" {
 			t.Title = title
 		}
-	}
-
-	if logging.Level > -1 {
-		print.PrintGrabbedFields("title", &printMap)
 	}
 
 	data, err := fd.JSONFileRW.WriteJSON(fieldMap)

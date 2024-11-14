@@ -154,6 +154,8 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	logging.D(5, "Entering MakeJSONEdits.\nData: %v", currentMeta)
 
+	// SHOULD MOVE THESE INTO THE RESPECTIVE FUNCTIONS
+	// THESE PRESENTLY ESCAPE TO HEAP FOR NO GOOD REASON
 	var (
 		edited, ok bool
 		trimPfx    []models.MetaTrimPrefix

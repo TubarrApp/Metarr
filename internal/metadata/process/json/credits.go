@@ -6,13 +6,14 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 	"strings"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
-func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
 
-	var dataFilled bool
+	var filled bool
 
 	c := fd.MCredits
 	w := fd.MWebData
@@ -33,52 +34,61 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		consts.JComposer:  &c.Composer,
 	}
 
-	if dataFilled = unpackJSON("credits", fieldMap, data); dataFilled {
+	if filled = unpackJSON(fieldMap, json); filled {
 		logging.D(2, "Decoded credits JSON into field map")
 	}
 
-	// Check if filled
-	for key, val := range fieldMap {
+	printMap := make(map[string]string, len(fieldMap))
+	defer func() {
+		if len(printMap) > 0 && logging.Level > 1 {
+			print.PrintGrabbedFields("credits", printMap)
+		}
+	}()
 
-		if val == nil {
-			logging.E(0, "Value is null")
+	// Check if filled
+	for k, ptr := range fieldMap {
+		if ptr == nil {
+			logging.E(0, "Unexpected nil pointer in credits fieldMap")
 			continue
 		}
 
-		if *val == "" {
-			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", key)
-			*val = fillEmptyCredits(c)
-			logging.D(2, "Set value to '%s'", *val)
-			if *val != "" {
-				dataFilled = true
-			}
-		} else if *val != "" {
-			dataFilled = true
+		if *ptr != "" {
+			printMap[k] = *ptr
+			filled = true
+			continue
 		}
+
+		logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", k)
+
+		*ptr = fillEmptyCredits(c)
+		printMap[k] = *ptr
+
+		logging.D(2, "Set value to '%s'", *ptr)
 	}
 
-	if filled := overrideAll(fieldMap); filled {
-		dataFilled = true
+	if printMap, filled = overrideAll(fieldMap, printMap); filled {
+		filled = true
 	}
 
 	// Return if data filled or no web data, else scrape
 	switch {
-	case dataFilled:
+	case filled:
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
-		switch {
-		case err != nil:
+		if err != nil {
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
-			return data, true
-		case rtn != nil:
-			data = rtn
-			return data, true
+			return json, true
 		}
+
+		if rtn != nil {
+			json = rtn
+		}
+		return json, true
 
 	case w.WebpageURL == "":
 
 		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
-		return data, false
+		return json, false
 	}
 
 	// Scrape for missing data (write back to file if found)
@@ -91,17 +101,17 @@ func fillCredits(fd *models.FileData, data map[string]interface{}) (map[string]i
 		}
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
-		switch {
-		case err != nil:
+		if err != nil {
 			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
-			return data, true
-		case rtn != nil:
-			data = rtn
-			return data, true
+			return json, true
 		}
 
+		if rtn != nil {
+			json = rtn
+			return json, true
+		}
 	}
-	return data, false
+	return json, false
 }
 
 // fillEmptyCredits attempts to fill empty fields by inference
@@ -157,23 +167,26 @@ func fillEmptyCredits(c *models.MetadataCredits) string {
 }
 
 // overrideAll makes override replacements if existent
-func overrideAll(fieldMap map[string]*string) bool {
+func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[string]string, bool) {
 
 	if fieldMap == nil {
 		logging.E(0, "fieldMap passed in null")
-		return false
+		return printMap, false
 	}
+
 	filled := false
 
 	// Note order of operations
 	if len(models.ReplaceOverrideMap) > 0 {
 		if m, exists := models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
-			for _, entry := range fieldMap {
-				if entry == nil {
+			for k, ptr := range fieldMap {
+				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				*entry = strings.ReplaceAll(*entry, m.Value, m.Replacement)
+
+				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
+				printMap[k] = *ptr
 				filled = true
 			}
 		}
@@ -181,12 +194,12 @@ func overrideAll(fieldMap map[string]*string) bool {
 
 	if len(models.SetOverrideMap) > 0 {
 		if val, exists := models.SetOverrideMap[enums.OVERRIDE_META_CREDITS]; exists {
-			for _, entry := range fieldMap {
-				if entry == nil {
+			for _, ptr := range fieldMap {
+				if ptr == nil {
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				*entry = val
+				*ptr = val
 				filled = true
 			}
 		}
@@ -205,5 +218,5 @@ func overrideAll(fieldMap map[string]*string) bool {
 		}
 	}
 
-	return filled
+	return printMap, filled
 }

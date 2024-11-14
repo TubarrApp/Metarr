@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"fmt"
 	"metarr/internal/dates"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
@@ -12,7 +13,7 @@ import (
 )
 
 // fillTimestamps grabs timestamp metadata from JSON
-func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
+func FillTimestamps(fd *models.FileData, json map[string]interface{}) bool {
 
 	t := fd.MDates
 	w := fd.MWebData
@@ -27,21 +28,31 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 		consts.JCreationTime:        &t.Creation_Time,
 	}
 
-	if ok := unpackJSON("date", fieldMap, data); !ok {
+	if ok := unpackJSON(fieldMap, json); !ok {
 		logging.E(1, "Failed to unpack date JSON, no dates currently exist in file?")
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
+	defer func() {
+		if len(printMap) > 0 && logging.Level > 1 {
+			print.PrintGrabbedFields("dates", printMap)
+		}
+	}()
 
 	var gotDate bool
-	for k, v := range data {
-		val, ok := v.(string)
-		if !ok {
+	for k, ptr := range fieldMap {
+		if ptr == nil {
+			logging.E(0, "Unexpected nil pointer in fieldMap")
 			continue
 		}
 
-		fieldPtr, exists := fieldMap[k]
+		v, exists := json[k]
 		if !exists {
+			continue
+		}
+
+		val, ok := v.(string)
+		if !ok {
 			continue
 		}
 
@@ -56,7 +67,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 			finalVal = val
 		}
 
-		*fieldPtr = finalVal
+		*ptr = finalVal
 		printMap[k] = finalVal
 		gotDate = true
 	}
@@ -68,12 +79,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 	var err error
 	switch {
 	case gotDate:
-
 		logging.D(3, "Got a relevant date, proceeding...")
-
-		if logging.Level > -1 {
-			print.PrintGrabbedFields("time and date", &printMap)
-		}
 
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
@@ -90,9 +96,6 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 	case w.WebpageURL == "":
 
 		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
-		if logging.Level > -1 {
-			print.PrintGrabbedFields("time and date", &printMap)
-		}
 		return false
 	}
 
@@ -115,7 +118,7 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 			t.Date = date
 		}
 		if t.Creation_Time == "" {
-			t.Creation_Time = date + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", date)
 		}
 		if t.UploadDate == "" {
 			t.UploadDate = date
@@ -133,10 +136,6 @@ func FillTimestamps(fd *models.FileData, data map[string]interface{}) bool {
 		printMap[consts.JReleaseDate] = t.ReleaseDate
 		printMap[consts.JDate] = t.Date
 		printMap[consts.JYear] = t.Year
-
-		if logging.Level > -1 {
-			print.PrintGrabbedFields("time and date", &printMap)
-		}
 
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
@@ -161,7 +160,7 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 		if t.Creation_Time == "" {
 			if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 				if !strings.ContainsRune(formatted, 'T') {
-					t.Creation_Time = formatted + "T00:00:00Z"
+					t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", formatted)
 					t.FormattedDate = formatted
 				} else {
 					t.Creation_Time = formatted
@@ -170,14 +169,14 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 			} else {
 				if formatted, ok := dates.YyyyMmDd(t.Originally_Available_At); ok {
 					if !strings.ContainsRune(formatted, 'T') {
-						t.Creation_Time = formatted + "T00:00:00Z"
+						t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", formatted)
 						t.FormattedDate = formatted
 					} else {
 						t.Creation_Time = formatted
 						t.FormattedDate, _, _ = strings.Cut(formatted, "T")
 					}
 				} else {
-					t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
+					t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.Originally_Available_At)
 				}
 			}
 		}
@@ -188,12 +187,12 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 		gotDate = true
 		if t.Creation_Time == "" {
 			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
-				t.Creation_Time = formatted + "T00:00:00Z"
+				t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", formatted)
 				if t.FormattedDate == "" {
 					t.FormattedDate = formatted
 				}
 			} else {
-				t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
+				t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.ReleaseDate)
 			}
 		}
 		if t.Originally_Available_At == "" {
@@ -211,12 +210,12 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	if t.Date != "" && len(t.Date) >= 6 {
 		gotDate = true
 		if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
-			t.Creation_Time = formatted + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", formatted)
 			if t.FormattedDate == "" {
 				t.FormattedDate = formatted
 			}
 		} else {
-			t.Creation_Time = t.Date + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.Date)
 		}
 		if t.Originally_Available_At == "" {
 			if formatted, ok := dates.YyyyMmDd(t.ReleaseDate); ok {
@@ -233,12 +232,12 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 	// Infer from upload date
 	if t.UploadDate != "" && len(t.UploadDate) >= 6 {
 		if formatted, ok := dates.YyyyMmDd(t.UploadDate); ok {
-			t.Creation_Time = formatted + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", formatted)
 			if t.FormattedDate == "" {
 				t.FormattedDate = formatted
 			}
 		} else {
-			t.Creation_Time = t.UploadDate + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.UploadDate)
 		}
 		if t.Originally_Available_At == "" {
 			t.Originally_Available_At = t.UploadDate
@@ -283,19 +282,19 @@ func fillEmptyTimestamps(t *models.MetadataDates) bool {
 
 		switch {
 		case strings.HasPrefix(t.Originally_Available_At, t.Year):
-			t.Creation_Time = t.Originally_Available_At + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.Originally_Available_At)
 			logging.D(1, "Changed creation time to %s", t.Originally_Available_At)
 
 		case strings.HasPrefix(t.ReleaseDate, t.Year):
-			t.Creation_Time = t.ReleaseDate + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.ReleaseDate)
 			logging.D(1, "Changed creation time to %s", t.ReleaseDate)
 
 		case strings.HasPrefix(t.Date, t.Year):
-			t.Creation_Time = t.Date + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.Date)
 			logging.D(1, "Changed creation time to %s", t.Date)
 
 		case strings.HasPrefix(t.FormattedDate, t.Year):
-			t.Creation_Time = t.FormattedDate + "T00:00:00Z"
+			t.Creation_Time = fmt.Sprintf("%sT00:00:00Z", t.FormattedDate)
 			logging.D(1, "Changed creation time to %s", t.FormattedDate)
 
 		default:

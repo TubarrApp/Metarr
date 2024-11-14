@@ -3,7 +3,6 @@ package metadata
 import (
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
 )
 
 // Primary function to fill out meta fields before writing
@@ -35,28 +34,33 @@ func FillMetaFields(fd *models.FileData, data map[string]interface{}) (map[strin
 }
 
 // unpackJSON decodes JSON for metafields
-func unpackJSON(ftype string, fmap map[string]*string, json map[string]interface{}) bool {
+func unpackJSON(fmap map[string]*string, json map[string]interface{}) bool {
 
 	filled := false
 	pmap := make(map[string]string, len(fmap))
 
 	// Match decoded JSON to field map
-	for k, v := range json {
-		if val, ok := v.(string); ok {
-			logging.D(3, "Checking field '%s' with value '%s'", k, val)
-			if field, exists := fmap[k]; exists && field != nil && *field == "" {
-
-				*field = val
-				filled = true
-
-				if pmap[k] == "" {
-					pmap[k] = val
-				}
-			}
+	for k, ptr := range fmap {
+		if ptr == nil {
+			logging.E(0, "fieldMap entry pointer unexpectedly nil")
+			continue
 		}
-	}
-	if logging.Level > -1 {
-		print.PrintGrabbedFields(ftype, &pmap)
+
+		v, exists := json[k]
+		if !exists {
+			continue
+		}
+
+		val, ok := v.(string)
+		if !ok {
+			continue
+		}
+
+		if *ptr == "" {
+			*ptr = val
+			pmap[k] = val
+			filled = true
+		}
 	}
 
 	return filled

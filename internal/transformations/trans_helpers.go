@@ -190,7 +190,7 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 
 		if style == enums.RENAMING_SPACES || style == enums.RENAMING_FIXES_ONLY {
 			if strings.HasSuffix(f, " s") {
-				f = f[:len(f)-2] + "s"
+				f = fmt.Sprintf("%ss", f[:len(f)-2])
 			}
 
 			f = strings.ReplaceAll(f, " s ", "s ")
@@ -218,7 +218,7 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 
 		if style == enums.RENAMING_UNDERSCORES || style == enums.RENAMING_FIXES_ONLY {
 			if strings.HasSuffix(f, "_s") {
-				f = f[:len(f)-2] + "s"
+				f = fmt.Sprintf("%ss", f[:len(f)-2])
 			}
 
 			f = strings.ReplaceAll(f, "_s_", "s_")

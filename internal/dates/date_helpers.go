@@ -27,17 +27,17 @@ func dayStringSwitch(day string) string {
 		logging.E(0, "Failed to convert date string to number")
 		return day
 	} else if thCheck > 10 && thCheck < 20 {
-		return day + "th"
+		return fmt.Sprintf("%sth", day)
 	}
 	switch {
 	case strings.HasSuffix(day, "1"):
-		return day + "st"
+		return fmt.Sprintf("%sst", day)
 	case strings.HasSuffix(day, "2"):
-		return day + "nd"
+		return fmt.Sprintf("%snd", day)
 	case strings.HasSuffix(day, "3"):
-		return day + "rd"
+		return fmt.Sprintf("%srd", day)
 	default:
-		return day + "th"
+		return fmt.Sprintf("%sth", day)
 	}
 }
 

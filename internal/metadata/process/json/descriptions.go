@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"fmt"
 	"metarr/internal/cfg"
 	consts "metarr/internal/domain/constants"
 	enums "metarr/internal/domain/enums"
@@ -8,6 +9,7 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	logging "metarr/internal/utils/logging"
+	print "metarr/internal/utils/print"
 	"strings"
 )
 
@@ -26,67 +28,75 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		consts.JSummary:          &d.Summary,
 		consts.JComment:          &d.Comment,
 	}
-	filled := unpackJSON("descriptions", fieldMap, data)
+	filled := unpackJSON(fieldMap, data)
 
 	datePfx := cfg.GetBool(keys.MDescDatePfx)
 	dateSfx := cfg.GetBool(keys.MDescDateSfx)
 
 	if (datePfx || dateSfx) && t.StringDate != "" {
+		for _, ptr := range fieldMap {
+			if ptr == nil {
+				logging.E(0, "Unexpected nil pointer in descriptions fieldMap")
+				continue
+			}
 
-		for _, value := range fieldMap {
-			if value != nil {
-				switch {
-				case datePfx:
-					if !strings.HasPrefix(*value, t.StringDate) {
-						*value = t.StringDate + "\n\n" + *value // Prefix string date
-					}
-					continue
-				case dateSfx:
-					if !strings.HasSuffix(*value, t.StringDate) {
-						*value = *value + "\n\n" + t.StringDate // Suffix string date
-					}
-					continue
-				default:
-					logging.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *value)
-					continue
-				}
+			if !datePfx && !dateSfx {
+				logging.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *ptr)
+				continue
+			}
+
+			if datePfx && !strings.HasPrefix(*ptr, t.StringDate) {
+				*ptr = fmt.Sprintf("%s\n\n%s", t.StringDate, *ptr) // Prefix string date
+			}
+
+			if dateSfx && !strings.HasSuffix(*ptr, t.StringDate) {
+				*ptr = fmt.Sprintf("%s\n\n%s", *ptr, t.StringDate) // Suffix string date
 			}
 		}
 	}
+
+	printMap := make(map[string]string, len(fieldMap))
+	defer func() {
+		if len(printMap) > 0 && logging.Level > 1 {
+			print.PrintGrabbedFields("descriptions", printMap)
+		}
+	}()
 
 	// Attempt to fill empty description fields by inference
-	for _, value := range fieldMap {
-		if ok := fillEmptyDescriptions(value, d); ok {
-			filled = true
+	for k, ptr := range fieldMap {
+		if ptr == nil {
+			logging.E(0, "Unexpected nil pointer in descriptions fieldMap")
+			continue
 		}
-	}
 
-	// Check if any values are present
-	if !filled {
-		for _, val := range fieldMap {
-			if val != nil {
-				if *val == "" {
-					continue
-				} else {
-					filled = true
-				}
+		if *ptr == "" {
+			if ok := fillEmptyDescriptions(ptr, d); ok {
+				filled = true
+				printMap[k] = *ptr
 			}
+		} else {
+			filled = true
+			printMap[k] = *ptr
 		}
 	}
 
-	switch {
-	case filled:
+	if filled {
+
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
-		switch {
-		case err != nil:
+		if err != nil {
 			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
-			return data, true
-		case rtn != nil:
-			data = rtn
+		}
+
+		if len(rtn) == 0 {
+			logging.E(0, "Length of return value is 0, returning original data from descriptions functions")
 			return data, true
 		}
 
-	case w.WebpageURL == "":
+		data = rtn
+		return data, true
+	}
+
+	if w.WebpageURL == "" {
 		logging.I("Page URL not found in data, so cannot scrape for missing description in '%s'", fd.JSONFilePath)
 		return data, false
 	}
@@ -95,9 +105,15 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 
 	// Infer remaining fields from description
 	if description != "" {
-		for _, value := range fieldMap {
-			if *value == "" {
-				*value = description
+
+		for _, ptr := range fieldMap {
+			if ptr == nil {
+				logging.E(0, "Unexpected nil in descriptions fieldMap")
+				continue
+			}
+
+			if *ptr == "" {
+				*ptr = description
 			}
 		}
 
@@ -106,48 +122,48 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		if err != nil {
 			logging.E(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
 		} else if rtn != nil {
+
 			data = rtn
+			return data, true
 		}
-		return data, true
+
+		logging.D(1, "No descriptions were grabbed from scrape, returning original data map")
+		return data, false
 	} else {
 		return data, false
 	}
 }
 
 // fillEmptyDescriptions fills empty description fields by inference
-func fillEmptyDescriptions(want *string, d *models.MetadataTitlesDescs) bool {
+func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
 
+	// Nil check and empty value check should be done in caller
 	filled := false
-	if want == nil {
-		logging.E(0, "Sent in string null, returning...")
-		return false
+	switch {
+	case d.LongDescription != "":
+		*s = d.LongDescription
+		filled = true
+
+	case d.Long_Description != "":
+		*s = d.Long_Description
+		filled = true
+
+	case d.Description != "":
+		*s = d.Description
+		filled = true
+
+	case d.Synopsis != "":
+		*s = d.Synopsis
+		filled = true
+
+	case d.Summary != "":
+		*s = d.Summary
+		filled = true
+
+	case d.Comment != "":
+		*s = d.Comment
+		filled = true
 	}
-	if *want == "" {
-		switch {
-		case d.LongDescription != "":
-			*want = d.LongDescription
-			filled = true
 
-		case d.Long_Description != "":
-			*want = d.Long_Description
-			filled = true
-
-		case d.Description != "":
-			*want = d.Description
-			filled = true
-
-		case d.Synopsis != "":
-			*want = d.Synopsis
-			filled = true
-
-		case d.Summary != "":
-			*want = d.Summary
-			filled = true
-
-		case d.Comment != "":
-			*want = d.Comment
-			filled = true
-		}
-	}
 	return filled
 }

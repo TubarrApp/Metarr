@@ -174,7 +174,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 		if len(failedVideos) > 0 {
 
-			logging.P(consts.RedError + "Failed videos:")
+			logging.P("%s Failed videos:", consts.RedError)
 			for _, failed := range failedVideos {
 				fmt.Println()
 				logging.P("Filename: %v", failed.filename)

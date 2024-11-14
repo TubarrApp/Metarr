@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"fmt"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
@@ -90,7 +91,7 @@ func nestedLoop(content string) map[string]interface{} {
 		}
 
 		// Look for the corresponding closing tag
-		closeTag := "</" + tag + ">"
+		closeTag := fmt.Sprintf("</%s>", tag)
 		closeIdx := strings.Index(content, closeTag)
 		if closeIdx == -1 {
 			// No closing tag; skip this tag and continue

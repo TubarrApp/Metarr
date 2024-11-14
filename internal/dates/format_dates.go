@@ -52,7 +52,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	month = monthStringSwitch(month)
 	day = dayStringSwitch(day)
 
-	dateStr = month + " " + day + ", " + year
+	dateStr = fmt.Sprintf("%s %s, %s", month, day, year)
 	logging.S(1, "Made string form date: '%s'", dateStr)
 
 	return dateStr, nil

@@ -178,7 +178,7 @@ func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
 	newValue := strings.Join(values, "; ")
 
 	if exists && existing != "" {
-		b.metadataMap[key] = existing + "; " + newValue
+		b.metadataMap[key] = fmt.Sprintf("%s; %s", existing, newValue)
 	} else {
 		b.metadataMap[key] = newValue
 	}
