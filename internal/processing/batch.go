@@ -74,7 +74,11 @@ func StartBatchLoop(core *models.Core) {
 			logInit = true
 		}
 
-		ProcessFiles(batch, core, openVideo, openJson)
+		// Save core program elements into batch
+		batch.Core = *core
+
+		// Start process...
+		ProcessFiles(batch, openVideo, openJson)
 		logging.I("Finished tasks for video file/dir '%s' and JSON file/dir '%s'", batch.Video, batch.Json)
 
 		// Reset for next loop

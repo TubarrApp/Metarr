@@ -36,12 +36,7 @@ type failedVideo struct {
 }
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
-
-	cancel := core.Cancel
-	cleanupChan := core.Cleanup
-	ctx := core.Ctx
-	wg := core.Wg
+func ProcessFiles(batch models.Batch, openVideo, openMeta *os.File) {
 
 	// Reset counts
 	atomic.StoreInt32(&totalMetaFiles, 0)
@@ -157,10 +152,10 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 	// Goroutine to handle signals and cleanup
 	go func() {
-		<-cleanupChan
+		<-batch.Core.Cleanup
 
 		fmt.Println("\nSignal received, cleaning up temporary files...")
-		cancel()
+		batch.Core.Cancel()
 
 		err = cleanupTempFiles(videoMap)
 		if err != nil {
@@ -181,7 +176,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 			fmt.Println()
 		}
 
-		wg.Wait()
+		batch.Core.Wg.Wait()
 		os.Exit(0)
 	}()
 
@@ -190,7 +185,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 	if !skipVideos {
 		for fileName, fileData := range matchedFiles {
-			rtn, err := executeFile(ctx, wg, sem, fileName, fileData)
+			rtn, err := executeFile(batch.Core.Ctx, batch.Core.Wg, sem, fileName, fileData)
 			if err != nil {
 				logging.E(0, err.Error())
 				continue
@@ -199,7 +194,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 	}
 
-	wg.Wait()
+	batch.Core.Wg.Wait()
 
 	err = cleanupTempFiles(videoMap)
 	if err != nil {
