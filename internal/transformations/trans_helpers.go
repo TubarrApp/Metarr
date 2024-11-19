@@ -2,7 +2,9 @@ package transformations
 
 import (
 	"fmt"
+	"metarr/internal/cfg"
 	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
 	presets "metarr/internal/transformations/presets"
@@ -11,6 +13,23 @@ import (
 	"strings"
 	"unicode"
 )
+
+// shouldRename determines if file rename operations are needed for this file
+func shouldRename(fd *models.FileData) bool {
+	switch {
+	case fd == nil:
+		return false
+	case len(fd.FilenameMetaPrefix) != 0,
+		len(fd.ModelFileSfxReplace) != 0,
+		cfg.IsSet(keys.FileDateFmt),
+		cfg.IsSet(keys.Rename),
+		cfg.IsSet(keys.MoveOnComplete):
+
+		logging.I("Flag detected that %q should be renamed", fd.OriginalVideoPath)
+		return true
+	}
+	return false
+}
 
 // TryTransPresets checks if any URLs in the video metadata have a known match.
 // Applies preset transformations for those which match.

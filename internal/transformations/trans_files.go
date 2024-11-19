@@ -22,6 +22,10 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVi
 	)
 
 	for _, fd := range dataArray {
+		if !shouldRename(fd) {
+			logging.I("Do not need to rename %q, skipping...", fd.FinalVideoPath)
+			continue
+		}
 
 		logging.D(2, "In file renaming loop with %q", fd.OriginalVideoBaseName)
 		metaBase, metaDir, originalMPath := getMetafileData(fd)

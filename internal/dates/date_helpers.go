@@ -21,17 +21,18 @@ func ParseDateComponents(date string, dateFmt enums.DateFormat) (year, month, da
 	return validateDateComponents(year, month, day)
 }
 
-// Affix a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
+// dayStringSwitch appends a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
 func dayStringSwitch(day string) string {
 	var b strings.Builder
 	b.Grow(len(day) + 2)
-	b.WriteString(day)
 
 	num, err := strconv.Atoi(day)
 	if err != nil {
 		logging.E(0, "Failed to convert date string to number")
 		return day
 	}
+
+	b.WriteString(day)
 
 	if num > 10 && num < 20 {
 		b.WriteString("th")
@@ -40,13 +41,13 @@ func dayStringSwitch(day string) string {
 
 	switch num % 10 {
 	case 1:
-		b.WriteString(day + "st")
+		b.WriteString("st")
 	case 2:
-		b.WriteString(day + "nd")
+		b.WriteString("nd")
 	case 3:
-		b.WriteString(day + "rd")
+		b.WriteString("rd")
 	default:
-		b.WriteString(day + "th")
+		b.WriteString("th")
 	}
 
 	return b.String()
@@ -147,12 +148,12 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 		} else { // Second guess, month-date
 			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
 				if ddmm {
-					logging.I("Guessing date string %q as day-month")
+					logging.I("Guessing date string %q as day-month", d)
 					day = d[:2]
 					month = d[2:4]
 
 				} else if mmdd {
-					logging.I("Guessing date string %q as month-day")
+					logging.I("Guessing date string %q as month-day", d)
 					day = d[2:4]
 					month = d[:2]
 				}
