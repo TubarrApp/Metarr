@@ -39,11 +39,11 @@ func moveOrCopyFile(src, dst string) error {
 		return nil
 	}
 
-	logging.S(0, "Moved file from '%s' to '%s'", src, dst)
+	logging.S(0, "Moved file from %q to %q", src, dst)
 
 	// If cross-device error, fall back to copy+delete
 	if strings.Contains(err.Error(), "invalid cross-device link") {
-		logging.D(1, "Falling back to copy for moving '%s' to '%s'", src, dst)
+		logging.D(1, "Falling back to copy for moving %q to %q", src, dst)
 
 		// Copy the file
 		if err := copyFile(src, dst); err != nil {
@@ -78,10 +78,10 @@ func copyFile(src, dst string) error {
 	dst = filepath.Clean(dst)
 
 	if src == dst {
-		return fmt.Errorf("entered source file '%s' and destination '%s' file as the same name and same path", src, dst)
+		return fmt.Errorf("entered source file %q and destination %q file as the same name and same path", src, dst)
 	}
 
-	logging.I("Copying:\n'%s'\nto\n'%s'...", src, dst)
+	logging.I("Copying:\n%q\nto\n%q...", src, dst)
 
 	// Validate source file
 	sourceInfo, err := os.Stat(src)
@@ -100,13 +100,13 @@ func copyFile(src, dst string) error {
 		if os.SameFile(sourceInfo, destInfo) {
 			return nil // Same file
 		}
-		return fmt.Errorf("aborting move, destination file '%s' is equal to source file '%s'", dst, src)
+		return fmt.Errorf("aborting move, destination file %q is equal to source file %q", dst, src)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("error checking destination file: %w", err)
 	}
 
 	// Ensure destination directory exists
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
@@ -178,14 +178,14 @@ func shouldProcess(src, dst string, isVid, skipVids bool) bool {
 		return false
 
 	default:
-		logging.I("Processing file operations for '%s'", src)
+		logging.I("Processing file operations for %q", src)
 		return true
 	}
 }
 
 // calculateFileHash computes SHA-256 hash of a file
-func calculateFileHash(filepath string) ([]byte, error) {
-	file, err := os.Open(filepath)
+func calculateFileHash(fpath string) ([]byte, error) {
+	file, err := os.Open(fpath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file for hashing: %w", err)
 	}

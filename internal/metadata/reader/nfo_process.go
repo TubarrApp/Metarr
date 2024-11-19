@@ -18,7 +18,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 	logging.D(2, "Beginning NFO file processing...")
 
 	// Open the file
-	file, err := os.OpenFile(fd.NFOFilePath, os.O_RDWR, 0644)
+	file, err := os.OpenFile(fd.NFOFilePath, os.O_RDWR, 0o644)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		return nil, fmt.Errorf("failed to open file: %w", err)

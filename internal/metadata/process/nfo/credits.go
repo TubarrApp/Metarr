@@ -1,9 +1,9 @@
 package metadata
 
 import (
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"strings"
 )
 
@@ -88,18 +88,21 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 	findRoles = func(data map[string]interface{}) {
 		// Check each key-value pair within the actor data
 		for k, v := range data {
-			if k == "role" {
-				if role, ok := v.(string); ok {
-					logging.D(3, "Adding role '%s' to actors", role)
-					c.Actors = append(c.Actors, role)
-					filled = true
+
+			switch value := v.(type) {
+			case string:
+				if k == "role" {
+					if role, ok := v.(string); ok {
+						logging.D(3, "Adding role %q to actors", role)
+						c.Actors = append(c.Actors, role)
+						filled = true
+					}
 				}
-			} else if nested, ok := v.(map[string]interface{}); ok {
-				// Recursive call for further nested maps
-				findRoles(nested)
-			} else if nestedList, ok := v.([]interface{}); ok {
-				// Handle lists of nested elements
-				for _, item := range nestedList {
+			case map[string]interface{}: // Regular map
+				findRoles(value)
+
+			case []interface{}: // Nested map
+				for _, item := range value {
 					if nestedMap, ok := item.(map[string]interface{}); ok {
 						findRoles(nestedMap)
 					}
@@ -114,12 +117,12 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 			for _, actorData := range actorsData {
 				if actorMap, ok := actorData.(map[string]interface{}); ok {
 					if name, ok := actorMap["name"].(string); ok {
-						logging.D(3, "Adding actor name '%s'", name)
+						logging.D(3, "Adding actor name %q", name)
 						c.Actors = append(c.Actors, name)
 						filled = true
 					}
 					if role, ok := actorMap["role"].(string); ok {
-						logging.D(3, "Adding actor role '%s'", role)
+						logging.D(3, "Adding actor role %q", role)
 						filled = true
 					}
 				}

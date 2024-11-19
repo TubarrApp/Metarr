@@ -1,4 +1,4 @@
-package domain
+package enums
 
 // User selection of filetypes to convert from
 type ConvertFromFiletype int

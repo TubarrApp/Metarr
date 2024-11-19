@@ -2,11 +2,11 @@ package cfg
 
 import (
 	"fmt"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"strings"
 
@@ -164,7 +164,7 @@ func checkFileDirs() error {
 				return err
 			}
 			if !vInfo.IsDir() {
-				return fmt.Errorf("file '%s' entered instead of directory", vInfo.Name())
+				return fmt.Errorf("file %q entered instead of directory", vInfo.Name())
 			}
 
 			jInfo, err := os.Stat(jsonDirs[i])
@@ -172,7 +172,7 @@ func checkFileDirs() error {
 				return err
 			}
 			if !jInfo.IsDir() {
-				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
+				return fmt.Errorf("file %q entered instead of directory", jInfo.Name())
 			}
 
 			tasks = append(tasks, models.Batch{
@@ -196,7 +196,7 @@ func checkFileDirs() error {
 				return err
 			}
 			if !jInfo.IsDir() {
-				return fmt.Errorf("file '%s' entered instead of directory", jInfo.Name())
+				return fmt.Errorf("file %q entered instead of directory", jInfo.Name())
 			}
 
 			tasks = append(tasks, models.Batch{
@@ -217,7 +217,7 @@ func checkFileDirs() error {
 				return err
 			}
 			if vInfo.IsDir() {
-				return fmt.Errorf("directory '%s' entered instead of file", vInfo.Name())
+				return fmt.Errorf("directory %q entered instead of file", vInfo.Name())
 			}
 
 			jInfo, err := os.Stat(jsonFiles[i])
@@ -225,7 +225,7 @@ func checkFileDirs() error {
 				return err
 			}
 			if jInfo.IsDir() {
-				return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
+				return fmt.Errorf("directory %q entered instead of file", jInfo.Name())
 			}
 
 			tasks = append(tasks, models.Batch{
@@ -248,7 +248,7 @@ func checkFileDirs() error {
 					return err
 				}
 				if jInfo.IsDir() {
-					return fmt.Errorf("directory '%s' entered instead of file", jInfo.Name())
+					return fmt.Errorf("directory %q entered instead of file", jInfo.Name())
 				}
 
 				tasks = append(tasks, models.Batch{
@@ -386,7 +386,7 @@ func verifyResourceLimits() {
 
 	currentAvailableMem, err := mem.VirtualMemory()
 	if err != nil {
-		logging.E(0, "Could not get system memory, using default max RAM requirements", err)
+		logging.E(0, "Could not get system memory, using default max RAM requirements: %v", err)
 		currentAvailableMem.Available = 1024
 	}
 	if MinMemUsage > currentAvailableMem.Available {

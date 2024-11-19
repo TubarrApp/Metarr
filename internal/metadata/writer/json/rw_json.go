@@ -26,7 +26,7 @@ type JSONFileRW struct {
 
 // NewJSONFileRW creates a new instance of the JSON file reader/writer
 func NewJSONFileRW(file *os.File) *JSONFileRW {
-	logging.D(3, "Retrieving new meta writer/rewriter for file '%s'...", file.Name())
+	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &JSONFileRW{
 		File: file,
 		Meta: metaMapPool.Get().(map[string]interface{}),
@@ -93,7 +93,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 
 	// Create a copy of the current metadata
 	currentMeta := rw.copyMeta()
-	logging.D(4, "Entering WriteMetadata for file '%s'", rw.File.Name())
+	logging.D(4, "Entering WriteMetadata for file %q", rw.File.Name())
 
 	// Update metadata with new fields
 	updated := false
@@ -105,17 +105,17 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interfa
 		if *ptr != "" {
 
 			if currentVal, exists := currentMeta[k]; !exists {
-				logging.D(3, "Adding new field '%s' with value '%s'", k, *ptr)
+				logging.D(3, "Adding new field %q with value %q", k, *ptr)
 				currentMeta[k] = *ptr
 				updated = true
 
 			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || cfg.GetBool(keys.MOverwrite) {
-				logging.D(3, "Updating field '%s' from '%v' to '%s'", k, currentVal, *ptr)
+				logging.D(3, "Updating field %q from '%v' to %q", k, currentVal, *ptr)
 				currentMeta[k] = *ptr
 				updated = true
 
 			} else {
-				logging.D(3, "Skipping field '%s' - value unchanged and overwrite not forced", k)
+				logging.D(3, "Skipping field %q - value unchanged and overwrite not forced", k)
 			}
 		}
 	}
@@ -162,7 +162,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		trimSfx    []models.MetaTrimSuffix
 		apnd       []models.MetaAppend
 		pfx        []models.MetaPrefix
-		new        []models.MetaNewField
+		newField   []models.MetaNewField
 		replace    []models.MetaReplace
 		copyTo     []models.CopyToField
 		pasteFrom  []models.PasteFromField
@@ -171,7 +171,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Initialize:
 	// Replacements
 	if len(fd.ModelMReplace) > 0 {
-		logging.I("Model for file '%s' making replacements", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
 		replace = fd.ModelMReplace
 	} else if cfg.IsSet(keys.MReplaceText) {
 		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
@@ -181,7 +181,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// Field trim
 	if len(fd.ModelMTrimPrefix) > 0 {
-		logging.I("Model for file '%s' trimming prefixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q trimming prefixes", fd.OriginalVideoBaseName)
 		trimPfx = fd.ModelMTrimPrefix
 	} else if cfg.IsSet(keys.MTrimPrefix) {
 		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
@@ -190,7 +190,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	if len(fd.ModelMTrimSuffix) > 0 {
-		logging.I("Model for file '%s' trimming suffixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q trimming suffixes", fd.OriginalVideoBaseName)
 		trimSfx = fd.ModelMTrimSuffix
 	} else if cfg.IsSet(keys.MTrimSuffix) {
 		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
@@ -200,7 +200,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// Append and prefix
 	if len(fd.ModelMAppend) > 0 {
-		logging.I("Model for file '%s' adding appends", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
 		apnd = fd.ModelMAppend
 	} else if cfg.IsSet(keys.MAppend) {
 		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
@@ -209,7 +209,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	if len(fd.ModelMPrefix) > 0 {
-		logging.I("Model for file '%s' adding prefixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
 		pfx = fd.ModelMPrefix
 	} else if cfg.IsSet(keys.MPrefix) {
 		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
@@ -219,11 +219,11 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// New fields
 	if len(fd.ModelMNewField) > 0 {
-		logging.I("Model for file '%s' applying preset new field additions", fd.OriginalVideoBaseName)
-		new = fd.ModelMNewField
+		logging.I("Model for file %q applying preset new field additions", fd.OriginalVideoBaseName)
+		newField = fd.ModelMNewField
 	} else if cfg.IsSet(keys.MNewField) {
-		if new, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
-			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", new)
+		if newField, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
+			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", newField)
 		}
 	}
 
@@ -302,8 +302,8 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	// Add new
-	if len(new) > 0 {
-		if ok, err := setJSONField(currentMeta, rw.File.Name(), fd.ModelMOverwrite, new); err != nil {
+	if len(newField) > 0 {
+		if ok, err := setJSONField(currentMeta, rw.File.Name(), fd.ModelMOverwrite, newField); err != nil {
 			logging.E(0, err.Error())
 		} else if ok {
 			edited = true
@@ -336,11 +336,11 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 		return false, fmt.Errorf("file passed in nil")
 	}
 
-	logging.D(4, "Entering MakeDateTagEdits for file '%s'", file.Name())
+	logging.D(4, "Entering MakeDateTagEdits for file %q", file.Name())
 
 	currentMeta := rw.copyMeta()
 
-	logging.D(4, "About to perform MakeDateTagEdits operations for file '%s'", file.Name())
+	logging.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
 
 	// Delete date tag first, user's may want to delete and re-build
 	if cfg.IsSet(keys.MDelDateTagMap) {

@@ -23,7 +23,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVi
 
 	for _, fd := range dataArray {
 
-		logging.D(2, "In file renaming loop with '%s'", fd.OriginalVideoBaseName)
+		logging.D(2, "In file renaming loop with %q", fd.OriginalVideoBaseName)
 		metaBase, metaDir, originalMPath := getMetafileData(fd)
 		metaExt := filepath.Ext(originalMPath)
 
@@ -43,10 +43,10 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVi
 		if !skipVideos {
 			renamedVideo = renameFile(videoBase, style, fd)
 			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
-			logging.D(2, "Renamed video to '%s' with extension '%s'", renamedVideo, vidExt)
+			logging.D(2, "Renamed video to %q with extension %q", renamedVideo, vidExt)
 		} else {
 			renamedMeta = renameFile(metaBase, style, fd)
-			logging.D(3, "Renamed meta now '%s'", renamedMeta)
+			logging.D(3, "Renamed meta now %q", renamedMeta)
 		}
 
 		var err error

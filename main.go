@@ -49,7 +49,6 @@ func main() {
 	// Handle cleanup on interrupt or termination signals
 	ctx, cancel := context.WithCancel(context.Background())
 	cfg.Set(keys.Context, ctx)
-	defer cancel()
 
 	// Program control
 	cleanupChan := make(chan os.Signal, 1)
@@ -65,6 +64,7 @@ func main() {
 
 	if err := fsRead.InitFetchFilesVars(); err != nil {
 		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
+		cancel() // Do not remove call before exit
 		os.Exit(1)
 	}
 
@@ -82,40 +82,69 @@ func main() {
 	fmt.Println()
 }
 
+// Benchmarking ////////////////////////////////////////////////////////////////////////////////////////////
+
+type benchFiles struct {
+	cpuFile   *os.File
+	memFile   *os.File
+	traceFile *os.File
+}
+
 func setupBenchmarking() {
+	var (
+		b   benchFiles
+		err error
+	)
+
 	// CPU profile
-	cpuFile, err := os.Create("cpu.prof")
+	b.cpuFile, err = os.Create("cpu.prof")
 	if err != nil {
 		log.Fatal("could not create CPU profile: ", err)
 	}
-	defer cpuFile.Close() // Don't forget to close the file
-	if err := pprof.StartCPUProfile(cpuFile); err != nil {
-		log.Fatal("could not start CPU profile: ", err)
+
+	if err := pprof.StartCPUProfile(b.cpuFile); err != nil {
+		closeBenchFiles(&b, fmt.Sprintf("could not start CPU profile: %v", err))
 	}
+
 	defer pprof.StopCPUProfile()
 
 	// Memory profile
-	memFile, err := os.Create("mem.prof")
+	b.memFile, err = os.Create("mem.prof")
 	if err != nil {
-		log.Fatal("could not create memory profile: ", err)
+		closeBenchFiles(&b, fmt.Sprintf("could not create memory profile: %v", err))
 	}
-	defer memFile.Close()
 	defer func() {
 		if cfg.GetBool(keys.Benchmarking) {
-			if err := pprof.WriteHeapProfile(memFile); err != nil {
-				log.Fatal("could not write memory profile: ", err)
+			if err := pprof.WriteHeapProfile(b.memFile); err != nil {
+				closeBenchFiles(&b, fmt.Sprintf("could not write memory profile: %v", err))
 			}
 		}
 	}()
 
 	// Trace
-	traceFile, err := os.Create("trace.out")
+	b.traceFile, err = os.Create("trace.out")
 	if err != nil {
-		log.Fatal("could not create trace file: ", err)
+		closeBenchFiles(&b, fmt.Sprintf("could not create trace file: %v", err))
 	}
-	defer traceFile.Close()
-	if err := trace.Start(traceFile); err != nil {
-		log.Fatal("could not start trace: ", err)
+	if err := trace.Start(b.traceFile); err != nil {
+		closeBenchFiles(&b, fmt.Sprintf("could not start trace: %v", err))
 	}
-	defer trace.Stop()
+}
+
+// closeBenchFiles closes bench files on program termination
+func closeBenchFiles(b *benchFiles, exitMsg string) {
+
+	if b.cpuFile != nil {
+		b.cpuFile.Close()
+	}
+
+	if b.memFile != nil {
+		b.memFile.Close()
+	}
+
+	if b.traceFile != nil {
+		b.traceFile.Close()
+	}
+
+	log.Fatal(exitMsg)
 }

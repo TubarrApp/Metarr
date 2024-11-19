@@ -23,8 +23,10 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 		switch {
 		case strings.Contains(domain, "censored.tv"):
 			presets.CensoredTvTransformations(fd)
-			logging.I("Found transformation preset for URL '%s'", url)
+			logging.I("Found transformation preset for URL %q", url)
 			return url
+		default:
+			// Not yet implemented
 		}
 	}
 	return ""
@@ -61,7 +63,7 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 }
 
 // addTags handles the tagging of the video files where necessary.
-func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (string, string) {
+func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (renamedV, renamedM string) {
 
 	if len(m.FilenameMetaPrefix) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
@@ -82,7 +84,7 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
-func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (string, string, error) {
+func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
 
 	contractionsMap := make(map[string]models.ContractionPattern)
 	// Rename style map to use
@@ -132,7 +134,7 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 			b.Reset()
 		}
 
-		logging.D(2, "Made contraction replacements for file '%s'", filename)
+		logging.D(2, "Made contraction replacements for file %q", filename)
 		return filename
 	}
 
@@ -158,7 +160,7 @@ func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) str
 
 	var result string
 	for _, suffix := range suffixes {
-		logging.D(2, "Checking suffix '%s' against filename '%s'", suffix.Suffix, filename)
+		logging.D(2, "Checking suffix %q against filename %q", suffix.Suffix, filename)
 
 		if strings.HasSuffix(filename, suffix.Suffix) {
 			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement

@@ -2,9 +2,9 @@ package utils
 
 import (
 	"fmt"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,10 +24,10 @@ func HasFileExtension(filename string, extensions map[string]bool) bool {
 	}
 
 	if _, exists := extensions[ext]; exists {
-		logging.I("File '%s' has valid extension '%s', processing...", filename, ext)
+		logging.I("File %q has valid extension %q, processing...", filename, ext)
 		return true
 	}
-	logging.D(3, "File '%s' does not appear to have an extension contained in the extensions map", filename)
+	logging.D(3, "File %q does not appear to have an extension contained in the extensions map", filename)
 	return false
 }
 

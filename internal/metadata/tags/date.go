@@ -3,10 +3,10 @@ package metadata
 import (
 	"fmt"
 	"metarr/internal/dates"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"strings"
 )
 
@@ -14,7 +14,7 @@ import (
 func MakeDateTag(metadata map[string]interface{}, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
 
 	if dateFmt == enums.DATEFMT_SKIP {
-		logging.D(1, "Skip set, not making file date tag for '%s'", fd.OriginalVideoBaseName)
+		logging.D(1, "Skip set, not making file date tag for %q", fd.OriginalVideoBaseName)
 		return "", nil
 	}
 
@@ -45,7 +45,7 @@ func MakeDateTag(metadata map[string]interface{}, fd *models.FileData, dateFmt e
 	}
 
 	dateTag := fmt.Sprintf("[%s]", dateStr)
-	logging.S(0, "Made date tag '%s' from file '%v'", dateTag, fd.OriginalVideoBaseName)
+	logging.S(0, "Made date tag %q from file '%v'", dateTag, fd.OriginalVideoBaseName)
 	return dateTag, nil
 }
 

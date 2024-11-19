@@ -2,9 +2,9 @@ package print
 
 import (
 	"fmt"
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"reflect"
 	"strings"
 	"sync"
@@ -41,7 +41,8 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 	// Add fields from the struct
 	addSection("File Information", printStructFields(model))
 
-	if m, ok := model.(*models.FileData); ok {
+	switch m := model.(type) {
+	case *models.FileData:
 
 		addSection("Credits", printStructFields(m.MCredits))
 		addSection("Titles and descriptions", printStructFields(m.MTitleDesc))
@@ -50,40 +51,40 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 		addSection("Show data", printStructFields(m.MShowData))
 		addSection("Other data", printStructFields(m.MOther))
 
-	} else if n, ok := model.(*models.NFOData); ok {
+	case *models.NFOData:
 		// Credits section
 		b.WriteString(consts.ColorYellow + "\nCredits:\n" + consts.ColorReset)
 
 		// Handle each slice type separately
-		for _, actor := range n.Actors {
+		for _, actor := range m.Actors {
 			b.WriteString(printStructFields(actor.Name))
 		}
-		for _, director := range n.Directors {
+		for _, director := range m.Directors {
 			b.WriteString(printStructFields(director))
 		}
-		for _, producer := range n.Producers {
+		for _, producer := range m.Producers {
 			b.WriteString(printStructFields(producer))
 		}
-		for _, publisher := range n.Publishers {
+		for _, publisher := range m.Publishers {
 			b.WriteString(printStructFields(publisher))
 		}
-		for _, studio := range n.Studios {
+		for _, studio := range m.Studios {
 			b.WriteString(printStructFields(studio))
 		}
-		for _, writer := range n.Writers {
+		for _, writer := range m.Writers {
 			b.WriteString(printStructFields(writer))
 		}
 
-		addSection("Titles and descriptions", printStructFields(n.Title)+
-			printStructFields(n.Description)+
-			printStructFields(n.Plot))
+		addSection("Titles and descriptions", printStructFields(m.Title)+
+			printStructFields(m.Description)+
+			printStructFields(m.Plot))
 
-		addSection("Webpage data", printStructFields(n.WebpageInfo))
+		addSection("Webpage data", printStructFields(m.WebpageInfo))
 
-		addSection("Show data", printStructFields(n.ShowInfo.Show)+
-			printStructFields(n.ShowInfo.EpisodeID)+
-			printStructFields(n.ShowInfo.EpisodeTitle)+
-			printStructFields(n.ShowInfo.SeasonNumber))
+		addSection("Show data", printStructFields(m.ShowInfo.Show)+
+			printStructFields(m.ShowInfo.EpisodeID)+
+			printStructFields(m.ShowInfo.EpisodeTitle)+
+			printStructFields(m.ShowInfo.SeasonNumber))
 	}
 
 	// Footer

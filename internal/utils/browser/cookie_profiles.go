@@ -1,7 +1,7 @@
 package utils
 
 import (
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 )
 
 // cookieFilePatterns holds the various filenames for cookie/auth related files by browser

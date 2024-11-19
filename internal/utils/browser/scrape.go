@@ -3,11 +3,11 @@ package utils
 import (
 	"encoding/json"
 	"fmt"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	presets "metarr/internal/utils/browser/presets"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"net/http"
 	"regexp"
 	"strings"
@@ -31,7 +31,7 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 	for _, try := range w.TryURLs {
 		data, err = scrape(try, w.Cookies, find, false)
 		if err != nil {
-			logging.E(0, "Failed to scrape '%s' for requested metadata: %v", try, err)
+			logging.E(0, "Failed to scrape %q for requested metadata: %v", try, err)
 		} else {
 			break
 		}
@@ -110,7 +110,7 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 		case "":
 			return "", scrapeError
 		default:
-			logging.E(0, "Error during scrape (%v) but got result anyway. Returning result '%s'...", scrapeError, result)
+			logging.E(0, "Error during scrape (%v) but got result anyway. Returning result %q...", scrapeError, result)
 			return result, nil
 		}
 	}
@@ -134,19 +134,23 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 				if *result != "" {
 					return
 				}
+
 				var value string
-				if len(rule.JsonPath) > 0 {
-					if jsonVal, err := jsonExtractor([]byte(h.Text), rule.JsonPath); err == nil {
+				switch {
+				case len(rule.JSONPath) > 0:
+					if jsonVal, err := jsonExtractor([]byte(h.Text), rule.JSONPath); err == nil {
 						value = jsonVal
 					}
-				} else if rule.Attr != "" {
+
+				case rule.Attr != "":
 					value = h.Attr(rule.Attr)
-				} else {
+
+				default:
 					value = h.Text
 				}
 
 				if value != "" {
-					logging.S(0, "Grabbed value '%s' for URL '%s' using preset scraper", value, url)
+					logging.S(0, "Grabbed value %q for URL %q using preset scraper", value, url)
 					*result = rule.Process(value)
 				}
 			})
@@ -187,7 +191,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 		text := strings.TrimSpace(e.Text)
 
 		if classAttr != "" {
-			logging.D(2, "Checking element with class: '%s'", classAttr)
+			logging.D(2, "Checking element with class: %q", classAttr)
 		}
 
 		for _, t := range tags {
@@ -200,7 +204,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 				}
 
 				*result = text
-				logging.I("Found '%s' in element with class '%s' and id '%s' for URL '%s'",
+				logging.I("Found %q in element with class %q and id %q for URL %q",
 					*result, classAttr, idAttr, url)
 				return
 			}

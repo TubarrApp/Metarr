@@ -34,7 +34,7 @@ func initTextReplace() error {
 	// Parse rename flag
 	setRenameFlag()
 
-	logging.D(0, "About to validate meta operations")
+	logging.D(1, "About to validate meta operations")
 	// Meta operations
 	if err := validateMetaOps(); err != nil {
 		return err
@@ -258,7 +258,7 @@ func validateMetaOps() error {
 			}
 
 		default:
-			return fmt.Errorf("unrecognized meta operation '%s' (valid operations: add, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, copy-from)", parts[1])
+			return fmt.Errorf("unrecognized meta operation %q (valid operations: add, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, copy-from)", parts[1])
 		}
 	}
 
@@ -429,7 +429,7 @@ func initDateReplaceFormat() error {
 func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 
 	if len(dateFmt) < 2 {
-		return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as '%s', please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
+		return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as %q, please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
 	} else {
 		switch dateFmt {
 		case "Ymd":
@@ -454,5 +454,5 @@ func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 			return enums.DATEFMT_DD_MM, nil
 		}
 	}
-	return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as '%s', please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
+	return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as %q, please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
 }

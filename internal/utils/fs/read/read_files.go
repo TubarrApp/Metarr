@@ -3,12 +3,12 @@ package utils
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,18 +59,20 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		return nil, fmt.Errorf("error reading video directory: %w", err)
 	}
 
-	logging.P("\n\nFiltering directory '%s':\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
+	logging.P("\n\nFiltering directory %q:\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
 
 	videoFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
+
+		if cfg.IsSet(keys.FilePrefixes) {
+			if !HasPrefix(file.Name(), inputPrefixes) {
+				continue
+			}
+		}
+
 		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
 
-			if cfg.IsSet(keys.FilePrefixes) {
-				if !HasPrefix(file.Name(), inputPrefixes) {
-					continue
-				}
-			}
 			filenameBase := filepath.Base(file.Name())
 
 			m := models.NewFileData()
@@ -82,7 +84,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 				videoFiles[file.Name()] = m
 				logging.I("Added video to queue: %v", filenameBase)
 			} else {
-				logging.I("Skipping file '%s' containing backup tag ('%s')", m.OriginalVideoBaseName, consts.BackupTag)
+				logging.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoBaseName, consts.BackupTag)
 			}
 		}
 	}
@@ -108,7 +110,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		ext := filepath.Ext(file.Name())
-		logging.D(3, "Checking file '%s' with extension '%s'", file.Name(), ext)
+		logging.D(3, "Checking file %q with extension %q", file.Name(), ext)
 
 		if cfg.IsSet(keys.FilePrefixes) {
 			if !HasPrefix(file.Name(), inputPrefixes) {
@@ -137,7 +139,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		switch ext {
 		case consts.MExtJSON:
 
-			logging.D(1, "Detected JSON file '%s'", file.Name())
+			logging.D(1, "Detected JSON file %q", file.Name())
 			m.JSONFilePath = filePath
 			m.JSONBaseName = baseName
 			m.JSONDirectory = metaDir.Name()
@@ -145,7 +147,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 
 		case consts.MExtNFO:
 
-			logging.D(1, "Detected NFO file '%s'", file.Name())
+			logging.D(1, "Detected NFO file %q", file.Name())
 			m.NFOFilePath = filePath
 			m.NFOBaseName = baseName
 			m.NFODirectory = metaDir.Name()
@@ -155,7 +157,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		if !strings.Contains(baseName, consts.BackupTag) {
 			metaFiles[file.Name()] = m
 		} else {
-			logging.I("Skipping file '%s' containing backup tag ('%s')", baseName, consts.BackupTag)
+			logging.I("Skipping file %q containing backup tag (%q)", baseName, consts.BackupTag)
 		}
 	}
 

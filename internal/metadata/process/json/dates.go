@@ -2,11 +2,11 @@ package metadata
 
 import (
 	"metarr/internal/dates"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
 	"strings"
 )
@@ -95,14 +95,14 @@ func FillTimestamps(fd *models.FileData, json map[string]interface{}) bool {
 		}
 
 		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
-			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
 		}
 
 		return true
 
 	case w.WebpageURL == "":
 
-		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.JSONFilePath)
 		return false
 	}
 
@@ -114,7 +114,7 @@ func FillTimestamps(fd *models.FileData, json map[string]interface{}) bool {
 	if scrapedDate != "" {
 		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			logging.E(0, "Failed to parse date %q: %v", scrapedDate, err)
 			return false
 		}
 		if t.ReleaseDate == "" {
@@ -149,7 +149,7 @@ func FillTimestamps(fd *models.FileData, json map[string]interface{}) bool {
 			dates.FormatAllDates(fd)
 		}
 		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
-			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", date, fd.JSONFilePath, err)
+			logging.E(0, "Failed to write new metadata (%s) into JSON file %q: %v", date, fd.JSONFilePath, err)
 		}
 		return true
 	}
@@ -281,7 +281,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		default:
 			logging.D(1, "Could not find a match, directly altering t.Creation_Time for year (month and day may therefore be wrong)")
 			t.Creation_Time = t.Year + t.Creation_Time[4:]
-			logging.D(1, "Set creation time's year only. Got '%s'", t.Creation_Time)
+			logging.D(1, "Set creation time's year only. Got %q", t.Creation_Time)
 		}
 	}
 	return gotDate

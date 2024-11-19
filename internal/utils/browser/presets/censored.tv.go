@@ -48,7 +48,7 @@ func CensoredTvChannelName(url string) string {
 	caser := cases.Title(language.English)
 	channel = caser.String(channel)
 
-	if strings.ToLower(channel) == "atheism is unstoppable" {
+	if strings.EqualFold(channel, "atheism is unstoppable") {
 		channel = "Atheism-is-Unstoppable"
 	}
 	return channel

@@ -2,11 +2,11 @@ package ffmpeg
 
 import (
 	"metarr/internal/cfg"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"path/filepath"
 	"strings"
 )
@@ -218,7 +218,7 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		return
 	}
 
-	logging.I("Input extension: '%s', output extension: '%s', File: %s",
+	logging.I("Input extension: %q, output extension: %q, File: %s",
 		inExt, outExt, b.inputFile)
 
 	// Get format preset from map

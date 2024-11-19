@@ -32,7 +32,7 @@ func replaceJSON(j map[string]interface{}, rplce []models.MetaReplace) (bool, er
 		if val, exists := j[r.Field]; exists {
 
 			if strVal, ok := val.(string); ok {
-				logging.D(3, "Identified field '%s', replacing '%s' with '%s'", r.Field, r.Value, r.Replacement)
+				logging.D(3, "Identified field %q, replacing %q with %q", r.Field, r.Value, r.Replacement)
 				j[r.Field] = strings.ReplaceAll(strVal, r.Value, r.Replacement)
 				edited = true
 			}
@@ -61,7 +61,7 @@ func trimJSONPrefix(j map[string]interface{}, tPfx []models.MetaTrimPrefix) (boo
 		if val, exists := j[p.Field]; exists {
 
 			if strVal, ok := val.(string); ok {
-				logging.D(3, "Identified field '%s', trimming '%s'", p.Field, p.Prefix)
+				logging.D(3, "Identified field %q, trimming %q", p.Field, p.Prefix)
 				j[p.Field] = strings.TrimPrefix(strVal, p.Prefix)
 				edited = true
 			}
@@ -90,7 +90,7 @@ func trimJSONSuffix(j map[string]interface{}, tSfx []models.MetaTrimSuffix) (boo
 		if val, exists := j[s.Field]; exists {
 
 			if strVal, ok := val.(string); ok {
-				logging.D(3, "Identified field '%s', trimming '%s'", s.Field, s.Suffix)
+				logging.D(3, "Identified field %q, trimming %q", s.Field, s.Suffix)
 				j[s.Field] = strings.TrimSuffix(strVal, s.Suffix)
 				edited = true
 			}
@@ -165,8 +165,8 @@ func jsonPrefix(j map[string]interface{}, pfx []models.MetaPrefix) (bool, error)
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file
-func setJSONField(j map[string]interface{}, file string, ow bool, new []models.MetaNewField) (bool, error) {
-	if len(new) == 0 {
+func setJSONField(j map[string]interface{}, file string, ow bool, newField []models.MetaNewField) (bool, error) {
+	if len(newField) == 0 {
 		logging.E(0, "No new field additions found", keys.MNewField)
 		return false, nil
 	}
@@ -185,12 +185,12 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []models.M
 		logging.I("Meta OW: %v Meta Preserve: %v", metaOW, metaPS)
 	}
 
-	logging.D(3, "Retrieved additions for new field data: %v", new)
-	processedFields := make(map[string]bool, len(new))
+	logging.D(3, "Retrieved additions for new field data: %v", newField)
+	processedFields := make(map[string]bool, len(newField))
 
 	newAddition := false
 	ctx := context.Background()
-	for _, n := range new {
+	for _, n := range newField {
 		if n.Field == "" || n.Value == "" {
 			continue
 		}
@@ -212,7 +212,6 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []models.M
 				logging.I("Operation canceled for field: %s", n.Field)
 				return false, fmt.Errorf("operation canceled")
 			default:
-				// Proceed
 			}
 
 			if _, alreadyProcessed := processedFields[n.Field]; alreadyProcessed {
@@ -220,24 +219,28 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []models.M
 			}
 
 			if existingValue, exists := j[n.Field]; exists {
-
 				if !metaPS {
-					promptMsg := fmt.Sprintf("Field '%s' already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue", n.Field, existingValue, file)
+					promptMsg := fmt.Sprintf(
+						"Field %q already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
+						n.Field, existingValue, file,
+					)
 
 					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 					if err != nil {
 						logging.E(0, err.Error())
 					}
+
 					switch reply {
 					case "Y":
 						logging.D(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, file)
 						cfg.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
+
 					case "y":
 						logging.D(2, "Received meta overwrite reply as 'y' for %s in %s", existingValue, file)
 						n.Field = strings.TrimSpace(n.Field)
-						logging.D(3, "Adjusted field from '%s' to '%s'\n", j[n.Field], n.Field)
+						logging.D(3, "Adjusted field from %q to %q\n", j[n.Field], n.Field)
 
 						j[n.Field] = n.Value
 						processedFields[n.Field] = true
@@ -248,23 +251,26 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []models.M
 						cfg.Set(keys.MPreserve, true)
 						metaPS = true
 						fallthrough
+
 					case "n":
 						logging.D(2, "Received meta overwrite reply as 'n' for %s in %s", existingValue, file)
-						logging.P("Skipping field '%s'\n", n.Field)
+						logging.P("Skipping field %q\n", n.Field)
 						processedFields[n.Field] = true
 					}
-				} else if metaOW { // FieldOverwrite is set
+				}
 
+				switch {
+				case metaOW: // EXISTS and FieldOverwrite is set
 					j[n.Field] = n.Value
 					processedFields[n.Field] = true
 					newAddition = true
 
-				} else if metaPS { // FieldPreserve is set
+				case metaPS: // EXISTS and FieldPreserve is set
 					continue
 				}
 			}
 		} else {
-			// Add the field if it doesn't exist yet, or overwrite is true
+			// Field does not exist or overwrite is true
 			j[n.Field] = n.Value
 			processedFields[n.Field] = true
 			newAddition = true
@@ -278,7 +284,7 @@ func setJSONField(j map[string]interface{}, file string, ow bool, new []models.M
 // jsonFieldDateTag sets date tags in designated meta fields
 func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
 
-	logging.D(2, "Making metadata date tag for '%s'...", fd.OriginalVideoBaseName)
+	logging.D(2, "Making metadata date tag for %q...", fd.OriginalVideoBaseName)
 
 	if len(dtm) == 0 {
 		logging.D(3, "No date tag operations to perform")
@@ -292,24 +298,24 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 	for fld, d := range dtm {
 		val, exists := j[fld]
 		if !exists {
-			logging.D(3, "Field '%s' not found in metadata", fld)
+			logging.D(3, "Field %q not found in metadata", fld)
 			continue
 		}
 
 		strVal, ok := val.(string)
 		if !ok {
-			logging.D(3, "Field '%s' is not a string value, type: %T", fld, val)
+			logging.D(3, "Field %q is not a string value, type: %T", fld, val)
 			continue
 		}
 
 		// Generate the date tag
 		tag, err := tags.MakeDateTag(j, fd, d.Format)
 		if err != nil || tag == "" {
-			return false, fmt.Errorf("failed to generate date tag for field '%s': %w", fld, err)
+			return false, fmt.Errorf("failed to generate date tag for field %q: %w", fld, err)
 		}
 
 		if strings.Contains(strVal, tag) {
-			logging.I("Tag '%s' already exists in field '%s'", tag, strVal)
+			logging.I("Tag %q already exists in field %q", tag, strVal)
 			return false, nil
 		}
 
@@ -326,16 +332,16 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 				j[fld] = result
 
 				if j[fld] != before {
-					logging.I("Deleted date tag '%s' prefix from field '%s'", tag, fld)
+					logging.I("Deleted date tag %q prefix from field %q", tag, fld)
 					edited = true
 				} else {
-					logging.E(0, "Failed to strip date tag from '%s'", before)
+					logging.E(0, "Failed to strip date tag from %q", before)
 				}
 
 			case enums.DATE_TAG_ADD_OP:
 
 				j[fld] = fmt.Sprintf("%s %s", tag, strVal)
-				logging.I("Added date tag '%s' as prefix to field '%s'", tag, fld)
+				logging.I("Added date tag %q as prefix to field %q", tag, fld)
 				edited = true
 			}
 
@@ -350,16 +356,16 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 				j[fld] = result
 
 				if j[fld] != before {
-					logging.I("Deleted date tag '%s' suffix from field '%s'", tag, fld)
+					logging.I("Deleted date tag %q suffix from field %q", tag, fld)
 					edited = true
 				} else {
-					logging.E(0, "Failed to strip date tag from '%s'", before)
+					logging.E(0, "Failed to strip date tag from %q", before)
 				}
 
 			case enums.DATE_TAG_ADD_OP:
 
 				j[fld] = fmt.Sprintf("%s %s", strVal, tag)
-				logging.I("Added date tag '%s' as suffix to field '%s'", tag, fld)
+				logging.I("Added date tag %q as suffix to field %q", tag, fld)
 				edited = true
 			}
 
@@ -371,17 +377,17 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 }
 
 // copyToField copies values from one meta field to another
-func copyToField(j map[string]interface{}, copy []models.CopyToField) (bool, error) {
+func copyToField(j map[string]interface{}, copyTo []models.CopyToField) (bool, error) {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
-	if len(copy) == 0 {
+	if len(copyTo) == 0 {
 		logging.E(0, "No new copy operations found")
 		return false, nil
 	}
 
 	edited := false
-	for _, c := range copy {
+	for _, c := range copyTo {
 		if c.Field == "" || c.Dest == "" {
 			continue
 		}

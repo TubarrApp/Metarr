@@ -3,10 +3,10 @@ package utils
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,10 +87,10 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	// Check destination directory
 	check, err := os.Stat(dst)
 	if err != nil {
-		return fmt.Errorf("unable to stat destination folder '%s': %w", dst, err)
+		return fmt.Errorf("unable to stat destination folder %q: %w", dst, err)
 	}
 	if !check.IsDir() {
-		return fmt.Errorf("destination path must be a folder: '%s'", dst)
+		return fmt.Errorf("destination path must be a folder: %q", dst)
 	}
 
 	// Move/copy video and metadata file
@@ -136,13 +136,13 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 		// Continue
 	case enums.PURGEMETA_JSON:
 		if ext != consts.MExtJSON {
-			logging.D(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return nil, false
 		}
 
 	case enums.PURGEMETA_NFO:
 		if ext != consts.MExtNFO {
-			logging.D(3, "Skipping deletion of metafile '%s' as extension does not match user selection")
+			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return nil, false
 		}
 
@@ -158,18 +158,18 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 	}
 
 	if fileInfo.IsDir() {
-		return fmt.Errorf("metafile '%s' is a directory, not a file", file), false
+		return fmt.Errorf("metafile %q is a directory, not a file", file), false
 	}
 
 	if !fileInfo.Mode().IsRegular() {
-		return fmt.Errorf("metafile '%s' is not a regular file", file), false
+		return fmt.Errorf("metafile %q is not a regular file", file), false
 	}
 
 	if err := os.Remove(file); err != nil {
 		return fmt.Errorf("unable to delete meta file: %w", err), false
 	}
 
-	logging.S(0, "Successfully deleted metafile. Bye bye '%s'!", file)
+	logging.S(0, "Successfully deleted metafile. Bye bye %q!", file)
 
 	return nil, true
 }

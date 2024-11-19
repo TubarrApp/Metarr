@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"metarr/internal/cfg"
 	"metarr/internal/dates"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	process "metarr/internal/metadata/process/json"
 	check "metarr/internal/metadata/reader/check_existing"
 	tags "metarr/internal/metadata/tags"
 	jsonRw "metarr/internal/metadata/writer/json"
 	"metarr/internal/models"
 	"metarr/internal/transformations"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +25,7 @@ var (
 	mu sync.Mutex
 )
 
-// ProcessJSONFile reads a single JSON file and fills in the metadata
+// ProcessJSONFile reads a single JSON file and fills in the metadata.
 func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, fmt.Errorf("model passed in null")
@@ -40,7 +40,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	filePath := fd.JSONFilePath
 
 	// Open the file
-	file, err := os.OpenFile(filePath, os.O_RDWR, 0644)
+	file, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -74,7 +74,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	if len(fd.MWebData.TryURLs) > 0 {
 		if match := transformations.TryTransPresets(fd.MWebData.TryURLs, fd); match == "" {
-			logging.D(1, "No presets found for video '%s' URLs %v", fd.OriginalVideoBaseName, fd.MWebData.TryURLs)
+			logging.D(1, "No presets found for video %q URLs %v", fd.OriginalVideoBaseName, fd.MWebData.TryURLs)
 		}
 	}
 
@@ -140,7 +140,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 			}
 
 		default:
-			logging.D(1, "Set file date tag format to skip, not making date tag for '%s'", file.Name())
+			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
 		}
 	}
 
@@ -152,16 +152,17 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	// Check if metadata is already existent in target file
 	if filetypeMetaCheckSwitch(ctx, fd) {
-		logging.I("Metadata already exists in target file '%s', will skip processing", fd.OriginalVideoBaseName)
+		logging.I("Metadata already exists in target file %q, will skip processing", fd.OriginalVideoBaseName)
 		fd.MetaAlreadyExists = true
 	}
 
 	return fd, nil
 }
 
+// filetypeMetaCheckSwitch checks metadata matches by file extension (different extensions store different fields).
 func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 
-	logging.D(4, "Entering filetypeMetaCheckSwitch with '%s'", fd.OriginalVideoPath)
+	logging.D(4, "Entering filetypeMetaCheckSwitch with %q", fd.OriginalVideoPath)
 
 	var outExt string
 	outFlagSet := cfg.IsSet(keys.OutputFiletype)
@@ -183,7 +184,7 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	}
 
 	if outFlagSet && outExt != "" && !strings.EqualFold(outExt, currentExt) {
-		logging.I("Input format '%s' differs from output format '%s', will not run metadata checks", currentExt, outExt)
+		logging.I("Input format %q differs from output format %q, will not run metadata checks", currentExt, outExt)
 		return false
 	}
 

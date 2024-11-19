@@ -1,8 +1,8 @@
 package ffmpeg
 
 import (
-	consts "metarr/internal/domain/constants"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/consts"
+	"metarr/internal/utils/logging"
 )
 
 // formatPreset holds a pre-calculated set of ffmpeg flags

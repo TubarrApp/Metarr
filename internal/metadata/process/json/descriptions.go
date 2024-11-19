@@ -3,12 +3,12 @@ package metadata
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
 	"strings"
 )
@@ -65,6 +65,18 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		}()
 	}
 
+	// Fill with by inference
+	var fillWith string
+	for _, ptr := range fieldMap {
+		if ptr == nil {
+			continue
+		}
+		if *ptr != "" {
+			fillWith = *ptr
+			break
+		}
+	}
+
 	// Attempt to fill empty description fields by inference
 	for k, ptr := range fieldMap {
 		if ptr == nil {
@@ -73,11 +85,10 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		}
 
 		if *ptr == "" {
-			if ok := fillEmptyDescriptions(ptr, d); ok {
-				filled = true
-				if logging.Level > 1 {
-					printMap[k] = *ptr
-				}
+			*ptr = fillWith
+			filled = true
+			if logging.Level > 1 {
+				printMap[k] = *ptr
 			}
 		} else {
 			filled = true
@@ -91,7 +102,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
 		}
 
 		if len(rtn) == 0 {
@@ -104,7 +115,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 	}
 
 	if w.WebpageURL == "" {
-		logging.I("Page URL not found in data, so cannot scrape for missing description in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in data, so cannot scrape for missing description in %q", fd.JSONFilePath)
 		return data, false
 	}
 
@@ -127,7 +138,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		// Insert new scraped fields into file
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to insert new data (%s) into JSON file '%s': %v", description, fd.JSONFilePath, err)
+			logging.E(0, "Failed to insert new data (%s) into JSON file %q: %v", description, fd.JSONFilePath, err)
 		} else if rtn != nil {
 
 			data = rtn
@@ -141,36 +152,36 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 	}
 }
 
-// fillEmptyDescriptions fills empty description fields by inference
-func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
+// // fillEmptyDescriptions fills empty description fields by inference
+// func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
 
-	// Nil check and empty value check should be done in caller
-	filled := false
-	switch {
-	case d.LongDescription != "":
-		*s = d.LongDescription
-		filled = true
+// 	// Nil check and empty value check should be done in caller
+// 	filled := false
+// 	switch {
+// 	case d.LongDescription != "":
+// 		*s = d.LongDescription
+// 		filled = true
 
-	case d.Long_Description != "":
-		*s = d.Long_Description
-		filled = true
+// 	case d.Long_Description != "":
+// 		*s = d.Long_Description
+// 		filled = true
 
-	case d.Description != "":
-		*s = d.Description
-		filled = true
+// 	case d.Description != "":
+// 		*s = d.Description
+// 		filled = true
 
-	case d.Synopsis != "":
-		*s = d.Synopsis
-		filled = true
+// 	case d.Synopsis != "":
+// 		*s = d.Synopsis
+// 		filled = true
 
-	case d.Summary != "":
-		*s = d.Summary
-		filled = true
+// 	case d.Summary != "":
+// 		*s = d.Summary
+// 		filled = true
 
-	case d.Comment != "":
-		*s = d.Comment
-		filled = true
-	}
+// 	case d.Comment != "":
+// 		*s = d.Comment
+// 		filled = true
+// 	}
 
-	return filled
-}
+// 	return filled
+// }

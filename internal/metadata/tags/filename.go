@@ -50,11 +50,11 @@ func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
 	invalidChars := regex.InvalidCharsCompile()
 	tag = invalidChars.ReplaceAllString(tag, "")
 
-	logging.D(1, "Made metatag '%s' from file '%s'", tag, file.Name())
+	logging.D(1, "Made metatag %q from file %q", tag, file.Name())
 
 	if tag != "[]" {
 		if strings.Contains(filepath.Base(file.Name()), tag) {
-			logging.D(2, "Tag '%s' already detected in name, skipping...", tag)
+			logging.D(2, "Tag %q already detected in name, skipping...", tag)
 			tag = ""
 		} else {
 			return tag

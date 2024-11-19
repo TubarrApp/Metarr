@@ -3,11 +3,11 @@ package metadata
 import (
 	"fmt"
 	"metarr/internal/dates"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
 )
 
@@ -85,7 +85,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 
 	case w.WebpageURL == "":
 
-		logging.I("Page URL not found in metadata, so cannot scrape for missing date in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.JSONFilePath)
 		return false
 	}
 
@@ -101,7 +101,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	if scrapedDate != "" {
 		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.E(0, "Failed to parse date '%s': %v", scrapedDate, err)
+			logging.E(0, "Failed to parse date %q: %v", scrapedDate, err)
 			return false
 		} else {
 			if t.ReleaseDate == "" {

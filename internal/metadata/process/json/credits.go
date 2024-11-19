@@ -1,11 +1,11 @@
 package metadata
 
 import (
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
 	"strings"
 )
@@ -19,6 +19,7 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 	c := fd.MCredits
 	w := fd.MWebData
 
+	// Order by importance
 	fieldMap := map[string]*string{
 		consts.JCreator:   &c.Creator,
 		consts.JPerformer: &c.Performer,
@@ -51,6 +52,20 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 			logging.D(2, "Decoded credits JSON into field map")
 		}
 
+		// Find highest priority filled element
+		fillWith := c.Override
+		if fillWith == "" {
+			for _, ptr := range fieldMap {
+				if ptr == nil {
+					continue
+				}
+				if *ptr != "" {
+					fillWith = *ptr
+					break
+				}
+			}
+		}
+
 		// Check if filled
 		for k, ptr := range fieldMap {
 			if ptr == nil {
@@ -65,13 +80,13 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 				filled = true
 				continue
 			}
-			logging.D(2, "Value for '%s' is empty, attempting to fill by inference...", k)
+			logging.D(2, "Value for %q is empty, attempting to fill by inference...", k)
 
-			*ptr = fillEmptyCredits(c)
+			*ptr = fillWith
 			if logging.Level > 1 {
 				printMap[k] = *ptr
 			}
-			logging.D(2, "Set value to '%s'", *ptr)
+			logging.D(2, "Set value to %q", *ptr)
 		}
 	}
 
@@ -86,7 +101,7 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 	case filled:
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to write into JSON file '%s': %v", fd.JSONFilePath, err)
+			logging.E(0, "Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
 			return json, true
 		}
 
@@ -96,7 +111,7 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		return json, true
 
 	case w.WebpageURL == "":
-		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in '%s'", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in %q", fd.JSONFilePath)
 		return json, false
 	}
 
@@ -111,7 +126,7 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to write new metadata (%s) into JSON file '%s': %v", credits, fd.JSONFilePath, err)
+			logging.E(0, "Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.JSONFilePath, err)
 			return json, true
 		}
 
@@ -121,58 +136,6 @@ func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]i
 		}
 	}
 	return json, false
-}
-
-// fillEmptyCredits attempts to fill empty fields by inference
-func fillEmptyCredits(c *models.MetadataCredits) string {
-
-	// Order by importance
-	switch {
-	case c.Override != "":
-		return c.Override
-
-	case c.Creator != "":
-		return c.Creator
-
-	case c.Author != "":
-		return c.Author
-
-	case c.Publisher != "":
-		return c.Publisher
-
-	case c.Producer != "":
-		return c.Producer
-
-	case c.Actor != "":
-		return c.Actor
-
-	case c.Channel != "":
-		return c.Channel
-
-	case c.Performer != "":
-		return c.Performer
-
-	case c.Uploader != "":
-		return c.Uploader
-
-	case c.Artist != "":
-		return c.Artist
-
-	case c.Director != "":
-		return c.Director
-
-	case c.Studio != "":
-		return c.Studio
-
-	case c.Writer != "":
-		return c.Writer
-
-	case c.Composer != "":
-		return c.Composer
-
-	default:
-		return ""
-	}
 }
 
 // overrideAll makes override replacements if existent
@@ -194,7 +157,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				logging.I("Overriding old '%s' by replacing '%s' with '%s'", *ptr, m.Value, m.Replacement)
+				logging.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
 				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
 
 				if logging.Level > 1 {
@@ -214,7 +177,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				logging.I("Overriding old '%s' to '%s'", *ptr, val)
+				logging.I("Overriding old %q to %q", *ptr, val)
 				*ptr = val
 
 				if logging.Level > 1 {
@@ -235,8 +198,8 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 					continue
 				}
 
-				logging.I("Overriding old '%s' by appending it with '%s'", *ptr, val)
-				*ptr = *ptr + val
+				logging.I("Overriding old %q by appending it with %q", *ptr, val)
+				*ptr += val
 
 				if logging.Level > 1 {
 					printMap[k] = *ptr

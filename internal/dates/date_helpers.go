@@ -81,7 +81,7 @@ func monthStringSwitch(month string) string {
 	case "12":
 		monthStr = "Dec"
 	default:
-		logging.E(0, "Failed to make month string from month number '%s'", month)
+		logging.E(0, "Failed to make month string from month number %q", month)
 		monthStr = "Jan"
 	}
 	return monthStr
@@ -129,15 +129,15 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 
 		i, err := strconv.Atoi(d[:2])
 		if err != nil {
-			return "", "", "", fmt.Errorf("invalid date string '%s' threw error: %w", d, err)
+			return "", "", "", fmt.Errorf("invalid date string %q threw error: %w", d, err)
 		}
 		j, err := strconv.Atoi(d[2:4])
 		if err != nil {
-			return "", "", "", fmt.Errorf("invalid date string '%s' threw error: %w", d, err)
+			return "", "", "", fmt.Errorf("invalid date string %q threw error: %w", d, err)
 		}
 
 		if (i == 20 || i == 19) && j > 12 { // First guess year
-			logging.I("Guessing date string '%s' as year", d)
+			logging.I("Guessing date string %q as year", d)
 			switch dateFmt {
 			case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 				return d[2:4], "", "", nil
@@ -147,18 +147,18 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 		} else { // Second guess, month-date
 			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
 				if ddmm {
-					logging.I("Guessing date string '%s' as day-month")
+					logging.I("Guessing date string %q as day-month")
 					day = d[:2]
 					month = d[2:4]
 
 				} else if mmdd {
-					logging.I("Guessing date string '%s' as month-day")
+					logging.I("Guessing date string %q as month-day")
 					day = d[2:4]
 					month = d[:2]
 				}
 				return "", month, day, nil
 			} else if i == 20 || i == 19 { // Final guess year
-				logging.I("Guessing date string '%s' as year after failed day-month check", d)
+				logging.I("Guessing date string %q as year after failed day-month check", d)
 				switch dateFmt {
 				case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
 					return d[2:4], "", "", nil
@@ -169,11 +169,11 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 		}
 	}
 
-	return "", "", "", fmt.Errorf("failed to parse year, month, and day from '%s'", d)
+	return "", "", "", fmt.Errorf("failed to parse year, month, and day from %q", d)
 }
 
 // validateDateComponents attempts to fix faulty date arrangements
-func validateDateComponents(year, month, day string) (string, string, string, error) {
+func validateDateComponents(year, month, day string) (y, m, d string, err error) {
 
 	if isValidMonth(month) && isValidDay(day, month, year) {
 		return year, month, day, nil
@@ -181,7 +181,7 @@ func validateDateComponents(year, month, day string) (string, string, string, er
 
 	// Attempt swapping day and month
 	if isValidMonth(day) && isValidDay(month, day, year) {
-		return year, day, month, nil
+		return year, month, day, nil
 	}
 
 	// Fail check:

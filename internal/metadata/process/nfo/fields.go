@@ -3,7 +3,7 @@ package metadata
 import (
 	"fmt"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
 	"strings"
 )
@@ -34,7 +34,7 @@ func FillNFO(fd *models.FileData) bool {
 		filled = true
 	}
 
-	print.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file '%s'", fd.NFOFilePath)
+	print.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file %q", fd.NFOFilePath)
 
 	return filled
 }
@@ -54,7 +54,7 @@ func nestedLoop(content string) map[string]interface{} {
 
 	logging.D(2, "Parsing content in nestedLoop: %s", content)
 
-	for len(content) > 0 {
+	for content != "" {
 		if strings.HasPrefix(content, "<?xml") || strings.HasPrefix(content, "<?") {
 			endIdx := strings.Index(content, "?>")
 			if endIdx == -1 {
@@ -102,20 +102,20 @@ func nestedLoop(content string) map[string]interface{} {
 
 		// Extract the inner content between tags
 		innerContent := content[openIdxClose+1 : closeIdx]
-		logging.D(2, "Found inner content for tag '%s': %s", tag, innerContent)
+		logging.D(2, "Found inner content for tag %q: %s", tag, innerContent)
 
 		// Recursive call if innerContent contains nested tags
 		if strings.Contains(innerContent, "<") && strings.Contains(innerContent, ">") {
-			logging.D(2, "Recursively parsing nested content for tag '%s'", tag)
+			logging.D(2, "Recursively parsing nested content for tag %q", tag)
 			nested[tag] = nestedLoop(innerContent)
 		} else {
-			logging.D(2, "Assigning inner content to tag '%s': %s", tag, innerContent)
+			logging.D(2, "Assigning inner content to tag %q: %s", tag, innerContent)
 			nested[tag] = innerContent
 		}
 
 		// Move past the processed tag
 		content = content[closeIdx+len(closeTag):]
-		logging.D(2, "Remaining content after parsing tag '%s': %s", tag, content)
+		logging.D(2, "Remaining content after parsing tag %q: %s", tag, content)
 	}
 
 	logging.D(2, "Final parsed structure from nestedLoop: %v", nested)
@@ -147,7 +147,7 @@ func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[st
 
 		switch v := val.(type) {
 		case string:
-			logging.D(3, "Setting field '%s' to '%s'", field, v)
+			logging.D(3, "Setting field %q to %q", field, v)
 			*fieldVal = v
 		case map[string]interface{}:
 			switch field {
@@ -160,7 +160,7 @@ func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[st
 				unpackCredits(fd, v)
 			}
 		default:
-			logging.D(1, "Unknown field type for '%s', skipping...", field)
+			logging.D(1, "Unknown field type for %q, skipping...", field)
 		}
 	}
 }

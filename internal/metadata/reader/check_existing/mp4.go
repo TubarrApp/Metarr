@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os/exec"
 	"strings"
 )
 
-// MP4MetaMatches checks FFprobe captured metadata from the video against the metafile
+// MP4MetaMatches checks FFprobe captured metadata from the video against the metafile.
 func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 
 	c := fd.MCredits
@@ -89,11 +89,11 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 		ffContent = append(ffContent, printVals)
 
 		if values.new != values.existing {
-			logging.D(2, "======== Mismatched meta in file: '%s' ========\nMismatch in key '%s':\nNew value: '%s'\nIn video as: '%s'. Will process video.",
+			logging.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
 				fd.OriginalVideoBaseName, key, values.new, values.existing)
 			matches = false
 		} else {
-			logging.D(2, "Detected key '%s' as being the same.\nFFprobe: '%s'\nMetafile: '%s'", key, values.existing, values.new)
+			logging.D(2, "Detected key %q as being the same.\nFFprobe: %q\nMetafile: %q", key, values.existing, values.new)
 		}
 	}
 

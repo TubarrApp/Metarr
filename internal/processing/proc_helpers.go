@@ -67,7 +67,7 @@ func sysResourceLoop(fileStr string) {
 }
 
 // checkAvailableMemory checks if enough memory is available (at least the threshold).
-func checkSysResources(requiredMemory uint64) (bool, uint64, float64, error) {
+func checkSysResources(requiredMemory uint64) (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
 	vMem, err := mem.VirtualMemory()
 	if err != nil {
 		return false, 0, 0, err

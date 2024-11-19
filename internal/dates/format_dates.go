@@ -26,7 +26,7 @@ func ParseNumDate(dateNum string) (string, error) {
 
 	t, err := dateparse.ParseAny(dateNum)
 	if err != nil {
-		return "", fmt.Errorf("unable to parse date '%s' to word date", dateNum)
+		return "", fmt.Errorf("unable to parse date %q to word date", dateNum)
 	}
 	time := t.Format("01022006")
 	if time == "" {
@@ -36,7 +36,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	var day, month, year, dateStr string
 
 	if len(time) < 6 {
-		return dateNum, fmt.Errorf("unable to parse date, date '%s' is too short", time)
+		return dateNum, fmt.Errorf("unable to parse date, date %q is too short", time)
 	}
 
 	if len(time) >= 8 {
@@ -53,7 +53,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	day = dayStringSwitch(day)
 
 	dateStr = fmt.Sprintf("%s %s, %s", month, day, year)
-	logging.S(1, "Made string form date: '%s'", dateStr)
+	logging.S(1, "Made string form date: %q", dateStr)
 
 	return dateStr, nil
 }
@@ -142,7 +142,7 @@ func FormatAllDates(fd *models.FileData) string {
 
 		d.FormattedDate = result
 
-		logging.D(2, "Got formatted date '%s' and entering parse to string function...", result)
+		logging.D(2, "Got formatted date %q and entering parse to string function...", result)
 
 		var err error
 		d.StringDate, err = ParseNumDate(d.FormattedDate)

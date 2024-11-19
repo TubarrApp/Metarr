@@ -1,9 +1,9 @@
 package metadata
 
 import (
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 )
 
 // fillNFOTitles attempts to fill in title info from NFO
@@ -58,18 +58,18 @@ func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
 		switch key {
 		case "main":
 			if strVal, ok := value.(string); ok {
-				logging.D(3, "Setting main title to '%s'", strVal)
+				logging.D(3, "Setting main title to %q", strVal)
 				t.Title = strVal
 				filled = true
 			}
 		case "sub":
 			if strVal, ok := value.(string); ok {
-				logging.D(3, "Setting subtitle to '%s'", strVal)
+				logging.D(3, "Setting subtitle to %q", strVal)
 				t.Subtitle = strVal
 				filled = true
 			}
 		default:
-			logging.D(1, "Unknown nested title element '%s', skipping...", key)
+			logging.D(1, "Unknown nested title element %q, skipping...", key)
 		}
 	}
 	return filled

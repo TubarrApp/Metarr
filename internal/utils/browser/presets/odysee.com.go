@@ -11,14 +11,14 @@ var OdyseeComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_CREDITS: {
 		{
 			Selector: "script[type='application/ld+json']",
-			JsonPath: []string{"author", "name"},
+			JSONPath: []string{"author", "name"},
 			Process:  strings.TrimSpace,
 		},
 	},
 	enums.WEBCLASS_DATE: {
 		{
 			Selector: "script[type='application/ld+json']",
-			JsonPath: []string{"uploadDate"},
+			JSONPath: []string{"uploadDate"},
 			Process:  strings.TrimSpace,
 		},
 		{Selector: `meta[property="og:video:release_date"]`, Attr: "content", Process: strings.TrimSpace},
@@ -26,7 +26,7 @@ var OdyseeComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WEBCLASS_DESCRIPTION: {
 		{
 			Selector: "script[type='application/ld+json']",
-			JsonPath: []string{"description"},
+			JSONPath: []string{"description"},
 			Process:  strings.TrimSpace,
 		},
 		{Selector: `meta[name="description"]`, Attr: "content", Process: strings.TrimSpace},
@@ -37,7 +37,7 @@ var OdyseeComRules = map[enums.WebClassTags][]models.SelectorRule{
 		{Selector: "title", Process: strings.TrimSpace},
 		{
 			Selector: "script[type='application/ld+json']",
-			JsonPath: []string{"name"},
+			JSONPath: []string{"name"},
 			Process:  strings.TrimSpace,
 		},
 	},

@@ -31,8 +31,8 @@ func initializeCookies() {
 }
 
 // GetBrowserCookies retrieves cookies for a given URL, using a specified cookie file if provided.
-func getBrowserCookies(url string) ([]*http.Cookie, error) {
-	baseURL, err := extractBaseDomain(url)
+func getBrowserCookies(u string) ([]*http.Cookie, error) {
+	baseURL, err := extractBaseDomain(u)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract base domain: %v", err)
 	}
@@ -79,9 +79,9 @@ func getBrowserCookies(url string) ([]*http.Cookie, error) {
 	logging.I("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
 
 	if len(allCookies) == 0 {
-		logging.I("No cookies found for '%s', proceeding without cookies", url)
+		logging.I("No cookies found for %q, proceeding without cookies", u)
 	} else {
-		logging.I("Found a total of %d cookies for '%s'", len(allCookies), url)
+		logging.I("Found a total of %d cookies for %q", len(allCookies), u)
 	}
 
 	return allCookies, nil
@@ -118,11 +118,11 @@ func extractBaseDomain(urlString string) (string, error) {
 
 // keysForMap helper function to get keys from a map
 func keysFromMap(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
+	mapKeys := make([]string, 0, len(m))
 	for k := range m {
-		keys = append(keys, k)
+		mapKeys = append(mapKeys, k)
 	}
-	return keys
+	return mapKeys
 }
 
 // readCookieFile reads cookies from the specified cookie file
@@ -131,13 +131,17 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 	var err error
 
 	// Attempt to identify and read cookies based on known browser stores
-	if strings.Contains(cookieFilePath, "firefox") || strings.Contains(cookieFilePath, "cookies.sqlite") {
+	switch {
+	case strings.Contains(cookieFilePath, "firefox") || strings.Contains(cookieFilePath, "cookies.sqlite"):
 		store, err = firefox.CookieStore(cookieFilePath)
-	} else if strings.Contains(cookieFilePath, "safari") || strings.Contains(cookieFilePath, "Cookies.binarycookies") {
+
+	case strings.Contains(cookieFilePath, "safari") || strings.Contains(cookieFilePath, "Cookies.binarycookies"):
 		store, err = safari.CookieStore(cookieFilePath)
-	} else if strings.Contains(cookieFilePath, "chrome") || strings.Contains(cookieFilePath, "Cookies") {
+
+	case strings.Contains(cookieFilePath, "chrome") || strings.Contains(cookieFilePath, "Cookies"):
 		store, err = chrome.CookieStore(cookieFilePath)
-	} else {
+
+	default:
 		return nil, fmt.Errorf("unsupported cookie file format")
 	}
 

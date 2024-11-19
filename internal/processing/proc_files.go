@@ -4,15 +4,15 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/cfg"
-	consts "metarr/internal/domain/constants"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
 	reader "metarr/internal/metadata/reader"
 	"metarr/internal/models"
 	"metarr/internal/transformations"
 	read "metarr/internal/utils/fs/read"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -144,7 +144,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		// Handle errors from meta processing above
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
-			errMsg := fmt.Errorf("error processing metadata for file '%s': %w", fileData.OriginalVideoPath, err)
+			errMsg := fmt.Errorf("error processing metadata for file %q: %w", fileData.OriginalVideoPath, err)
 			logging.E(0, errMsg.Error())
 
 			failedVideos = append(failedVideos, failedVideo{
@@ -165,10 +165,9 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		err = cleanupTempFiles(videoMap)
 		if err != nil {
 			logging.ErrorArray = append(logging.ErrorArray, err)
-			fmt.Printf("\nFailed to cleanup temp files: %v", err)
-			logging.E(0, "Failed to cleanup temp files", err)
+			logging.E(0, "Failed to cleanup temp files: %v", err)
 		}
-		logging.I("Process was interrupted by a syscall", nil)
+		logging.I("Process was interrupted by a syscall")
 
 		if len(failedVideos) > 0 {
 
@@ -253,16 +252,14 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
-		logging.S(0, "Successfully processed all files in directory '%s' with no errors.", directory)
-	} else {
-		if logging.ErrorArray != nil {
-			logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
+		logging.S(0, "Successfully processed all files in directory %q with no errors.", directory)
+	} else if logging.ErrorArray != nil {
+		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
 
-			for _, failed := range failedVideos {
-				fmt.Println()
-				logging.P("Filename: %v", failed.filename)
-				logging.P("Error: %v", failed.err)
-			}
+		for _, failed := range failedVideos {
+			fmt.Println()
+			logging.P("Filename: %v", failed.filename)
+			logging.P("Error: %v", failed.err)
 		}
 	}
 	fmt.Println()
@@ -286,7 +283,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		muPrint.Lock()
 		fmt.Printf("\n==============================================================\n")
 		fmt.Printf("    Processed metafile %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining in '%s': %d\n", fileData.JSONDirectory, total-currentFile)
+		fmt.Printf("    Remaining in %q: %d\n", fileData.JSONDirectory, total-currentFile)
 		fmt.Printf("==============================================================\n\n")
 		muPrint.Unlock()
 
@@ -297,7 +294,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 
 		select {
 		case <-ctx.Done():
-			errChan <- fmt.Errorf("did not process '%s' due to program cancellation", filename)
+			errChan <- fmt.Errorf("did not process %q due to program cancellation", filename)
 			resultChan <- nil
 			return
 		default:
@@ -339,7 +336,7 @@ func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, fil
 		muPrint.Lock()
 		fmt.Printf("\n==============================================================\n")
 		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining in '%s': %d\n", fileData.JSONDirectory, total-currentFile)
+		fmt.Printf("    Remaining in %q: %d\n", fileData.JSONDirectory, total-currentFile)
 		fmt.Printf("==============================================================\n\n")
 		muPrint.Unlock()
 

@@ -32,29 +32,23 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		}
 	}
 
-	var new = make([]models.MetaTrimSuffix, 0, 4)
+	var newSfx = make([]models.MetaTrimSuffix, 0, 4)
 
-	new = append(new, models.MetaTrimSuffix{
+	newSfx = append(newSfx, models.MetaTrimSuffix{
 		Field:  "title",
 		Suffix: " (1)",
-	})
-
-	new = append(new, models.MetaTrimSuffix{
+	}, models.MetaTrimSuffix{
 		Field:  "fulltitle",
 		Suffix: " (1)",
-	})
-
-	new = append(new, models.MetaTrimSuffix{
+	}, models.MetaTrimSuffix{
 		Field:  "id",
 		Suffix: "-1",
-	})
-
-	new = append(new, models.MetaTrimSuffix{
+	}, models.MetaTrimSuffix{
 		Field:  "display_id",
 		Suffix: "-1",
 	})
 
-	for _, newSuffix := range new {
+	for _, newSuffix := range newSfx {
 		exists := false
 		for _, existingSuffix := range trimSfx {
 			if existingSuffix.Field == newSuffix.Field {
@@ -71,10 +65,9 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 	if logging.Level >= 2 {
 		var entries []string
 		for _, entry := range trimSfx {
-			entries = append(entries, "("+entry.Field+":")
-			entries = append(entries, entry.Suffix+")")
+			entries = append(entries, "("+entry.Field+":", entry.Suffix+")")
 		}
-		logging.I("After adding preset suffixes, suffixes to be trimmed for '%s': %v", fd.OriginalVideoBaseName, entries)
+		logging.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoBaseName, entries)
 	}
 
 	fd.ModelMTrimSuffix = trimSfx
@@ -123,7 +116,7 @@ func censoredTvFSuffixes(fd *models.FileData) {
 			Suffix:      "_1",
 			Replacement: "",
 		})
-		logging.I("Added filename suffix replacement '%s'", vExt)
+		logging.I("Added filename suffix replacement %q", vExt)
 	}
 
 	fd.ModelFileSfxReplace = sfx

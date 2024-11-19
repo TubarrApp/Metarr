@@ -1,9 +1,9 @@
 package metadata
 
 import (
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	print "metarr/internal/utils/print"
 )
 

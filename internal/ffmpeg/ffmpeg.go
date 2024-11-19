@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/cfg"
-	consts "metarr/internal/domain/constants"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	backup "metarr/internal/utils/fs/backup"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	validate "metarr/internal/utils/validation"
 	"os"
 	"os/exec"
@@ -35,7 +35,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		outExt = origExt
 	}
 
-	logging.I("Will execute video from extension '%s' to extension '%s'", origExt, outExt)
+	logging.I("Will execute video from extension %q to extension %q", origExt, outExt)
 
 	if dontProcess(fd, outExt) {
 		return nil
@@ -48,7 +48,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Make temp output path
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
-	logging.D(3, "Orig ext: '%s', Out ext: '%s'", origExt, outExt)
+	logging.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
 
 	// Add temp path to data struct
 	fd.TempOutputFilePath = tmpOutPath
@@ -67,7 +67,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}
 
 	command := exec.CommandContext(ctx, "ffmpeg", args...)
-	logging.I("%sConstructed FFmpeg command for%s '%s':\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
+	logging.I("%sConstructed FFmpeg command for%s %q:\n\n%v\n", consts.ColorCyan, consts.ColorReset, fd.OriginalVideoPath, command.String())
 
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
@@ -82,7 +82,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		fd.TempOutputFilePath)
 
 	// Run the ffmpeg command
-	logging.P("%s!!! Starting FFmpeg command for '%s'...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
+	logging.P("%s!!! Starting FFmpeg command for %q...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		return fmt.Errorf("failed to run FFmpeg command: %w", err)
@@ -90,7 +90,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Rename temporary file to overwrite the original video file
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
-		logging.I("Original file not type %s, removing '%s'", outExt, origPath)
+		logging.I("Original file not type %s, removing %q", outExt, origPath)
 
 	} else if cfg.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {

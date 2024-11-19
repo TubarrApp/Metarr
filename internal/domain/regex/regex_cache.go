@@ -1,7 +1,7 @@
 package regex
 
 import (
-	consts "metarr/internal/domain/constants"
+	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"regexp"
 )

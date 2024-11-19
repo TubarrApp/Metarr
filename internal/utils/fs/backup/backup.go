@@ -3,8 +3,8 @@ package utils
 import (
 	"fmt"
 	"io"
-	consts "metarr/internal/domain/constants"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/consts"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,7 +21,7 @@ func BackupFile(file *os.File) error {
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)
-	logging.D(3, "Creating backup of file '%s' as '%s'", originalFilePath, backupFilePath)
+	logging.D(3, "Creating backup of file %q as %q", originalFilePath, backupFilePath)
 
 	// Current position
 	currentPos, err := file.Seek(0, io.SeekCurrent)
@@ -54,7 +54,7 @@ func BackupFile(file *os.File) error {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
 	}
 
-	logging.D(3, "Backup successfully created at '%s'", backupFilePath)
+	logging.D(3, "Backup successfully created at %q", backupFilePath)
 	return nil
 }
 
@@ -75,7 +75,7 @@ func RenameToBackup(filename string) (backupName string, err error) {
 	backupName = generateBackupFilename(filename)
 
 	if err := os.Rename(filename, backupName); err != nil {
-		return "", fmt.Errorf("failed to backup filename '%s' to '%s'", filename, backupName)
+		return "", fmt.Errorf("failed to backup filename %q to %q", filename, backupName)
 	}
 	return backupName, nil
 }
