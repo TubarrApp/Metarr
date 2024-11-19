@@ -3,14 +3,11 @@ package logging
 import (
 	"fmt"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/keys"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -30,16 +27,12 @@ const (
 )
 
 var (
-	Level int = -1 // Pre initialization
+	Level int = -1 // Pre initialization is -1
 	mu    sync.Mutex
 )
 
 func E(l int, format string, args ...interface{}) string {
-	if Level < 0 {
-		Level = viper.GetInt(keys.DebugLevel)
-	}
-
-	if l < Level {
+	if l >= Level {
 		return ""
 	}
 
@@ -88,11 +81,7 @@ func E(l int, format string, args ...interface{}) string {
 }
 
 func S(l int, format string, args ...interface{}) string {
-	if Level < 0 {
-		Level = viper.GetInt(keys.DebugLevel)
-	}
-
-	if l < Level {
+	if l >= Level {
 		return ""
 	}
 
@@ -119,11 +108,7 @@ func S(l int, format string, args ...interface{}) string {
 }
 
 func D(l int, format string, args ...interface{}) string {
-	if Level < 0 {
-		Level = viper.GetInt(keys.DebugLevel)
-	}
-
-	if l < Level {
+	if l >= Level {
 		return ""
 	}
 

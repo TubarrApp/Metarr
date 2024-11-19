@@ -53,15 +53,15 @@ func writeLog(msg string, level int) {
 	}
 }
 
-// WriteArray writes an array of error information to the log file
-func writeLogArray(msgs []string) {
-	if Loggable {
+// // WriteArray writes an array of error information to the log file
+// func writeLogArray(msgs []string) {
+// 	if Loggable {
 
-		if ansiEscape == nil {
-			ansiEscape = regex.AnsiEscapeCompile()
-		}
-		out := strings.Join(msgs, ", ")
+// 		if ansiEscape == nil {
+// 			ansiEscape = regex.AnsiEscapeCompile()
+// 		}
+// 		out := strings.Join(msgs, ", ")
 
-		Logger.Print(ansiEscape.ReplaceAllString(out, ""))
-	}
-}
+// 		Logger.Print(ansiEscape.ReplaceAllString(out, ""))
+// 	}
+// }
