@@ -86,8 +86,10 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	dst := cfg.GetString(keys.MoveOnComplete)
 	dst = filepath.Clean(dst)
 
-	if err := os.MkdirAll(dst, 0o755); err != nil {
-		return fmt.Errorf("failed to create or find destination directory: %w", err)
+	if _, err := os.Stat(dst); os.IsNotExist(err) {
+		if err := os.MkdirAll(dst, 0o755); err != nil {
+			return fmt.Errorf("failed to create or find destination directory: %w", err)
+		}
 	}
 
 	// Move/copy video and metadata file
@@ -130,7 +132,8 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 
 	switch e {
 	case enums.PURGEMETA_ALL:
-		// Continue
+		break
+
 	case enums.PURGEMETA_JSON:
 		if ext != consts.MExtJSON {
 			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
@@ -145,6 +148,7 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 
 	case enums.PURGEMETA_NONE:
 		return fmt.Errorf("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
+
 	default:
 		return fmt.Errorf("support not added for this metafile purge enum yet, exiting function"), false
 	}
