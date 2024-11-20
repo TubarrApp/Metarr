@@ -24,16 +24,18 @@ type FSFileWriter struct {
 
 func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta string) *FSFileWriter {
 
-	differ := 0
-	if !strings.EqualFold(destVideo, srcVideo) {
-		differ++
-	}
-	if !strings.EqualFold(destMeta, srcMeta) {
-		differ++
-	}
+	if logging.Level > 1 {
+		differ := 0
+		if !strings.EqualFold(destVideo, srcVideo) {
+			differ++
+		}
+		if !strings.EqualFold(destMeta, srcMeta) {
+			differ++
+		}
 
-	logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
-		skipVids, srcVideo, destVideo, srcMeta, destMeta, differ)
+		logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+			skipVids, srcVideo, destVideo, srcMeta, destMeta, differ)
+	}
 
 	return &FSFileWriter{
 		SkipVids:  skipVids,
