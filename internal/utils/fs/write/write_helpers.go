@@ -107,7 +107,7 @@ func copyFile(src, dst string) error {
 
 	// Ensure destination directory exists
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
+		return fmt.Errorf("failed to create or find destination directory: %w", err)
 	}
 
 	// Open source file

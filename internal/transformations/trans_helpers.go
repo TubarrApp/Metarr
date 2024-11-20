@@ -15,20 +15,39 @@ import (
 )
 
 // shouldRename determines if file rename operations are needed for this file
-func shouldRename(fd *models.FileData) bool {
-	switch {
-	case fd == nil:
-		return false
-	case len(fd.FilenameMetaPrefix) != 0,
-		len(fd.ModelFileSfxReplace) != 0,
-		cfg.IsSet(keys.FileDateFmt),
-		cfg.IsSet(keys.Rename),
-		cfg.IsSet(keys.MoveOnComplete):
+func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
+	dateFmt := cfg.GetString(keys.FileDateFmt)
+	rName := enums.RENAMING_SKIP
 
-		logging.I("Flag detected that %q should be renamed", fd.OriginalVideoPath)
-		return true
+	var ok bool
+	if cfg.IsSet(keys.Rename) {
+		rName, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle)
+		if !ok {
+			logging.E(0, "Got wrong type or null rename. Got %T, want %q", rName, "enums.ReplaceToStyle")
+		}
 	}
-	return false
+
+	switch {
+	case fd.FilenameMetaPrefix != "",
+		len(fd.ModelFileSfxReplace) != 0,
+		dateFmt != "",
+		rName != enums.RENAMING_SKIP:
+
+		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile date format: %q\nFile rename: %v",
+			fd.OriginalVideoPath,
+			fd.FilenameMetaPrefix,
+			fd.ModelFileSfxReplace,
+			dateFmt,
+			rName != enums.RENAMING_SKIP)
+
+		rename = true
+	}
+
+	if cfg.IsSet(keys.MoveOnComplete) {
+		move = true
+	}
+
+	return rename, move
 }
 
 // TryTransPresets checks if any URLs in the video metadata have a known match.

@@ -84,13 +84,8 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	dst := cfg.GetString(keys.MoveOnComplete)
 	dst = filepath.Clean(dst)
 
-	// Check destination directory
-	check, err := os.Stat(dst)
-	if err != nil {
-		return fmt.Errorf("unable to stat destination folder %q: %w", dst, err)
-	}
-	if !check.IsDir() {
-		return fmt.Errorf("destination path must be a folder: %q", dst)
+	if err := os.MkdirAll(dst, 0o755); err != nil {
+		return fmt.Errorf("failed to create or find destination directory: %w", err)
 	}
 
 	// Move/copy video and metadata file

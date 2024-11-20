@@ -19,11 +19,41 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVi
 		vidExt,
 		renamedVideo,
 		renamedMeta string
+		deletedMeta bool
+		err         error
 	)
 
+	// Purge or move function
+	purgeOrMove := func(fsWriter *writefs.FSFileWriter, metaPath string) {
+
+		if cfg.IsSet(keys.MetaPurge) {
+			if err, deletedMeta = fsWriter.DeleteMetafile(metaPath); err != nil {
+				logging.E(0, "Failed to purge metafile: %v", err)
+			}
+		}
+
+		if cfg.IsSet(keys.MoveOnComplete) {
+			if err := fsWriter.MoveFile(deletedMeta); err != nil {
+				logging.E(0, "Failed to move to destination folder: %v", err)
+			}
+		}
+	}
+
+	// Iterate through data
 	for _, fd := range dataArray {
-		if !shouldRename(fd) {
-			logging.I("Do not need to rename %q, skipping...", fd.FinalVideoPath)
+
+		// Should rename and/or move?
+		rename, move := shouldRenameOrMove(fd)
+		if !rename {
+
+			if !move {
+				logging.D(1, "Do not need to rename or move %q", fd.FinalVideoPath)
+				continue
+			}
+
+			logging.D(1, "Do not need to rename %q, just moving...", fd.FinalVideoPath)
+			fsWriter := writefs.NewFSFileWriter(skipVideos, fd.FinalVideoPath, fd.OriginalVideoPath, fd.JSONFilePath, fd.JSONFilePath)
+			purgeOrMove(fsWriter, fd.JSONFilePath)
 			continue
 		}
 
@@ -96,18 +126,7 @@ func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVi
 			return err
 		}
 
-		var deletedMeta bool
-		if cfg.IsSet(keys.MetaPurge) {
-			if err, deletedMeta = fsWriter.DeleteMetafile(renamedMPath); err != nil {
-				logging.E(0, "Failed to purge metafile: %v", err)
-			}
-		}
-
-		if cfg.IsSet(keys.MoveOnComplete) {
-			if err := fsWriter.MoveFile(deletedMeta); err != nil {
-				logging.E(0, "Failed to move to destination folder: %v", err)
-			}
-		}
+		purgeOrMove(fsWriter, renamedMPath)
 	}
 	return nil
 }
