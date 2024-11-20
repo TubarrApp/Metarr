@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 	"strings"
 )
 
@@ -34,7 +34,7 @@ func FillNFO(fd *models.FileData) bool {
 		filled = true
 	}
 
-	print.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file %q", fd.NFOFilePath)
+	printout.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file %q", fd.NFOFilePath)
 
 	return filled
 }

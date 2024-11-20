@@ -9,7 +9,7 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 	"strings"
 )
 
@@ -60,7 +60,7 @@ func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[str
 		printMap = make(map[string]string, len(fieldMap))
 		defer func() {
 			if len(printMap) > 0 {
-				print.PrintGrabbedFields("descriptions", printMap)
+				printout.PrintGrabbedFields("descriptions", printMap)
 			}
 		}()
 	}

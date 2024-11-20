@@ -7,7 +7,7 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 	"strings"
 )
 
@@ -36,7 +36,7 @@ func FillTimestamps(fd *models.FileData, json map[string]interface{}) bool {
 		printMap = make(map[string]string, len(fieldMap))
 		defer func() {
 			if len(printMap) > 0 {
-				print.PrintGrabbedFields("dates", printMap)
+				printout.PrintGrabbedFields("dates", printMap)
 			}
 		}()
 	}

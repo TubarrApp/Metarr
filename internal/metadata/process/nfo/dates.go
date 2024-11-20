@@ -8,7 +8,7 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 )
 
 func fillNFOTimestamps(fd *models.FileData) bool {
@@ -29,7 +29,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	printMap := make(map[string]string, len(fieldMap))
 
 	defer func() {
-		print.PrintGrabbedFields("time and date", printMap)
+		printout.PrintGrabbedFields("time and date", printMap)
 	}()
 
 	if n.Premiered != "" {

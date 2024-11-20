@@ -6,7 +6,7 @@ import (
 	"metarr/internal/models"
 	browser "metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 )
 
 // fillTitles grabs the fulltitle ("title")
@@ -26,7 +26,7 @@ func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]in
 		printMap = make(map[string]string, len(fieldMap))
 		defer func() {
 			if len(printMap) > 0 {
-				print.PrintGrabbedFields("titles", printMap)
+				printout.PrintGrabbedFields("titles", printMap)
 			}
 		}()
 	}

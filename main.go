@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -20,11 +19,24 @@ import (
 	"time"
 )
 
-var startTime time.Time
+// String constants
+const (
+	timeFormat     = "2006-01-02 15:04:05.00 MST"
+	startLogFormat = "metarr started at: %s"
+	endLogFormat   = "metarr finished at: %s"
+	elapsedFormat  = "Time elapsed: %.2f seconds"
+)
+
+// Sigs here prevents heap escape
+var (
+	startTime time.Time
+	sigInt    = syscall.SIGINT
+	sigTerm   = syscall.SIGTERM
+)
 
 func init() {
 	startTime = time.Now()
-	logging.I("metarr started at: %v", startTime.Format("2006-01-02 15:04:05.00 MST"))
+	logging.I(startLogFormat, startTime.Format(timeFormat))
 
 	// Benchmarking
 	if cfg.GetBool(keys.Benchmarking) {
@@ -46,20 +58,17 @@ func main() {
 		return // Exit early if not meant to execute
 	}
 
-	// Handle cleanup on interrupt or termination signals
+	// Program elements
 	ctx, cancel := context.WithCancel(context.Background())
-	cfg.Set(keys.Context, ctx)
-
-	// Program control
 	cleanupChan := make(chan os.Signal, 1)
-	signal.Notify(cleanupChan, syscall.SIGINT, syscall.SIGTERM)
-	var wg sync.WaitGroup
+	signal.Notify(cleanupChan, sigInt, sigTerm)
+	wg := new(sync.WaitGroup)
 
 	core := &models.Core{
 		Cleanup: cleanupChan,
 		Cancel:  cancel,
 		Ctx:     ctx,
-		Wg:      &wg,
+		Wg:      wg,
 	}
 
 	if err := fsRead.InitFetchFilesVars(); err != nil {
@@ -77,8 +86,8 @@ func main() {
 	}
 
 	endTime := time.Now()
-	logging.I("metarr finished at: %v", endTime.Format("2006-01-02 15:04:05.00 MST"))
-	logging.I("Time elapsed: %.2f seconds", endTime.Sub(startTime).Seconds())
+	logging.I(endLogFormat, endTime.Format(timeFormat))
+	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
 	fmt.Println()
 }
 
@@ -99,7 +108,7 @@ func setupBenchmarking() {
 	// CPU profile
 	b.cpuFile, err = os.Create("cpu.prof")
 	if err != nil {
-		log.Fatal("could not create CPU profile: ", err)
+		closeBenchFiles(&b, fmt.Sprintf("could not create CPU profile: %v", err))
 	}
 
 	if err := pprof.StartCPUProfile(b.cpuFile); err != nil {
@@ -146,5 +155,6 @@ func closeBenchFiles(b *benchFiles, exitMsg string) {
 		b.traceFile.Close()
 	}
 
-	log.Fatal(exitMsg)
+	logging.E(0, exitMsg)
+	os.Exit(1)
 }

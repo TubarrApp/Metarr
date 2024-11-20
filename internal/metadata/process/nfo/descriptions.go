@@ -3,7 +3,7 @@ package metadata
 import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO
@@ -74,6 +74,6 @@ func fillNFODescriptions(fd *models.FileData) bool {
 		}
 	}
 
-	print.CreateModelPrintout(fd, fd.NFOFilePath, "Parsing NFO descriptions")
+	printout.CreateModelPrintout(fd, fd.NFOFilePath, "Parsing NFO descriptions")
 	return true
 }

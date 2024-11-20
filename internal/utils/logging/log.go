@@ -5,6 +5,7 @@ import (
 	"metarr/internal/domain/regex"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -14,6 +15,7 @@ var (
 	ErrorArray []error
 	Loggable   bool = false
 	Logger     *log.Logger
+	mu         sync.Mutex
 
 	// Matches ANSI escape codes
 	ansiEscape = regex.AnsiEscapeCompile()
@@ -39,7 +41,8 @@ func SetupLogging(targetDir string) error {
 
 // Write writes error information to the log file
 func writeLog(msg string, level int) {
-	// Do not add mutex
+	mu.Lock()
+	defer mu.Unlock()
 	if Loggable && level < 2 {
 		if !strings.HasPrefix(msg, "\n") {
 			msg += "\n"
@@ -52,16 +55,3 @@ func writeLog(msg string, level int) {
 		Logger.Print(ansiEscape.ReplaceAllString(msg, ""))
 	}
 }
-
-// // WriteArray writes an array of error information to the log file
-// func writeLogArray(msgs []string) {
-// 	if Loggable {
-
-// 		if ansiEscape == nil {
-// 			ansiEscape = regex.AnsiEscapeCompile()
-// 		}
-// 		out := strings.Join(msgs, ", ")
-
-// 		Logger.Print(ansiEscape.ReplaceAllString(out, ""))
-// 	}
-// }

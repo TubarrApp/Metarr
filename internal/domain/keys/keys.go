@@ -48,7 +48,6 @@ const (
 
 // Primary program
 const (
-	Context    string = "Context"
 	WaitGroup  string = "WaitGroup"
 	SingleFile string = "SingleFile"
 )

@@ -15,6 +15,7 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/transformations"
 	"metarr/internal/utils/logging"
+	"metarr/internal/utils/printout"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,6 +143,10 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		default:
 			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
 		}
+	}
+
+	if logging.Level > 3 {
+		printout.CreateModelPrintout(fd, fd.OriginalVideoBaseName, "Printing model fields")
 	}
 
 	// Add new filename tag for files

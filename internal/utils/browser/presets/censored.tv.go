@@ -25,7 +25,7 @@ var CensoredTvRules = map[enums.WebClassTags][]models.SelectorRule{
 	},
 }
 
-// censoredTvChannelName gets the channel name from the URL string
+// CensoredTvChannelName gets the channel name from the URL string
 func CensoredTvChannelName(url string) string {
 	if url == "" {
 		logging.E(0, "url passed in empty")

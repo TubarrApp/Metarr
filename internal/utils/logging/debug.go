@@ -7,31 +7,26 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 const (
 	tagBaseLen = 1 + // "["
 		len(consts.ColorBlue) +
 		9 + // "Function: "
-		25 + // thisFunctionIsAnExample()
 		len(consts.ColorReset) +
 		3 + // " - "
 		len(consts.ColorBlue) +
 		5 + // "File: "
-		25 + // a_really_long_filename.go
 		len(consts.ColorReset) +
 		3 + // " : "
 		len(consts.ColorBlue) +
 		5 + // "Line: "
-		6 + // 999:99
 		len(consts.ColorReset) +
 		2 // "]\n"
 )
 
 var (
 	Level int = -1 // Pre initialization is -1
-	mu    sync.Mutex
 )
 
 func E(l int, format string, args ...interface{}) string {
@@ -39,15 +34,13 @@ func E(l int, format string, args ...interface{}) string {
 		return ""
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-
-	pc, file, line, _ := runtime.Caller(1)
+	pc, file, intLine, _ := runtime.Caller(1)
 	file = filepath.Base(file)
 	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
+	line := strconv.Itoa(intLine)
 
 	var b strings.Builder
-	b.Grow(len(consts.RedError) + tagBaseLen + len(format) + (len(args) * 32))
+	b.Grow(len(consts.RedError) + len(format) + (len(args) * 32) + tagBaseLen + len(file) + len(funcName) + len(line))
 
 	b.WriteString(consts.RedError)
 
@@ -58,7 +51,7 @@ func E(l int, format string, args ...interface{}) string {
 		b.WriteString(format)
 	}
 
-	b.WriteRune('[')
+	b.WriteString(" [")
 	b.WriteString(consts.ColorBlue)
 	b.WriteString("Function: ")
 	b.WriteString(consts.ColorReset)
@@ -72,7 +65,7 @@ func E(l int, format string, args ...interface{}) string {
 	b.WriteString(consts.ColorBlue)
 	b.WriteString("Line: ")
 	b.WriteString(consts.ColorReset)
-	b.WriteString(strconv.Itoa(line))
+	b.WriteString(line)
 	b.WriteString("]\n")
 
 	msg := b.String()
@@ -88,11 +81,8 @@ func S(l int, format string, args ...interface{}) string {
 		return ""
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-
 	var b strings.Builder
-	b.Grow(len(consts.GreenSuccess) + len(format) + len(consts.ColorReset) + len(" \n") + (len(args) * 32))
+	b.Grow(len(consts.GreenSuccess) + len(format) + len(consts.ColorReset) + (len(args) * 32) + 1)
 	b.WriteString(consts.GreenSuccess)
 
 	// Write formatted message
@@ -115,15 +105,13 @@ func D(l int, format string, args ...interface{}) string {
 		return ""
 	}
 
-	mu.Lock()
-	defer mu.Unlock()
-
-	pc, file, line, _ := runtime.Caller(1)
+	pc, file, intLine, _ := runtime.Caller(1)
 	file = filepath.Base(file)
 	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
+	line := strconv.Itoa(intLine)
 
 	var b strings.Builder
-	b.Grow(len(consts.YellowDebug) + tagBaseLen + len(format) + (len(args) * 32))
+	b.Grow(len(consts.YellowDebug) + len(format) + (len(args) * 32) + tagBaseLen + len(file) + len(funcName) + len(line))
 	b.WriteString(consts.YellowDebug)
 
 	// Write formatted message
@@ -133,7 +121,7 @@ func D(l int, format string, args ...interface{}) string {
 		b.WriteString(format)
 	}
 
-	b.WriteRune('[')
+	b.WriteString(" [")
 	b.WriteString(consts.ColorBlue)
 	b.WriteString("Function: ")
 	b.WriteString(consts.ColorReset)
@@ -147,7 +135,7 @@ func D(l int, format string, args ...interface{}) string {
 	b.WriteString(consts.ColorBlue)
 	b.WriteString("Line: ")
 	b.WriteString(consts.ColorReset)
-	b.WriteString(strconv.Itoa(line))
+	b.WriteString(line)
 	b.WriteString("]\n")
 
 	msg := b.String()
@@ -160,11 +148,8 @@ func D(l int, format string, args ...interface{}) string {
 
 func I(format string, args ...interface{}) string {
 
-	mu.Lock()
-	defer mu.Unlock()
-
 	var b strings.Builder
-	b.Grow(len(consts.BlueInfo) + len(format) + len(consts.ColorReset) + len(" \n") + (len(args) * 32))
+	b.Grow(len(consts.BlueInfo) + len(format) + len(consts.ColorReset) + (len(args) * 32) + 1)
 	b.WriteString(consts.BlueInfo)
 
 	// Write formatted message
@@ -184,11 +169,8 @@ func I(format string, args ...interface{}) string {
 
 func P(format string, args ...interface{}) string {
 
-	mu.Lock()
-	defer mu.Unlock()
-
 	var b strings.Builder
-	b.Grow(len(format) + len(" \n") + (len(args) * 32))
+	b.Grow(len(format) + (len(args) * 32) + 1)
 
 	// Write formatted message
 	if len(args) != 0 && args != nil {

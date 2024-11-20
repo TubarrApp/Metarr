@@ -4,7 +4,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
-	print "metarr/internal/utils/print"
+	"metarr/internal/utils/printout"
 )
 
 // Grabs details necessary to scrape the web for missing metafields
@@ -28,7 +28,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]interface{}) bool {
 		printMap = make(map[string]string, len(priorityMap))
 		defer func() {
 			if len(printMap) > 0 {
-				print.PrintGrabbedFields("web info", printMap)
+				printout.PrintGrabbedFields("web info", printMap)
 			}
 		}()
 	}
