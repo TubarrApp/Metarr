@@ -11,128 +11,224 @@ import (
 	validate "metarr/internal/utils/validation"
 	"path/filepath"
 	"strings"
+	"sync"
 )
+
+// fileProcessor handles the renaming and moving of files
+type fileProcessor struct {
+	fd         *models.FileData
+	style      enums.ReplaceToStyle
+	skipVideos bool
+}
 
 // FileRename formats the file names
 func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVideos bool) error {
-	var (
-		vidExt,
-		renamedVideo,
-		renamedMeta string
-		deletedMeta bool
-		err         error
-	)
+	var wg sync.WaitGroup
+	conc := cfg.GetInt(keys.Concurrency)
 
-	// Purge or move function
-	purgeOrMove := func(fsWriter *writefs.FSFileWriter, metaPath string) {
+	sem := make(chan struct{}, conc)
+	errChan := make(chan error, len(dataArray))
 
-		if cfg.IsSet(keys.MetaPurge) {
-			if err, deletedMeta = fsWriter.DeleteMetafile(metaPath); err != nil {
-				logging.E(0, "Failed to purge metafile: %v", err)
+	for i := range dataArray {
+		wg.Add(1)
+		go func(fileData *models.FileData) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			fp := &fileProcessor{
+				fd:         fileData,
+				style:      style,
+				skipVideos: skipVideos,
 			}
-		}
 
-		if cfg.IsSet(keys.MoveOnComplete) {
-			if err := fsWriter.MoveFile(deletedMeta); err != nil {
-				logging.E(0, "Failed to move to destination folder: %v", err)
+			if err := fp.process(); err != nil {
+				errChan <- fmt.Errorf("error processing %s: %w", fileData.OriginalVideoBaseName, err)
 			}
-		}
+		}(dataArray[i])
 	}
 
-	// Iterate through data
-	for _, fd := range dataArray {
+	wg.Wait()
+	close(errChan)
 
-		// Should rename and/or move?
-		rename, move := shouldRenameOrMove(fd)
-		if !rename {
+	var errors []error
+	for err := range errChan {
+		errors = append(errors, err)
+	}
 
-			if !move {
-				logging.D(1, "Do not need to rename or move %q", fd.FinalVideoPath)
-				continue
-			}
+	if len(errors) > 0 {
+		return fmt.Errorf("encountered %d errors during rename: %v", len(errors), errors)
+	}
 
-			logging.D(1, "Do not need to rename %q, just moving...", fd.FinalVideoPath)
-			fsWriter := writefs.NewFSFileWriter(skipVideos, fd.FinalVideoPath, fd.OriginalVideoPath, fd.JSONFilePath, fd.JSONFilePath)
-			purgeOrMove(fsWriter, fd.JSONFilePath)
-			continue
-		}
+	return nil
+}
 
-		logging.D(2, "In file renaming loop with %q", fd.OriginalVideoBaseName)
-		metaBase, metaDir, originalMPath := getMetafileData(fd)
-		metaExt := filepath.Ext(originalMPath)
+// process handles the main file transformation processing logic.
+func (fp *fileProcessor) process() error {
 
-		videoBase := fd.FinalVideoBaseName
-		originalVPath := fd.FinalVideoPath
+	rename, move := shouldRenameOrMove(fp.fd)
 
-		// Ensure we have the proper video extension
-		if cfg.IsSet(keys.OutputFiletype) {
-			vidExt = validate.ValidateExtension(cfg.GetString(keys.OutputFiletype))
-			if vidExt == "" {
-				vidExt = filepath.Ext(originalVPath)
-			}
-		} else {
-			vidExt = filepath.Ext(originalVPath)
-		}
+	if !rename && !move {
+		logging.D(1, "Do not need to rename or move %q", fp.fd.FinalVideoPath)
+		return nil
+	}
 
-		if !skipVideos {
-			renamedVideo = renameFile(videoBase, style, fd)
-			renamedMeta = renamedVideo // Use video name as base to ensure best filename consistency
-			logging.D(2, "Renamed video to %q with extension %q", renamedVideo, vidExt)
-		} else {
-			renamedMeta = renameFile(metaBase, style, fd)
-			logging.D(3, "Renamed meta now %q", renamedMeta)
-		}
-
-		var err error
-		if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, style); err != nil {
-			return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
-		}
-
-		// Add the metatag to the front of the filenames
-		renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fd, style)
-
-		// Trim trailing spaces
-		renamedVideo = strings.TrimSpace(renamedVideo)
-		renamedMeta = strings.TrimSpace(renamedMeta)
-
-		logging.D(2, "Rename replacements:\nVideo: %v\nMetafile: %v", renamedVideo, renamedMeta)
-
-		// Construct final output filepaths - ensure video gets its extension
-		renamedVPath := filepath.Join(fd.VideoDirectory, renamedVideo+vidExt) // Add extension here
-		renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
-
-		// Log the complete paths to verify extension
-		logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
-
-		// Save into model
-		if !filepath.IsAbs(fd.RenamedVideoPath) {
-			fd.RenamedVideoPath, err = filepath.Abs(renamedVPath)
-			if err != nil {
-				return err
-			}
-		}
-
-		if !filepath.IsAbs(fd.RenamedMetaPath) {
-			fd.RenamedMetaPath, err = filepath.Abs(renamedMPath)
-			if err != nil {
-				return err
-			}
-		}
-
-		fsWriter := writefs.NewFSFileWriter(skipVideos, renamedVPath, originalVPath, renamedMPath, originalMPath)
-
-		logging.I("Writing final file transformations to filesystem...")
-		if err := fsWriter.WriteResults(); err != nil {
+	if !rename {
+		logging.D(1, "Do not need to rename %q, just moving...", fp.fd.FinalVideoPath)
+		if err := fp.writeResult(); err != nil {
 			return err
 		}
 
-		purgeOrMove(fsWriter, renamedMPath)
+		return nil
+	}
+
+	// Handle renaming
+	if err := fp.handleRenaming(); err != nil {
+		return err
+	}
+
+	// Write changes and handle final operations
+	logging.I("Writing final file transformations to filesystem...")
+	if err := fp.writeResult(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// writeResult handles the purge and move operations.
+func (fp *fileProcessor) writeResult() error {
+
+	var (
+		err         error
+		deletedMeta bool
+	)
+	fsWriter := writefs.NewFSFileWriter(fp.fd, fp.skipVideos)
+
+	if err := fsWriter.WriteResults(); err != nil {
+		return err
+	}
+
+	if cfg.IsSet(keys.MetaPurge) {
+		if err, deletedMeta = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
+			return fmt.Errorf("failed to purge metafile: %v", err)
+		}
+	}
+
+	if cfg.IsSet(keys.MoveOnComplete) {
+		if err := fsWriter.MoveFile(deletedMeta); err != nil {
+			return fmt.Errorf("failed to move to destination folder: %v", err)
+		}
 	}
 	return nil
 }
 
-// Performs name transformations for metafiles
-func renameFile(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
+// handleRenaming processes the renaming operations.
+func (fp *fileProcessor) handleRenaming() error {
+	metaBase, metaDir, originalMPath := getMetafileData(fp.fd)
+	videoBase := fp.fd.FinalVideoBaseName
+	originalVPath := fp.fd.FinalVideoPath
+
+	// Get ext
+	vidExt := fp.determineVideoExtension(originalVPath)
+
+	// Rename
+	renamedVideo, renamedMeta := fp.processRenames(videoBase, metaBase)
+
+	// Fix contractions
+	var err error
+	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.style); err != nil {
+		return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
+	}
+
+	// Add tags and trim
+	renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fp.fd, fp.style)
+	renamedVideo = strings.TrimSpace(renamedVideo)
+	renamedMeta = strings.TrimSpace(renamedMeta)
+
+	logging.D(2, "Rename replacements:\nVideo: %v\nMetafile: %v", renamedVideo, renamedMeta)
+
+	// Construct and validate final paths
+	if err := fp.constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, filepath.Ext(originalMPath)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// determineVideoExtension gets the appropriate video extension.
+func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
+	if !cfg.IsSet(keys.OutputFiletype) {
+		return filepath.Ext(originalPath)
+	}
+
+	vidExt := validate.ValidateExtension(cfg.GetString(keys.OutputFiletype))
+	if vidExt == "" {
+		vidExt = filepath.Ext(originalPath)
+	}
+	return vidExt
+}
+
+// processRenames handles the renaming logic for both video and meta files.
+func (fp *fileProcessor) processRenames(videoBase, metaBase string) (string, string) {
+	var renamedVideo, renamedMeta string
+
+	if !fp.skipVideos {
+		renamedVideo = constructNewNames(videoBase, fp.style, fp.fd)
+		renamedMeta = renamedVideo // Video name as meta base (if possible) for better consistency
+		logging.D(2, "Renamed video to %q", renamedVideo)
+	} else {
+		renamedMeta = constructNewNames(metaBase, fp.style, fp.fd)
+		logging.D(3, "Renamed meta now %q", renamedMeta)
+	}
+
+	return renamedVideo, renamedMeta
+}
+
+// constructFinalPaths creates and validates the final file paths.
+func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, metaExt string) error {
+
+	renamedVPath := filepath.Join(fp.fd.VideoDirectory, renamedVideo+vidExt)
+	renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
+
+	logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
+
+	var err error
+	if !filepath.IsAbs(renamedVPath) {
+		fp.fd.RenamedVideoPath, err = filepath.Abs(renamedVPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !filepath.IsAbs(fp.fd.FinalVideoPath) {
+		fp.fd.FinalVideoPath, err = filepath.Abs(fp.fd.FinalVideoPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !filepath.IsAbs(renamedMPath) {
+		fp.fd.RenamedMetaPath, err = filepath.Abs(renamedMPath)
+		if err != nil {
+			return err
+		}
+	}
+
+	if !filepath.IsAbs(fp.fd.JSONFilePath) {
+		fp.fd.JSONFilePath, err = filepath.Abs(fp.fd.JSONFilePath)
+		if err != nil {
+			return err
+		}
+	}
+
+	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedMetaPath, fp.fd.RenamedVideoPath)
+
+	return nil
+}
+
+// constructNewNames constructs the new file names.
+func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.D(2, "Processing metafile base name: %q", fileBase)
 
 	var (

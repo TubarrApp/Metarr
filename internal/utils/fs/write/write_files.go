@@ -6,6 +6,8 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
@@ -14,6 +16,7 @@ import (
 )
 
 type FSFileWriter struct {
+	Fd        *models.FileData
 	SkipVids  bool
 	DestVideo string
 	SrcVideo  string
@@ -22,7 +25,12 @@ type FSFileWriter struct {
 	muFs      sync.RWMutex
 }
 
-func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta string) *FSFileWriter {
+func NewFSFileWriter(fd *models.FileData, skipVids bool) *FSFileWriter {
+
+	srcVideo := fd.FinalVideoPath
+	destVideo := fd.RenamedVideoPath
+	srcMeta := fd.JSONFilePath
+	destMeta := fd.RenamedMetaPath
 
 	if logging.Level > 1 {
 		differ := 0
@@ -38,6 +46,7 @@ func NewFSFileWriter(skipVids bool, destVideo, srcVideo, destMeta, srcMeta strin
 	}
 
 	return &FSFileWriter{
+		Fd:        fd,
 		SkipVids:  skipVids,
 		DestVideo: destVideo,
 		SrcVideo:  srcVideo,
@@ -57,6 +66,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
 		}
+		logging.S(0, "Successfully renamed %q to %q", fs.SrcVideo, fs.DestVideo)
 	}
 
 	// Rename meta file
@@ -65,6 +75,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
 			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
 		}
+		logging.S(0, "Successfully renamed %q to %q", fs.SrcMeta, fs.DestMeta)
 	}
 
 	return nil
@@ -83,8 +94,13 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return fmt.Errorf("video and metafile source strings both empty")
 	}
 
-	dst := cfg.GetString(keys.MoveOnComplete)
-	dst = filepath.Clean(dst)
+	dstIn := cfg.GetString(keys.MoveOnComplete)
+
+	prs := parsing.NewDirectoryParser(fs.Fd)
+	dst, err := prs.ParseDirectory(dstIn)
+	if err != nil {
+		return err
+	}
 
 	if _, err := os.Stat(dst); os.IsNotExist(err) {
 		if err := os.MkdirAll(dst, 0o755); err != nil {
@@ -94,6 +110,9 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 
 	// Move/copy video and metadata file
 	if !fs.SkipVids {
+
+		logging.I("Moving file from %s to %s", fs.SrcVideo, fs.DestVideo)
+
 		if fs.DestVideo != "" {
 			destVBase := filepath.Base(fs.DestVideo)
 			destVTarget := filepath.Join(dst, destVBase)
@@ -104,6 +123,9 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	}
 
 	if !noMeta {
+
+		logging.I("Moving file from %s to %s", fs.SrcMeta, fs.DestMeta)
+
 		if fs.DestMeta != "" {
 			destMBase := filepath.Base(fs.DestMeta)
 			destMTarget := filepath.Join(dst, destMBase)
