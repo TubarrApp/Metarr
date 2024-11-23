@@ -4,20 +4,21 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/cfg"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
-	reader "metarr/internal/metadata/reader"
+	metaReader "metarr/internal/metadata/reader"
 	"metarr/internal/models"
-	"metarr/internal/transformations"
-	read "metarr/internal/utils/fs/read"
+	fsRead "metarr/internal/utils/fs/read"
 	"metarr/internal/utils/logging"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
+)
+
+const (
+	typeVideo = "video"
+	typeMeta  = "metadata"
 )
 
 var (
@@ -27,7 +28,6 @@ var (
 	processedVideoFiles int32
 
 	failedVideos []failedVideo
-	muPrint      sync.Mutex
 )
 
 type failedVideo struct {
@@ -38,36 +38,119 @@ type failedVideo struct {
 // processFiles is the main program function to process folder entries
 func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
 
-	//
 	cancel := core.Cancel
 	cleanupChan := core.Cleanup
 	ctx := core.Ctx
 	wg := core.Wg
 
-	// Reset counts
-	atomic.StoreInt32(&totalMetaFiles, 0)
-	atomic.StoreInt32(&totalVideoFiles, 0)
-	atomic.StoreInt32(&processedMetaFiles, 0)
-	atomic.StoreInt32(&processedVideoFiles, 0)
+	// Reset counts and get skip video bool
+	skipVideos := prepNewBatch(batch.SkipVideos)
+
+	// Match and video file maps, and meta file count
+	matchedFiles, videoMap, metaCount := getFiles(batch, openMeta, openVideo, skipVideos)
+
+	atomic.StoreInt32(&totalMetaFiles, int32(metaCount))
+	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
+
+	logging.I("Found %d file(s) to process", totalMetaFiles+totalVideoFiles)
+	logging.D(3, "Matched metafiles: %v", matchedFiles)
 
 	var (
-		videoMap,
-		metaMap,
-		matchedFiles map[string]*models.FileData
-
-		err        error
-		skipVideos bool
+		muProcessed sync.Mutex
+		muFailed    sync.Mutex
 	)
 
-	if cfg.IsSet(keys.SkipVideos) {
-		skipVideos = cfg.GetBool(keys.SkipVideos)
-	} else {
-		skipVideos = batch.SkipVideos
+	processMetadataFiles(ctx, matchedFiles, &muFailed)
+
+	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
+	processedModels := make([]*models.FileData, 0, len(matchedFiles))
+
+	setupCleanup(cleanupChan, cancel, wg, videoMap, &muFailed)
+
+	if !skipVideos {
+		for name, data := range matchedFiles {
+			wg.Add(1)
+			go func(filename string, fileData *models.FileData) {
+				defer wg.Done()
+
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				rtn, err := executeFile(ctx, filename, fileData)
+				if err != nil {
+					logging.E(0, "error executing file %q: %v", filename, err)
+					return
+				}
+
+				muProcessed.Lock()
+				processedModels = append(processedModels, rtn)
+				muProcessed.Unlock()
+
+			}(name, data)
+		}
+		wg.Wait()
 	}
+
+	err := cleanupTempFiles(videoMap)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.E(0, "Failed to cleanup temp files: %v", err)
+	}
+
+	directory := renameFiles(openVideo.Name(), openMeta.Name(), processedModels, skipVideos)
+
+	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
+		logging.S(0, "Successfully processed all files in directory %q with no errors.", directory)
+		fmt.Println()
+		return
+	}
+
+	if logging.ErrorArray != nil {
+		logFailedVideos()
+	}
+}
+
+// processMetadataFiles processes metafiles such as .json, .nfo, and so on.
+func processMetadataFiles(ctx context.Context, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) error {
+	for _, fd := range matchedFiles {
+		var err error
+		switch fd.MetaFileType {
+		case enums.METAFILE_JSON:
+			logging.D(3, "File: %s: Meta file type in model as %v", fd.JSONFilePath, fd.MetaFileType)
+			_, err = metaReader.ProcessJSONFile(ctx, fd)
+		case enums.METAFILE_NFO:
+			logging.D(3, "File: %s: Meta file type in model as %v", fd.NFOFilePath, fd.MetaFileType)
+			_, err = metaReader.ProcessNFOFiles(fd)
+		}
+
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			errMsg := fmt.Errorf("error processing metadata for file %q: %w", fd.OriginalVideoPath, err)
+			logging.E(0, errMsg.Error())
+
+			muFailed.Lock()
+			failedVideos = append(failedVideos, failedVideo{
+				filename: fd.OriginalVideoPath,
+				err:      errMsg.Error(),
+			})
+			muFailed.Unlock()
+		}
+	}
+	return nil
+}
+
+// getFiles returns a map of matched video/metadata files.
+func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool) (matched, videos map[string]*models.FileData, metaCount int) {
+	var (
+		videoMap,
+		metaMap map[string]*models.FileData
+
+		err error
+	)
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = read.GetMetadataFiles(openMeta)
+		metaMap, err = fsRead.GetMetadataFiles(openMeta)
 		if err != nil {
 			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
@@ -77,7 +160,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 
 		if !skipVideos {
-			videoMap, err = read.GetVideoFiles(openVideo)
+			videoMap, err = fsRead.GetVideoFiles(openVideo)
 			if err != nil {
 				failedVideos = append(failedVideos, failedVideo{
 					filename: openVideo.Name(),
@@ -89,7 +172,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 	// Batch is a file request...
 	if !batch.IsDirs {
-		metaMap, err = read.GetSingleMetadataFile(openMeta)
+		metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
 		if err != nil {
 			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
@@ -99,7 +182,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 
 		if !skipVideos {
-			videoMap, err = read.GetSingleVideoFile(openVideo)
+			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 			if err != nil {
 				failedVideos = append(failedVideos, failedVideo{
 					filename: openVideo.Name(),
@@ -109,9 +192,10 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 	}
 
+	var matchedFiles map[string]*models.FileData
 	// Match video and metadata files
 	if !skipVideos {
-		matchedFiles, err = read.MatchVideoWithMetadata(videoMap, metaMap)
+		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.IsDirs)
 		if err != nil {
 			logging.E(0, "Error matching videos with metadata: %v", err)
 			os.Exit(1)
@@ -119,237 +203,78 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	} else {
 		matchedFiles = metaMap
 	}
-
-	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
-	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
-
-	logging.I("Found %d file(s) to process", totalMetaFiles+totalVideoFiles)
-	logging.D(3, "Matched metafiles: %v", matchedFiles)
-
-	for _, fileData := range matchedFiles {
-		var (
-			err error
-		)
-
-		switch fileData.MetaFileType {
-		case enums.METAFILE_JSON:
-			logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-			_, err = reader.ProcessJSONFile(ctx, fileData)
-
-		case enums.METAFILE_NFO:
-			logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
-			_, err = reader.ProcessNFOFiles(fileData)
-		}
-
-		// Handle errors from meta processing above
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			errMsg := fmt.Errorf("error processing metadata for file %q: %w", fileData.OriginalVideoPath, err)
-			logging.E(0, errMsg.Error())
-
-			failedVideos = append(failedVideos, failedVideo{
-				filename: fileData.OriginalVideoPath,
-				err:      errMsg.Error(),
-			})
-			continue
-		}
-	}
-
-	// Goroutine to handle signals and cleanup
-	go func() {
-		<-cleanupChan
-
-		fmt.Println("\nSignal received, cleaning up temporary files...")
-		cancel()
-
-		err = cleanupTempFiles(videoMap)
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			logging.E(0, "Failed to cleanup temp files: %v", err)
-		}
-		logging.I("Process was interrupted by a syscall")
-
-		if len(failedVideos) > 0 {
-
-			logging.P("%s Failed videos:", consts.RedError)
-			for _, failed := range failedVideos {
-				fmt.Println()
-				logging.P("Filename: %v", failed.filename)
-				logging.P("Error: %v", failed.err)
-			}
-			fmt.Println()
-		}
-
-		wg.Wait()
-		os.Exit(0)
-	}()
-
-	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
-	var processedModels []*models.FileData
-
-	if !skipVideos {
-		for fileName, fileData := range matchedFiles {
-			rtn, err := executeFile(ctx, wg, sem, fileName, fileData)
-			if err != nil {
-				logging.E(0, err.Error())
-				continue
-			}
-			processedModels = append(processedModels, rtn)
-		}
-	}
-
-	wg.Wait()
-
-	err = cleanupTempFiles(videoMap)
-	if err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.E(0, "Failed to cleanup temp files: %v", err)
-	}
-
-	var (
-		replaceToStyle enums.ReplaceToStyle
-		ok             bool
-	)
-
-	if cfg.IsSet(keys.Rename) {
-		if replaceToStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
-			logging.E(0, "Received wrong type for rename style. Got %T", replaceToStyle)
-		} else {
-			logging.D(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
-		}
-	}
-
-	// Get directory string
-	var (
-		inputVideoDir, inputJsonDir, directory string
-	)
-
-	inputJsonDir, _ = filepath.Abs(openMeta.Name())
-	inputJsonDir = strings.TrimSuffix(inputJsonDir, openMeta.Name())
-
-	if !skipVideos {
-		inputVideoDir, _ = filepath.Abs(openVideo.Name())
-		inputVideoDir = strings.TrimSuffix(inputVideoDir, openMeta.Name())
-	}
-
-	switch {
-	case inputJsonDir != "":
-		directory = inputJsonDir
-	case inputVideoDir != "":
-		directory = inputVideoDir
-	default:
-		logging.E(0, "Not renaming file, no directory detected for this batch.")
-		logging.ErrorArray = append(logging.ErrorArray, fmt.Errorf("not renaming files in batch, both input JSON and input video directories could not be discerned"))
-		return
-	}
-
-	err = transformations.FileRename(processedModels, replaceToStyle, skipVideos)
-	if err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.E(0, "Failed to rename files: %v", err)
-	} else {
-		logging.S(0, "Successfully formatted file names in directory: %s", directory)
-	}
-
-	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
-		logging.S(0, "Successfully processed all files in directory %q with no errors.", directory)
-	} else if logging.ErrorArray != nil {
-		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
-
-		for _, failed := range failedVideos {
-			fmt.Println()
-			logging.P("Filename: %v", failed.filename)
-			logging.P("Error: %v", failed.err)
-		}
-	}
-	fmt.Println()
+	return matchedFiles, videoMap, len(metaMap)
 }
 
 // processFile handles processing for both video and metadata files
-func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, filename string, fileData *models.FileData) (*models.FileData, error) {
+func executeFile(ctx context.Context, filename string, fd *models.FileData) (*models.FileData, error) {
 
-	resultChan := make(chan *models.FileData, 1)
-	errChan := make(chan error, 1)
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("did not process %q due to program cancellation", filename)
+	default:
+	}
 
-	wg.Add(1)
-	go func(filename string, fileData *models.FileData) {
-		defer wg.Done()
-		defer close(resultChan)
-		defer close(errChan)
+	var muPrint sync.Mutex
 
-		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
-		total := atomic.LoadInt32(&totalMetaFiles)
+	// Print progress for metadata
+	currentMeta := atomic.AddInt32(&processedMetaFiles, 1)
+	totalMeta := atomic.LoadInt32(&totalMetaFiles)
+	printProgress(typeMeta, currentMeta, totalMeta, fd.JSONDirectory, &muPrint)
 
-		muPrint.Lock()
-		fmt.Printf("\n==============================================================\n")
-		fmt.Printf("    Processed metafile %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining in %q: %d\n", fileData.JSONDirectory, total-currentFile)
-		fmt.Printf("==============================================================\n\n")
-		muPrint.Unlock()
+	// System resource check
+	sysResourceLoop(filename)
 
-		sem <- struct{}{}
-		defer func() {
-			<-sem
-		}()
+	// Process file based on type
+	skipVideos := cfg.GetBool(keys.SkipVideos)
+	isVideoFile := fd.OriginalVideoPath != ""
 
-		select {
-		case <-ctx.Done():
-			errChan <- fmt.Errorf("did not process %q due to program cancellation", filename)
-			resultChan <- nil
-			return
-		default:
-		}
-
-		sysResourceLoop(filename)
-
-		skipVideos := cfg.GetBool(keys.SkipVideos)
-		isVideoFile := fileData.OriginalVideoPath != ""
-
-		if isVideoFile {
-			logging.I("Processing file: %s", filename)
-		} else {
-			logging.I("Processing metadata file: %s", filename)
-		}
-
-		switch {
-		case isVideoFile && !skipVideos:
-			err := ffmpeg.ExecuteVideo(ctx, fileData)
-			if err != nil {
-				logging.ErrorArray = append(logging.ErrorArray, err)
+	if isVideoFile {
+		logging.I("Processing file: %s", filename)
+		if !skipVideos {
+			if err := ffmpeg.ExecuteVideo(ctx, fd); err != nil {
 				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
+				logging.ErrorArray = append(logging.ErrorArray, errMsg)
 				logging.E(0, errMsg.Error())
 
 				failedVideos = append(failedVideos, failedVideo{
 					filename: filename,
 					err:      errMsg.Error(),
 				})
-			} else {
-				logging.S(0, "Successfully processed video %s", filename)
+				return nil, errMsg
 			}
-		default:
-			logging.S(0, "Successfully processed metadata for %s", filename)
+			logging.S(0, "Successfully processed video %s", filename)
+		}
+	} else {
+		logging.I("Processing metadata file: %s", filename)
+		logging.S(0, "Successfully processed metadata for %s", filename)
+	}
+
+	// Print progress for video
+	currentVideo := atomic.AddInt32(&processedVideoFiles, 1)
+	totalVideo := atomic.LoadInt32(&totalVideoFiles)
+	printProgress(typeVideo, currentVideo, totalVideo, fd.JSONDirectory, &muPrint)
+
+	return fd, nil
+}
+
+// setupCleanup creates a cleanup routine for file processing.
+func setupCleanup(cleanupChan chan os.Signal, cancel context.CancelFunc, wg *sync.WaitGroup, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
+	go func() {
+		<-cleanupChan
+		fmt.Println("\nSignal received, cleaning up temporary files...")
+		cancel()
+		wg.Wait()
+
+		if err := cleanupTempFiles(videoMap); err != nil {
+			logging.E(0, "Failed to cleanup temp files: %v", err)
 		}
 
-		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
-		total = atomic.LoadInt32(&totalVideoFiles)
+		muFailed.Lock()
+		logFailedVideos()
+		muFailed.Unlock()
 
-		muPrint.Lock()
-		fmt.Printf("\n==============================================================\n")
-		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining in %q: %d\n", fileData.JSONDirectory, total-currentFile)
-		fmt.Printf("==============================================================\n\n")
-		muPrint.Unlock()
-
-		resultChan <- fileData
-		errChan <- nil
-
-	}(filename, fileData)
-
-	select {
-	case result := <-resultChan:
-		err := <-errChan
-		return result, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
+		os.Exit(0)
+	}()
 }

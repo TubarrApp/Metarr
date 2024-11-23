@@ -16,6 +16,11 @@ import (
 	"github.com/gocolly/colly"
 )
 
+const (
+	maxRetries = 3
+	retryDelay = 5 * time.Second
+)
+
 // scrapeMeta gets cookies for a given URL and returns a grabbed string
 func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
@@ -39,8 +44,32 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 	return data
 }
 
-// scrape searches relevant URLs to try and fill missing metadata
+// scrape handles scrape attempts.
 func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPresets bool) (string, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		result, err := attemptScrape(url, cookies, tag, skipPresets)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		logging.E(0, "Scrape attempt %d/%d failed for %s: %v",
+			attempt, maxRetries, url, err)
+
+		if attempt < maxRetries {
+			logging.I("Waiting %v before retry...", retryDelay)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return "", fmt.Errorf("all %d scrape attempts failed for %s: %w",
+		maxRetries, url, lastErr)
+}
+
+// attemptScrape searches relevant URLs to try and fill missing metadata.
+func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPresets bool) (string, error) {
 
 	var (
 		result      string

@@ -3,11 +3,15 @@ package processing
 import (
 	"fmt"
 	"metarr/internal/cfg"
+	"metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
+	"metarr/internal/transformations"
 	logging "metarr/internal/utils/logging"
 	"os"
+	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -17,6 +21,49 @@ import (
 var (
 	muResource sync.Mutex
 )
+
+// renameFiles performs renaming operations.
+func renameFiles(videoPath, metaPath string, processed []*models.FileData, skipVideos bool) string {
+
+	var (
+		replaceStyle                           enums.ReplaceToStyle
+		ok                                     bool
+		inputVideoDir, inputJsonDir, directory string
+	)
+
+	if cfg.IsSet(keys.Rename) {
+		if replaceStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
+			logging.E(0, "Received wrong type for rename style. Got %T", replaceStyle)
+		} else {
+			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
+		}
+	}
+
+	inputJsonDir = filepath.Dir(metaPath)
+	if !skipVideos {
+		inputVideoDir = filepath.Dir(videoPath)
+	}
+
+	switch {
+	case inputJsonDir != "":
+		directory = inputJsonDir
+	case inputVideoDir != "":
+		directory = inputVideoDir
+	default:
+		logging.E(0, "Not renaming file, no directory detected for this batch.")
+		logging.ErrorArray = append(logging.ErrorArray, fmt.Errorf("not renaming files in batch, both input JSON and input video directories could not be discerned"))
+		return ""
+	}
+
+	err := transformations.FileRename(processed, replaceStyle, skipVideos)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.E(0, "Failed to rename files: %v", err)
+	} else {
+		logging.S(0, "Successfully formatted file names in directory: %s", directory)
+	}
+	return directory
+}
 
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
@@ -101,4 +148,44 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 		}
 	}
 	return errReturn
+}
+
+// printProgress creates a printout of the current process completion status.
+func printProgress(fileType string, current, total int32, directory string, muPrint *sync.Mutex) {
+	muPrint.Lock()
+	defer muPrint.Unlock()
+
+	fmt.Printf("\n==============================================================\n")
+	fmt.Printf("    Processed %s file %d of %d\n", fileType, current, total)
+	fmt.Printf("    Remaining in %q: %d\n", directory, total-current)
+	fmt.Printf("==============================================================\n\n")
+}
+
+// resetCounters resets the file counter per batch operation.
+func prepNewBatch(modelSkipVideos bool) (skipVideos bool) {
+
+	atomic.StoreInt32(&totalMetaFiles, 0)
+	atomic.StoreInt32(&totalVideoFiles, 0)
+	atomic.StoreInt32(&processedMetaFiles, 0)
+	atomic.StoreInt32(&processedVideoFiles, 0)
+
+	if cfg.IsSet(keys.SkipVideos) {
+		skipVideos = cfg.GetBool(keys.SkipVideos)
+	} else {
+		skipVideos = modelSkipVideos
+	}
+	return skipVideos
+}
+
+// logFailedVideos logs videos which failed during this batch.
+func logFailedVideos() {
+	for i, failed := range failedVideos {
+		if i == 0 {
+			logging.E(0, "Program finished, but some errors were encountered:")
+		}
+		fmt.Println()
+		logging.P("Filename: %v", failed.filename)
+		logging.P("Error: %v", failed.err)
+	}
+	fmt.Println()
 }

@@ -122,10 +122,14 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
-func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
+func fixContractions(videoBase, metaBase string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
 
-	contractionsMap := make(map[string]models.ContractionPattern)
-	// Rename style map to use
+	if videoBase == "" || metaBase == "" {
+		return videoBase, metaBase, fmt.Errorf("empty input strings")
+	}
+
+	var contractionsMap map[string]models.ContractionPattern
+
 	switch style {
 
 	case enums.RENAMING_SPACES:
@@ -138,13 +142,13 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 		contractionsMap = regex.ContractionMapAllCompile()
 
 	default:
-		return videoFilename, metaFilename, nil
+		return videoBase, metaBase, nil
 	}
 
-	videoFilename = replaceLoneS(videoFilename, style)
-	metaFilename = replaceLoneS(metaFilename, style)
+	videoBase = replaceLoneS(videoBase, style)
+	metaBase = replaceLoneS(metaBase, style)
 
-	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoFilename, metaFilename)
+	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoBase, metaBase)
 
 	// Function to replace contractions in a filename
 	replaceContractions := func(filename string) string {
@@ -177,10 +181,10 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 	}
 
 	// Replace contractions in both filenames
-	videoFilename = strings.TrimSpace(videoFilename)
-	metaFilename = strings.TrimSpace(metaFilename)
-	return replaceContractions(videoFilename),
-		replaceContractions(metaFilename),
+	videoBase = strings.TrimSpace(videoBase)
+	metaBase = strings.TrimSpace(metaBase)
+	return replaceContractions(videoBase),
+		replaceContractions(metaBase),
 		nil
 }
 

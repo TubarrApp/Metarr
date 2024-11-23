@@ -22,7 +22,7 @@ var (
 	metaExtensions map[string]bool
 )
 
-// InitFetchFilesVars sets up the cached variables to be used in file fetching ops
+// InitFetchFilesVars sets up the cached variables to be used in file fetching ops.
 func InitFetchFilesVars() (err error) {
 
 	// Handle video extension input
@@ -52,7 +52,7 @@ func InitFetchFilesVars() (err error) {
 	return nil
 }
 
-// GetVideoFiles fetches video files from a directory
+// GetVideoFiles fetches video files from a directory.
 func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
 	if err != nil {
@@ -95,7 +95,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	return videoFiles, nil
 }
 
-// GetMetadataFiles fetches metadata files from a directory
+// GetMetadataFiles fetches metadata files from a directory.
 func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	files, err := metaDir.ReadDir(-1)
 	if err != nil {
@@ -169,7 +169,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	return metaFiles, nil
 }
 
-// GetSingleVideoFile handles a single video file
+// GetSingleVideoFile handles a single video file.
 func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error) {
 	videoMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(videoFile.Name())
@@ -186,7 +186,7 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error)
 	return videoMap, nil
 }
 
-// GetSingleMetadataFile handles a single metadata file
+// GetSingleMetadataFile handles a single metadata file.
 func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, error) {
 	metaMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(metaFile.Name())
@@ -220,7 +220,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
-func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, isDirs bool) (map[string]*models.FileData, error) {
 	logging.D(3, "Entering metadata and video file matching loop...")
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
@@ -235,24 +235,24 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (
 		metaLookup[baseKey] = metaData
 	}
 
-	for videoName := range videoFiles {
-		videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
+	for filename := range videoFiles {
+		videoBase := strings.TrimSuffix(filename, filepath.Ext(filename))
 		normalizedVideoBase := NormalizeFilename(videoBase, specialChars, extraSpaces)
 
 		if metaData, exists := metaLookup[normalizedVideoBase]; exists { // This checks if the key exists in the metaLookup map
-			matchedFiles[videoName] = videoFiles[videoName]
-			matchedFiles[videoName].MetaFileType = metaData.MetaFileType
+			matchedFiles[filename] = videoFiles[filename]
+			matchedFiles[filename].MetaFileType = metaData.MetaFileType
 
 			switch metaData.MetaFileType {
 			case enums.METAFILE_JSON:
-				matchedFiles[videoName].JSONFilePath = metaData.JSONFilePath
-				matchedFiles[videoName].JSONBaseName = metaData.JSONBaseName
-				matchedFiles[videoName].JSONDirectory = metaData.JSONDirectory
+				matchedFiles[filename].JSONFilePath = metaData.JSONFilePath
+				matchedFiles[filename].JSONBaseName = metaData.JSONBaseName
+				matchedFiles[filename].JSONDirectory = metaData.JSONDirectory
 
 			case enums.METAFILE_NFO:
-				matchedFiles[videoName].NFOFilePath = metaData.NFOFilePath
-				matchedFiles[videoName].NFOBaseName = metaData.NFOBaseName
-				matchedFiles[videoName].NFODirectory = metaData.NFODirectory
+				matchedFiles[filename].NFOFilePath = metaData.NFOFilePath
+				matchedFiles[filename].NFOBaseName = metaData.NFOBaseName
+				matchedFiles[filename].NFODirectory = metaData.NFODirectory
 			}
 		}
 	}
