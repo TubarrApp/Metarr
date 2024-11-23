@@ -43,6 +43,7 @@ func SetupLogging(targetDir string) error {
 func writeLog(msg string, level int) {
 	mu.Lock()
 	defer mu.Unlock()
+
 	if Loggable && level < 2 {
 		if !strings.HasPrefix(msg, "\n") {
 			msg += "\n"
