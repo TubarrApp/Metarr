@@ -104,7 +104,7 @@ func (fp *fileProcessor) writeResult() error {
 		deletedMeta bool
 	)
 
-	fsWriter, err := writefs.NewFSFileWriter(fp.fd.FinalVideoPath, fp.fd.RenamedVideoPath, fp.fd.JSONFilePath, fp.fd.RenamedMetaPath, fp.skipVideos)
+	fsWriter, err := writefs.NewFSFileWriter(fp.fd, fp.skipVideos)
 	if err != nil {
 		return err
 	}

@@ -98,6 +98,10 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 // replace makes template replacements in the directory string.
 func (dp *Directory) replace(tag string) (string, error) {
 
+	if dp.FD == nil {
+		return "", fmt.Errorf("null FileData model")
+	}
+
 	d := dp.FD.MDates
 	c := dp.FD.MCredits
 	w := dp.FD.MWebData

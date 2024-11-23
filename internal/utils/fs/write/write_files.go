@@ -25,7 +25,12 @@ type FSFileWriter struct {
 	muFs      sync.RWMutex
 }
 
-func NewFSFileWriter(srcV, dstV, srcM, dstM string, skipVids bool) (*FSFileWriter, error) {
+func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) {
+
+	srcV := fd.FinalVideoPath
+	dstV := fd.RenamedVideoPath
+	srcM := fd.JSONFilePath
+	dstM := fd.RenamedMetaPath
 
 	if !skipVids {
 		if srcV == "" && dstV == "" {
@@ -51,6 +56,7 @@ func NewFSFileWriter(srcV, dstV, srcM, dstM string, skipVids bool) (*FSFileWrite
 	}
 
 	return &FSFileWriter{
+		Fd:        fd,
 		SkipVids:  skipVids,
 		DestVideo: dstV,
 		SrcVideo:  srcV,
@@ -123,6 +129,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 			if err := moveOrCopyFile(fs.DestVideo, destVTarget); err != nil {
 				return fmt.Errorf("failed to move video file: %w", err)
 			}
+			logging.S(0, "Moved %q to %q", fs.DestVideo, destVTarget)
 		}
 	}
 
@@ -136,6 +143,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 			if err := moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
 				return fmt.Errorf("failed to move metadata file: %w", err)
 			}
+			logging.S(0, "Moved %q to %q", fs.DestMeta, destMTarget)
 		}
 	}
 	return nil
