@@ -12,7 +12,7 @@ import (
 )
 
 // fillTimestamps grabs timestamp metadata from JSON
-func FillTimestamps(fd *models.FileData, json map[string]interface{}) bool {
+func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 
 	t := fd.MDates
 	w := fd.MWebData

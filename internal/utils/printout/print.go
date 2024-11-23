@@ -14,7 +14,12 @@ var muPrint sync.Mutex
 
 // CreateModelPrintout prints out the values stored in a struct.
 // taskName allows you to enter your own identifier for this task.
-func CreateModelPrintout(model any, filename, taskName string, args ...interface{}) {
+func CreateModelPrintout(model any, filename, taskName string, args ...any) {
+	if model == nil {
+		logging.E(0, "Model entered nil for taskname %q", taskName)
+		return
+	}
+
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
@@ -97,7 +102,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...interface
 }
 
 // Function to print the fields of a struct using reflection
-func printStructFields(s interface{}) string {
+func printStructFields(s any) string {
 	val := reflect.ValueOf(s)
 
 	// Dereference pointer

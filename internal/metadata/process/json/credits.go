@@ -11,7 +11,7 @@ import (
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
-func fillCredits(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
+func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool) {
 	var (
 		filled, overriden bool
 	)

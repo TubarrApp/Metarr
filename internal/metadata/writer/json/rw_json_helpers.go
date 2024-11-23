@@ -13,20 +13,20 @@ import (
 
 // Map buffer
 var metaMapPool = sync.Pool{
-	New: func() interface{} {
-		return make(map[string]interface{}, 81) // 81 objects in tested JSON file received from yt-dlp
+	New: func() any {
+		return make(map[string]any, 81) // 81 objects in tested JSON file received from yt-dlp
 	},
 }
 
 // JSON pool buffer
 var jsonBufferPool = sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return bytes.NewBuffer(make([]byte, 0, 4096)) // i.e. 4KiB
 	},
 }
 
 // writeJSONToFile is a private metadata writing helper function
-func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]interface{}) error {
+func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	if file == nil {
 		return fmt.Errorf("file passed in nil")
 	}
@@ -94,15 +94,15 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]interface{}) e
 }
 
 // copyMeta creates a deep copy of the metadata map under read lock
-func (rw *JSONFileRW) copyMeta() map[string]interface{} {
+func (rw *JSONFileRW) copyMeta() map[string]any {
 	rw.mu.RLock()
 	defer rw.mu.RUnlock()
 
 	if rw.Meta == nil {
-		return metaMapPool.Get().(map[string]interface{})
+		return metaMapPool.Get().(map[string]any)
 	}
 
-	currentMeta := metaMapPool.Get().(map[string]interface{})
+	currentMeta := metaMapPool.Get().(map[string]any)
 	for k, v := range rw.Meta {
 		currentMeta[k] = v
 	}
@@ -110,9 +110,9 @@ func (rw *JSONFileRW) copyMeta() map[string]interface{} {
 }
 
 // updateMeta safely updates the metadata map under write lock
-func (rw *JSONFileRW) updateMeta(newMeta map[string]interface{}) {
+func (rw *JSONFileRW) updateMeta(newMeta map[string]any) {
 	if newMeta == nil {
-		newMeta = metaMapPool.Get().(map[string]interface{})
+		newMeta = metaMapPool.Get().(map[string]any)
 	}
 
 	rw.mu.Lock()

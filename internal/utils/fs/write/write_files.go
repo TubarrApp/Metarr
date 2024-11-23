@@ -25,34 +25,38 @@ type FSFileWriter struct {
 	muFs      sync.RWMutex
 }
 
-func NewFSFileWriter(fd *models.FileData, skipVids bool) *FSFileWriter {
+func NewFSFileWriter(srcV, dstV, srcM, dstM string, skipVids bool) (*FSFileWriter, error) {
 
-	srcVideo := fd.FinalVideoPath
-	destVideo := fd.RenamedVideoPath
-	srcMeta := fd.JSONFilePath
-	destMeta := fd.RenamedMetaPath
+	if !skipVids {
+		if srcV == "" && dstV == "" {
+			return nil, fmt.Errorf("some required paths are empty:\n\nVid src: %q\nVid dest: %q", srcV, dstV)
+		}
+	}
+
+	if srcM == "" && dstM == "" {
+		return nil, fmt.Errorf("some required paths are empty:\n\nMeta src: %q\nMeta dest: %q", srcM, dstM)
+	}
 
 	if logging.Level > 1 {
 		differ := 0
-		if !strings.EqualFold(destVideo, srcVideo) {
+		if !strings.EqualFold(dstV, srcV) {
 			differ++
 		}
-		if !strings.EqualFold(destMeta, srcMeta) {
+		if !strings.EqualFold(dstM, srcM) {
 			differ++
 		}
 
 		logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
-			skipVids, srcVideo, destVideo, srcMeta, destMeta, differ)
+			skipVids, srcV, dstV, srcM, dstM, differ)
 	}
 
 	return &FSFileWriter{
-		Fd:        fd,
 		SkipVids:  skipVids,
-		DestVideo: destVideo,
-		SrcVideo:  srcVideo,
-		DestMeta:  destMeta,
-		SrcMeta:   srcMeta,
-	}
+		DestVideo: dstV,
+		SrcVideo:  srcV,
+		DestMeta:  dstM,
+		SrcMeta:   srcM,
+	}, nil
 }
 
 // WriteResults executes the final commands to write the transformed files

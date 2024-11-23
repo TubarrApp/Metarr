@@ -6,7 +6,7 @@ import (
 )
 
 // Primary function to fill out meta fields before writing
-func FillJSONFields(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
+func FillJSONFields(fd *models.FileData, json map[string]any) (map[string]any, bool) {
 
 	allFilled := true
 	if meta, ok := fillTitles(fd, json); !ok {
@@ -33,7 +33,7 @@ func FillJSONFields(fd *models.FileData, json map[string]interface{}) (map[strin
 }
 
 // unpackJSON decodes JSON for metafields
-func unpackJSON(fmap map[string]*string, json map[string]interface{}) bool {
+func unpackJSON(fmap map[string]*string, json map[string]any) bool {
 
 	filled := false
 	pmap := make(map[string]string, len(fmap))

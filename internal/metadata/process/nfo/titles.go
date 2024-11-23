@@ -49,8 +49,8 @@ func fillNFOTitles(fd *models.FileData) bool {
 	return true
 }
 
-// unpackTitle unpacks common nested title elements to the model
-func unpackTitle(fd *models.FileData, titleData map[string]interface{}) bool {
+// unpackTitle unpacks common nested title elements to the model.
+func unpackTitle(fd *models.FileData, titleData map[string]any) bool {
 	t := fd.MTitleDesc
 	filled := false
 

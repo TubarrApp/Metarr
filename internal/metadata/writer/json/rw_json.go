@@ -18,7 +18,7 @@ import (
 type JSONFileRW struct {
 	mu          sync.RWMutex
 	muFileWrite sync.Mutex
-	Meta        map[string]interface{}
+	Meta        map[string]any
 	File        *os.File
 	encoder     *json.Encoder
 	buffer      *bytes.Buffer
@@ -29,12 +29,12 @@ func NewJSONFileRW(file *os.File) *JSONFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &JSONFileRW{
 		File: file,
-		Meta: metaMapPool.Get().(map[string]interface{}),
+		Meta: metaMapPool.Get().(map[string]any),
 	}
 }
 
 // DecodeJSON parses and stores JSON metadata into a map and returns it
-func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]interface{}, error) {
+func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	if file == nil {
 		return nil, fmt.Errorf("file passed in nil")
 	}
@@ -59,7 +59,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]interface{}, error) 
 
 	// Decode to map
 	decoder := json.NewDecoder(file)
-	data := metaMapPool.Get().(map[string]interface{})
+	data := metaMapPool.Get().(map[string]any)
 
 	if err := decoder.Decode(&data); err != nil {
 		return nil, fmt.Errorf("failed to decode JSON in DecodeMetadata: %w", err)
@@ -78,7 +78,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]interface{}, error) 
 }
 
 // RefreshJSON reloads the metadata map from the file after updates
-func (rw *JSONFileRW) RefreshJSON() (map[string]interface{}, error) {
+func (rw *JSONFileRW) RefreshJSON() (map[string]any, error) {
 	if rw.File == nil {
 		return nil, fmt.Errorf("file passed in nil")
 	}
@@ -86,7 +86,7 @@ func (rw *JSONFileRW) RefreshJSON() (map[string]interface{}, error) {
 }
 
 // WriteJSON inserts metadata into the JSON file from a map
-func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]interface{}, error) {
+func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, error) {
 	if fieldMap == nil {
 		return nil, fmt.Errorf("field map passed in nil")
 	}

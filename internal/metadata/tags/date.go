@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-// MakeDateTag attempts to create the date tag for files using metafile data
-func MakeDateTag(metadata map[string]interface{}, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
+// MakeDateTag attempts to create the date tag for files using metafile data.
+func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
 
 	if dateFmt == enums.DATEFMT_SKIP {
 		logging.D(1, "Skip set, not making file date tag for %q", fd.OriginalVideoBaseName)
@@ -50,7 +50,7 @@ func MakeDateTag(metadata map[string]interface{}, fd *models.FileData, dateFmt e
 }
 
 // extractDateFromMetadata attempts to find a date in the metadata using predefined fields
-func extractDateFromMetadata(metadata map[string]interface{}) (string, bool) {
+func extractDateFromMetadata(metadata map[string]any) (string, bool) {
 	preferredDateFields := []string{
 		consts.JReleaseDate,
 		"releasedate",

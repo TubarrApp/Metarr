@@ -49,8 +49,8 @@ func cleanEmptyFields(fieldMap map[string]*string) {
 }
 
 // nestedLoop parses content recursively and returns a nested map
-func nestedLoop(content string) map[string]interface{} {
-	nested := make(map[string]interface{})
+func nestedLoop(content string) map[string]any {
+	nested := make(map[string]any)
 
 	logging.D(2, "Parsing content in nestedLoop: %s", content)
 
@@ -123,11 +123,11 @@ func nestedLoop(content string) map[string]interface{} {
 }
 
 // unpackNFO unpacks an NFO map back to the model
-func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[string]*string) {
+func unpackNFO(fd *models.FileData, data map[string]any, fieldMap map[string]*string) {
 	logging.D(3, "Unpacking NFO map...")
 
 	// Access the top-level "movie" key
-	movieData, ok := data["movie"].(map[string]interface{})
+	movieData, ok := data["movie"].(map[string]any)
 	if !ok {
 		logging.E(0, "Missing 'movie' key in data, unable to unpack")
 		return
@@ -149,7 +149,7 @@ func unpackNFO(fd *models.FileData, data map[string]interface{}, fieldMap map[st
 		case string:
 			logging.D(3, "Setting field %q to %q", field, v)
 			*fieldVal = v
-		case map[string]interface{}:
+		case map[string]any:
 			switch field {
 
 			case "title":

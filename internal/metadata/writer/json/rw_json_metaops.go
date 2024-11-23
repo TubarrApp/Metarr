@@ -14,7 +14,7 @@ import (
 )
 
 // replaceJSON makes user defined JSON replacements
-func replaceJSON(j map[string]interface{}, rplce []models.MetaReplace) (bool, error) {
+func replaceJSON(j map[string]any, rplce []models.MetaReplace) (bool, error) {
 
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
@@ -43,7 +43,7 @@ func replaceJSON(j map[string]interface{}, rplce []models.MetaReplace) (bool, er
 }
 
 // trimJSONPrefix trims defined prefixes from specified fields
-func trimJSONPrefix(j map[string]interface{}, tPfx []models.MetaTrimPrefix) (bool, error) {
+func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) (bool, error) {
 
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
@@ -72,7 +72,7 @@ func trimJSONPrefix(j map[string]interface{}, tPfx []models.MetaTrimPrefix) (boo
 }
 
 // trimJSONSuffix trims defined suffixes from specified fields
-func trimJSONSuffix(j map[string]interface{}, tSfx []models.MetaTrimSuffix) (bool, error) {
+func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) (bool, error) {
 
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
@@ -101,7 +101,7 @@ func trimJSONSuffix(j map[string]interface{}, tSfx []models.MetaTrimSuffix) (boo
 }
 
 // jsonAppend appends to the fields in the JSON data
-func jsonAppend(j map[string]interface{}, apnd []models.MetaAppend) (bool, error) {
+func jsonAppend(j map[string]any, apnd []models.MetaAppend) (bool, error) {
 
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
@@ -133,7 +133,7 @@ func jsonAppend(j map[string]interface{}, apnd []models.MetaAppend) (bool, error
 }
 
 // metaPrefix applies prefixes to the fields in the JSON data
-func jsonPrefix(j map[string]interface{}, pfx []models.MetaPrefix) (bool, error) {
+func jsonPrefix(j map[string]any, pfx []models.MetaPrefix) (bool, error) {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
@@ -165,7 +165,7 @@ func jsonPrefix(j map[string]interface{}, pfx []models.MetaPrefix) (bool, error)
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file
-func setJSONField(j map[string]interface{}, file string, ow bool, newField []models.MetaNewField) (bool, error) {
+func setJSONField(j map[string]any, file string, ow bool, newField []models.MetaNewField) (bool, error) {
 	if len(newField) == 0 {
 		logging.E(0, "No new field additions found", keys.MNewField)
 		return false, nil
@@ -282,7 +282,7 @@ func setJSONField(j map[string]interface{}, file string, ow bool, newField []mod
 }
 
 // jsonFieldDateTag sets date tags in designated meta fields
-func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
+func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
 
 	logging.D(2, "Making metadata date tag for %q...", fd.OriginalVideoBaseName)
 
@@ -377,7 +377,7 @@ func jsonFieldDateTag(j map[string]interface{}, dtm map[string]models.MetaDateTa
 }
 
 // copyToField copies values from one meta field to another
-func copyToField(j map[string]interface{}, copyTo []models.CopyToField) (bool, error) {
+func copyToField(j map[string]any, copyTo []models.CopyToField) (bool, error) {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
@@ -408,7 +408,7 @@ func copyToField(j map[string]interface{}, copyTo []models.CopyToField) (bool, e
 }
 
 // pasteFromField copies values from one meta field to another
-func pasteFromField(j map[string]interface{}, paste []models.PasteFromField) (bool, error) {
+func pasteFromField(j map[string]any, paste []models.PasteFromField) (bool, error) {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 

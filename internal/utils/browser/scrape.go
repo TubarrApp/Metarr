@@ -214,13 +214,13 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 
 // jsonExtractor helps extract values from nested JSON structures
 func jsonExtractor(data []byte, path []string) (string, error) {
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
 		return "", err
 	}
 	current := result
 	for _, key := range path[:len(path)-1] {
-		if next, ok := current[key].(map[string]interface{}); ok {
+		if next, ok := current[key].(map[string]any); ok {
 			current = next
 		} else {
 			return "", fmt.Errorf("invalid JSON path at %s", key)

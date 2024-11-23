@@ -79,13 +79,13 @@ func fillSingleCredits(entries []string, target *string) {
 	*target = strings.Join(filtered, ", ")
 }
 
-func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool {
+func unpackCredits(fd *models.FileData, creditsData map[string]any) bool {
 	c := fd.MCredits
 	filled := false
 
 	// Recursive helper to search for "role" within nested maps
-	var findRoles func(data map[string]interface{})
-	findRoles = func(data map[string]interface{}) {
+	var findRoles func(data map[string]any)
+	findRoles = func(data map[string]any) {
 		// Check each key-value pair within the actor data
 		for k, v := range data {
 
@@ -98,12 +98,12 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 						filled = true
 					}
 				}
-			case map[string]interface{}: // Regular map
+			case map[string]any: // Regular map
 				findRoles(value)
 
-			case []interface{}: // Nested map
+			case []any: // Nested map
 				for _, item := range value {
-					if nestedMap, ok := item.(map[string]interface{}); ok {
+					if nestedMap, ok := item.(map[string]any); ok {
 						findRoles(nestedMap)
 					}
 				}
@@ -112,10 +112,10 @@ func unpackCredits(fd *models.FileData, creditsData map[string]interface{}) bool
 	}
 
 	// Access the "cast" data to find "actor" entries
-	if castData, ok := creditsData["cast"].(map[string]interface{}); ok {
-		if actorsData, ok := castData["actor"].([]interface{}); ok {
+	if castData, ok := creditsData["cast"].(map[string]any); ok {
+		if actorsData, ok := castData["actor"].([]any); ok {
 			for _, actorData := range actorsData {
-				if actorMap, ok := actorData.(map[string]interface{}); ok {
+				if actorMap, ok := actorData.(map[string]any); ok {
 					if name, ok := actorMap["name"].(string); ok {
 						logging.D(3, "Adding actor name %q", name)
 						c.Actors = append(c.Actors, name)

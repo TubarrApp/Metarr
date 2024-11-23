@@ -11,7 +11,7 @@ import (
 )
 
 // makeFilenameTag creates the metatag string to prefix filenames with
-func MakeFilenameTag(metadata map[string]interface{}, file *os.File) string {
+func MakeFilenameTag(metadata map[string]any, file *os.File) string {
 	logging.D(5, "Entering makeFilenameTag with data %v", metadata)
 
 	tagFields := cfg.GetStringSlice(keys.MFilenamePfx)

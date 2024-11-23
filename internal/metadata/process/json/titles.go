@@ -10,7 +10,7 @@ import (
 )
 
 // fillTitles grabs the fulltitle ("title")
-func fillTitles(fd *models.FileData, json map[string]interface{}) (map[string]interface{}, bool) {
+func fillTitles(fd *models.FileData, json map[string]any) (map[string]any, bool) {
 
 	t := fd.MTitleDesc
 	w := fd.MWebData

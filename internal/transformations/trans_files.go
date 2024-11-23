@@ -103,7 +103,11 @@ func (fp *fileProcessor) writeResult() error {
 		err         error
 		deletedMeta bool
 	)
-	fsWriter := writefs.NewFSFileWriter(fp.fd, fp.skipVideos)
+
+	fsWriter, err := writefs.NewFSFileWriter(fp.fd.FinalVideoPath, fp.fd.RenamedVideoPath, fp.fd.JSONFilePath, fp.fd.RenamedMetaPath, fp.skipVideos)
+	if err != nil {
+		return err
+	}
 
 	if err := fsWriter.WriteResults(); err != nil {
 		return err
@@ -194,36 +198,41 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
 	var err error
-	if !filepath.IsAbs(renamedVPath) {
+
+	if filepath.IsAbs(renamedVPath) {
+		fp.fd.RenamedVideoPath = renamedVPath
+	} else {
 		fp.fd.RenamedVideoPath, err = filepath.Abs(renamedVPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path for renamed video: %w", err)
 		}
 	}
 
-	if !filepath.IsAbs(fp.fd.FinalVideoPath) {
-		fp.fd.FinalVideoPath, err = filepath.Abs(fp.fd.FinalVideoPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	if !filepath.IsAbs(renamedMPath) {
+	if filepath.IsAbs(renamedMPath) {
+		fp.fd.RenamedMetaPath = renamedMPath
+	} else {
 		fp.fd.RenamedMetaPath, err = filepath.Abs(renamedMPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path for renamed meta: %w", err)
 		}
 	}
 
-	if !filepath.IsAbs(fp.fd.JSONFilePath) {
+	// Handle final paths if they're set
+	if fp.fd.FinalVideoPath != "" && !filepath.IsAbs(fp.fd.FinalVideoPath) {
+		fp.fd.FinalVideoPath, err = filepath.Abs(fp.fd.FinalVideoPath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for final video: %w", err)
+		}
+	}
+
+	if fp.fd.JSONFilePath != "" && !filepath.IsAbs(fp.fd.JSONFilePath) {
 		fp.fd.JSONFilePath, err = filepath.Abs(fp.fd.JSONFilePath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
 	}
 
-	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedMetaPath, fp.fd.RenamedVideoPath)
-
+	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
 	return nil
 }
 

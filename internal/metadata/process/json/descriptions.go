@@ -14,7 +14,7 @@ import (
 )
 
 // fillDescriptions grabs description data from JSON
-func fillDescriptions(fd *models.FileData, data map[string]interface{}) (map[string]interface{}, bool) {
+func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any, bool) {
 
 	d := fd.MTitleDesc
 	w := fd.MWebData
