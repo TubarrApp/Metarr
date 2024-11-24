@@ -2120,110 +2120,132 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"regexp"
+	"sync"
 )
 
 var (
-	AnsiEscape   *regexp.Regexp
-	ExtraSpaces  *regexp.Regexp
-	InvalidChars *regexp.Regexp
-	SpecialChars *regexp.Regexp
-
+	AnsiEscape                *regexp.Regexp
+	ExtraSpaces               *regexp.Regexp
+	InvalidChars              *regexp.Regexp
+	SpecialChars              *regexp.Regexp
 	ContractionMapSpaced      map[string]models.ContractionPattern
 	ContractionMapUnderscored map[string]models.ContractionPattern
 	ContractionMapAll         map[string]models.ContractionPattern
+
+	// Initialize sync.Once for each compilation
+	ansiEscapeOnce              sync.Once
+	extraSpacesOnce             sync.Once
+	invalidCharsOnce            sync.Once
+	specialCharsOnce            sync.Once
+	contractionsSpacedOnce      sync.Once
+	contractionsUnderscoredOnce sync.Once
+	contractionsAllOnce         sync.Once
+	contractionMu               sync.RWMutex
 )
 
 // ContractionMapAllCompile compiles the regex pattern for spaced AND underscored contractions and returns
 // a model containing the regex and the replacement
 func ContractionMapAllCompile() map[string]models.ContractionPattern {
-	if ContractionMapAll == nil {
-		ContractionMapAll = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
+	contractionsAllOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
 
+		ContractionMapAll = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
 		// Spaced map
 		for contraction, replacement := range consts.ContractionsSpaced {
-
 			ContractionMapAll[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
 		}
-
 		// Underscored map
 		for contraction, replacement := range consts.ContractionsUnderscored {
-
 			ContractionMapAll[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
 		}
-	}
-
+	})
 	return ContractionMapAll
 }
 
 // ContractionMapSpacesCompile compiles the regex pattern for spaced contractions and returns
 // a model containing the regex and the replacement
 func ContractionMapSpacesCompile() map[string]models.ContractionPattern {
-	if ContractionMapSpaced == nil {
+	contractionsSpacedOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
 		ContractionMapSpaced = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced))
-
 		for contraction, replacement := range consts.ContractionsSpaced {
-
 			ContractionMapSpaced[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
 		}
-	}
+	})
 	return ContractionMapSpaced
 }
 
 // ContractionMapUnderscoresCompile compiles the regex pattern for underscored contractions and returns
 // a model containing the regex and the replacement
 func ContractionMapUnderscoresCompile() map[string]models.ContractionPattern {
-	if ContractionMapUnderscored == nil {
+	contractionsUnderscoredOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
 		ContractionMapUnderscored = make(map[string]models.ContractionPattern, len(consts.ContractionsUnderscored))
-
 		for contraction, replacement := range consts.ContractionsUnderscored {
-
 			ContractionMapUnderscored[contraction] = models.ContractionPattern{
 				Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
 				Replacement: replacement,
 			}
 		}
-	}
+	})
 	return ContractionMapUnderscored
 }
 
 // AnsiEscapeCompile compiles regex for ANSI escape codes
 func AnsiEscapeCompile() *regexp.Regexp {
-	if AnsiEscape == nil {
+	ansiEscapeOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
 		AnsiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
-	}
+	})
 	return AnsiEscape
 }
 
 // ExtraSpacesCompile compiles regex for extra spaces
 func ExtraSpacesCompile() *regexp.Regexp {
-	if ExtraSpaces == nil {
+	extraSpacesOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
 		ExtraSpaces = regexp.MustCompile(`\s+`)
-	}
+	})
 	return ExtraSpaces
 }
 
 // InvalidCharsCompile compiles regex for invalid characters
 func InvalidCharsCompile() *regexp.Regexp {
-	if InvalidChars == nil {
+	invalidCharsOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
 		InvalidChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
-	}
+	})
 	return InvalidChars
 }
 
 // SpecialCharsCompile compiles regex for special characters
 func SpecialCharsCompile() *regexp.Regexp {
-	if SpecialChars == nil {
+	specialCharsOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
 		SpecialChars = regexp.MustCompile(`[^\w\s-]`)
-	}
+	})
 	return SpecialChars
 }
 package templates
@@ -4339,7 +4361,7 @@ func fillNFOTitles(fd *models.FileData) bool {
 	return true
 }
 
-// unpackTitle unpacks common nested title elements to the model
+// unpackTitle unpacks common nested title elements to the model.
 func unpackTitle(fd *models.FileData, titleData map[string]any) bool {
 	t := fd.MTitleDesc
 	filled := false
@@ -4813,7 +4835,7 @@ import (
 	"strings"
 )
 
-// MakeDateTag attempts to create the date tag for files using metafile data
+// MakeDateTag attempts to create the date tag for files using metafile data.
 func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
 
 	if dateFmt == enums.DATEFMT_SKIP {
@@ -7007,6 +7029,10 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 // replace makes template replacements in the directory string.
 func (dp *Directory) replace(tag string) (string, error) {
 
+	if dp.FD == nil {
+		return "", fmt.Errorf("null FileData model")
+	}
+
 	d := dp.FD.MDates
 	c := dp.FD.MCredits
 	w := dp.FD.MWebData
@@ -7138,20 +7164,21 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/cfg"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
-	reader "metarr/internal/metadata/reader"
+	metaReader "metarr/internal/metadata/reader"
 	"metarr/internal/models"
-	"metarr/internal/transformations"
-	read "metarr/internal/utils/fs/read"
+	fsRead "metarr/internal/utils/fs/read"
 	"metarr/internal/utils/logging"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
+)
+
+const (
+	typeVideo = "video"
+	typeMeta  = "metadata"
 )
 
 var (
@@ -7161,7 +7188,6 @@ var (
 	processedVideoFiles int32
 
 	failedVideos []failedVideo
-	muPrint      sync.Mutex
 )
 
 type failedVideo struct {
@@ -7169,39 +7195,162 @@ type failedVideo struct {
 	err      string
 }
 
+type workItem struct {
+	filename string
+	fileData *models.FileData
+}
+
 // processFiles is the main program function to process folder entries
 func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
 
-	//
+	// Reset counts and get skip video bool
+	skipVideos := prepNewBatch(batch.SkipVideos)
+
+	// Match and video file maps, and meta file count
+	matchedFiles, videoMap, metaCount := getFiles(batch, openMeta, openVideo, skipVideos)
+	atomic.StoreInt32(&totalMetaFiles, int32(metaCount))
+	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
+
+	logging.I("Found %d file(s) to process", totalMetaFiles+totalVideoFiles)
+	logging.D(3, "Matched metafiles: %v", matchedFiles)
+
+	var (
+		muProcessed sync.Mutex
+		muFailed    sync.Mutex
+	)
+
 	cancel := core.Cancel
 	cleanupChan := core.Cleanup
 	ctx := core.Ctx
 	wg := core.Wg
 
-	// Reset counts
-	atomic.StoreInt32(&totalMetaFiles, 0)
-	atomic.StoreInt32(&totalVideoFiles, 0)
-	atomic.StoreInt32(&processedMetaFiles, 0)
-	atomic.StoreInt32(&processedVideoFiles, 0)
+	processMetadataFiles(ctx, matchedFiles, &muFailed)
 
+	setupCleanup(cleanupChan, cancel, wg, videoMap, &muFailed)
+
+	if !skipVideos {
+		numWorkers := cfg.GetInt(keys.Concurrency)
+		if numWorkers < 1 {
+			numWorkers = 1
+		}
+
+		jobs := make(chan workItem, len(matchedFiles))
+		results := make(chan *models.FileData, len(matchedFiles))
+		processedModels := make([]*models.FileData, 0, len(matchedFiles))
+
+		// Start workers
+		for w := 1; w <= numWorkers; w++ {
+			wg.Add(1)
+			go workerProcess(w, jobs, results, wg, ctx)
+		}
+
+		// Send jobs to workers
+		for name, data := range matchedFiles {
+			jobs <- workItem{
+				filename: name,
+				fileData: data,
+			}
+		}
+		close(jobs)
+
+		// Collect results in a separate goroutine
+		go func() {
+			for result := range results {
+				if result != nil {
+					muProcessed.Lock()
+					processedModels = append(processedModels, result)
+					muProcessed.Unlock()
+				}
+			}
+		}()
+
+		wg.Wait()
+		close(results)
+
+		// Handle temp files and cleanup
+		err := cleanupTempFiles(videoMap)
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			logging.E(0, "Failed to cleanup temp files: %v", err)
+		}
+
+		directory := renameFiles(openVideo.Name(), openMeta.Name(), processedModels, skipVideos)
+
+		if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
+			logging.S(0, "Successfully processed all files in directory %q with no errors.", directory)
+			fmt.Println()
+			return
+		}
+
+		if logging.ErrorArray != nil {
+			logFailedVideos()
+		}
+	}
+}
+
+func workerProcess(id int, jobs <-chan workItem, results chan<- *models.FileData, wg *sync.WaitGroup, ctx context.Context) {
+	defer wg.Done()
+
+	for job := range jobs {
+		select {
+		case <-ctx.Done():
+			logging.I("Worker %d stopping due to context cancellation", id)
+			return
+		default:
+			logging.D(1, "Worker %d processing file: %s", id, job.filename)
+
+			rtn, err := executeFile(ctx, job.filename, job.fileData)
+			if err != nil {
+				logging.E(0, "Worker %d error executing file %q: %v", id, job.filename, err)
+				continue
+			}
+
+			results <- rtn
+		}
+	}
+}
+
+// processMetadataFiles processes metafiles such as .json, .nfo, and so on.
+func processMetadataFiles(ctx context.Context, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) error {
+	for _, fd := range matchedFiles {
+		var err error
+		switch fd.MetaFileType {
+		case enums.METAFILE_JSON:
+			logging.D(3, "File: %s: Meta file type in model as %v", fd.JSONFilePath, fd.MetaFileType)
+			_, err = metaReader.ProcessJSONFile(ctx, fd)
+		case enums.METAFILE_NFO:
+			logging.D(3, "File: %s: Meta file type in model as %v", fd.NFOFilePath, fd.MetaFileType)
+			_, err = metaReader.ProcessNFOFiles(fd)
+		}
+
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			errMsg := fmt.Errorf("error processing metadata for file %q: %w", fd.OriginalVideoPath, err)
+			logging.E(0, errMsg.Error())
+
+			muFailed.Lock()
+			failedVideos = append(failedVideos, failedVideo{
+				filename: fd.OriginalVideoPath,
+				err:      errMsg.Error(),
+			})
+			muFailed.Unlock()
+		}
+	}
+	return nil
+}
+
+// getFiles returns a map of matched video/metadata files.
+func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool) (matched, videos map[string]*models.FileData, metaCount int) {
 	var (
 		videoMap,
-		metaMap,
-		matchedFiles map[string]*models.FileData
+		metaMap map[string]*models.FileData
 
-		err        error
-		skipVideos bool
+		err error
 	)
-
-	if cfg.IsSet(keys.SkipVideos) {
-		skipVideos = cfg.GetBool(keys.SkipVideos)
-	} else {
-		skipVideos = batch.SkipVideos
-	}
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = read.GetMetadataFiles(openMeta)
+		metaMap, err = fsRead.GetMetadataFiles(openMeta)
 		if err != nil {
 			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
@@ -7211,7 +7360,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 
 		if !skipVideos {
-			videoMap, err = read.GetVideoFiles(openVideo)
+			videoMap, err = fsRead.GetVideoFiles(openVideo)
 			if err != nil {
 				failedVideos = append(failedVideos, failedVideo{
 					filename: openVideo.Name(),
@@ -7223,7 +7372,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 	// Batch is a file request...
 	if !batch.IsDirs {
-		metaMap, err = read.GetSingleMetadataFile(openMeta)
+		metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
 		if err != nil {
 			logging.E(0, err.Error())
 			failedVideos = append(failedVideos, failedVideo{
@@ -7233,7 +7382,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 
 		if !skipVideos {
-			videoMap, err = read.GetSingleVideoFile(openVideo)
+			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
 			if err != nil {
 				failedVideos = append(failedVideos, failedVideo{
 					filename: openVideo.Name(),
@@ -7243,9 +7392,10 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		}
 	}
 
+	var matchedFiles map[string]*models.FileData
 	// Match video and metadata files
 	if !skipVideos {
-		matchedFiles, err = read.MatchVideoWithMetadata(videoMap, metaMap)
+		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.IsDirs)
 		if err != nil {
 			logging.E(0, "Error matching videos with metadata: %v", err)
 			os.Exit(1)
@@ -7253,117 +7403,125 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	} else {
 		matchedFiles = metaMap
 	}
+	return matchedFiles, videoMap, len(metaMap)
+}
 
-	atomic.StoreInt32(&totalMetaFiles, int32(len(metaMap)))
-	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
+// processFile handles processing for both video and metadata files
+func executeFile(ctx context.Context, filename string, fd *models.FileData) (*models.FileData, error) {
 
-	logging.I("Found %d file(s) to process", totalMetaFiles+totalVideoFiles)
-	logging.D(3, "Matched metafiles: %v", matchedFiles)
-
-	for _, fileData := range matchedFiles {
-		var (
-			err error
-		)
-
-		switch fileData.MetaFileType {
-		case enums.METAFILE_JSON:
-			logging.D(3, "File: %s: Meta file type in model as %v", fileData.JSONFilePath, fileData.MetaFileType)
-			_, err = reader.ProcessJSONFile(ctx, fileData)
-
-		case enums.METAFILE_NFO:
-			logging.D(3, "File: %s: Meta file type in model as %v", fileData.NFOFilePath, fileData.MetaFileType)
-			_, err = reader.ProcessNFOFiles(fileData)
-		}
-
-		// Handle errors from meta processing above
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			errMsg := fmt.Errorf("error processing metadata for file %q: %w", fileData.OriginalVideoPath, err)
-			logging.E(0, errMsg.Error())
-
-			failedVideos = append(failedVideos, failedVideo{
-				filename: fileData.OriginalVideoPath,
-				err:      errMsg.Error(),
-			})
-			continue
-		}
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("did not process %q due to program cancellation", filename)
+	default:
 	}
 
-	// Goroutine to handle signals and cleanup
+	var muPrint sync.Mutex
+
+	// Print progress for metadata
+	currentMeta := atomic.AddInt32(&processedMetaFiles, 1)
+	totalMeta := atomic.LoadInt32(&totalMetaFiles)
+	printProgress(typeMeta, currentMeta, totalMeta, fd.JSONDirectory, &muPrint)
+
+	// System resource check
+	sysResourceLoop(filename)
+
+	// Process file based on type
+	skipVideos := cfg.GetBool(keys.SkipVideos)
+	isVideoFile := fd.OriginalVideoPath != ""
+
+	if isVideoFile {
+		logging.I("Processing file: %s", filename)
+		if !skipVideos {
+			if err := ffmpeg.ExecuteVideo(ctx, fd); err != nil {
+				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
+				logging.ErrorArray = append(logging.ErrorArray, errMsg)
+				logging.E(0, errMsg.Error())
+
+				failedVideos = append(failedVideos, failedVideo{
+					filename: filename,
+					err:      errMsg.Error(),
+				})
+				return nil, errMsg
+			}
+			logging.S(0, "Successfully processed video %s", filename)
+		}
+	} else {
+		logging.I("Processing metadata file: %s", filename)
+		logging.S(0, "Successfully processed metadata for %s", filename)
+	}
+
+	// Print progress for video
+	currentVideo := atomic.AddInt32(&processedVideoFiles, 1)
+	totalVideo := atomic.LoadInt32(&totalVideoFiles)
+	printProgress(typeVideo, currentVideo, totalVideo, fd.JSONDirectory, &muPrint)
+
+	return fd, nil
+}
+
+// setupCleanup creates a cleanup routine for file processing.
+func setupCleanup(cleanupChan chan os.Signal, cancel context.CancelFunc, wg *sync.WaitGroup, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
 	go func() {
 		<-cleanupChan
-
 		fmt.Println("\nSignal received, cleaning up temporary files...")
 		cancel()
+		wg.Wait()
 
-		err = cleanupTempFiles(videoMap)
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
+		if err := cleanupTempFiles(videoMap); err != nil {
 			logging.E(0, "Failed to cleanup temp files: %v", err)
 		}
-		logging.I("Process was interrupted by a syscall")
 
-		if len(failedVideos) > 0 {
+		muFailed.Lock()
+		logFailedVideos()
+		muFailed.Unlock()
 
-			logging.P("%s Failed videos:", consts.RedError)
-			for _, failed := range failedVideos {
-				fmt.Println()
-				logging.P("Filename: %v", failed.filename)
-				logging.P("Error: %v", failed.err)
-			}
-			fmt.Println()
-		}
-
-		wg.Wait()
 		os.Exit(0)
 	}()
+}
+package processing
 
-	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
-	var processedModels []*models.FileData
+import (
+	"fmt"
+	"metarr/internal/cfg"
+	"metarr/internal/domain/enums"
+	keys "metarr/internal/domain/keys"
+	"metarr/internal/models"
+	"metarr/internal/transformations"
+	logging "metarr/internal/utils/logging"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
 
-	if !skipVideos {
-		for fileName, fileData := range matchedFiles {
-			rtn, err := executeFile(ctx, wg, sem, fileName, fileData)
-			if err != nil {
-				logging.E(0, err.Error())
-				continue
-			}
-			processedModels = append(processedModels, rtn)
-		}
-	}
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/mem"
+)
 
-	wg.Wait()
+var (
+	muResource sync.Mutex
+)
 
-	err = cleanupTempFiles(videoMap)
-	if err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.E(0, "Failed to cleanup temp files: %v", err)
-	}
+// renameFiles performs renaming operations.
+func renameFiles(videoPath, metaPath string, processed []*models.FileData, skipVideos bool) string {
 
 	var (
-		replaceToStyle enums.ReplaceToStyle
-		ok             bool
-	)
-
-	if cfg.IsSet(keys.Rename) {
-		if replaceToStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
-			logging.E(0, "Received wrong type for rename style. Got %T", replaceToStyle)
-		} else {
-			logging.D(2, "Got rename style as %T index %v", replaceToStyle, replaceToStyle)
-		}
-	}
-
-	// Get directory string
-	var (
+		replaceStyle                           enums.ReplaceToStyle
+		ok                                     bool
 		inputVideoDir, inputJsonDir, directory string
 	)
 
-	inputJsonDir, _ = filepath.Abs(openMeta.Name())
-	inputJsonDir = strings.TrimSuffix(inputJsonDir, openMeta.Name())
+	if cfg.IsSet(keys.Rename) {
+		if replaceStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
+			logging.E(0, "Received wrong type for rename style. Got %T", replaceStyle)
+		} else {
+			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
+		}
+	}
 
+	inputJsonDir = filepath.Dir(metaPath)
 	if !skipVideos {
-		inputVideoDir, _ = filepath.Abs(openVideo.Name())
-		inputVideoDir = strings.TrimSuffix(inputVideoDir, openMeta.Name())
+		inputVideoDir = filepath.Dir(videoPath)
 	}
 
 	switch {
@@ -7374,138 +7532,18 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	default:
 		logging.E(0, "Not renaming file, no directory detected for this batch.")
 		logging.ErrorArray = append(logging.ErrorArray, fmt.Errorf("not renaming files in batch, both input JSON and input video directories could not be discerned"))
-		return
+		return ""
 	}
 
-	err = transformations.FileRename(processedModels, replaceToStyle, skipVideos)
+	err := transformations.FileRename(processed, replaceStyle, skipVideos)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to rename files: %v", err)
 	} else {
 		logging.S(0, "Successfully formatted file names in directory: %s", directory)
 	}
-
-	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
-		logging.S(0, "Successfully processed all files in directory %q with no errors.", directory)
-	} else if logging.ErrorArray != nil {
-		logging.E(0, "Program finished, but some errors were encountered: %v", logging.ErrorArray)
-
-		for _, failed := range failedVideos {
-			fmt.Println()
-			logging.P("Filename: %v", failed.filename)
-			logging.P("Error: %v", failed.err)
-		}
-	}
-	fmt.Println()
+	return directory
 }
-
-// processFile handles processing for both video and metadata files
-func executeFile(ctx context.Context, wg *sync.WaitGroup, sem chan struct{}, filename string, fileData *models.FileData) (*models.FileData, error) {
-
-	resultChan := make(chan *models.FileData, 1)
-	errChan := make(chan error, 1)
-
-	wg.Add(1)
-	go func(filename string, fileData *models.FileData) {
-		defer wg.Done()
-		defer close(resultChan)
-		defer close(errChan)
-
-		currentFile := atomic.AddInt32(&processedMetaFiles, 1)
-		total := atomic.LoadInt32(&totalMetaFiles)
-
-		muPrint.Lock()
-		fmt.Printf("\n==============================================================\n")
-		fmt.Printf("    Processed metafile %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining in %q: %d\n", fileData.JSONDirectory, total-currentFile)
-		fmt.Printf("==============================================================\n\n")
-		muPrint.Unlock()
-
-		sem <- struct{}{}
-		defer func() {
-			<-sem
-		}()
-
-		select {
-		case <-ctx.Done():
-			errChan <- fmt.Errorf("did not process %q due to program cancellation", filename)
-			resultChan <- nil
-			return
-		default:
-		}
-
-		sysResourceLoop(filename)
-
-		skipVideos := cfg.GetBool(keys.SkipVideos)
-		isVideoFile := fileData.OriginalVideoPath != ""
-
-		if isVideoFile {
-			logging.I("Processing file: %s", filename)
-		} else {
-			logging.I("Processing metadata file: %s", filename)
-		}
-
-		switch {
-		case isVideoFile && !skipVideos:
-			err := ffmpeg.ExecuteVideo(ctx, fileData)
-			if err != nil {
-				logging.ErrorArray = append(logging.ErrorArray, err)
-				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
-				logging.E(0, errMsg.Error())
-
-				failedVideos = append(failedVideos, failedVideo{
-					filename: filename,
-					err:      errMsg.Error(),
-				})
-			} else {
-				logging.S(0, "Successfully processed video %s", filename)
-			}
-		default:
-			logging.S(0, "Successfully processed metadata for %s", filename)
-		}
-
-		currentFile = atomic.AddInt32(&processedVideoFiles, 1)
-		total = atomic.LoadInt32(&totalVideoFiles)
-
-		muPrint.Lock()
-		fmt.Printf("\n==============================================================\n")
-		fmt.Printf("    Processed video file %d of %d\n", currentFile, total)
-		fmt.Printf("    Remaining in %q: %d\n", fileData.JSONDirectory, total-currentFile)
-		fmt.Printf("==============================================================\n\n")
-		muPrint.Unlock()
-
-		resultChan <- fileData
-		errChan <- nil
-
-	}(filename, fileData)
-
-	select {
-	case result := <-resultChan:
-		err := <-errChan
-		return result, err
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-package processing
-
-import (
-	"fmt"
-	"metarr/internal/cfg"
-	keys "metarr/internal/domain/keys"
-	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
-	"os"
-	"sync"
-	"time"
-
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
-)
-
-var (
-	muResource sync.Mutex
-)
 
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
 func sysResourceLoop(fileStr string) {
@@ -7590,6 +7628,46 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 		}
 	}
 	return errReturn
+}
+
+// printProgress creates a printout of the current process completion status.
+func printProgress(fileType string, current, total int32, directory string, muPrint *sync.Mutex) {
+	muPrint.Lock()
+	defer muPrint.Unlock()
+
+	fmt.Printf("\n==============================================================\n")
+	fmt.Printf("    Processed %s file %d of %d\n", fileType, current, total)
+	fmt.Printf("    Remaining in %q: %d\n", directory, total-current)
+	fmt.Printf("==============================================================\n\n")
+}
+
+// resetCounters resets the file counter per batch operation.
+func prepNewBatch(modelSkipVideos bool) (skipVideos bool) {
+
+	atomic.StoreInt32(&totalMetaFiles, 0)
+	atomic.StoreInt32(&totalVideoFiles, 0)
+	atomic.StoreInt32(&processedMetaFiles, 0)
+	atomic.StoreInt32(&processedVideoFiles, 0)
+
+	if cfg.IsSet(keys.SkipVideos) {
+		skipVideos = cfg.GetBool(keys.SkipVideos)
+	} else {
+		skipVideos = modelSkipVideos
+	}
+	return skipVideos
+}
+
+// logFailedVideos logs videos which failed during this batch.
+func logFailedVideos() {
+	for i, failed := range failedVideos {
+		if i == 0 {
+			logging.E(0, "Program finished, but some errors were encountered:")
+		}
+		fmt.Println()
+		logging.P("Filename: %v", failed.filename)
+		logging.P("Error: %v", failed.err)
+	}
+	fmt.Println()
 }
 package transformations
 
@@ -7820,7 +7898,11 @@ func (fp *fileProcessor) writeResult() error {
 		err         error
 		deletedMeta bool
 	)
-	fsWriter := writefs.NewFSFileWriter(fp.fd, fp.skipVideos)
+
+	fsWriter, err := writefs.NewFSFileWriter(fp.fd, fp.skipVideos)
+	if err != nil {
+		return err
+	}
 
 	if err := fsWriter.WriteResults(); err != nil {
 		return err
@@ -7911,36 +7993,41 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
 	var err error
-	if !filepath.IsAbs(renamedVPath) {
+
+	if filepath.IsAbs(renamedVPath) {
+		fp.fd.RenamedVideoPath = renamedVPath
+	} else {
 		fp.fd.RenamedVideoPath, err = filepath.Abs(renamedVPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path for renamed video: %w", err)
 		}
 	}
 
-	if !filepath.IsAbs(fp.fd.FinalVideoPath) {
-		fp.fd.FinalVideoPath, err = filepath.Abs(fp.fd.FinalVideoPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	if !filepath.IsAbs(renamedMPath) {
+	if filepath.IsAbs(renamedMPath) {
+		fp.fd.RenamedMetaPath = renamedMPath
+	} else {
 		fp.fd.RenamedMetaPath, err = filepath.Abs(renamedMPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path for renamed meta: %w", err)
 		}
 	}
 
-	if !filepath.IsAbs(fp.fd.JSONFilePath) {
+	// Handle final paths if they're set
+	if fp.fd.FinalVideoPath != "" && !filepath.IsAbs(fp.fd.FinalVideoPath) {
+		fp.fd.FinalVideoPath, err = filepath.Abs(fp.fd.FinalVideoPath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for final video: %w", err)
+		}
+	}
+
+	if fp.fd.JSONFilePath != "" && !filepath.IsAbs(fp.fd.JSONFilePath) {
 		fp.fd.JSONFilePath, err = filepath.Abs(fp.fd.JSONFilePath)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
 	}
 
-	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedMetaPath, fp.fd.RenamedVideoPath)
-
+	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
 	return nil
 }
 
@@ -8100,10 +8187,14 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
-func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
+func fixContractions(videoBase, metaBase string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
 
-	contractionsMap := make(map[string]models.ContractionPattern)
-	// Rename style map to use
+	if videoBase == "" || metaBase == "" {
+		return videoBase, metaBase, fmt.Errorf("empty input strings")
+	}
+
+	var contractionsMap map[string]models.ContractionPattern
+
 	switch style {
 
 	case enums.RENAMING_SPACES:
@@ -8116,13 +8207,13 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 		contractionsMap = regex.ContractionMapAllCompile()
 
 	default:
-		return videoFilename, metaFilename, nil
+		return videoBase, metaBase, nil
 	}
 
-	videoFilename = replaceLoneS(videoFilename, style)
-	metaFilename = replaceLoneS(metaFilename, style)
+	videoBase = replaceLoneS(videoBase, style)
+	metaBase = replaceLoneS(metaBase, style)
 
-	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoFilename, metaFilename)
+	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoBase, metaBase)
 
 	// Function to replace contractions in a filename
 	replaceContractions := func(filename string) string {
@@ -8155,10 +8246,10 @@ func fixContractions(videoFilename, metaFilename string, style enums.ReplaceToSt
 	}
 
 	// Replace contractions in both filenames
-	videoFilename = strings.TrimSpace(videoFilename)
-	metaFilename = strings.TrimSpace(metaFilename)
-	return replaceContractions(videoFilename),
-		replaceContractions(metaFilename),
+	videoBase = strings.TrimSpace(videoBase)
+	metaBase = strings.TrimSpace(metaBase)
+	return replaceContractions(videoBase),
+		replaceContractions(metaBase),
 		nil
 }
 
@@ -8961,6 +9052,11 @@ import (
 	"github.com/gocolly/colly"
 )
 
+const (
+	maxRetries = 3
+	retryDelay = 5 * time.Second
+)
+
 // scrapeMeta gets cookies for a given URL and returns a grabbed string
 func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
@@ -8984,8 +9080,32 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 	return data
 }
 
-// scrape searches relevant URLs to try and fill missing metadata
+// scrape handles scrape attempts.
 func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPresets bool) (string, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		result, err := attemptScrape(url, cookies, tag, skipPresets)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		logging.E(0, "Scrape attempt %d/%d failed for %s: %v",
+			attempt, maxRetries, url, err)
+
+		if attempt < maxRetries {
+			logging.I("Waiting %v before retry...", retryDelay)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return "", fmt.Errorf("all %d scrape attempts failed for %s: %w",
+		maxRetries, url, lastErr)
+}
+
+// attemptScrape searches relevant URLs to try and fill missing metadata.
+func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPresets bool) (string, error) {
 
 	var (
 		result      string
@@ -9310,7 +9430,7 @@ var (
 	metaExtensions map[string]bool
 )
 
-// InitFetchFilesVars sets up the cached variables to be used in file fetching ops
+// InitFetchFilesVars sets up the cached variables to be used in file fetching ops.
 func InitFetchFilesVars() (err error) {
 
 	// Handle video extension input
@@ -9340,7 +9460,7 @@ func InitFetchFilesVars() (err error) {
 	return nil
 }
 
-// GetVideoFiles fetches video files from a directory
+// GetVideoFiles fetches video files from a directory.
 func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
 	if err != nil {
@@ -9383,7 +9503,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	return videoFiles, nil
 }
 
-// GetMetadataFiles fetches metadata files from a directory
+// GetMetadataFiles fetches metadata files from a directory.
 func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	files, err := metaDir.ReadDir(-1)
 	if err != nil {
@@ -9457,7 +9577,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	return metaFiles, nil
 }
 
-// GetSingleVideoFile handles a single video file
+// GetSingleVideoFile handles a single video file.
 func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error) {
 	videoMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(videoFile.Name())
@@ -9474,7 +9594,7 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error)
 	return videoMap, nil
 }
 
-// GetSingleMetadataFile handles a single metadata file
+// GetSingleMetadataFile handles a single metadata file.
 func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, error) {
 	metaMap := make(map[string]*models.FileData, 1)
 	filename := filepath.Base(metaFile.Name())
@@ -9508,7 +9628,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
-func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (map[string]*models.FileData, error) {
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, isDirs bool) (map[string]*models.FileData, error) {
 	logging.D(3, "Entering metadata and video file matching loop...")
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
@@ -9523,24 +9643,24 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData) (
 		metaLookup[baseKey] = metaData
 	}
 
-	for videoName := range videoFiles {
-		videoBase := strings.TrimSuffix(videoName, filepath.Ext(videoName))
+	for filename := range videoFiles {
+		videoBase := strings.TrimSuffix(filename, filepath.Ext(filename))
 		normalizedVideoBase := NormalizeFilename(videoBase, specialChars, extraSpaces)
 
 		if metaData, exists := metaLookup[normalizedVideoBase]; exists { // This checks if the key exists in the metaLookup map
-			matchedFiles[videoName] = videoFiles[videoName]
-			matchedFiles[videoName].MetaFileType = metaData.MetaFileType
+			matchedFiles[filename] = videoFiles[filename]
+			matchedFiles[filename].MetaFileType = metaData.MetaFileType
 
 			switch metaData.MetaFileType {
 			case enums.METAFILE_JSON:
-				matchedFiles[videoName].JSONFilePath = metaData.JSONFilePath
-				matchedFiles[videoName].JSONBaseName = metaData.JSONBaseName
-				matchedFiles[videoName].JSONDirectory = metaData.JSONDirectory
+				matchedFiles[filename].JSONFilePath = metaData.JSONFilePath
+				matchedFiles[filename].JSONBaseName = metaData.JSONBaseName
+				matchedFiles[filename].JSONDirectory = metaData.JSONDirectory
 
 			case enums.METAFILE_NFO:
-				matchedFiles[videoName].NFOFilePath = metaData.NFOFilePath
-				matchedFiles[videoName].NFOBaseName = metaData.NFOBaseName
-				matchedFiles[videoName].NFODirectory = metaData.NFODirectory
+				matchedFiles[filename].NFOFilePath = metaData.NFOFilePath
+				matchedFiles[filename].NFOBaseName = metaData.NFOBaseName
+				matchedFiles[filename].NFODirectory = metaData.NFODirectory
 			}
 		}
 	}
@@ -9770,43 +9890,53 @@ import (
 )
 
 type FSFileWriter struct {
-	Fd        *models.FileData
-	SkipVids  bool
-	DestVideo string
-	SrcVideo  string
-	DestMeta  string
-	SrcMeta   string
-	muFs      sync.RWMutex
+	Fd           *models.FileData
+	SkipVids     bool
+	RenamedVideo string
+	InputVideo   string
+	RenamedMeta  string
+	InputMeta    string
+	muFs         sync.RWMutex
 }
 
-func NewFSFileWriter(fd *models.FileData, skipVids bool) *FSFileWriter {
+func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) {
 
-	srcVideo := fd.FinalVideoPath
-	destVideo := fd.RenamedVideoPath
-	srcMeta := fd.JSONFilePath
-	destMeta := fd.RenamedMetaPath
+	inputVid := fd.FinalVideoPath
+	renamedVid := fd.RenamedVideoPath
+	inputMeta := fd.JSONFilePath
+	renamedMeta := fd.RenamedMetaPath
+
+	if !skipVids {
+		if inputVid == "" && renamedVid == "" {
+			return nil, fmt.Errorf("some required video paths are empty:\n\nVid src: %q\nVid dest: %q", inputVid, renamedVid)
+		}
+	}
+
+	if inputMeta == "" && renamedMeta == "" {
+		return nil, fmt.Errorf("some required meta paths are empty:\n\nMeta src: %q\nMeta dest: %q", inputMeta, renamedMeta)
+	}
 
 	if logging.Level > 1 {
 		differ := 0
-		if !strings.EqualFold(destVideo, srcVideo) {
+		if !strings.EqualFold(renamedVid, inputVid) {
 			differ++
 		}
-		if !strings.EqualFold(destMeta, srcMeta) {
+		if !strings.EqualFold(renamedMeta, inputMeta) {
 			differ++
 		}
 
 		logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
-			skipVids, srcVideo, destVideo, srcMeta, destMeta, differ)
+			skipVids, inputVid, renamedVid, inputMeta, renamedMeta, differ)
 	}
 
 	return &FSFileWriter{
-		Fd:        fd,
-		SkipVids:  skipVids,
-		DestVideo: destVideo,
-		SrcVideo:  srcVideo,
-		DestMeta:  destMeta,
-		SrcMeta:   srcMeta,
-	}
+		Fd:           fd,
+		SkipVids:     skipVids,
+		RenamedVideo: renamedVid,
+		InputVideo:   inputVid,
+		RenamedMeta:  renamedMeta,
+		InputMeta:    inputMeta,
+	}, nil
 }
 
 // WriteResults executes the final commands to write the transformed files
@@ -9815,21 +9945,19 @@ func (fs *FSFileWriter) WriteResults() error {
 	defer fs.muFs.Unlock()
 
 	// Rename video file
-	if shouldProcess(fs.SrcVideo, fs.DestVideo, true, fs.SkipVids) {
-		logging.D(1, "Video rename function:\n\nVideo: Replacing '%v' with '%v'", fs.SrcVideo, fs.DestVideo)
-		if err := os.Rename(fs.SrcVideo, fs.DestVideo); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcVideo, fs.DestVideo, err)
+	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
+		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.InputVideo, fs.RenamedVideo, err)
 		}
-		logging.S(0, "Successfully renamed %q to %q", fs.SrcVideo, fs.DestVideo)
+		logging.S(0, "Successfully renamed %q to %q", fs.InputVideo, fs.RenamedVideo)
 	}
 
 	// Rename meta file
-	if shouldProcess(fs.SrcMeta, fs.DestMeta, false, fs.SkipVids) {
-		logging.D(1, "Rename function final commands:\n\nMetafile: Replacing '%v' with '%v'", fs.SrcMeta, fs.DestMeta)
-		if err := os.Rename(fs.SrcMeta, fs.DestMeta); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.SrcMeta, fs.DestMeta, err)
+	if shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
+		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
+			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.InputMeta, fs.RenamedMeta, err)
 		}
-		logging.S(0, "Successfully renamed %q to %q", fs.SrcMeta, fs.DestMeta)
+		logging.S(0, "Successfully renamed %q to %q", fs.InputMeta, fs.RenamedMeta)
 	}
 
 	return nil
@@ -9844,7 +9972,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return nil
 	}
 
-	if fs.DestVideo == "" && fs.DestMeta == "" {
+	if fs.RenamedVideo == "" && fs.RenamedMeta == "" {
 		return fmt.Errorf("video and metafile source strings both empty")
 	}
 
@@ -9864,28 +9992,22 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 
 	// Move/copy video and metadata file
 	if !fs.SkipVids {
-
-		logging.I("Moving file from %s to %s", fs.SrcVideo, fs.DestVideo)
-
-		if fs.DestVideo != "" {
-			destVBase := filepath.Base(fs.DestVideo)
-			destVTarget := filepath.Join(dst, destVBase)
-			if err := moveOrCopyFile(fs.DestVideo, destVTarget); err != nil {
-				return fmt.Errorf("failed to move video file: %w", err)
+		if fs.RenamedVideo != "" {
+			videoDestPath := filepath.Join(dst, filepath.Base(fs.RenamedVideo))
+			if err := moveOrCopyFile(fs.RenamedVideo, videoDestPath); err != nil {
+				return fmt.Errorf("failed to move video file from %q to %q: %w", fs.RenamedVideo, videoDestPath, err)
 			}
+			logging.S(0, "Moved %q to %q", fs.RenamedVideo, videoDestPath)
 		}
 	}
 
 	if !noMeta {
-
-		logging.I("Moving file from %s to %s", fs.SrcMeta, fs.DestMeta)
-
-		if fs.DestMeta != "" {
-			destMBase := filepath.Base(fs.DestMeta)
-			destMTarget := filepath.Join(dst, destMBase)
-			if err := moveOrCopyFile(fs.DestMeta, destMTarget); err != nil {
-				return fmt.Errorf("failed to move metadata file: %w", err)
+		if fs.RenamedMeta != "" {
+			metaDestPath := filepath.Join(dst, filepath.Base(fs.RenamedMeta))
+			if err := moveOrCopyFile(fs.RenamedMeta, metaDestPath); err != nil {
+				return fmt.Errorf("failed to move metadata file from %q to %q: %w", fs.RenamedMeta, metaDestPath, err)
 			}
+			logging.S(0, "Moved %q to %q", fs.RenamedMeta, metaDestPath)
 		}
 	}
 	return nil
@@ -10417,7 +10539,7 @@ func SetupLogging(targetDir string) error {
 	}
 
 	// Assign lumberjack logger to standard log output
-	Logger = log.New(logFile, "", log.LstdFlags)
+	Logger = log.New(logFile, "", 0)
 	Loggable = true
 
 	Logger.Printf(":\n=========== %v ===========\n\n", time.Now().Format(time.RFC1123Z))
@@ -10458,6 +10580,11 @@ var muPrint sync.Mutex
 // CreateModelPrintout prints out the values stored in a struct.
 // taskName allows you to enter your own identifier for this task.
 func CreateModelPrintout(model any, filename, taskName string, args ...any) {
+	if model == nil {
+		logging.E(0, "Model entered nil for taskname %q", taskName)
+		return
+	}
+
 	muPrint.Lock()
 	defer muPrint.Unlock()
 

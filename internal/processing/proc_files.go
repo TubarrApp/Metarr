@@ -35,20 +35,19 @@ type failedVideo struct {
 	err      string
 }
 
+type workItem struct {
+	filename string
+	fileData *models.FileData
+}
+
 // processFiles is the main program function to process folder entries
 func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
-
-	cancel := core.Cancel
-	cleanupChan := core.Cleanup
-	ctx := core.Ctx
-	wg := core.Wg
 
 	// Reset counts and get skip video bool
 	skipVideos := prepNewBatch(batch.SkipVideos)
 
 	// Match and video file maps, and meta file count
 	matchedFiles, videoMap, metaCount := getFiles(batch, openMeta, openVideo, skipVideos)
-
 	atomic.StoreInt32(&totalMetaFiles, int32(metaCount))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
 
@@ -60,41 +59,63 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		muFailed    sync.Mutex
 	)
 
-	processMetadataFiles(ctx, matchedFiles, &muFailed)
+	cancel := core.Cancel
+	cleanupChan := core.Cleanup
+	ctx := core.Ctx
+	wg := core.Wg
 
-	sem := make(chan struct{}, cfg.GetInt(keys.Concurrency))
-	processedModels := make([]*models.FileData, 0, len(matchedFiles))
-
-	setupCleanup(cleanupChan, cancel, wg, videoMap, &muFailed)
-
-	if !skipVideos {
-		for name, data := range matchedFiles {
-			wg.Add(1)
-			go func(filename string, fileData *models.FileData) {
-				defer wg.Done()
-
-				sem <- struct{}{}
-				defer func() { <-sem }()
-
-				rtn, err := executeFile(ctx, filename, fileData)
-				if err != nil {
-					logging.E(0, "error executing file %q: %v", filename, err)
-					return
-				}
-
-				muProcessed.Lock()
-				processedModels = append(processedModels, rtn)
-				muProcessed.Unlock()
-
-			}(name, data)
-		}
-		wg.Wait()
+	if err := processMetadataFiles(ctx, matchedFiles, &muFailed); err != nil {
+		logging.E(0, "Error processing metadata files: %v", err)
 	}
 
-	err := cleanupTempFiles(videoMap)
-	if err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
-		logging.E(0, "Failed to cleanup temp files: %v", err)
+	setupCleanup(cleanupChan, cancel, wg, videoMap, &muFailed)
+	processedModels := make([]*models.FileData, 0, len(matchedFiles))
+
+	if !skipVideos {
+		numWorkers := cfg.GetInt(keys.Concurrency)
+		if numWorkers < 1 {
+			numWorkers = 1
+		}
+
+		jobs := make(chan workItem, len(matchedFiles))
+		results := make(chan *models.FileData, len(matchedFiles))
+
+		// Start workers
+		for w := 1; w <= numWorkers; w++ {
+			wg.Add(1)
+			go workerProcess(w, jobs, results, wg, ctx)
+		}
+
+		// Send jobs to workers
+		for name, data := range matchedFiles {
+			jobs <- workItem{
+				filename: name,
+				fileData: data,
+			}
+		}
+		close(jobs)
+
+		// Collect results in a separate goroutine
+		go func() {
+			for result := range results {
+				if result != nil {
+					muProcessed.Lock()
+					processedModels = append(processedModels, result)
+					muProcessed.Unlock()
+				}
+			}
+		}()
+
+		wg.Wait()
+		close(results)
+
+		// Handle temp files and cleanup
+		err := cleanupTempFiles(videoMap)
+		if err != nil {
+			logging.ErrorArray = append(logging.ErrorArray, err)
+			logging.E(0, "Failed to cleanup temp files: %v", err)
+		}
+
 	}
 
 	directory := renameFiles(openVideo.Name(), openMeta.Name(), processedModels, skipVideos)
@@ -107,6 +128,29 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 
 	if logging.ErrorArray != nil {
 		logFailedVideos()
+	}
+}
+
+// workerProcess performs the video processing operation for a worker.
+func workerProcess(id int, jobs <-chan workItem, results chan<- *models.FileData, wg *sync.WaitGroup, ctx context.Context) {
+	defer wg.Done()
+
+	for job := range jobs {
+		select {
+		case <-ctx.Done():
+			logging.I("Worker %d stopping due to context cancellation", id)
+			return
+		default:
+			logging.D(1, "Worker %d processing file: %s", id, job.filename)
+
+			rtn, err := executeFile(ctx, job.filename, job.fileData)
+			if err != nil {
+				logging.E(0, "Worker %d error executing file %q: %v", id, job.filename, err)
+				continue
+			}
+
+			results <- rtn
+		}
 	}
 }
 
@@ -129,10 +173,7 @@ func processMetadataFiles(ctx context.Context, matchedFiles map[string]*models.F
 			logging.E(0, errMsg.Error())
 
 			muFailed.Lock()
-			failedVideos = append(failedVideos, failedVideo{
-				filename: fd.OriginalVideoPath,
-				err:      errMsg.Error(),
-			})
+			logFailedVideos()
 			muFailed.Unlock()
 		}
 	}

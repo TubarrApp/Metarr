@@ -123,28 +123,6 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	// Make filename date tag
 	logging.D(3, "About to make date tag for: %v", file.Name())
 
-	if cfg.IsSet(keys.FileDateFmt) {
-		dateFmt, ok := cfg.Get(keys.FileDateFmt).(enums.DateFormat)
-
-		switch {
-		case !ok:
-			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
-
-		case dateFmt != enums.DATEFMT_SKIP:
-
-			dateTag, err := tags.MakeDateTag(data, fd, dateFmt)
-			if err != nil {
-				logging.E(0, "Failed to make date tag: %v", err)
-			}
-			if !strings.Contains(file.Name(), dateTag) {
-				fd.FilenameDateTag = dateTag
-			}
-
-		default:
-			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
-		}
-	}
-
 	if logging.Level > 3 {
 		printout.CreateModelPrintout(fd, fd.OriginalVideoBaseName, "Printing model fields")
 	}
@@ -153,6 +131,25 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	if cfg.IsSet(keys.MFilenamePfx) {
 		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = tags.MakeFilenameTag(data, file)
+	}
+
+	logging.D(3, "About to make date tag for: %v", file.Name())
+	if cfg.IsSet(keys.FileDateFmt) {
+		dateFmt, ok := cfg.Get(keys.FileDateFmt).(enums.DateFormat)
+		switch {
+		case !ok:
+			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
+		case dateFmt != enums.DATEFMT_SKIP:
+			dateTag, err := tags.MakeDateTag(data, fd, dateFmt)
+			if err != nil {
+				logging.E(0, "Failed to make date tag: %v", err)
+			}
+			if !strings.Contains(file.Name(), dateTag) {
+				fd.FilenameDateTag = dateTag
+			}
+		default:
+			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
+		}
 	}
 
 	// Check if metadata is already existent in target file

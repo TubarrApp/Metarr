@@ -33,11 +33,12 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		dateFmt != "",
 		rName != enums.RENAMING_SKIP:
 
-		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile date format: %q\nFile rename: %v",
+		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
 			fd.OriginalVideoPath,
 			fd.FilenameMetaPrefix,
 			fd.ModelFileSfxReplace,
 			dateFmt,
+			fd.FilenameDateTag,
 			rName != enums.RENAMING_SKIP)
 
 		rename = true
