@@ -147,8 +147,8 @@ func unpackNFO(fd *models.FileData, data map[string]any, fieldMap map[string]*st
 
 		switch v := val.(type) {
 		case string:
-			logging.D(3, "Setting field %q to %q", field, v)
 			*fieldVal = v
+			logging.D(3, "Changed field %q → %q", field, v)
 		case map[string]any:
 			switch field {
 

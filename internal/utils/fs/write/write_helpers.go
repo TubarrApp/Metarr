@@ -39,7 +39,7 @@ func moveOrCopyFile(src, dst string) error {
 		return nil
 	}
 
-	logging.S(0, "Moved file from %q to %q", src, dst)
+	logging.S(0, "Moved file: %q → %q", src, dst)
 
 	// If cross-device error, fall back to copy+delete
 	if strings.Contains(err.Error(), "invalid cross-device link") {

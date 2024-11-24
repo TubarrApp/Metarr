@@ -35,7 +35,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		outExt = origExt
 	}
 
-	logging.I("Will execute video from extension %q to extension %q", origExt, outExt)
+	logging.I("Will execute video from extension %q → %q", origExt, outExt)
 
 	if dontProcess(fd, outExt) {
 		return nil

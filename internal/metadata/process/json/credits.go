@@ -177,7 +177,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				logging.I("Overriding old %q to %q", *ptr, val)
+				logging.I("Overriding old %q → %q", *ptr, val)
 				*ptr = val
 
 				if logging.Level > 1 {

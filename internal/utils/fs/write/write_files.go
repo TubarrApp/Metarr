@@ -73,17 +73,17 @@ func (fs *FSFileWriter) WriteResults() error {
 	// Rename video file
 	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
 		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.InputVideo, fs.RenamedVideo, err)
+			return fmt.Errorf("failed to rename %s → %s. error: %v", fs.InputVideo, fs.RenamedVideo, err)
 		}
-		logging.S(0, "Successfully renamed %q to %q", fs.InputVideo, fs.RenamedVideo)
+		logging.S(0, "Successfully renamed %q → %q", fs.InputVideo, fs.RenamedVideo)
 	}
 
 	// Rename meta file
 	if shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
 		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
-			return fmt.Errorf("failed to rename %s to %s. error: %v", fs.InputMeta, fs.RenamedMeta, err)
+			return fmt.Errorf("failed to rename %s → %s. error: %v", fs.InputMeta, fs.RenamedMeta, err)
 		}
-		logging.S(0, "Successfully renamed %q to %q", fs.InputMeta, fs.RenamedMeta)
+		logging.S(0, "Successfully renamed %q → %q", fs.InputMeta, fs.RenamedMeta)
 	}
 
 	return nil
@@ -121,9 +121,9 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		if fs.RenamedVideo != "" {
 			videoDestPath := filepath.Join(dst, filepath.Base(fs.RenamedVideo))
 			if err := moveOrCopyFile(fs.RenamedVideo, videoDestPath); err != nil {
-				return fmt.Errorf("failed to move video file from %q to %q: %w", fs.RenamedVideo, videoDestPath, err)
+				return fmt.Errorf("failed to move video file from %q → %q: %w", fs.RenamedVideo, videoDestPath, err)
 			}
-			logging.S(0, "Moved %q to %q", fs.RenamedVideo, videoDestPath)
+			logging.S(0, "Moved file: %q → %q", fs.RenamedVideo, videoDestPath)
 		}
 	}
 
@@ -131,9 +131,9 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		if fs.RenamedMeta != "" {
 			metaDestPath := filepath.Join(dst, filepath.Base(fs.RenamedMeta))
 			if err := moveOrCopyFile(fs.RenamedMeta, metaDestPath); err != nil {
-				return fmt.Errorf("failed to move metadata file from %q to %q: %w", fs.RenamedMeta, metaDestPath, err)
+				return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.RenamedMeta, metaDestPath, err)
 			}
-			logging.S(0, "Moved %q to %q", fs.RenamedMeta, metaDestPath)
+			logging.S(0, "Moved file: %q → %q", fs.RenamedMeta, metaDestPath)
 		}
 	}
 	return nil

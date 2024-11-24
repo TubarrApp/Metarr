@@ -75,7 +75,7 @@ func RenameToBackup(filename string) (backupName string, err error) {
 	backupName = generateBackupFilename(filename)
 
 	if err := os.Rename(filename, backupName); err != nil {
-		return "", fmt.Errorf("failed to backup filename %q to %q", filename, backupName)
+		return "", fmt.Errorf("failed to backup filename %q → %q", filename, backupName)
 	}
 	return backupName, nil
 }

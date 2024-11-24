@@ -240,7 +240,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 					case "y":
 						logging.D(2, "Received meta overwrite reply as 'y' for %s in %s", existingValue, file)
 						n.Field = strings.TrimSpace(n.Field)
-						logging.D(3, "Adjusted field from %q to %q\n", j[n.Field], n.Field)
+						logging.D(3, "Changed field from %q → %q\n", j[n.Field], n.Field)
 
 						j[n.Field] = n.Value
 						processedFields[n.Field] = true
