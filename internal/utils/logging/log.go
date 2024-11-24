@@ -59,7 +59,7 @@ func SetupLogging(targetDir string) error {
 	return nil
 }
 
-// writeToConsole writes messages to console without using zerolog (zerolog parses JSON, inefficient)
+// writeToConsole writes messages to console without using zerolog (zerolog parses JSON, inefficient).
 func writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
 	fmt.Fprintf(console, "%s%s%s%s%s", consts.ColorBrightBlack, timestamp, consts.ColorReset, spaceSeparator, msg)

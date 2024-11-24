@@ -80,7 +80,11 @@ func main() {
 	prompt.InitUserInputReader()
 
 	if cfg.IsSet(keys.BatchPairs) {
-		processing.StartBatchLoop(core)
+		if err := processing.StartBatchLoop(core); err != nil {
+			logging.E(0, "error during batch loop: %v", err)
+			cancel()
+			os.Exit(1)
+		}
 	} else {
 		logging.I("No files or directories to process. Exiting.")
 	}

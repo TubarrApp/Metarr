@@ -14,16 +14,16 @@ import (
 var logInit bool
 
 // StartBatchLoop begins processing the batch
-func StartBatchLoop(core *models.Core) {
+func StartBatchLoop(core *models.Core) error {
 	if !cfg.IsSet(keys.BatchPairs) {
 		logging.I("No batches sent in?")
-		return
+		return nil
 	}
 
 	batches, ok := cfg.Get(keys.BatchPairs).([]models.Batch)
 	if !ok {
 		logging.E(0, "Wrong type or null batch pair. Type: %T", batches)
-		return
+		return nil
 	}
 
 	job := 1
@@ -80,7 +80,10 @@ func StartBatchLoop(core *models.Core) {
 		}
 
 		// Process the files
-		ProcessFiles(batch, core, openVideo, openJson)
+		if err := ProcessFiles(batch, core, openVideo, openJson); err != nil {
+			return err
+		}
+
 		logging.I("Finished tasks for files/directories:\n\nVideo: %q\nJSON: %q\n", batch.Video, batch.Json)
 
 		// Close files explicitly at the end of each iteration
@@ -93,4 +96,5 @@ func StartBatchLoop(core *models.Core) {
 	}
 
 	logging.I("All batch tasks finished!")
+	return nil
 }

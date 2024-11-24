@@ -53,13 +53,17 @@ type workItem struct {
 }
 
 // processFiles is the main program function to process folder entries
-func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) {
+func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os.File) error {
 
 	// Reset counts and get skip video bool
 	skipVideos := prepNewBatch(batch.SkipVideos)
 
 	// Match and video file maps, and meta file count
-	files := getFiles(batch, openMeta, openVideo, skipVideos)
+	files, err := getFiles(batch, openMeta, openVideo, skipVideos)
+	if err != nil {
+		return err
+	}
+
 	atomic.StoreInt32(&totalMetaFiles, int32(files.metaMapLen))
 	atomic.StoreInt32(&totalVideoFiles, int32(len(files.videoMap)))
 
@@ -81,7 +85,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 		logging.E(0, "Error processing metadata files: %v", err)
 	}
 
-	setupCleanup(cleanupChan, cancel, wg, files.videoMap, &muFailed)
+	setupCleanup(ctx, cancel, cleanupChan, wg, files.videoMap, &muFailed)
 
 	matchedCount := len(files.matched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
@@ -125,8 +129,7 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	close(results)
 
 	// Handle temp files and cleanup
-	err := cleanupTempFiles(files.videoMap)
-	if err != nil {
+	if err = cleanupTempFiles(files.videoMap); err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to cleanup temp files: %v", err)
 	}
@@ -134,12 +137,14 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
 		logging.S(0, "Successfully processed all files in directory %q with no errors.", filepath.Dir(files.openMetaFilename))
 		fmt.Println()
-		return
+		return nil
 	}
 
 	if logging.ErrorArray != nil {
 		logFailedVideos()
 	}
+
+	return nil
 }
 
 // workerProcess performs the video processing operation for a worker.
@@ -198,7 +203,7 @@ func processMetadataFiles(ctx context.Context, matchedFiles map[string]*models.F
 }
 
 // getFiles returns a map of matched video/metadata files.
-func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool) getFilesOutput {
+func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool) (getFilesOutput, error) {
 	var (
 		videoMap,
 		metaMap map[string]*models.FileData
@@ -255,8 +260,7 @@ func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool)
 	if !skipVideos {
 		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.IsDirs)
 		if err != nil {
-			logging.E(0, "Error matching videos with metadata: %v", err)
-			os.Exit(1)
+			return getFilesOutput{}, fmt.Errorf("error matching videos with metadata: %v", err)
 		}
 	} else {
 		matchedFiles = metaMap
@@ -291,7 +295,7 @@ func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool)
 		openMetaFilename:  openMetaFilename,
 		directory:         directory,
 	}
-	return rtn
+	return rtn, nil
 }
 
 // processFile handles processing for both video and metadata files
@@ -347,11 +351,16 @@ func executeFile(ctx context.Context, skipVideos bool, filename string, fd *mode
 }
 
 // setupCleanup creates a cleanup routine for file processing.
-func setupCleanup(cleanupChan chan os.Signal, cancel context.CancelFunc, wg *sync.WaitGroup, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
+func setupCleanup(ctx context.Context, cancel context.CancelFunc, cleanupChan chan os.Signal, wg *sync.WaitGroup, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
 	go func() {
-		<-cleanupChan
-		fmt.Println("\nSignal received, cleaning up temporary files...")
-		cancel()
+		select {
+		case <-cleanupChan:
+			fmt.Println("\nSignal received, cleaning up temporary files...")
+			cancel()
+		case <-ctx.Done():
+			fmt.Println("\nContext cancelled, cleaning up temporary files...")
+		}
+
 		wg.Wait()
 
 		if err := cleanupTempFiles(videoMap); err != nil {

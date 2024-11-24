@@ -32,7 +32,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 
 	output, err := command.Output()
 	if err != nil {
-		logging.E(0, "Error running FFprobe command: %v. Will process video.", err)
+		logging.E(0, "Error running FFprobe command: %v. Will not process video.", err)
 		return false
 	}
 
@@ -40,7 +40,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 	var ffData ffprobeOutput
 
 	if err := json.Unmarshal(output, &ffData); err != nil {
-		logging.E(0, "Error parsing FFprobe output: %v. Will process video.", err)
+		logging.E(0, "Error parsing FFprobe output: %v. Will not process video.", err)
 		return false
 	}
 
