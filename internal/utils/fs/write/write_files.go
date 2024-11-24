@@ -75,7 +75,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %v", fs.InputVideo, fs.RenamedVideo, err)
 		}
-		logging.S(0, "Successfully renamed %q → %q", fs.InputVideo, fs.RenamedVideo)
+		logging.S(0, "Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
 	}
 
 	// Rename meta file
@@ -83,7 +83,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %v", fs.InputMeta, fs.RenamedMeta, err)
 		}
-		logging.S(0, "Successfully renamed %q → %q", fs.InputMeta, fs.RenamedMeta)
+		logging.S(0, "Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
 	}
 
 	return nil
