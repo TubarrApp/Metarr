@@ -9,9 +9,55 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
 
-var logInit bool
+var (
+	logInit   bool
+	muBatchID sync.Mutex
+	atomID    int64
+)
+
+type batch struct {
+	ID         int64
+	Video      string
+	Json       string
+	IsDirs     bool
+	SkipVideos bool
+	bp         *batchProcessor
+}
+
+type batchProcessor struct {
+	batchID int64
+
+	counts struct {
+		totalMeta      int32
+		totalVideo     int32
+		totalMatched   int32
+		processedMeta  int32
+		processedVideo int32
+	}
+
+	files struct {
+		matched sync.Map
+		video   sync.Map
+		metaLen int32
+	}
+
+	failures struct {
+		items []failedVideo
+		pool  []failedVideo
+		mu    sync.Mutex
+	}
+
+	filepaths struct {
+		mu        sync.RWMutex
+		videoFile string
+		metaFile  string
+		directory string
+	}
+}
 
 // StartBatchLoop begins processing the batch
 func StartBatchLoop(core *models.Core) error {
@@ -20,7 +66,7 @@ func StartBatchLoop(core *models.Core) error {
 		return nil
 	}
 
-	batches, ok := cfg.Get(keys.BatchPairs).([]models.Batch)
+	batches, ok := cfg.Get(keys.BatchPairs).([]cfg.BatchConfig)
 	if !ok {
 		logging.E(0, "Wrong type or null batch pair. Type: %T", batches)
 		return nil
@@ -30,13 +76,14 @@ func StartBatchLoop(core *models.Core) error {
 	skipVideos := cfg.GetBool(keys.SkipVideos)
 
 	// Begin iteration...
-	for _, batch := range batches {
+	for _, b := range batches {
 		var (
 			openVideo *os.File
 			openJson  *os.File
 			err       error
 		)
 
+		batch := convertCfgToBatch(b)
 		logging.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
 
 		if batch.SkipVideos {
@@ -79,8 +126,8 @@ func StartBatchLoop(core *models.Core) error {
 			logInit = true
 		}
 
-		// Process the files
-		if err := ProcessFiles(batch, core, openVideo, openJson); err != nil {
+		// Initiate batch process
+		if err := processBatch(batch, core, openVideo, openJson); err != nil {
 			return err
 		}
 
@@ -97,4 +144,21 @@ func StartBatchLoop(core *models.Core) error {
 
 	logging.I("All batch tasks finished!")
 	return nil
+}
+
+// convertCfgToBatch converts a config batch to a local batch.
+func convertCfgToBatch(config cfg.BatchConfig) *batch {
+
+	muBatchID.Lock()
+	atomic.AddInt64(&atomID, 1)
+	id := atomic.LoadInt64(&atomID)
+	muBatchID.Unlock()
+
+	return &batch{
+		ID:         id,
+		Video:      config.Video,
+		Json:       config.Json,
+		IsDirs:     config.IsDirs,
+		SkipVideos: config.SkipVideos,
+	}
 }

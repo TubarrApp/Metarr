@@ -5,7 +5,6 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
-	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
 	"strings"
@@ -116,6 +115,14 @@ func execute() error {
 	return nil
 }
 
+type BatchConfig struct {
+	ID         int64
+	Video      string
+	Json       string
+	IsDirs     bool
+	SkipVideos bool
+}
+
 // checkFileDirConflicts ensures no conflicts in the file and directories entered by the user
 func checkFileDirs() error {
 
@@ -149,7 +156,7 @@ func checkFileDirs() error {
 		return fmt.Errorf("invalid configuration, please enter a meta directory/file for each video directory/file")
 	}
 
-	var tasks []models.Batch
+	var tasks []BatchConfig
 
 	vDirCount := 0
 	vFileCount := 0
@@ -175,7 +182,7 @@ func checkFileDirs() error {
 				return fmt.Errorf("file %q entered instead of directory", jInfo.Name())
 			}
 
-			tasks = append(tasks, models.Batch{
+			tasks = append(tasks, BatchConfig{
 				Video:  videoDirs[i],
 				Json:   jsonDirs[i],
 				IsDirs: true,
@@ -199,7 +206,7 @@ func checkFileDirs() error {
 				return fmt.Errorf("file %q entered instead of directory", jInfo.Name())
 			}
 
-			tasks = append(tasks, models.Batch{
+			tasks = append(tasks, BatchConfig{
 				Json:       j[i],
 				IsDirs:     true,
 				SkipVideos: true,
@@ -228,7 +235,7 @@ func checkFileDirs() error {
 				return fmt.Errorf("directory %q entered instead of file", jInfo.Name())
 			}
 
-			tasks = append(tasks, models.Batch{
+			tasks = append(tasks, BatchConfig{
 				Video:  videoFiles[i],
 				Json:   jsonFiles[i],
 				IsDirs: false,
@@ -251,7 +258,7 @@ func checkFileDirs() error {
 					return fmt.Errorf("directory %q entered instead of file", jInfo.Name())
 				}
 
-				tasks = append(tasks, models.Batch{
+				tasks = append(tasks, BatchConfig{
 					Json:       j[i],
 					IsDirs:     false,
 					SkipVideos: true,

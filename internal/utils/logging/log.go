@@ -17,8 +17,8 @@ var (
 	Level      int  = -1
 	Loggable   bool = false
 	fileLogger zerolog.Logger
-	ErrorArray []error
 	mu         sync.Mutex
+	ErrorArray = make([]error, 0, 8)
 	ansiEscape = regex.AnsiEscapeCompile()
 	console    = os.Stdout
 )

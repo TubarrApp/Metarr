@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -158,33 +157,4 @@ func printProgress(fileType string, current, total int32, directory string, muPr
 	fmt.Printf("    Processed %s file %d of %d\n", fileType, current, total)
 	fmt.Printf("    Remaining in %q: %d\n", directory, total-current)
 	fmt.Printf("==============================================================\n\n")
-}
-
-// resetCounters resets the file counter per batch operation.
-func prepNewBatch(modelSkipVideos bool) (skipVideos bool) {
-
-	atomic.StoreInt32(&totalMetaFiles, 0)
-	atomic.StoreInt32(&totalVideoFiles, 0)
-	atomic.StoreInt32(&processedMetaFiles, 0)
-	atomic.StoreInt32(&processedVideoFiles, 0)
-
-	if cfg.IsSet(keys.SkipVideos) {
-		skipVideos = cfg.GetBool(keys.SkipVideos)
-	} else {
-		skipVideos = modelSkipVideos
-	}
-	return skipVideos
-}
-
-// logFailedVideos logs videos which failed during this batch.
-func logFailedVideos() {
-	for i, failed := range failedVideos {
-		if i == 0 {
-			logging.E(0, "Program finished, but some errors were encountered:")
-		}
-		fmt.Println()
-		logging.P("Filename: %v", failed.filename)
-		logging.P("Error: %v", failed.err)
-	}
-	fmt.Println()
 }
