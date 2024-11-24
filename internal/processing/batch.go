@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	logInit   bool
-	muBatchID sync.Mutex
-	atomID    int64
+	logInit    bool
+	muBatchID  sync.Mutex
+	muLogSetup sync.Mutex
+	atomID     int64
 )
 
 type batch struct {
@@ -112,6 +113,7 @@ func StartBatchLoop(core *models.Core) error {
 
 		// Start logging
 		if !logInit {
+			muLogSetup.Lock()
 			dir := filepath.Dir(openJson.Name())
 			logging.I("Setting log file at %q", dir)
 
@@ -119,6 +121,7 @@ func StartBatchLoop(core *models.Core) error {
 				fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
 			}
 			logInit = true
+			muLogSetup.Unlock()
 		}
 
 		// Initiate batch process
