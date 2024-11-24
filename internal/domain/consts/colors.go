@@ -2,14 +2,15 @@ package consts
 
 // Colors
 const (
-	ColorReset  = "\033[0m"
-	ColorRed    = "\033[91m"
-	ColorGreen  = "\033[92m"
-	ColorYellow = "\033[93m"
-	ColorBlue   = "\033[34m"
-	ColorPurple = "\033[35m"
-	ColorCyan   = "\033[96m"
-	ColorWhite  = "\033[37m"
+	ColorReset    = "\033[0m"
+	ColorRed      = "\033[91m"
+	ColorGreen    = "\033[92m"
+	ColorYellow   = "\033[93m"
+	ColorBlue     = "\033[34m"
+	ColorPurple   = "\033[35m"
+	ColorCyan     = "\033[96m"
+	ColorWhite    = "\033[37m"
+	ColorDarkGrey = "\x1b[90m"
 )
 
 const (
