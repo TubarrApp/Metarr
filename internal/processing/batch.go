@@ -8,7 +8,6 @@ import (
 	logging "metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 )
@@ -59,7 +58,7 @@ type batchProcessor struct {
 	}
 }
 
-// StartBatchLoop begins processing the batch
+// StartBatchLoop begins processing the batch.
 func StartBatchLoop(core *models.Core) error {
 	if !cfg.IsSet(keys.BatchPairs) {
 		logging.I("No batches sent in?")
@@ -113,11 +112,7 @@ func StartBatchLoop(core *models.Core) error {
 
 		// Start logging
 		if !logInit {
-			dir, err := filepath.Abs(openJson.Name())
-			if err != nil {
-				logging.E(0, "Failed to initialize logging on this run, could not get absolute path of %v", openJson.Name())
-			}
-			dir = strings.TrimSuffix(dir, openJson.Name())
+			dir := filepath.Dir(openJson.Name())
 			logging.I("Setting log file at %q", dir)
 
 			if err = logging.SetupLogging(dir); err != nil {

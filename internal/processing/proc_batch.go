@@ -50,7 +50,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	return nil
 }
 
-// getBatchProcessor returns the singleton batchProcessor instance
+// getBatchProcessor returns the singleton batchProcessor instance.
 func getNewBatchProcessor(batchID int64) (*batchProcessor, error) {
 	bp := batchPool.Get().(*batchProcessor)
 	if bp == nil {
