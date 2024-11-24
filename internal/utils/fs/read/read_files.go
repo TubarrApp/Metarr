@@ -73,16 +73,16 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 
 		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
 
-			filenameBase := filepath.Base(file.Name())
+			videoFilenameBase := filepath.Base(file.Name())
 
 			m := models.NewFileData()
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
-			m.OriginalVideoBaseName = strings.TrimSuffix(filenameBase, filepath.Ext(file.Name()))
+			m.OriginalVideoBaseName = strings.TrimSuffix(videoFilenameBase, filepath.Ext(file.Name()))
 			m.VideoDirectory = videoDir.Name()
 
 			if !strings.HasSuffix(m.OriginalVideoBaseName, consts.BackupTag) {
 				videoFiles[file.Name()] = m
-				logging.I("Added video to queue: %v", filenameBase)
+				logging.I("Added video to queue: %v", videoFilenameBase)
 			} else {
 				logging.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoBaseName, consts.BackupTag)
 			}
@@ -130,8 +130,8 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			continue
 		}
 
-		filenameBase := filepath.Base(file.Name())
-		baseName := strings.TrimSuffix(filenameBase, ext)
+		videoFilenameBase := filepath.Base(file.Name())
+		baseName := strings.TrimSuffix(videoFilenameBase, ext)
 
 		m := models.NewFileData()
 		filePath := filepath.Join(metaDir.Name(), file.Name())
@@ -172,24 +172,24 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 // GetSingleVideoFile handles a single video file.
 func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error) {
 	videoMap := make(map[string]*models.FileData, 1)
-	filename := filepath.Base(videoFile.Name())
+	videoFilename := filepath.Base(videoFile.Name())
 
 	videoData := models.NewFileData()
 	videoData.OriginalVideoPath = videoFile.Name()
-	videoData.OriginalVideoBaseName = strings.TrimSuffix(filename, filepath.Ext(filename))
+	videoData.OriginalVideoBaseName = strings.TrimSuffix(videoFilename, filepath.Ext(videoFilename))
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
 	videoData.VideoFile = videoFile
 
-	logging.D(3, "Created video file data for single file: %s", filename)
+	logging.D(3, "Created video file data for single file: %s", videoFilename)
 
-	videoMap[filename] = videoData
+	videoMap[videoFilename] = videoData
 	return videoMap, nil
 }
 
 // GetSingleMetadataFile handles a single metadata file.
 func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, error) {
 	metaMap := make(map[string]*models.FileData, 1)
-	filename := filepath.Base(metaFile.Name())
+	videoFilename := filepath.Base(metaFile.Name())
 
 	fileData := models.NewFileData()
 	ext := filepath.Ext(metaFile.Name())
@@ -199,23 +199,23 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 
 		fileData.MetaFileType = enums.METAFILE_JSON
 		fileData.JSONFilePath = metaFile.Name()
-		fileData.JSONBaseName = strings.TrimSuffix(filename, ext)
+		fileData.JSONBaseName = strings.TrimSuffix(videoFilename, ext)
 		fileData.JSONDirectory = filepath.Dir(metaFile.Name())
-		logging.D(3, "Created JSON metadata file data for single file: %s", filename)
+		logging.D(3, "Created JSON metadata file data for single file: %s", videoFilename)
 
 	case consts.MExtNFO:
 
 		fileData.MetaFileType = enums.METAFILE_NFO
 		fileData.NFOFilePath = metaFile.Name()
-		fileData.NFOBaseName = strings.TrimSuffix(filename, ext)
+		fileData.NFOBaseName = strings.TrimSuffix(videoFilename, ext)
 		fileData.NFODirectory = filepath.Dir(metaFile.Name())
-		logging.D(3, "Created NFO metadata file data for single file: %s", filename)
+		logging.D(3, "Created NFO metadata file data for single file: %s", videoFilename)
 
 	default:
 		return nil, fmt.Errorf("unsupported metadata file type: %s", ext)
 	}
 
-	metaMap[filename] = fileData
+	metaMap[videoFilename] = fileData
 	return metaMap, nil
 }
 
@@ -235,24 +235,24 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, i
 		metaLookup[baseKey] = metaData
 	}
 
-	for filename := range videoFiles {
-		videoBase := strings.TrimSuffix(filename, filepath.Ext(filename))
+	for videoFilename := range videoFiles {
+		videoBase := strings.TrimSuffix(videoFilename, filepath.Ext(videoFilename))
 		normalizedVideoBase := NormalizeFilename(videoBase, specialChars, extraSpaces)
 
 		if metaData, exists := metaLookup[normalizedVideoBase]; exists { // This checks if the key exists in the metaLookup map
-			matchedFiles[filename] = videoFiles[filename]
-			matchedFiles[filename].MetaFileType = metaData.MetaFileType
+			matchedFiles[videoFilename] = videoFiles[videoFilename]
+			matchedFiles[videoFilename].MetaFileType = metaData.MetaFileType
 
 			switch metaData.MetaFileType {
 			case enums.METAFILE_JSON:
-				matchedFiles[filename].JSONFilePath = metaData.JSONFilePath
-				matchedFiles[filename].JSONBaseName = metaData.JSONBaseName
-				matchedFiles[filename].JSONDirectory = metaData.JSONDirectory
+				matchedFiles[videoFilename].JSONFilePath = metaData.JSONFilePath
+				matchedFiles[videoFilename].JSONBaseName = metaData.JSONBaseName
+				matchedFiles[videoFilename].JSONDirectory = metaData.JSONDirectory
 
 			case enums.METAFILE_NFO:
-				matchedFiles[filename].NFOFilePath = metaData.NFOFilePath
-				matchedFiles[filename].NFOBaseName = metaData.NFOBaseName
-				matchedFiles[filename].NFODirectory = metaData.NFODirectory
+				matchedFiles[videoFilename].NFOFilePath = metaData.NFOFilePath
+				matchedFiles[videoFilename].NFOBaseName = metaData.NFOBaseName
+				matchedFiles[videoFilename].NFODirectory = metaData.NFODirectory
 			}
 		}
 	}

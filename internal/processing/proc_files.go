@@ -36,6 +36,15 @@ type failedVideo struct {
 	err      string
 }
 
+type getFilesOutput struct {
+	matched,
+	videoMap map[string]*models.FileData
+	metaMapLen int
+	openVideoFilename,
+	openMetaFilename,
+	directory string
+}
+
 type workItem struct {
 	filename     string
 	fileData     *models.FileData
@@ -50,12 +59,13 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	skipVideos := prepNewBatch(batch.SkipVideos)
 
 	// Match and video file maps, and meta file count
-	matchedFiles, videoMap, metaCount := getFiles(batch, openMeta, openVideo, skipVideos)
-	atomic.StoreInt32(&totalMetaFiles, int32(metaCount))
-	atomic.StoreInt32(&totalVideoFiles, int32(len(videoMap)))
+	files := getFiles(batch, openMeta, openVideo, skipVideos)
+	atomic.StoreInt32(&totalMetaFiles, int32(files.metaMapLen))
+	atomic.StoreInt32(&totalVideoFiles, int32(len(files.videoMap)))
 
-	logging.I("Found %d file(s) to process", totalMetaFiles+totalVideoFiles)
-	logging.D(3, "Matched metafiles: %v", matchedFiles)
+	totalFiles := totalMetaFiles + totalVideoFiles
+	logging.I(fmt.Sprintf("Found %d file(s) to process", totalFiles))
+	logging.D(3, "Matched metafiles: %v", files.matched)
 
 	var (
 		muProcessed sync.Mutex
@@ -67,15 +77,16 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	ctx := core.Ctx
 	wg := core.Wg
 
-	if err := processMetadataFiles(ctx, matchedFiles, &muFailed); err != nil {
+	if err := processMetadataFiles(ctx, files.matched, &muFailed); err != nil {
 		logging.E(0, "Error processing metadata files: %v", err)
 	}
 
-	setupCleanup(cleanupChan, cancel, wg, videoMap, &muFailed)
+	setupCleanup(cleanupChan, cancel, wg, files.videoMap, &muFailed)
 
-	processedModels := make([]*models.FileData, 0, len(matchedFiles))
-	jobs := make(chan workItem, len(matchedFiles))
-	results := make(chan *models.FileData, len(matchedFiles))
+	matchedCount := len(files.matched)
+	processedModels := make([]*models.FileData, 0, matchedCount)
+	jobs := make(chan workItem, matchedCount)
+	results := make(chan *models.FileData, matchedCount)
 
 	numWorkers := cfg.GetInt(keys.Concurrency)
 	if numWorkers < 1 {
@@ -89,11 +100,11 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	}
 
 	// Send jobs to workers
-	for name, data := range matchedFiles {
+	for name, data := range files.matched {
 		jobs <- workItem{
 			filename:     name,
 			fileData:     data,
-			metaFilename: openMeta.Name(),
+			metaFilename: files.openMetaFilename,
 			skipVids:     skipVideos,
 		}
 	}
@@ -114,14 +125,14 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	close(results)
 
 	// Handle temp files and cleanup
-	err := cleanupTempFiles(videoMap)
+	err := cleanupTempFiles(files.videoMap)
 	if err != nil {
 		logging.ErrorArray = append(logging.ErrorArray, err)
 		logging.E(0, "Failed to cleanup temp files: %v", err)
 	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
-		logging.S(0, "Successfully processed all files in directory %q with no errors.", filepath.Dir(openMeta.Name()))
+		logging.S(0, "Successfully processed all files in directory %q with no errors.", filepath.Dir(files.openMetaFilename))
 		fmt.Println()
 		return
 	}
@@ -136,22 +147,26 @@ func workerProcess(id int, jobs <-chan workItem, results chan<- *models.FileData
 	defer wg.Done()
 
 	for job := range jobs {
+
+		skipVideos := job.skipVids
+		filename := job.filename
+
 		select {
 		case <-ctx.Done():
 			logging.I("Worker %d stopping due to context cancellation", id)
 			return
 		default:
-			logging.D(1, "Worker %d processing file: %s", id, job.filename)
+			logging.D(1, "Worker %d processing file: %s", id, filename)
 
-			rtn, err := executeFile(ctx, job.skipVids, job.filename, job.fileData)
+			executed, err := executeFile(ctx, skipVideos, filename, job.fileData)
 			if err != nil {
-				logging.E(0, "Worker %d error executing file %q: %v", id, job.filename, err)
+				logging.E(0, fmt.Sprintf("Worker %d error executing file %q: %v", id, filename, err))
 				continue
 			}
 
-			renameFiles(job.filename, job.metaFilename, rtn, job.skipVids)
+			renameFiles(job.filename, job.metaFilename, executed, job.skipVids)
 
-			results <- rtn
+			results <- executed
 		}
 	}
 }
@@ -183,7 +198,7 @@ func processMetadataFiles(ctx context.Context, matchedFiles map[string]*models.F
 }
 
 // getFiles returns a map of matched video/metadata files.
-func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool) (matched, videos map[string]*models.FileData, metaCount int) {
+func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool) getFilesOutput {
 	var (
 		videoMap,
 		metaMap map[string]*models.FileData
@@ -235,8 +250,8 @@ func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool)
 		}
 	}
 
-	var matchedFiles map[string]*models.FileData
 	// Match video and metadata files
+	var matchedFiles map[string]*models.FileData // No need to assign length (just a placeholder var)
 	if !skipVideos {
 		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.IsDirs)
 		if err != nil {
@@ -246,7 +261,37 @@ func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool)
 	} else {
 		matchedFiles = metaMap
 	}
-	return matchedFiles, videoMap, len(metaMap)
+
+	var (
+		openMetaFilename,
+		openVideoFilename,
+		directory string
+	)
+
+	switch {
+	case openMeta != nil && openMeta.Name() != "":
+		directory = filepath.Dir(openMeta.Name())
+	case openVideo != nil && openVideo.Name() != "":
+		directory = filepath.Dir(openVideo.Name())
+	}
+
+	if openMeta != nil {
+		openMetaFilename = openMeta.Name()
+	}
+
+	if openVideo != nil {
+		openVideoFilename = openVideo.Name()
+	}
+
+	var rtn = getFilesOutput{
+		matched:           matchedFiles,
+		videoMap:          videoMap,
+		metaMapLen:        len(metaMap),
+		openVideoFilename: openVideoFilename,
+		openMetaFilename:  openMetaFilename,
+		directory:         directory,
+	}
+	return rtn
 }
 
 // processFile handles processing for both video and metadata files

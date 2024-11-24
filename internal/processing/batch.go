@@ -27,6 +27,7 @@ func StartBatchLoop(core *models.Core) {
 	}
 
 	job := 1
+	skipVideos := cfg.GetBool(keys.SkipVideos)
 
 	// Begin iteration...
 	for _, batch := range batches {
@@ -37,7 +38,10 @@ func StartBatchLoop(core *models.Core) {
 		)
 
 		logging.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
-		skipVideos := cfg.GetBool(keys.SkipVideos) || batch.SkipVideos
+
+		if batch.SkipVideos {
+			skipVideos = true
+		}
 
 		// Open video file if necessary
 		if !skipVideos {
@@ -70,14 +74,14 @@ func StartBatchLoop(core *models.Core) {
 			logging.I("Setting log file at %q", dir)
 
 			if err = logging.SetupLogging(dir); err != nil {
-				fmt.Printf("\n\nNotice: Log file was not created\nReason: %s\n\n", err)
+				fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
 			}
 			logInit = true
 		}
 
 		// Process the files
 		ProcessFiles(batch, core, openVideo, openJson)
-		logging.I("Finished tasks for video file/dir %q and JSON file/dir %q", batch.Video, batch.Json)
+		logging.I("Finished tasks for files/directories:\n\nVideo: %q\nJSON: %q\n", batch.Video, batch.Json)
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {

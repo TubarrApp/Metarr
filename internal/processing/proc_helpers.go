@@ -23,7 +23,7 @@ var (
 )
 
 // renameFiles performs renaming operations.
-func renameFiles(videoPath, metaPath string, fd *models.FileData, skipVideos bool) string {
+func renameFiles(videoPath, metaPath string, fd *models.FileData, skipVideos bool) {
 
 	var (
 		replaceStyle                           enums.ReplaceToStyle
@@ -52,7 +52,7 @@ func renameFiles(videoPath, metaPath string, fd *models.FileData, skipVideos boo
 	default:
 		logging.E(0, "Not renaming file, no directory detected for this batch.")
 		logging.ErrorArray = append(logging.ErrorArray, fmt.Errorf("not renaming files in batch, both input JSON and input video directories could not be discerned"))
-		return ""
+		return
 	}
 
 	err := transformations.FileRename(fd, replaceStyle, skipVideos)
@@ -62,7 +62,6 @@ func renameFiles(videoPath, metaPath string, fd *models.FileData, skipVideos boo
 	} else {
 		logging.S(0, "Successfully formatted file names in directory: %s", directory)
 	}
-	return directory
 }
 
 // sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
