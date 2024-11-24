@@ -23,15 +23,21 @@ var (
 	console    = os.Stdout
 )
 
-// Direct console write to avoid zerolog's ConsoleWriter overhead
-func writeToConsole(msg string) {
-	timestamp := time.Now().Format("01/02 15:04:05")
-	fmt.Fprintf(console, "%s%s%s %s", consts.ColorDarkGrey, timestamp, consts.ColorReset, msg)
+const (
+	timeFormat     = "01/02 15:04:05"
+	metarrLogFile  = "metarr.log"
+	funcFileLine   = "%s%s%s[%sFunction:%s %s - %sFile:%s %s : %sLine:%s %d]\n"
+	spaceSeparator = " "
+)
+
+func init() {
+	zerolog.TimeFieldFormat = time.RFC3339
 }
 
+// SetupLogging sets up logging for the application.
 func SetupLogging(targetDir string) error {
 	logfile, err := os.OpenFile(
-		filepath.Join(targetDir, "metarr.log"),
+		filepath.Join(targetDir, metarrLogFile),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 		0644,
 	)
@@ -53,7 +59,13 @@ func SetupLogging(targetDir string) error {
 	return nil
 }
 
-// E logs error messages
+// writeToConsole writes messages to console without using zerolog (zerolog parses JSON, inefficient)
+func writeToConsole(msg string) {
+	timestamp := time.Now().Format(timeFormat)
+	fmt.Fprintf(console, "%s%s%s%s%s", consts.ColorBrightBlack, timestamp, consts.ColorReset, spaceSeparator, msg)
+}
+
+// E logs error messages, and appends to the global error array.
 func E(l int, format string, args ...interface{}) {
 	if Level < l {
 		return
@@ -72,11 +84,18 @@ func E(l int, format string, args ...interface{}) {
 	}
 
 	msg := fmt.Sprintf(format, args...)
-	consoleMsg := fmt.Sprintf("%s%s[Function: %s - File: %s : Line: %d]\n",
+	consoleMsg := fmt.Sprintf(funcFileLine,
 		consts.RedError,
 		msg,
+		spaceSeparator,
+		consts.ColorDimCyan,
+		consts.ColorReset,
 		funcName,
+		consts.ColorDimWhite,
+		consts.ColorReset,
 		file,
+		consts.ColorDimWhite,
+		consts.ColorReset,
 		line,
 	)
 
@@ -93,7 +112,7 @@ func E(l int, format string, args ...interface{}) {
 	}
 }
 
-// S logs success messages
+// S logs success messages.
 func S(l int, format string, args ...interface{}) {
 	if Level < l {
 		return
@@ -108,7 +127,7 @@ func S(l int, format string, args ...interface{}) {
 	}
 }
 
-// D logs debug messages
+// D logs debug messages.
 func D(l int, format string, args ...interface{}) {
 	if Level < l {
 		return
@@ -119,11 +138,18 @@ func D(l int, format string, args ...interface{}) {
 	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
 
 	msg := fmt.Sprintf(format, args...)
-	consoleMsg := fmt.Sprintf("%s%s[Function: %s - File: %s : Line: %d]\n",
+	consoleMsg := fmt.Sprintf(funcFileLine,
 		consts.YellowDebug,
 		msg,
+		spaceSeparator,
+		consts.ColorDimCyan,
+		consts.ColorReset,
 		funcName,
+		consts.ColorDimCyan,
+		consts.ColorReset,
 		file,
+		consts.ColorDimCyan,
+		consts.ColorReset,
 		line,
 	)
 
@@ -137,7 +163,7 @@ func D(l int, format string, args ...interface{}) {
 	}
 }
 
-// I logs info messages
+// I logs info messages.
 func I(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	consoleMsg := fmt.Sprintf("%s%s\n", consts.BlueInfo, msg)
@@ -148,7 +174,7 @@ func I(format string, args ...interface{}) {
 	}
 }
 
-// P logs plain messages
+// P logs plain messages.
 func P(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	consoleMsg := fmt.Sprintf("%s\n", msg)
@@ -157,8 +183,4 @@ func P(format string, args ...interface{}) {
 	if Loggable {
 		fileLogger.Info().Msg(msg)
 	}
-}
-
-func init() {
-	zerolog.TimeFieldFormat = time.RFC3339
 }
