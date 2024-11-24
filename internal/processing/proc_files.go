@@ -12,6 +12,7 @@ import (
 	fsRead "metarr/internal/utils/fs/read"
 	"metarr/internal/utils/logging"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
@@ -36,8 +37,10 @@ type failedVideo struct {
 }
 
 type workItem struct {
-	filename string
-	fileData *models.FileData
+	filename     string
+	fileData     *models.FileData
+	metaFilename string
+	skipVids     bool
 }
 
 // processFiles is the main program function to process folder entries
@@ -69,59 +72,56 @@ func ProcessFiles(batch models.Batch, core *models.Core, openVideo, openMeta *os
 	}
 
 	setupCleanup(cleanupChan, cancel, wg, videoMap, &muFailed)
+
 	processedModels := make([]*models.FileData, 0, len(matchedFiles))
+	jobs := make(chan workItem, len(matchedFiles))
+	results := make(chan *models.FileData, len(matchedFiles))
 
-	if !skipVideos {
-		numWorkers := cfg.GetInt(keys.Concurrency)
-		if numWorkers < 1 {
-			numWorkers = 1
-		}
-
-		jobs := make(chan workItem, len(matchedFiles))
-		results := make(chan *models.FileData, len(matchedFiles))
-
-		// Start workers
-		for w := 1; w <= numWorkers; w++ {
-			wg.Add(1)
-			go workerProcess(w, jobs, results, wg, ctx)
-		}
-
-		// Send jobs to workers
-		for name, data := range matchedFiles {
-			jobs <- workItem{
-				filename: name,
-				fileData: data,
-			}
-		}
-		close(jobs)
-
-		// Collect results in a separate goroutine
-		go func() {
-			for result := range results {
-				if result != nil {
-					muProcessed.Lock()
-					processedModels = append(processedModels, result)
-					muProcessed.Unlock()
-				}
-			}
-		}()
-
-		wg.Wait()
-		close(results)
-
-		// Handle temp files and cleanup
-		err := cleanupTempFiles(videoMap)
-		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			logging.E(0, "Failed to cleanup temp files: %v", err)
-		}
-
+	numWorkers := cfg.GetInt(keys.Concurrency)
+	if numWorkers < 1 {
+		numWorkers = 1
 	}
 
-	directory := renameFiles(openVideo.Name(), openMeta.Name(), processedModels, skipVideos)
+	// Start workers
+	for w := 1; w <= numWorkers; w++ {
+		wg.Add(1)
+		go workerProcess(w, jobs, results, wg, ctx)
+	}
+
+	// Send jobs to workers
+	for name, data := range matchedFiles {
+		jobs <- workItem{
+			filename:     name,
+			fileData:     data,
+			metaFilename: openMeta.Name(),
+			skipVids:     skipVideos,
+		}
+	}
+	close(jobs)
+
+	// Collect results in a separate goroutine
+	go func() {
+		for result := range results {
+			if result != nil {
+				muProcessed.Lock()
+				processedModels = append(processedModels, result)
+				muProcessed.Unlock()
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(results)
+
+	// Handle temp files and cleanup
+	err := cleanupTempFiles(videoMap)
+	if err != nil {
+		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.E(0, "Failed to cleanup temp files: %v", err)
+	}
 
 	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
-		logging.S(0, "Successfully processed all files in directory %q with no errors.", directory)
+		logging.S(0, "Successfully processed all files in directory %q with no errors.", filepath.Dir(openMeta.Name()))
 		fmt.Println()
 		return
 	}
@@ -143,11 +143,13 @@ func workerProcess(id int, jobs <-chan workItem, results chan<- *models.FileData
 		default:
 			logging.D(1, "Worker %d processing file: %s", id, job.filename)
 
-			rtn, err := executeFile(ctx, job.filename, job.fileData)
+			rtn, err := executeFile(ctx, job.skipVids, job.filename, job.fileData)
 			if err != nil {
 				logging.E(0, "Worker %d error executing file %q: %v", id, job.filename, err)
 				continue
 			}
+
+			renameFiles(job.filename, job.metaFilename, rtn, job.skipVids)
 
 			results <- rtn
 		}
@@ -248,7 +250,7 @@ func getFiles(batch models.Batch, openMeta, openVideo *os.File, skipVideos bool)
 }
 
 // processFile handles processing for both video and metadata files
-func executeFile(ctx context.Context, filename string, fd *models.FileData) (*models.FileData, error) {
+func executeFile(ctx context.Context, skipVideos bool, filename string, fd *models.FileData) (*models.FileData, error) {
 
 	// Check for context cancellation
 	select {
@@ -268,7 +270,6 @@ func executeFile(ctx context.Context, filename string, fd *models.FileData) (*mo
 	sysResourceLoop(filename)
 
 	// Process file based on type
-	skipVideos := cfg.GetBool(keys.SkipVideos)
 	isVideoFile := fd.OriginalVideoPath != ""
 
 	if isVideoFile {

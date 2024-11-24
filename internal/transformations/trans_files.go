@@ -11,10 +11,9 @@ import (
 	validate "metarr/internal/utils/validation"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
-// fileProcessor handles the renaming and moving of files
+// fileProcessor handles the renaming and moving of files.
 type fileProcessor struct {
 	fd         *models.FileData
 	style      enums.ReplaceToStyle
@@ -22,44 +21,17 @@ type fileProcessor struct {
 }
 
 // FileRename formats the file names
-func FileRename(dataArray []*models.FileData, style enums.ReplaceToStyle, skipVideos bool) error {
-	var wg sync.WaitGroup
-	conc := cfg.GetInt(keys.Concurrency)
+func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideos bool) error {
 
-	sem := make(chan struct{}, conc)
-	errChan := make(chan error, len(dataArray))
-
-	for i := range dataArray {
-		wg.Add(1)
-		go func(fileData *models.FileData) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			fp := &fileProcessor{
-				fd:         fileData,
-				style:      style,
-				skipVideos: skipVideos,
-			}
-
-			if err := fp.process(); err != nil {
-				errChan <- fmt.Errorf("error processing %s: %w", fileData.OriginalVideoBaseName, err)
-			}
-		}(dataArray[i])
+	fp := &fileProcessor{
+		fd:         fileData,
+		style:      style,
+		skipVideos: skipVideos,
 	}
 
-	wg.Wait()
-	close(errChan)
-
-	var errors []error
-	for err := range errChan {
-		errors = append(errors, err)
+	if err := fp.process(); err != nil {
+		return fmt.Errorf("error processing %s: %w", fileData.OriginalVideoBaseName, err)
 	}
-
-	if len(errors) > 0 {
-		return fmt.Errorf("encountered %d errors during rename: %v", len(errors), errors)
-	}
-
 	return nil
 }
 
