@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"errors"
 	"fmt"
 	nfo "metarr/internal/metadata/process/nfo"
 	nfoRw "metarr/internal/metadata/writer/nfo"
@@ -12,7 +13,7 @@ import (
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
 func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
-		return nil, fmt.Errorf("model passed in null")
+		return nil, errors.New("model passed in null")
 	}
 
 	logging.D(2, "Beginning NFO file processing...")

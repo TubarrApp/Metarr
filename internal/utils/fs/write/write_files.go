@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
@@ -99,7 +100,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	}
 
 	if fs.RenamedVideo == "" && fs.RenamedMeta == "" {
-		return fmt.Errorf("video and metafile source strings both empty")
+		return fmt.Errorf("video and metafile source strings both empty for %q", fs.Fd.OriginalVideoBaseName)
 	}
 
 	dstIn := cfg.GetString(keys.MoveOnComplete)
@@ -143,7 +144,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 
 	if !cfg.IsSet(keys.MetaPurgeEnum) {
-		return fmt.Errorf("meta purge enum not set"), false
+		return errors.New("meta purge enum not set"), false
 	}
 
 	e, ok := cfg.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
@@ -171,10 +172,10 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 		}
 
 	case enums.PURGEMETA_NONE:
-		return fmt.Errorf("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
+		return errors.New("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
 
 	default:
-		return fmt.Errorf("support not added for this metafile purge enum yet, exiting function"), false
+		return errors.New("support not added for this metafile purge enum yet, exiting function"), false
 	}
 
 	fileInfo, err := os.Stat(file)

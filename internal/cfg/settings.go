@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"errors"
 	"fmt"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
@@ -153,7 +154,7 @@ func checkFileDirs() error {
 	}
 
 	if len(videoDirs) > len(jsonDirs) || len(videoFiles) > len(jsonFiles) {
-		return fmt.Errorf("invalid configuration, please enter a meta directory/file for each video directory/file")
+		return errors.New("invalid configuration, please enter a meta directory/file for each video directory/file")
 	}
 
 	var tasks []BatchConfig
@@ -389,7 +390,7 @@ func verifyConcurrencyLimit() {
 
 // verifyCPUUsage verifies the value used to limit the CPU needed to spawn a new routine
 func verifyResourceLimits() {
-	MinMemUsage := viper.GetUint64(keys.MinMem)
+	MinMemUsage := viper.GetUint64(keys.MinFreeMem)
 	MinMemUsage *= 1024 * 1024 // Convert input to MB
 
 	currentAvailableMem, err := mem.VirtualMemory()
@@ -404,7 +405,7 @@ func verifyResourceLimits() {
 	if MinMemUsage > 0 {
 		logging.I("Min RAM to spawn process: %v", MinMemUsage)
 	}
-	viper.Set(keys.MinMemMB, MinMemUsage)
+	viper.Set(keys.MinFreeMem, MinMemUsage)
 
 	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
 	switch {

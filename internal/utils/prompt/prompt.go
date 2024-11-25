@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"strings"
 )
@@ -14,7 +14,7 @@ var (
 	decisionMade  bool
 )
 
-// InitUserInputReader initializes a user input reading function in a goroutine
+// InitUserInputReader initializes a user input reading function in a goroutine.
 func InitUserInputReader() {
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
@@ -26,8 +26,9 @@ func InitUserInputReader() {
 }
 
 // PromptMetaReplace displays a prompt message and waits for valid user input.
+//
 // The option can be used to tell the program to overwrite all in the queue,
-// preserve all in the queue, or move through value by value
+// preserve all in the queue, or move through value by value.
 func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 
 	logging.D(3, "Entering PromptUser dialogue...")
@@ -57,7 +58,6 @@ func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 		return response, nil
 
 	case <-ctx.Done():
-		logging.I("Operation canceled during input.")
-		return "", fmt.Errorf("operation canceled")
+		return "", fmt.Errorf("operation canceled during prompt %q", promptMsg)
 	}
 }

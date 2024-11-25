@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"errors"
 	"fmt"
 	"metarr/internal/domain/templates"
 	"metarr/internal/models"
@@ -28,7 +29,7 @@ func NewDirectoryParser(fd *models.FileData) *Directory {
 // ParseDirectory returns the absolute directory path with template replacements.
 func (dp *Directory) ParseDirectory(dir string) (parsedDir string, err error) {
 	if dir == "" {
-		return "", fmt.Errorf("directory sent in empty")
+		return "", errors.New("directory sent in empty")
 	}
 
 	parsed := dir
@@ -66,12 +67,12 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 	for i := 0; i < opens; i++ {
 		startIdx := strings.Index(remaining, open)
 		if startIdx == -1 {
-			return "", fmt.Errorf("missing opening delimiter")
+			return "", fmt.Errorf("%q is missing opening delimiter", remaining)
 		}
 
 		endIdx := strings.Index(remaining, close)
 		if endIdx == -1 {
-			return "", fmt.Errorf("missing closing delimiter")
+			return "", fmt.Errorf("%q is missing closing delimiter", remaining)
 		}
 
 		// String up to template open
@@ -99,7 +100,7 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 func (dp *Directory) replace(tag string) (string, error) {
 
 	if dp.FD == nil {
-		return "", fmt.Errorf("null FileData model")
+		return "", errors.New("null FileData model")
 	}
 
 	d := dp.FD.MDates
@@ -111,25 +112,25 @@ func (dp *Directory) replace(tag string) (string, error) {
 		if d.Year != "" {
 			return d.Year, nil
 		}
-		return "", fmt.Errorf("templating: year empty")
+		return "", fmt.Errorf("templating: year empty for %q", dp.FD.OriginalVideoBaseName)
 
 	case templates.Author:
 		if c.Author != "" {
 			return c.Author, nil
 		}
-		return "", fmt.Errorf("templating: author empty")
+		return "", fmt.Errorf("templating: author empty for %q", dp.FD.OriginalVideoBaseName)
 
 	case templates.Director:
 		if c.Director != "" {
 			return c.Director, nil
 		}
-		return "", fmt.Errorf("templating: director empty")
+		return "", fmt.Errorf("templating: director empty for %q", dp.FD.OriginalVideoBaseName)
 
 	case templates.Domain:
 		if w.Domain != "" {
 			return w.Domain, nil
 		}
-		return "", fmt.Errorf("templating: domain empty")
+		return "", fmt.Errorf("templating: domain empty for %q", dp.FD.OriginalVideoBaseName)
 
 	default:
 		return "", fmt.Errorf("invalid template tag %q", tag)

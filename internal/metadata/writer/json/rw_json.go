@@ -3,6 +3,7 @@ package metadata
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"metarr/internal/cfg"
@@ -36,7 +37,7 @@ func NewJSONFileRW(file *os.File) *JSONFileRW {
 // DecodeJSON parses and stores JSON metadata into a map and returns it
 func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	if file == nil {
-		return nil, fmt.Errorf("file passed in nil")
+		return nil, errors.New("file passed in nil")
 	}
 
 	currentPos, err := file.Seek(0, io.SeekCurrent)
@@ -80,7 +81,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 // RefreshJSON reloads the metadata map from the file after updates
 func (rw *JSONFileRW) RefreshJSON() (map[string]any, error) {
 	if rw.File == nil {
-		return nil, fmt.Errorf("file passed in nil")
+		return nil, errors.New("file passed in nil")
 	}
 	return rw.DecodeJSON(rw.File)
 }
@@ -88,7 +89,7 @@ func (rw *JSONFileRW) RefreshJSON() (map[string]any, error) {
 // WriteJSON inserts metadata into the JSON file from a map
 func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, error) {
 	if fieldMap == nil {
-		return nil, fmt.Errorf("field map passed in nil")
+		return nil, errors.New("field map passed in nil")
 	}
 
 	// Create a copy of the current metadata
@@ -147,7 +148,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 // MakeJSONEdits applies a series of transformations and writes the final result to the file
 func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, error) {
 	if file == nil {
-		return false, fmt.Errorf("file passed in nil")
+		return false, errors.New("file passed in nil")
 	}
 
 	currentMeta := rw.copyMeta()
@@ -333,7 +334,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 // the dates may not yet be scraped when the initial MakeJSONEdits runs
 func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	if file == nil {
-		return false, fmt.Errorf("file passed in nil")
+		return false, errors.New("file passed in nil")
 	}
 
 	logging.D(4, "Entering MakeDateTagEdits for file %q", file.Name())

@@ -149,11 +149,11 @@ func makeBackup(origPath string) error {
 
 	backInfo, err := os.Stat(backupPath)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("backup file was not created, aborting")
+		return fmt.Errorf("backup file %q was not created, aborting", backupPath)
 	}
 
 	if origInfo.Size() != backInfo.Size() {
-		return fmt.Errorf("backup file size does not match original, aborting")
+		return fmt.Errorf("backup file size %d does not match original %d, aborting", origInfo.Size(), backInfo.Size())
 	}
 
 	return nil

@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"metarr/internal/cfg"
 	"metarr/internal/dates"
@@ -29,7 +30,7 @@ var (
 // ProcessJSONFile reads a single JSON file and fills in the metadata.
 func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
-		return nil, fmt.Errorf("model passed in null")
+		return nil, errors.New("model passed in null")
 	}
 
 	logging.D(2, "Beginning JSON file processing...")
@@ -61,7 +62,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 
 	if data == nil {
-		return nil, fmt.Errorf("json decoded nil")
+		return nil, errors.New("json decoded nil")
 	}
 
 	logging.D(3, "%v", data)

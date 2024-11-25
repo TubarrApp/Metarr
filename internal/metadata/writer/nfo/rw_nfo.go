@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"metarr/internal/cfg"
@@ -94,7 +95,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileData) (bool, error) {
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
-		return false, fmt.Errorf("invalid XML: missing movie tag")
+		return false, errors.New("invalid XML: missing movie tag")
 	}
 
 	var (
@@ -260,7 +261,7 @@ func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 	}
 
 	if rw.Model == nil {
-		return fmt.Errorf("NFOFileRW's stored metadata map is empty or null, did you forget to decode?")
+		return errors.New("NFOFileRW's stored metadata map is empty or null, did you forget to decode?")
 	}
 
 	decoder := xml.NewDecoder(file)
@@ -543,8 +544,7 @@ func (rw *NFOFileRW) addNewXmlFields(data string, ow bool, newField []models.Met
 			// Check for context cancellation
 			select {
 			case <-ctx.Done():
-				logging.I("Operation canceled for field: %s", addition.Field)
-				return data, false, fmt.Errorf("operation canceled")
+				return data, false, fmt.Errorf("operation canceled for field: %s", addition.Field)
 			default:
 				// Proceed
 			}

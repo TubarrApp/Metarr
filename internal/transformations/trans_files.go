@@ -113,7 +113,7 @@ func (fp *fileProcessor) handleRenaming() error {
 
 	// Fix contractions
 	var err error
-	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.style); err != nil {
+	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoBaseName, fp.style); err != nil {
 		return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
 	}
 

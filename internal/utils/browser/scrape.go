@@ -130,7 +130,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 
 	// Attempt visit and wait for async scraping
 	if err := c.Visit(url); err != nil {
-		return "", fmt.Errorf("unable to visit given web page")
+		return "", fmt.Errorf("unable to visit web page %q", url)
 	}
 	c.Wait()
 
@@ -258,7 +258,7 @@ func jsonExtractor(data []byte, path []string) (string, error) {
 	if val, ok := current[path[len(path)-1]].(string); ok {
 		return val, nil
 	}
-	return "", fmt.Errorf("value at path is not a string")
+	return "", fmt.Errorf("value at path %v is not a string, is type %T", path, path)
 }
 
 // looksLikeDate validates if the text appears to be a date

@@ -22,7 +22,7 @@ var (
 )
 
 // renameFiles performs renaming operations.
-func renameFiles(videoPath, metaPath string, fd *models.FileData, skipVideos bool) {
+func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData, skipVideos bool) {
 
 	var (
 		replaceStyle                           enums.ReplaceToStyle
@@ -49,8 +49,8 @@ func renameFiles(videoPath, metaPath string, fd *models.FileData, skipVideos boo
 	case inputVideoDir != "":
 		directory = inputVideoDir
 	default:
-		logging.E(0, "Not renaming file, no directory detected for this batch.")
-		logging.ErrorArray = append(logging.ErrorArray, fmt.Errorf("not renaming files in batch, both input JSON and input video directories could not be discerned"))
+		errMsg := fmt.Errorf("not renaming file, no directory detected (batch ID: %d)", batchID)
+		logging.ErrorArray = append(logging.ErrorArray, errMsg)
 		return
 	}
 
@@ -71,7 +71,7 @@ func sysResourceLoop(fileStr string) {
 		maxBackoff  = 10 * time.Second
 	)
 
-	memoryThreshold := cfg.GetUint64(keys.MinMemMB)
+	memoryThreshold := cfg.GetUint64(keys.MinFreeMem)
 
 	for {
 		// Fetch system resources and determine if processing can proceed

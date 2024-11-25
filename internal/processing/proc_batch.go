@@ -1,6 +1,7 @@
 package processing
 
 import (
+	"errors"
 	"fmt"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
@@ -28,7 +29,7 @@ var batchPool = &sync.Pool{
 // processBatch is the entrypoint for batch processing.
 func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File) error {
 	if batch == nil {
-		return fmt.Errorf("batch entered null")
+		return errors.New("batch entered null")
 	}
 
 	var err error
@@ -54,7 +55,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 func getNewBatchProcessor(batchID int64) (*batchProcessor, error) {
 	bp := batchPool.Get().(*batchProcessor)
 	if bp == nil {
-		return nil, fmt.Errorf("failed to get batch processor from pool")
+		return nil, fmt.Errorf("failed to get batch processor from pool for batch with ID %d", batchID)
 	}
 	bp.batchID = batchID
 	return bp, nil

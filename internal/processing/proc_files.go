@@ -148,7 +148,7 @@ func workerProcess(batch *batch, id int, jobs <-chan workItem, results chan<- *m
 				continue
 			}
 
-			renameFiles(job.filename, job.metaFilename, executed, job.skipVids)
+			renameFiles(job.filename, job.metaFilename, batch.ID, executed, job.skipVids)
 
 			results <- executed
 		}
@@ -236,7 +236,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	// Match video and metadata files
 	var matchedFiles map[string]*models.FileData // No need to assign length (just a placeholder var)
 	if !skipVideos {
-		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.IsDirs)
+		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.ID, batch.IsDirs)
 		if err != nil {
 			return fmt.Errorf("error matching videos with metadata: %v", err)
 		}
@@ -285,7 +285,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	return nil
 }
 
-// processFile handles processing for both video and metadata files.
+// executeFile handles processing for both video and metadata files.
 func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filename string, fd *models.FileData) (*models.FileData, error) {
 
 	// Check for context cancellation

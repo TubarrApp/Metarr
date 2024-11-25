@@ -123,10 +123,10 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
-func fixContractions(videoBase, metaBase string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
+func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
 
 	if videoBase == "" || metaBase == "" {
-		return videoBase, metaBase, fmt.Errorf("empty input strings")
+		return videoBase, metaBase, fmt.Errorf("empty input strings to fix contractions (file %q)", fdVideoRef)
 	}
 
 	var contractionsMap map[string]models.ContractionPattern

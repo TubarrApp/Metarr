@@ -56,7 +56,7 @@ func InitFetchFilesVars() (err error) {
 func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
 	if err != nil {
-		return nil, fmt.Errorf("error reading video directory: %w", err)
+		return nil, fmt.Errorf("error reading video directory %q: %w", videoDir.Name(), err)
 	}
 
 	logging.P("\n\nFiltering directory %q:\n\nFile extensions: %v\nFile prefixes: %v\n\n", videoDir.Name(), videoExtensions, inputPrefixes)
@@ -99,7 +99,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	files, err := metaDir.ReadDir(-1)
 	if err != nil {
-		return nil, fmt.Errorf("error reading metadata directory: %w", err)
+		return nil, fmt.Errorf("error reading metadata directory %q: %w", metaDir.Name(), err)
 	}
 
 	metaFiles := make(map[string]*models.FileData, len(files))
@@ -220,7 +220,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
-func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, isDirs bool) (map[string]*models.FileData, error) {
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, batchID int64, isDirs bool) (map[string]*models.FileData, error) {
 	logging.D(3, "Entering metadata and video file matching loop...")
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
@@ -258,7 +258,7 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, i
 	}
 
 	if len(matchedFiles) == 0 {
-		return nil, fmt.Errorf("no matching metadata files found for any videos")
+		return nil, fmt.Errorf("no matching metadata files found for any videos (batch ID: %d)", batchID)
 	}
 
 	return matchedFiles, nil

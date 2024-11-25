@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"fmt"
+	"errors"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/utils/logging"
@@ -70,7 +70,7 @@ func setVideoExtensions(exts []enums.ConvertFromFiletype) (map[string]bool, erro
 	}
 
 	if len(videoExtensions) == 0 {
-		return nil, fmt.Errorf("failed to set video extensions")
+		return nil, errors.New("failed to set video extensions")
 	}
 
 	return videoExtensions, nil
@@ -97,7 +97,7 @@ func setMetaExtensions(exts []enums.MetaFiletypeFilter) (map[string]bool, error)
 	}
 
 	if len(metaExtensions) == 0 {
-		return nil, fmt.Errorf("failed to set meta extensions")
+		return nil, errors.New("failed to set meta extensions")
 	}
 
 	return metaExtensions, nil

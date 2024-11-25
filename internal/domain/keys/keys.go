@@ -24,8 +24,7 @@ const (
 	Concurrency string = "concurrency"
 	GPU         string = "gpu"
 	MaxCPU      string = "max-cpu"
-	MinMem      string = "min-mem"
-	MinMemMB    string = "min-mem-mb"
+	MinFreeMem  string = "min-free-mem"
 
 	InputFilenameReplaceSfx string = "filename-replace-suffix"
 	InputFileDatePfx        string = "filename-date-tag"

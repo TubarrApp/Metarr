@@ -34,7 +34,7 @@ func moveOrCopyFile(src, dst string) error {
 			return fmt.Errorf("move verification failed: %w", verifyErr)
 		}
 		if !bytes.Equal(srcHash, dstHash) {
-			return fmt.Errorf("hash mismatch after move")
+			return fmt.Errorf("hash mismatch after move (src: %d, dest: %d)", len(srcHash), len(dstHash))
 		}
 		return nil
 	}

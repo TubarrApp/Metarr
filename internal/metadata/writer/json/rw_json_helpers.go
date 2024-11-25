@@ -3,6 +3,7 @@ package metadata
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	logging "metarr/internal/utils/logging"
@@ -28,11 +29,11 @@ var jsonBufferPool = sync.Pool{
 // writeJSONToFile is a private metadata writing helper function
 func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	if file == nil {
-		return fmt.Errorf("file passed in nil")
+		return errors.New("file passed in nil")
 	}
 
 	if j == nil {
-		return fmt.Errorf("JSON metadata passed in nil")
+		return errors.New("JSON metadata passed in nil")
 	}
 
 	if rw.buffer == nil {

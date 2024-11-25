@@ -1,6 +1,7 @@
 package cfg
 
 import (
+	"errors"
 	"fmt"
 	enums "metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
@@ -94,7 +95,7 @@ func validateMetaOps() error {
 		parts := strings.Split(op, ":")
 
 		if len(parts) < 3 || len(parts) > 4 {
-			return fmt.Errorf("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:add:Video Title')")
+			return errors.New("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:add:Video Title')")
 		}
 
 		field := parts[0]
@@ -184,7 +185,7 @@ func validateMetaOps() error {
 
 		case "replace":
 			if len(parts) != 4 {
-				return fmt.Errorf("replacement should be in format 'field:replace:text:replacement'")
+				return errors.New("replacement should be in format 'field:replace:text:replacement'")
 			}
 
 			switch field {
@@ -207,7 +208,7 @@ func validateMetaOps() error {
 
 		case "date-tag":
 			if len(parts) != 4 {
-				return fmt.Errorf("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+				return errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
 			var loc enums.MetaDateTagLocation
 
@@ -217,7 +218,7 @@ func validateMetaOps() error {
 			case "suffix":
 				loc = enums.DATE_TAG_LOC_SFX
 			default:
-				return fmt.Errorf("date tag location must be prefix, or suffix")
+				return errors.New("date tag location must be prefix, or suffix")
 			}
 			if e, err := dateEnum(parts[3]); err != nil {
 				return err
@@ -233,7 +234,7 @@ func validateMetaOps() error {
 
 		case "delete-date-tag":
 			if len(parts) != 4 {
-				return fmt.Errorf("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+				return errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
 			var loc enums.MetaDateTagLocation
 
@@ -243,7 +244,7 @@ func validateMetaOps() error {
 			case "suffix":
 				loc = enums.DATE_TAG_LOC_SFX
 			default:
-				return fmt.Errorf("date tag location must be prefix, or suffix")
+				return errors.New("date tag location must be prefix, or suffix")
 			}
 			if e, err := dateEnum(parts[3]); err != nil {
 				return err
@@ -360,8 +361,8 @@ func validateFilenameSuffixReplace() error {
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) < 3 {
-			return fmt.Errorf("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
+		if len(parts) < 2 {
+			return errors.New("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
 		}
 		filenameReplaceSuffix = append(filenameReplaceSuffix, models.FilenameReplaceSuffix{
 			Suffix:      parts[0],

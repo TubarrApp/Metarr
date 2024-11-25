@@ -1,6 +1,7 @@
 package dates
 
 import (
+	"errors"
 	"fmt"
 	enums "metarr/internal/domain/enums"
 	"metarr/internal/models"
@@ -99,7 +100,7 @@ func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string
 
 	result := joinNonEmpty(parts)
 	if result == "" {
-		return "", fmt.Errorf("no valid date components found")
+		return "", errors.New("no valid date components found")
 	}
 	return result, nil
 }

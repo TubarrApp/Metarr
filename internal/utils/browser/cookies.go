@@ -139,7 +139,7 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 		store, err = chrome.CookieStore(cookieFilePath)
 
 	default:
-		return nil, fmt.Errorf("unsupported cookie file format")
+		return nil, fmt.Errorf("unsupported cookie file format (input %q)", cookieFilePath)
 	}
 
 	if err != nil {
@@ -154,73 +154,3 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 
 	return cookies, nil
 }
-
-// newCustomCookieSource validates and retrieves a custom cookie source profile
-// func newCustomCookieSource() (*models.CustomCookieSource, error) {
-
-// 	if !cfg.IsSet(keys.CookiePath) {
-// 		logging.D(2, "No custom cookie directory sent in")
-// 		return nil, nil
-// 	}
-
-// 	cDir := cfg.GetString(keys.CookiePath)
-// 	cDir = filepath.Clean(cDir)
-
-// 	info, err := os.Stat(cDir)
-// 	if err != nil {
-// 		if os.IsNotExist(err) {
-// 			return nil, fmt.Errorf("cookie directory does not exist: %w", err)
-// 		}
-// 		return nil, err
-// 	}
-
-// 	if !info.IsDir() {
-// 		return nil, fmt.Errorf("cookie directory sent in as file, should be directory")
-// 	}
-
-// 	dirContents, err := os.ReadDir(cDir)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var cSource models.CustomCookieSource
-// 	foundFiles := make(map[string][]string, len(cookieFilePatterns))
-
-// 	for browser, patterns := range cookieFilePatterns {
-// 		for _, pattern := range patterns {
-// 			// For each file in directory
-// 			for _, dirFile := range dirContents {
-
-// 				fileName := dirFile.Name()
-// 				match, err := filepath.Match(pattern, fileName)
-// 				if err != nil {
-// 					logging.D(2, "Pattern matching error: %v", err)
-// 					continue
-// 				}
-
-// 				if match {
-// 					foundFiles[browser] = append(foundFiles[browser], fileName)
-// 				}
-// 			}
-// 			if len(foundFiles[browser]) == len(cookieFilePatterns[browser]) {
-// 				logging.S(0, "Got all required cookie and auth files for browser %s", browser)
-// 				cSource.Browser = browser
-// 				cSource.Dir = cDir
-// 				break
-// 			}
-// 		}
-// 	}
-
-// 	if cSource.Browser == "" {
-// 		for browser, files := range foundFiles {
-// 			if len(files) > 0 {
-// 				logging.D(2, "Found %d files for %s: %v", len(files), browser, files)
-
-// 				cSource.Browser = browser
-// 				cSource.Dir = cDir
-// 			}
-// 		}
-// 	}
-
-// 	return &cSource, nil
-// }

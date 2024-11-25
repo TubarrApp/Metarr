@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"metarr/internal/cfg"
 	enums "metarr/internal/domain/enums"
@@ -210,7 +211,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 			select {
 			case <-ctx.Done():
 				logging.I("Operation canceled for field: %s", n.Field)
-				return false, fmt.Errorf("operation canceled")
+				return false, errors.New("operation canceled")
 			default:
 			}
 
