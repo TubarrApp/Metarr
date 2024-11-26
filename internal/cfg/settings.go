@@ -8,6 +8,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/utils/logging"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/shirou/gopsutil/mem"
@@ -389,38 +390,70 @@ func verifyConcurrencyLimit() {
 }
 
 // verifyCPUUsage verifies the value used to limit the CPU needed to spawn a new routine
-func verifyResourceLimits() {
-	MinMemUsage := viper.GetUint64(keys.MinFreeMem)
-	MinMemUsage *= 1024 * 1024 // Convert input to MB
+func verifyResourceLimits() error {
 
-	currentAvailableMem, err := mem.VirtualMemory()
-	if err != nil {
-		logging.E(0, "Could not get system memory, using default max RAM requirements: %v", err)
-		currentAvailableMem.Available = 1024
-	}
-	if MinMemUsage > currentAvailableMem.Available {
-		MinMemUsage = currentAvailableMem.Available
+	if minFreeMem := viper.GetString(keys.MinFreeMemInput); minFreeMem != "" && minFreeMem != "0" {
+		const (
+			mGB = 1024 * 1024 * 1024
+			mMB = 1024 * 1024
+			mKB = 1024
+		)
+
+		minFreeMem = strings.ToUpper(minFreeMem)
+		minFreeMem = strings.TrimSuffix(minFreeMem, "B")
+
+		var multiplyFactor uint64 = 1 // Default (bytes)
+		switch {
+		case strings.HasSuffix(minFreeMem, "G"):
+			minFreeMem = strings.TrimSuffix(minFreeMem, "G")
+			multiplyFactor = mGB
+		case strings.HasSuffix(minFreeMem, "M"):
+			minFreeMem = strings.TrimSuffix(minFreeMem, "M")
+			multiplyFactor = mMB
+		case strings.HasSuffix(minFreeMem, "K"):
+			minFreeMem = strings.TrimSuffix(minFreeMem, "K")
+			multiplyFactor = mKB
+		}
+
+		currentAvailableMem, err := mem.VirtualMemory()
+		if err != nil {
+			logging.E(0, "Could not get system memory, using default max RAM requirements: %v", err)
+			currentAvailableMem.Available = 1024
+		}
+
+		minFreeMemInt, err := strconv.Atoi(minFreeMem)
+		if err != nil {
+			return fmt.Errorf("invalid min free memory argument %q for Metarr, should ", minFreeMem)
+		}
+
+		parsedMinFree := uint64(minFreeMemInt) * multiplyFactor
+
+		if parsedMinFree > currentAvailableMem.Available {
+			parsedMinFree = currentAvailableMem.Available
+		}
+
+		if parsedMinFree > 0 {
+			logging.I("Min RAM to spawn process: %v", parsedMinFree)
+		}
+		viper.Set(keys.MinFreeMem, parsedMinFree)
 	}
 
-	if MinMemUsage > 0 {
-		logging.I("Min RAM to spawn process: %v", MinMemUsage)
-	}
-	viper.Set(keys.MinFreeMem, MinMemUsage)
+	if maxCPUUsage := viper.GetFloat64(keys.MaxCPU); maxCPUUsage != 100.0 {
+		switch {
+		case maxCPUUsage > 100.0:
+			maxCPUUsage = 100.0
+			logging.E(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
 
-	maxCPUUsage := viper.GetFloat64(keys.MaxCPU)
-	switch {
-	case maxCPUUsage > 100.0:
-		maxCPUUsage = 100.0
-		logging.E(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
-
-	case maxCPUUsage < 1.0:
-		maxCPUUsage = 10.0
-		logging.E(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
+		case maxCPUUsage < 1.0:
+			maxCPUUsage = 10.0
+			logging.E(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
+		}
+		if maxCPUUsage != 100.0 {
+			logging.I("Max CPU usage: %.2f%%", maxCPUUsage)
+		}
+		viper.Set(keys.MaxCPU, maxCPUUsage)
 	}
-	if maxCPUUsage != 100.0 {
-		logging.I("Max CPU usage: %.2f%%", maxCPUUsage)
-	}
-	viper.Set(keys.MaxCPU, maxCPUUsage)
+	return nil
 }
 
 // Verify the output filetype is valid for FFmpeg

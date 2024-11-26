@@ -44,8 +44,8 @@ func initResourceRelated() {
 	viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU))
 
 	// Min memory
-	rootCmd.PersistentFlags().Uint64P(keys.MinFreeMem, "m", 0, "Minimum free RAM to start process")
-	viper.BindPFlag(keys.MinFreeMem, rootCmd.PersistentFlags().Lookup(keys.MinFreeMem))
+	rootCmd.PersistentFlags().StringP(keys.MinFreeMemInput, "m", "0", "Minimum free RAM to start process")
+	viper.BindPFlag(keys.MinFreeMemInput, rootCmd.PersistentFlags().Lookup(keys.MinFreeMemInput))
 
 	// Hardware accelerated transcoding
 	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")

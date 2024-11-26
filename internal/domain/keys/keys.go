@@ -21,10 +21,10 @@ const (
 	InputVideoExts string = "input-video-exts"
 	FilePrefixes   string = "prefix"
 
-	Concurrency string = "concurrency"
-	GPU         string = "gpu"
-	MaxCPU      string = "max-cpu"
-	MinFreeMem  string = "min-free-mem"
+	Concurrency     string = "concurrency"
+	GPU             string = "gpu"
+	MaxCPU          string = "max-cpu"
+	MinFreeMemInput string = "min-free-mem"
 
 	InputFilenameReplaceSfx string = "filename-replace-suffix"
 	InputFileDatePfx        string = "filename-date-tag"
@@ -49,6 +49,7 @@ const (
 const (
 	WaitGroup  string = "WaitGroup"
 	SingleFile string = "SingleFile"
+	MinFreeMem string = "minFreeMem"
 )
 
 // Files and directories
