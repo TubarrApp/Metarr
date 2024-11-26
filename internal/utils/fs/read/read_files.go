@@ -119,13 +119,13 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		var match bool
-		for range metaExtensions {
-			if !metaExtensions[ext] {
-				continue
+		for extKey := range metaExtensions {
+			if metaExtensions[extKey] {
+				match = true
+				break
 			}
-			match = true
-			break
 		}
+
 		if !match {
 			continue
 		}
@@ -220,7 +220,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 }
 
 // MatchVideoWithMetadata matches video files with their corresponding metadata files
-func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, batchID int64, isDirs bool) (map[string]*models.FileData, error) {
+func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, batchID int64) (map[string]*models.FileData, error) {
 	logging.D(3, "Entering metadata and video file matching loop...")
 
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))

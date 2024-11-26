@@ -8,7 +8,7 @@ import (
 )
 
 // CensoredTvTransformations adds preset transformations to
-// files for censored.tv videos
+// files for censored.tv videos.
 func CensoredTvTransformations(fd *models.FileData) {
 
 	logging.I("Making preset censored.tv meta replacements")
@@ -17,7 +17,7 @@ func CensoredTvTransformations(fd *models.FileData) {
 	censoredTvFSuffixes(fd)
 }
 
-// censoredTvMSuffixes adds meta suffix replacements
+// censoredTvMSuffixes adds meta suffix replacements.
 func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	var (
@@ -26,8 +26,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 	)
 
 	if cfg.IsSet(keys.MTrimSuffix) {
-		trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix)
-		if !ok {
+		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
 			logging.E(2, "Got type %T, may be null", trimSfx)
 		}
 	}
@@ -49,14 +48,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 	})
 
 	for _, newSuffix := range newSfx {
-		exists := false
-		for _, existingSuffix := range trimSfx {
-			if existingSuffix.Field == newSuffix.Field {
-				exists = true
-				break
-			}
-		}
-		if !exists {
+		if !censoredSuffixExists(trimSfx, newSuffix.Field) {
 			logging.I("Adding new censored.tv meta suffix replacement: %v", newSuffix)
 			trimSfx = append(trimSfx, newSuffix)
 		}
@@ -73,7 +65,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 	fd.ModelMTrimSuffix = trimSfx
 }
 
-// censoredTvFSuffixes adds filename suffix replacements
+// censoredTvFSuffixes adds filename suffix replacements.
 func censoredTvFSuffixes(fd *models.FileData) {
 
 	var sfx []models.FilenameReplaceSuffix
@@ -121,4 +113,14 @@ func censoredTvFSuffixes(fd *models.FileData) {
 
 	fd.ModelFileSfxReplace = sfx
 	logging.I("Total filename suffix replacements: %d", len(sfx))
+}
+
+// censoredSuffixExists checks if the suffix exists.
+func censoredSuffixExists(suffixes []models.MetaTrimSuffix, field string) bool {
+	for _, suffix := range suffixes {
+		if suffix.Field == field {
+			return true
+		}
+	}
+	return false
 }

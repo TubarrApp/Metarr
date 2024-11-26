@@ -236,7 +236,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	// Match video and metadata files
 	var matchedFiles map[string]*models.FileData // No need to assign length (just a placeholder var)
 	if !skipVideos {
-		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.ID, batch.IsDirs)
+		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
 		if err != nil {
 			return fmt.Errorf("error matching videos with metadata: %v", err)
 		}

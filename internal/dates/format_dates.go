@@ -107,50 +107,38 @@ func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string
 
 // FormatAllDates formats timestamps into a hyphenated form
 func FormatAllDates(fd *models.FileData) string {
-
 	var (
 		result string
+		err    error
 		ok     bool
 	)
 
 	d := fd.MDates
 
-	if !ok && d.Originally_Available_At != "" {
-		logging.D(2, "Attempting to format originally available date: %v", d.Originally_Available_At)
-		result, ok = YyyyMmDd(d.Originally_Available_At)
+	fields := []string{
+		d.Originally_Available_At,
+		d.ReleaseDate,
+		d.Date,
+		d.UploadDate,
+		d.Creation_Time,
 	}
-	if !ok && d.ReleaseDate != "" {
-		logging.D(2, "Attempting to format release date: %v", d.ReleaseDate)
-		result, ok = YyyyMmDd(d.ReleaseDate)
-	}
-	if !ok && d.Date != "" {
-		logging.D(2, "Attempting to format date: %v", d.Date)
-		result, ok = YyyyMmDd(d.Date)
-	}
-	if !ok && d.UploadDate != "" {
-		logging.D(2, "Attempting to format upload date: %v", d.UploadDate)
-		result, ok = YyyyMmDd(d.UploadDate)
-	}
-	if !ok && d.Creation_Time != "" {
-		logging.D(3, "Attempting to format creation time: %v", d.Creation_Time)
-		result, ok = YyyyMmDd(d.Creation_Time)
-	}
-	if !ok {
-		logging.E(0, "Failed to format dates")
-		return ""
-	} else {
-		logging.D(2, "Exiting with formatted date: %v", result)
 
-		d.FormattedDate = result
+	for _, field := range fields {
+		if field != "" {
+			logging.D(2, "Attempting to format %+v", field)
 
-		logging.D(2, "Got formatted date %q and entering parse to string function...", result)
+			if result, ok = YyyyMmDd(field); ok {
+				d.FormattedDate = result
+				logging.D(2, "Got formatted date %q", result)
 
-		var err error
-		d.StringDate, err = ParseNumDate(d.FormattedDate)
-		if err != nil {
-			logging.E(0, err.Error())
+				if d.StringDate, err = ParseNumDate(d.FormattedDate); err != nil {
+					logging.E(0, err.Error())
+				}
+				logging.D(2, "Got string date %q", d.StringDate)
+				return result
+			}
 		}
-
-		return result
 	}
+	logging.E(0, "Failed to format dates")
+	return ""
 }

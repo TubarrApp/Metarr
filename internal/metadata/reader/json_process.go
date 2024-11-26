@@ -67,10 +67,9 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	logging.D(3, "%v", data)
 
-	var ok bool
-
 	// Get web data first (before MakeMetaEdits in case of transformation presets)
-	if ok = process.FillWebpageDetails(fd, data); ok {
+	ok := process.FillWebpageDetails(fd, data)
+	if ok {
 		logging.I("URLs grabbed: %s", fd.MWebData.TryURLs)
 	}
 

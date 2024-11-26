@@ -24,8 +24,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 	)
 
 	if fd.MDates.FormattedDate == "" {
-		date, found = extractDateFromMetadata(metadata)
-		if !found {
+		if date, found = extractDateFromMetadata(metadata); !found {
 			logging.E(0, "No dates found in JSON file")
 			return "", nil
 		}

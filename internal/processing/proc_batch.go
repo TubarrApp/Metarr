@@ -84,8 +84,10 @@ func (bp *batchProcessor) logFailedVideos() {
 // syncMapToRegularMap converts the sync map back to a regular map for further processing.
 func (bp *batchProcessor) syncMapToRegularMap(m *sync.Map) map[string]*models.FileData {
 	result := make(map[string]*models.FileData)
-	m.Range(func(k, v interface{}) bool {
-		result[k.(string)] = v.(*models.FileData)
+	m.Range(func(key, value interface{}) bool {
+		if fd, ok := value.(*models.FileData); ok {
+			result[key.(string)] = fd
+		}
 		return true
 	})
 	return result
