@@ -6,9 +6,9 @@ const (
 	// VideoDir        string = "video-dir"
 	// VideoFile       string = "video-file"
 
-	VideoDirs  string = "video-dir"
+	VideoDirs  string = "video-directory"
 	VideoFiles string = "video-file"
-	JsonDirs   string = "json-dir"
+	JsonDirs   string = "json-directory"
 	JsonFiles  string = "json-file"
 
 	// JsonDir   string = "json-dir"
