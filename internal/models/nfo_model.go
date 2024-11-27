@@ -2,7 +2,7 @@ package models
 
 import "encoding/xml"
 
-// NFOData represents the complete NFO file structure
+// NFOData represents the complete NFO file structure.
 type NFOData struct {
 	XMLName     xml.Name    `xml:"movie"`
 	Title       Title       `xml:"title"`
@@ -21,7 +21,7 @@ type NFOData struct {
 	WebpageInfo WebpageInfo `xml:"web"`
 }
 
-// Title represents nested title information
+// Title represents nested title information.
 type Title struct {
 	Main      string `xml:"main"`
 	Original  string `xml:"original"`
@@ -30,7 +30,7 @@ type Title struct {
 	PlainText string `xml:",chardata"` // For non-nested titles
 }
 
-// Person represents a credited person with optional role
+// Person represents a credited person with optional role.
 type Person struct {
 	Name  string `xml:"name"`
 	Role  string `xml:"role"`
@@ -38,7 +38,7 @@ type Person struct {
 	Thumb string `xml:"thumb"`
 }
 
-// ShowInfo represents TV show specific information
+// ShowInfo represents TV show specific information.
 type ShowInfo struct {
 	Show         string `xml:"show"`
 	SeasonNumber string `xml:"season>number"`
@@ -46,7 +46,7 @@ type ShowInfo struct {
 	EpisodeTitle string `xml:"episode>title"`
 }
 
-// ShowInfo represents TV show specific information
+// WebpageInfo represents web page data such as web/thumbnail URLs.
 type WebpageInfo struct {
 	URL    string `xml:"url"`
 	Fanart string `xml:"fanart"`

@@ -42,7 +42,8 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return err
 	}
 
-	if len(logging.ErrorArray) == 0 || logging.ErrorArray == nil {
+	errArray := logging.GetErrorArray()
+	if len(errArray) == 0 {
 		logging.S(0, "Successfully processed all files in directory %q with no errors.", filepath.Dir(batch.bp.filepaths.metaFile))
 		fmt.Println()
 		return nil
@@ -94,7 +95,7 @@ func (bp *batchProcessor) syncMapToRegularMap(m *sync.Map) map[string]*models.Fi
 }
 
 // reset prepares the batch processor for new batch operation.
-func (bp *batchProcessor) reset(expectedCount int) error {
+func (bp *batchProcessor) reset(expectedCount int) {
 	// Reset counters atomically
 	atomic.StoreInt32(&bp.counts.totalMeta, 0)
 	atomic.StoreInt32(&bp.counts.totalVideo, 0)
@@ -126,13 +127,11 @@ func (bp *batchProcessor) reset(expectedCount int) error {
 		bp.failures.items = newPool
 	}
 	bp.failures.mu.Unlock()
-
-	return nil
 }
 
-// release returns the batchProcessor to the pool.
+// release returns the batchProcessor to the pool and sets values back to defaults.
 func (bp *batchProcessor) release() {
-	bp.reset(0) // Reset all state
+	bp.reset(0)
 	bp.batchID = 0
 	batchPool.Put(bp)
 }

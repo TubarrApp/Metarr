@@ -1,8 +1,9 @@
+// Package models holds structs used throughout the Metarr program.
 package models
 
 import (
 	"context"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/enums"
 	"os"
 	"sync"
 )
@@ -68,8 +69,8 @@ type FileData struct {
 	ModelFileSfxReplace []FilenameReplaceSuffix
 
 	// Misc
-	MetaFileType      enums.MetaFiletypeFound `json:"-" xml:"-"`
-	MetaAlreadyExists bool                    `json:"-" xml:"-"`
+	MetaFileType      enums.MetaFiletype `json:"-" xml:"-"`
+	MetaAlreadyExists bool               `json:"-" xml:"-"`
 	ModelMOverwrite   bool
 }
 

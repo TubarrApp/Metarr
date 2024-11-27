@@ -1,10 +1,10 @@
-package utils
+package browser
 
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	keys "metarr/internal/domain/keys"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/keys"
+	"metarr/internal/utils/logging"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,7 +31,7 @@ func initializeCookies() {
 func getBrowserCookies(u string) ([]*http.Cookie, error) {
 	baseURL, err := extractBaseDomain(u)
 	if err != nil {
-		return nil, fmt.Errorf("failed to extract base domain: %v", err)
+		return nil, fmt.Errorf("failed to extract base domain: %w", err)
 	}
 
 	cookieFilePath := cfg.GetString(keys.CookiePath)
@@ -41,7 +41,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 		logging.D(2, "Reading cookies from specified file: %s", cookieFilePath)
 		kookyCookies, err := readCookieFile(cookieFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read cookies from file: %v", err)
+			return nil, fmt.Errorf("failed to read cookies from file: %w", err)
 		}
 		return convertToHTTPCookies(kookyCookies), nil
 	}

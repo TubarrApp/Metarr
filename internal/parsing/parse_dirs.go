@@ -1,3 +1,4 @@
+// Package parsing handles parsing operations, such as parsing and replacing templating directives.
 package parsing
 
 import (

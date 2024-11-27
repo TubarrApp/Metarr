@@ -7,144 +7,211 @@ import (
 )
 
 // initFilesDirs initializes user flag settings for input files and directories
-func initFilesDirs() {
+func initFilesDirs() error {
 
 	// Batch
 	rootCmd.PersistentFlags().StringSlice(keys.BatchPairsInput, nil, "Pairs of video and JSON directories (e.g. '/videodir:/metadir')")
-	viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput))
+	if err := viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput)); err != nil {
+		return err
+	}
 
 	// Videos
 	rootCmd.PersistentFlags().StringSliceP(keys.VideoDirs, "v", nil, "A directory containing videos")
-	viper.BindPFlag(keys.VideoDirs, rootCmd.PersistentFlags().Lookup(keys.VideoDirs))
+	if err := viper.BindPFlag(keys.VideoDirs, rootCmd.PersistentFlags().Lookup(keys.VideoDirs)); err != nil {
+		return err
+	}
 
 	rootCmd.PersistentFlags().StringSliceP(keys.VideoFiles, "V", nil, "A video file")
-	viper.BindPFlag(keys.VideoFiles, rootCmd.PersistentFlags().Lookup(keys.VideoFiles))
+	if err := viper.BindPFlag(keys.VideoFiles, rootCmd.PersistentFlags().Lookup(keys.VideoFiles)); err != nil {
+		return err
+	}
 
 	// JSON
-	rootCmd.PersistentFlags().StringSliceP(keys.JsonDirs, "j", nil, "A directory containing videos")
-	viper.BindPFlag(keys.JsonDirs, rootCmd.PersistentFlags().Lookup(keys.JsonDirs))
+	rootCmd.PersistentFlags().StringSliceP(keys.JSONDirs, "j", nil, "A directory containing videos")
+	if err := viper.BindPFlag(keys.JSONDirs, rootCmd.PersistentFlags().Lookup(keys.JSONDirs)); err != nil {
+		return err
+	}
 
-	rootCmd.PersistentFlags().StringSliceP(keys.JsonFiles, "J", nil, "A directory containing videos")
-	viper.BindPFlag(keys.JsonFiles, rootCmd.PersistentFlags().Lookup(keys.JsonFiles))
+	rootCmd.PersistentFlags().StringSliceP(keys.JSONFiles, "J", nil, "A directory containing videos")
+	if err := viper.BindPFlag(keys.JSONFiles, rootCmd.PersistentFlags().Lookup(keys.JSONFiles)); err != nil {
+		return err
+	}
 
 	// Cookies
 	rootCmd.PersistentFlags().String(keys.CookiePath, "", "Specify cookie location")
-	viper.BindPFlag(keys.CookiePath, rootCmd.PersistentFlags().Lookup(keys.CookiePath))
+	if err := viper.BindPFlag(keys.CookiePath, rootCmd.PersistentFlags().Lookup(keys.CookiePath)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // initResourceRelated initializes user flag settings for parameters related to system hardware
-func initResourceRelated() {
+func initResourceRelated() error {
 
 	// Concurrency limit
 	rootCmd.PersistentFlags().IntP(keys.Concurrency, "l", 5, "Max concurrency limit")
-	viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency))
+	if err := viper.BindPFlag(keys.Concurrency, rootCmd.PersistentFlags().Lookup(keys.Concurrency)); err != nil {
+		return err
+	}
 
 	// CPU usage
 	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 100.0, "Max CPU usage")
-	viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU))
+	if err := viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU)); err != nil {
+		return err
+	}
 
 	// Min memory
 	rootCmd.PersistentFlags().StringP(keys.MinFreeMemInput, "m", "0", "Minimum free RAM to start process")
-	viper.BindPFlag(keys.MinFreeMemInput, rootCmd.PersistentFlags().Lookup(keys.MinFreeMemInput))
+	if err := viper.BindPFlag(keys.MinFreeMemInput, rootCmd.PersistentFlags().Lookup(keys.MinFreeMemInput)); err != nil {
+		return err
+	}
 
 	// Hardware accelerated transcoding
 	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")
-	viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU))
+	if err := viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // initAllFileTransformers initializes user flag settings for transformations applying to all files
-func initAllFileTransformers() {
+func initAllFileTransformers() error {
 
 	// Prefix file with metafield
 	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
-	viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx))
+	if err := viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx)); err != nil {
+		return err
+	}
 
 	// Prefix files with date tag
 	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
-	viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx))
+	if err := viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx)); err != nil {
+		return err
+	}
 
 	// Rename convention
 	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, fixes-only, or skip)")
-	viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle))
+	if err := viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle)); err != nil {
+		return err
+	}
 
 	// Replace filename suffix
 	rootCmd.PersistentFlags().StringSliceVar(&filenameReplaceSuffixInput, keys.InputFilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
-	viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx))
+	if err := viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx)); err != nil {
+		return err
+	}
 
 	// Backup files by renaming original files
 	rootCmd.PersistentFlags().BoolP(keys.NoFileOverwrite, "n", false, "Renames the original files to avoid overwriting")
-	viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite))
+	if err := viper.BindPFlag(keys.NoFileOverwrite, rootCmd.PersistentFlags().Lookup(keys.NoFileOverwrite)); err != nil {
+		return err
+	}
 
 	// Output directory (can be external)
 	rootCmd.PersistentFlags().StringP(keys.MoveOnComplete, "o", "", "Move files to given directory on program completion")
-	viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete))
+	if err := viper.BindPFlag(keys.MoveOnComplete, rootCmd.PersistentFlags().Lookup(keys.MoveOnComplete)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // initMetaTransformers initializes user flag settings for manipulation of metadata
-func initMetaTransformers() {
+func initMetaTransformers() error {
 
 	// Metadata transformations
 	rootCmd.PersistentFlags().StringSlice(keys.MetaOps, nil, "Metadata operations (field:operation:value) - e.g. title:set:New Title, description:prefix:Draft-, tags:append:newtag")
-	viper.BindPFlag(keys.MetaOps, rootCmd.PersistentFlags().Lookup(keys.MetaOps))
+	if err := viper.BindPFlag(keys.MetaOps, rootCmd.PersistentFlags().Lookup(keys.MetaOps)); err != nil {
+		return err
+	}
 
 	// Prefix or append description fields with dates
 	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")
-	viper.BindPFlag(keys.MDescDatePfx, rootCmd.PersistentFlags().Lookup(keys.MDescDatePfx))
+	if err := viper.BindPFlag(keys.MDescDatePfx, rootCmd.PersistentFlags().Lookup(keys.MDescDatePfx)); err != nil {
+		return err
+	}
 
 	rootCmd.PersistentFlags().Bool(keys.MDescDateSfx, false, "Adds the date to the end of the description field.")
-	viper.BindPFlag(keys.MDescDateSfx, rootCmd.PersistentFlags().Lookup(keys.MDescDateSfx))
+	if err := viper.BindPFlag(keys.MDescDateSfx, rootCmd.PersistentFlags().Lookup(keys.MDescDateSfx)); err != nil {
+		return err
+	}
 
 	// Overwrite or preserve metafields
 	rootCmd.PersistentFlags().Bool(keys.MOverwrite, false, "When adding new metadata fields, automatically overwrite existing fields with your new values")
-	viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite))
+	if err := viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite)); err != nil {
+		return err
+	}
 
 	rootCmd.PersistentFlags().Bool(keys.MPreserve, false, "When adding new metadata fields, skip already existent fields")
-	viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve))
+	if err := viper.BindPFlag(keys.MPreserve, rootCmd.PersistentFlags().Lookup(keys.MPreserve)); err != nil {
+		return err
+	}
 
 	rootCmd.PersistentFlags().String(keys.MetaPurge, "", "Delete metadata files (e.g. .json, .nfo) after the video is successfully processed")
-	viper.BindPFlag(keys.MetaPurge, rootCmd.PersistentFlags().Lookup(keys.MetaPurge))
+	if err := viper.BindPFlag(keys.MetaPurge, rootCmd.PersistentFlags().Lookup(keys.MetaPurge)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // initVideoTransformers initializes user flag settings for transformation of video files
-func initVideoTransformers() {
+func initVideoTransformers() error {
 
 	// Output extension type
 	rootCmd.PersistentFlags().String(keys.OutputFiletypeInput, "", "File extension to output files as (mp4 works best for most media servers)")
-	viper.BindPFlag(keys.OutputFiletypeInput, rootCmd.PersistentFlags().Lookup(keys.OutputFiletypeInput))
+	if err := viper.BindPFlag(keys.OutputFiletypeInput, rootCmd.PersistentFlags().Lookup(keys.OutputFiletypeInput)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // initFiltering initializes user flag settings for filtering files to work with
-func initFiltering() {
+func initFiltering() error {
 
 	// Video file extensions to convert
 	rootCmd.PersistentFlags().StringSliceP(keys.InputVideoExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
-	viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts))
+	if err := viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts)); err != nil {
+		return err
+	}
 
 	// Meta file extensions to convert
 	rootCmd.PersistentFlags().StringSlice(keys.InputMetaExts, []string{"all"}, "File extensions to convert (all, json, nfo)")
-	viper.BindPFlag(keys.InputMetaExts, rootCmd.PersistentFlags().Lookup(keys.InputMetaExts))
+	if err := viper.BindPFlag(keys.InputMetaExts, rootCmd.PersistentFlags().Lookup(keys.InputMetaExts)); err != nil {
+		return err
+	}
 
 	// Only convert files with prefix
 	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
-	viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes))
+	if err := viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes)); err != nil {
+		return err
+	}
+	return nil
 }
 
 // initProgramFunctions initializes user flag settings for miscellaneous program features such as debug level
-func initProgramFunctions() {
+func initProgramFunctions() error {
 
 	// Debugging level
 	rootCmd.PersistentFlags().Int(keys.DebugLevel, 0, "Level of debugging (0 - 5)")
-	viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel))
+	if err := viper.BindPFlag(keys.DebugLevel, rootCmd.PersistentFlags().Lookup(keys.DebugLevel)); err != nil {
+		return err
+	}
 
 	// Skip videos, only alter metafiles
 	rootCmd.PersistentFlags().Bool(keys.SkipVideos, false, "Skips compiling/transcoding the videos and just edits the file names/JSON file fields")
-	viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos))
+	if err := viper.BindPFlag(keys.SkipVideos, rootCmd.PersistentFlags().Lookup(keys.SkipVideos)); err != nil {
+		return err
+	}
 
 	// Preset configurations for sites
 	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
-	viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset))
+	if err := viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset)); err != nil {
+		return err
+	}
 
 	// Output benchmarking files
 	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
-	viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking))
+	if err := viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking)); err != nil {
+		return err
+	}
+	return nil
 }

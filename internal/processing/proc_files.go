@@ -7,9 +7,9 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
-	metaReader "metarr/internal/metadata/reader"
+	"metarr/internal/metadata/procmeta"
 	"metarr/internal/models"
-	fsRead "metarr/internal/utils/fs/read"
+	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
@@ -52,7 +52,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return err
 	}
 
-	logging.I(fmt.Sprintf("Found %d file(s) to process", batch.bp.counts.totalMatched))
+	logging.I("Found %d file(s) to process", batch.bp.counts.totalMatched)
 	logging.D(3, "Matched metafiles: %d", batch.bp.counts.totalMatched)
 
 	var (
@@ -115,11 +115,12 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 
 	// Handle temp files and cleanup
 	if err = cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.AddToErrorArray(err)
 		logging.E(0, "Failed to cleanup temp files: %v", err)
 	}
 
-	if logging.ErrorArray != nil {
+	errArray := logging.GetErrorArray()
+	if errArray != nil {
 		batch.bp.logFailedVideos()
 	}
 
@@ -144,7 +145,7 @@ func workerProcess(batch *batch, id int, jobs <-chan workItem, results chan<- *m
 
 			executed, err := executeFile(batch.bp, ctx, skipVideos, filename, job.fileData)
 			if err != nil {
-				logging.E(0, fmt.Sprintf("Worker %d error executing file %q: %v", id, filename, err))
+				logging.E(0, "Worker %d error executing file %q: %v", id, filename, err)
 				continue
 			}
 
@@ -160,18 +161,17 @@ func processMetadataFiles(bp *batchProcessor, ctx context.Context, matchedFiles 
 	for _, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
-		case enums.METAFILE_JSON:
+		case enums.MetaFiletypeJSON:
 			logging.D(3, "File: %s: Meta file type in model as %v", fd.JSONFilePath, fd.MetaFileType)
-			_, err = metaReader.ProcessJSONFile(ctx, fd)
-		case enums.METAFILE_NFO:
+			_, err = procmeta.ProcessJSONFile(ctx, fd)
+		case enums.MetaFiletypeNFO:
 			logging.D(3, "File: %s: Meta file type in model as %v", fd.NFOFilePath, fd.MetaFileType)
-			_, err = metaReader.ProcessNFOFiles(fd)
+			_, err = procmeta.ProcessNFOFiles(fd)
 		}
 
 		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
-			errMsg := fmt.Errorf("error processing metadata for file %q: %w", fd.OriginalVideoPath, err)
-			logging.E(0, errMsg.Error())
+			logging.AddToErrorArray(err)
+			logging.E(0, "Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)
 
 			muFailed.Lock()
 			bp.logFailedVideos()
@@ -191,9 +191,9 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = fsRead.GetMetadataFiles(openMeta)
+		metaMap, err = fsread.GetMetadataFiles(openMeta)
 		if err != nil {
-			logging.E(0, err.Error())
+			logging.E(0, "Failed to retrieve metadata files in %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
@@ -201,8 +201,9 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		}
 
 		if !skipVideos {
-			videoMap, err = fsRead.GetVideoFiles(openVideo)
+			videoMap, err = fsread.GetVideoFiles(openVideo)
 			if err != nil {
+				logging.E(0, "Failed to retrieve video files in %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
 					err:      err.Error(),
@@ -213,9 +214,9 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 
 	// Batch is a file request...
 	if !batch.IsDirs {
-		metaMap, err = fsRead.GetSingleMetadataFile(openMeta)
+		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
 		if err != nil {
-			logging.E(0, err.Error())
+			logging.E(0, "Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
@@ -223,8 +224,9 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		}
 
 		if !skipVideos {
-			videoMap, err = fsRead.GetSingleVideoFile(openVideo)
+			videoMap, err = fsread.GetSingleVideoFile(openVideo)
 			if err != nil {
+				logging.E(0, "Failed to retrieve video file %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
 					err:      err.Error(),
@@ -236,9 +238,9 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	// Match video and metadata files
 	var matchedFiles map[string]*models.FileData // No need to assign length (just a placeholder var)
 	if !skipVideos {
-		matchedFiles, err = fsRead.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
+		matchedFiles, err = fsread.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
 		if err != nil {
-			return fmt.Errorf("error matching videos with metadata: %v", err)
+			return fmt.Errorf("error matching videos with metadata: %w", err)
 		}
 	} else {
 		matchedFiles = metaMap
@@ -312,9 +314,10 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 		logging.I("Processing file: %s", filename)
 		if !skipVideos {
 			if err := ffmpeg.ExecuteVideo(ctx, fd); err != nil {
+
 				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
-				logging.ErrorArray = append(logging.ErrorArray, errMsg)
-				logging.E(0, errMsg.Error())
+				logging.AddToErrorArray(errMsg)
+				logging.E(0, "Failed to execute video %q: %v", fd.OriginalVideoPath, err)
 
 				bp.addFailure(failedVideo{
 					filename: filename,

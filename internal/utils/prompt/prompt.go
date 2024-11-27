@@ -1,4 +1,5 @@
-package utils
+// Package prompt handles user prompting (usually for y/n type directives).
+package prompt
 
 import (
 	"bufio"
@@ -46,14 +47,11 @@ func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 	}
 
 	fmt.Println()
-	logging.I(promptMsg)
+	logging.I("%s", promptMsg)
 
 	// Wait for user input
 	select {
 	case response := <-userInputChan:
-		if response == "Y" {
-			ow = true
-		}
 		decisionMade = true
 		return response, nil
 

@@ -18,15 +18,15 @@ const (
 )
 
 const (
-	JComment          = "comment"
-	JDescription      = "description"
-	JFulltitle        = "fulltitle"
-	JLongDescription  = "longdescription"
-	JLong_Description = "long_description"
-	JSubtitle         = "subtitle"
-	JSummary          = "summary"
-	JSynopsis         = "synopsis"
-	JTitle            = "title"
+	JComment            = "comment"
+	JDescription        = "description"
+	JFulltitle          = "fulltitle"
+	JLongDesc           = "longdescription"
+	JLongUnderscoreDesc = "long_description"
+	JSubtitle           = "subtitle"
+	JSummary            = "summary"
+	JSynopsis           = "synopsis"
+	JTitle              = "title"
 )
 
 const (

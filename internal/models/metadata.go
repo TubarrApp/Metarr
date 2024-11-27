@@ -100,26 +100,26 @@ type MetadataCredits struct {
 }
 
 type MetadataTitlesDescs struct {
-	Fulltitle        string `json:"fulltitle" xml:"title"`
-	Title            string `json:"title" xml:"originaltitle"`
-	Subtitle         string `json:"subtitle" xml:"subtitle"`
-	Description      string `json:"description" xml:"description"`
-	LongDescription  string `json:"longdescription" xml:"plot"`
-	Long_Description string `json:"long_description" xml:"long_description"`
-	Synopsis         string `json:"synopsis" xml:"synopsis"`
-	Summary          string `json:"summary" xml:"summary"`
-	Comment          string `json:"comment" xml:"comment"`
+	Fulltitle                 string `json:"fulltitle" xml:"title"`
+	Title                     string `json:"title" xml:"originaltitle"`
+	Subtitle                  string `json:"subtitle" xml:"subtitle"`
+	Description               string `json:"description" xml:"description"`
+	LongDescription           string `json:"longdescription" xml:"plot"`
+	LongUnderscoreDescription string `json:"long_description" xml:"long_description"`
+	Synopsis                  string `json:"synopsis" xml:"synopsis"`
+	Summary                   string `json:"summary" xml:"summary"`
+	Comment                   string `json:"comment" xml:"comment"`
 }
 
 type MetadataDates struct {
-	FormattedDate           string `json:"-" xml:"-"`
-	UploadDate              string `json:"upload_date" xml:"upload_date"`
-	ReleaseDate             string `json:"release_date" xml:"release_date"`
-	Date                    string `json:"date" xml:"date"`
-	Year                    string `json:"year" xml:"year"`
-	Originally_Available_At string `json:"originally_available_at" xml:"originally_available_at"`
-	Creation_Time           string `json:"creation_time" xml:"creation_time"`
-	StringDate              string `json:"-"`
+	FormattedDate         string `json:"-" xml:"-"`
+	UploadDate            string `json:"upload_date" xml:"upload_date"`
+	ReleaseDate           string `json:"release_date" xml:"release_date"`
+	Date                  string `json:"date" xml:"date"`
+	Year                  string `json:"year" xml:"year"`
+	OriginallyAvailableAt string `json:"originally_available_at" xml:"originally_available_at"`
+	CreationTime          string `json:"creation_time" xml:"creation_time"`
+	StringDate            string `json:"-"`
 }
 
 type MetadataWebData struct {
@@ -132,15 +132,15 @@ type MetadataWebData struct {
 }
 
 type MetadataShowData struct {
-	Show          string `json:"show" xml:"show"`
-	Episode_ID    string `json:"episode_id" xml:"episode_id"`
-	Episode_Sort  string `json:"episode_sort" xml:"episode_sort"`
-	Season_Number string `json:"season_number" xml:"season_number"`
-	Season_Title  string `json:"season_title" xml:"seasontitle"`
+	Show         string `json:"show" xml:"show"`
+	EpisodeID    string `json:"episode_id" xml:"episode_id"`
+	EpisodeSort  string `json:"episode_sort" xml:"episode_sort"`
+	SeasonNumber string `json:"season_number" xml:"season_number"`
+	SeasonTitle  string `json:"season_title" xml:"seasontitle"`
 }
 
 type MetadataOtherData struct {
 	Language string `json:"language" xml:"language"`
 	Genre    string `json:"genre" xml:"genre"`
-	HD_Video string `json:"hd_video" xml:"hd_video"`
+	HDVideo  string `json:"hd_video" xml:"hd_video"`
 }

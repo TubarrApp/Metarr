@@ -2,7 +2,7 @@ package models
 
 import "os"
 
-// Metadata read/write interface
+// JSONFileRW contains methods to work with JSON metadata/files.
 type JSONFileRW interface {
 	DecodeJSON(file *os.File) (map[string]any, error)
 	RefreshJSON() (map[string]any, error)
@@ -11,7 +11,7 @@ type JSONFileRW interface {
 	JSONDateTagEdits(file *os.File, fd *FileData) (edited bool, err error)
 }
 
-// Metadata read/write interface
+// NFOFileRW contains methods to work with XML metadata/files.
 type NFOFileRW interface {
 	DecodeMetadata(file *os.File) (*NFOData, error)
 	RefreshMetadata() (*NFOData, error)

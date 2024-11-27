@@ -1,9 +1,15 @@
+// Package consts holds global unchanging constants and variables.
 package consts
 
 // File prefix and suffix
 const (
 	BackupTag = "_metarrbackup"
 	TempTag   = "tmp_"
+)
+
+// Buffers
+const (
+	Buffer4MB = 4 * 1024 * 1024
 )
 
 const TimeSfx = "T00:00:00Z"

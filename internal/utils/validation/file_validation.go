@@ -1,8 +1,9 @@
-package utils
+// Package validation can validate things like file extension correctness.
+package validation
 
 import "strings"
 
-// validateExtension checks if the output extension is valid
+// ValidateExtension checks if the output extension is valid
 func ValidateExtension(ext string) string {
 	ext = strings.TrimSpace(ext)
 

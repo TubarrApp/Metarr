@@ -106,7 +106,7 @@ func validateMetaOps() error {
 		case "set":
 			switch field {
 			case "all-credits", "credits-all":
-				models.SetOverrideMap[enums.OVERRIDE_META_CREDITS] = value
+				models.SetOverrideMap[enums.OverrideMetaCredits] = value
 			}
 
 			newFieldModel := models.MetaNewField{
@@ -121,7 +121,7 @@ func validateMetaOps() error {
 		case "append":
 			switch field {
 			case "all-credits", "credits-all":
-				models.AppendOverrideMap[enums.OVERRIDE_META_CREDITS] = value
+				models.AppendOverrideMap[enums.OverrideMetaCredits] = value
 			}
 
 			apndModel := models.MetaAppend{
@@ -190,7 +190,7 @@ func validateMetaOps() error {
 
 			switch field {
 			case "all-credits", "credits-all":
-				models.ReplaceOverrideMap[enums.OVERRIDE_META_CREDITS] = models.MOverrideReplacePair{
+				models.ReplaceOverrideMap[enums.OverrideMetaCredits] = models.MOverrideReplacePair{
 					Value:       value,
 					Replacement: parts[3],
 				}
@@ -214,9 +214,9 @@ func validateMetaOps() error {
 
 			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DATE_TAG_LOC_PFX
+				loc = enums.DatetagLocPrefix
 			case "suffix":
-				loc = enums.DATE_TAG_LOC_SFX
+				loc = enums.DatetagLocSuffix
 			default:
 				return errors.New("date tag location must be prefix, or suffix")
 			}
@@ -240,9 +240,9 @@ func validateMetaOps() error {
 
 			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DATE_TAG_LOC_PFX
+				loc = enums.DatetagLocPrefix
 			case "suffix":
-				loc = enums.DATE_TAG_LOC_SFX
+				loc = enums.DatetagLocSuffix
 			default:
 				return errors.New("date tag location must be prefix, or suffix")
 			}
@@ -388,20 +388,20 @@ func setRenameFlag() {
 
 	switch argRenameFlag {
 	case "spaces", "space":
-		renameFlag = enums.RENAMING_SPACES
+		renameFlag = enums.RenamingSpaces
 		logging.P("Rename style selected: %v", argRenameFlag)
 
 	case "underscores", "underscore":
-		renameFlag = enums.RENAMING_UNDERSCORES
+		renameFlag = enums.RenamingUnderscores
 		logging.P("Rename style selected: %v", argRenameFlag)
 
 	case "fixes", "fix", "fixes-only", "fixesonly":
-		renameFlag = enums.RENAMING_FIXES_ONLY
+		renameFlag = enums.RenamingFixesOnly
 		logging.P("Rename style selected: %v", argRenameFlag)
 
 	default:
 		logging.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
-		renameFlag = enums.RENAMING_SKIP
+		renameFlag = enums.RenamingSkip
 	}
 	viper.Set(keys.Rename, renameFlag)
 }
@@ -430,30 +430,30 @@ func initDateReplaceFormat() error {
 func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 
 	if len(dateFmt) < 2 {
-		return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as %q, please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
+		return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
 	} else {
 		switch dateFmt {
 		case "Ymd":
-			return enums.DATEFMT_YYYY_MM_DD, nil
+			return enums.DateYyyyMmDd, nil
 		case "ymd":
-			return enums.DATEFMT_YY_MM_DD, nil
+			return enums.DateYyMmDd, nil
 		case "Ydm":
-			return enums.DATEFMT_YYYY_DD_MM, nil
+			return enums.DateYyyyDdMm, nil
 		case "ydm":
-			return enums.DATEFMT_YY_DD_MM, nil
+			return enums.DateYyDdMm, nil
 		case "dmY":
-			return enums.DATEFMT_DD_MM_YYYY, nil
+			return enums.DateDdMmYyyy, nil
 		case "dmy":
-			return enums.DATEFMT_DD_MM_YY, nil
+			return enums.DateDdMmYy, nil
 		case "mdY":
-			return enums.DATEFMT_MM_DD_YYYY, nil
+			return enums.DateMmDdYyyy, nil
 		case "mdy":
-			return enums.DATEFMT_MM_DD_YY, nil
+			return enums.DateMmDdYy, nil
 		case "md":
-			return enums.DATEFMT_MM_DD, nil
+			return enums.DateMmDd, nil
 		case "dm":
-			return enums.DATEFMT_DD_MM, nil
+			return enums.DateDdMm, nil
 		}
 	}
-	return enums.DATEFMT_SKIP, fmt.Errorf("invalid date format entered as %q, please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
+	return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
 }

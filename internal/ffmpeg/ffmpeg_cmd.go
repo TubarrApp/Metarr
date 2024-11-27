@@ -60,17 +60,17 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 		t.Title = t.Fulltitle
 	}
 
-	if t.LongDescription == "" && t.Long_Description != "" {
-		t.LongDescription = t.Long_Description
+	if t.LongDescription == "" && t.LongUnderscoreDescription != "" {
+		t.LongDescription = t.LongUnderscoreDescription
 	}
 
 	fields := map[string]string{
-		consts.JTitle:           t.Title,
-		consts.JSubtitle:        t.Subtitle,
-		consts.JDescription:     t.Description,
-		consts.JLongDescription: t.LongDescription,
-		consts.JSummary:         t.Summary,
-		consts.JSynopsis:        t.Synopsis,
+		consts.JTitle:       t.Title,
+		consts.JSubtitle:    t.Subtitle,
+		consts.JDescription: t.Description,
+		consts.JLongDesc:    t.LongDescription,
+		consts.JSummary:     t.Summary,
+		consts.JSynopsis:    t.Synopsis,
 	}
 
 	for field, value := range fields {
@@ -120,9 +120,9 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 
 	fields := map[string]string{
-		consts.JCreationTime:        d.Creation_Time,
+		consts.JCreationTime:        d.CreationTime,
 		consts.JDate:                d.Date,
-		consts.JOriginallyAvailable: d.Originally_Available_At,
+		consts.JOriginallyAvailable: d.OriginallyAvailableAt,
 		consts.JReleaseDate:         d.ReleaseDate,
 		consts.JUploadDate:          d.UploadDate,
 		consts.JYear:                d.Year,
@@ -139,10 +139,10 @@ func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 func (b *ffCommandBuilder) addShowInfo(s *models.MetadataShowData) {
 
 	fields := map[string]string{
-		"episode_id":    s.Episode_ID,
-		"episode_sort":  s.Episode_Sort,
-		"season_number": s.Season_Number,
-		"season_title":  s.Season_Title,
+		"episode_id":    s.EpisodeID,
+		"episode_sort":  s.EpisodeSort,
+		"season_number": s.SeasonNumber,
+		"season_title":  s.SeasonTitle,
 		"show":          s.Show,
 	}
 
@@ -158,7 +158,7 @@ func (b *ffCommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
 
 	fields := map[string]string{
 		"genre":    o.Genre,
-		"hd_video": o.HD_Video,
+		"hd_video": o.HDVideo,
 		"language": o.Language,
 	}
 
@@ -197,11 +197,11 @@ func (b *ffCommandBuilder) setGPUAcceleration() {
 		gpuFlag, ok := cfg.Get(keys.GPUEnum).(enums.SysGPU)
 		if ok {
 			switch gpuFlag {
-			case enums.GPU_NVIDIA:
+			case enums.GPUNvidia:
 				b.gpuAccel = consts.NvidiaAccel[:]
-			case enums.GPU_AMD:
+			case enums.GPUAMD:
 				b.gpuAccel = consts.AMDAccel[:]
-			case enums.GPU_INTEL:
+			case enums.GPUIntel:
 				b.gpuAccel = consts.IntelAccel[:]
 			}
 		}

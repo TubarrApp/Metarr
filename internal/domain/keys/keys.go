@@ -1,19 +1,14 @@
+// Package keys holds keys relating to terminal commands, and internal Viper/Cobra keys.
 package keys
 
 // Terminal keys
 const (
 	BatchPairsInput string = "batch-pairs"
-	// VideoDir        string = "video-dir"
-	// VideoFile       string = "video-file"
-
-	VideoDirs  string = "video-directory"
-	VideoFiles string = "video-file"
-	JsonDirs   string = "json-directory"
-	JsonFiles  string = "json-file"
-
-	// JsonDir   string = "json-dir"
-	// JsonFile  string = "json-file"
-	MetaPurge string = "purge-metafile"
+	VideoDirs       string = "video-directory"
+	VideoFiles      string = "video-file"
+	JSONDirs        string = "json-directory"
+	JSONFiles       string = "json-file"
+	MetaPurge       string = "purge-metafile"
 
 	CookiePath string = "cookie-dir"
 
@@ -55,8 +50,6 @@ const (
 // Files and directories
 const (
 	BatchPairs     string = "batchPairs"
-	OpenVideo      string = "openVideo"
-	OpenJson       string = "openJson"
 	MetaPurgeEnum  string = "metaPurgeEnum"
 	OutputFiletype string = "outputFiletype"
 )
@@ -98,7 +91,7 @@ const (
 	MDelDateTagMap string = "metaDelDateTagMap"
 )
 
-// Contains the fields which accept multiple entries as string arrays
+// MultiEntryFields lists the fields containing multiple entries.
 var MultiEntryFields = []string{
 	InputVideoExts,
 	InputMetaExts,

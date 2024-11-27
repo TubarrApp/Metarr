@@ -1,3 +1,4 @@
+// Package printout generates useful informational printouts. Useful for debugging.
 package printout
 
 import (
@@ -13,7 +14,8 @@ import (
 var muPrint sync.Mutex
 
 // CreateModelPrintout prints out the values stored in a struct.
-// taskName allows you to enter your own identifier for this task.
+//
+// taskName allows you to enter your own identifier for this task which will display in terminal.
 func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	if model == nil {
 		logging.E(0, "Model entered nil for taskname %q", taskName)
@@ -98,7 +100,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	b.WriteString("'" + filename + "'")
 	b.WriteString(" =================\n\n")
 
-	logging.P(b.String())
+	logging.P("%s", b.String())
 }
 
 // Function to print the fields of a struct using reflection
@@ -139,7 +141,7 @@ func printStructFields(s any) string {
 	return b.String()
 }
 
-// Print out the fetched fields
+// PrintGrabbedFields prints out the fetched fields.
 func PrintGrabbedFields(fieldType string, p map[string]string) {
 	muPrint.Lock()
 	defer muPrint.Unlock()
@@ -150,7 +152,11 @@ func PrintGrabbedFields(fieldType string, p map[string]string) {
 
 	for k, v := range p {
 		if k != "" && v != "" {
-			logging.P(fmt.Sprintf(consts.ColorGreen + "Key: " + consts.ColorReset + k + consts.ColorYellow + "\nValue: " + consts.ColorReset + v + "\n"))
+			logging.P("%sKey:%s %s\n%sValue:%s %s\n",
+				consts.ColorGreen, consts.ColorReset,
+				k,
+				consts.ColorYellow, consts.ColorReset,
+				v)
 		}
 	}
 	fmt.Println()

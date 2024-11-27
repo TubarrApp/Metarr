@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/cfg"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/processing"
-	fsRead "metarr/internal/utils/fs/read"
-	logging "metarr/internal/utils/logging"
-	prompt "metarr/internal/utils/prompt"
+	"metarr/internal/utils/fs/fsread"
+	"metarr/internal/utils/logging"
+	"metarr/internal/utils/prompt"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -71,7 +71,7 @@ func main() {
 		Wg:      wg,
 	}
 
-	if err := fsRead.InitFetchFilesVars(); err != nil {
+	if err := fsread.InitFetchFilesVars(); err != nil {
 		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
 		cancel() // Do not remove call before exit
 		os.Exit(1)
@@ -148,17 +148,23 @@ func setupBenchmarking() {
 func closeBenchFiles(b *benchFiles, exitMsg string) {
 
 	if b.cpuFile != nil {
-		b.cpuFile.Close()
+		if err := b.cpuFile.Close(); err != nil {
+			logging.E(0, "Failed to close file %q: %v", b.cpuFile.Name(), err)
+		}
 	}
 
 	if b.memFile != nil {
-		b.memFile.Close()
+		if err := b.memFile.Close(); err != nil {
+			logging.E(0, "Failed to close file %q: %v", b.memFile.Name(), err)
+		}
 	}
 
 	if b.traceFile != nil {
-		b.traceFile.Close()
+		if err := b.traceFile.Close(); err != nil {
+			logging.E(0, "Failed to close file %q: %v", b.traceFile.Name(), err)
+		}
 	}
 
-	logging.E(0, exitMsg)
+	logging.E(0, "%s", exitMsg)
 	os.Exit(1)
 }

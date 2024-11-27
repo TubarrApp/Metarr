@@ -1,3 +1,4 @@
+// Package regex handles and caches regex directives.
 package regex
 
 import (

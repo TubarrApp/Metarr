@@ -1,3 +1,4 @@
+// Package processing is the primary Metarr process, handling batches of files and/or directories.
 package processing
 
 import (
@@ -22,7 +23,7 @@ var (
 type batch struct {
 	ID         int64
 	Video      string
-	Json       string
+	JSON       string
 	IsDirs     bool
 	SkipVideos bool
 	bp         *batchProcessor
@@ -79,7 +80,7 @@ func StartBatchLoop(core *models.Core) error {
 	for _, b := range batches {
 		var (
 			openVideo *os.File
-			openJson  *os.File
+			openJSON  *os.File
 			err       error
 		)
 
@@ -92,29 +93,29 @@ func StartBatchLoop(core *models.Core) error {
 
 		// Open video file if necessary
 		if !skipVideos {
-			openVideo, err = os.Open(batch.Video)
-			if err != nil {
+			if openVideo, err = os.Open(batch.Video); err != nil {
 				logging.E(0, "Failed to open %s", batch.Video)
 				continue
 			}
 		}
 
 		// Open JSON file
-		openJson, err = os.Open(batch.Json)
-		if err != nil {
-			logging.E(0, "Failed to open %s", batch.Json)
+		if openJSON, err = os.Open(batch.JSON); err != nil {
+			logging.E(0, "Failed to open %s", batch.JSON)
 
+			// Close accompanying video...
 			if openVideo != nil {
-				openVideo.Close()
+				if err := openVideo.Close(); err != nil {
+					return fmt.Errorf("failed to close failed video %q after JSON failure: %w", openVideo.Name(), err)
+				}
 			}
-
 			continue
 		}
 
 		// Start logging
 		if !logInit {
 			muLogSetup.Lock()
-			dir := filepath.Dir(openJson.Name())
+			dir := filepath.Dir(openJSON.Name())
 			logging.I("Setting log file at %q", dir)
 
 			if err = logging.SetupLogging(dir); err != nil {
@@ -125,17 +126,21 @@ func StartBatchLoop(core *models.Core) error {
 		}
 
 		// Initiate batch process
-		if err := processBatch(batch, core, openVideo, openJson); err != nil {
+		if err := processBatch(batch, core, openVideo, openJSON); err != nil {
 			return err
 		}
 
-		logging.I("Finished tasks for files/directories:\n\nVideo: %q\nJSON: %q\n", batch.Video, batch.Json)
+		logging.I("Finished tasks for files/directories:\n\nVideo: %q\nJSON: %q\n", batch.Video, batch.JSON)
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {
-			openVideo.Close()
+			if err := openVideo.Close(); err != nil {
+				logging.E(0, "Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
+			}
 		}
-		openJson.Close()
+		if err := openJSON.Close(); err != nil {
+			logging.E(0, "Failed to close JSON file %q after successful iteration: %v", openVideo.Name(), err)
+		}
 
 		job++
 	}
@@ -155,7 +160,7 @@ func convertCfgToBatch(config cfg.BatchConfig) *batch {
 	return &batch{
 		ID:         id,
 		Video:      config.Video,
-		Json:       config.Json,
+		JSON:       config.JSON,
 		IsDirs:     config.IsDirs,
 		SkipVideos: config.SkipVideos,
 	}

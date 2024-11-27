@@ -1,3 +1,4 @@
+// Package logging handles debugging and logging, as well as logging file writes.
 package logging
 
 import (
@@ -19,7 +20,7 @@ var (
 	Loggable   bool = false
 	fileLogger zerolog.Logger
 	mu         sync.Mutex
-	ErrorArray = make([]error, 0, 8)
+	errorArray = make([]error, 0, 8)
 	ansiEscape = regex.AnsiEscapeCompile()
 	console    = os.Stdout
 )
@@ -66,7 +67,9 @@ func SetupLogging(targetDir string) error {
 // writeToConsole writes messages to console without using zerolog (zerolog parses JSON, inefficient).
 func writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
-	fmt.Fprintf(console, "%s%s%s %s", consts.ColorBrightBlack, timestamp, consts.ColorReset, msg)
+	if _, err := fmt.Fprintf(console, "%s%s%s %s", consts.ColorBrightBlack, timestamp, consts.ColorReset, msg); err != nil {
+		E(0, "Failed to print to console: %v", err)
+	}
 }
 
 // E logs error messages, and appends to the global error array.
@@ -81,9 +84,7 @@ func E(l int, format string, args ...interface{}) {
 
 	if len(args) > 0 {
 		if err, ok := args[len(args)-1].(error); ok {
-			mu.Lock()
-			ErrorArray = append(ErrorArray, err)
-			mu.Unlock()
+			AddToErrorArray(err)
 		}
 	}
 
@@ -200,4 +201,18 @@ func P(format string, args ...interface{}) {
 	if Loggable {
 		fileLogger.Info().Msg(msg)
 	}
+}
+
+// AddToErrorArray adds an error to the error array under lock.
+func AddToErrorArray(err error) {
+	mu.Lock()
+	if err != nil {
+		errorArray = append(errorArray, err)
+	}
+	mu.Unlock()
+}
+
+// GetErrorArray returns the error array.
+func GetErrorArray() []error {
+	return errorArray
 }

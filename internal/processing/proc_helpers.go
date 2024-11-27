@@ -27,7 +27,7 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 	var (
 		replaceStyle                           enums.ReplaceToStyle
 		ok                                     bool
-		inputVideoDir, inputJsonDir, directory string
+		inputVideoDir, inputJSONDir, directory string
 	)
 
 	if cfg.IsSet(keys.Rename) {
@@ -38,25 +38,25 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 		}
 	}
 
-	inputJsonDir = filepath.Dir(metaPath)
+	inputJSONDir = filepath.Dir(metaPath)
 	if !skipVideos {
 		inputVideoDir = filepath.Dir(videoPath)
 	}
 
 	switch {
-	case inputJsonDir != "":
-		directory = inputJsonDir
+	case inputJSONDir != "":
+		directory = inputJSONDir
 	case inputVideoDir != "":
 		directory = inputVideoDir
 	default:
 		errMsg := fmt.Errorf("not renaming file, no directory detected (batch ID: %d)", batchID)
-		logging.ErrorArray = append(logging.ErrorArray, errMsg)
+		logging.AddToErrorArray(errMsg)
 		return
 	}
 
 	err := transformations.FileRename(fd, replaceStyle, skipVideos)
 	if err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.AddToErrorArray(err)
 		logging.E(0, "Failed to rename files: %v", err)
 	} else {
 		logging.S(0, "Successfully formatted file names in directory: %s", directory)
@@ -80,7 +80,7 @@ func sysResourceLoop(fileStr string) {
 		muResource.Unlock()
 
 		if err != nil {
-			logging.ErrorArray = append(logging.ErrorArray, err)
+			logging.AddToErrorArray(err)
 			logging.E(0, "Error checking system resources: %v", err)
 
 			time.Sleep(backoff)
@@ -92,7 +92,6 @@ func sysResourceLoop(fileStr string) {
 		}
 
 		if proceed {
-			resourceMsg = false
 			break
 		}
 
@@ -123,8 +122,8 @@ func checkSysResources(requiredMemory uint64) (proceed bool, availMem uint64, cp
 		return false, 0, 0, err
 	}
 
-	maxCpuUsage := cfg.GetFloat64(keys.MaxCPU)
-	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCpuUsage), vMem.Available, cpuPct[0], nil
+	maxCPUUsage := cfg.GetFloat64(keys.MaxCPU)
+	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCPUUsage), vMem.Available, cpuPct[0], nil
 }
 
 // cleanupTempFiles removes temporary files

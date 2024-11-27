@@ -1,3 +1,4 @@
+// Package cfg intializes Metarr configurations with Viper, Cobra, etc.
 package cfg
 
 import (
@@ -30,30 +31,61 @@ var rootCmd = &cobra.Command{
 
 // init sets the initial Viper settings
 func init() {
-
 	// Files and directories
-	initFilesDirs()
+	if err := initFilesDirs(); err != nil {
+		fmt.Fprintf(os.Stderr, "config files & dirs initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// System resource related
-	initResourceRelated()
+	if err := initResourceRelated(); err != nil {
+		fmt.Fprintf(os.Stderr, "config resource element initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// Filtering
-	initFiltering()
+	if err := initFiltering(); err != nil {
+		fmt.Fprintf(os.Stderr, "config filtering initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// All file transformations
-	initAllFileTransformers()
+	if err := initAllFileTransformers(); err != nil {
+		fmt.Fprintf(os.Stderr, "config file transformer initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// Filename transformations
-	initVideoTransformers()
+	if err := initVideoTransformers(); err != nil {
+		fmt.Fprintf(os.Stderr, "config video transformer initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// Metadata and metafile manipulation
-	initMetaTransformers()
+	if err := initMetaTransformers(); err != nil {
+		fmt.Fprintf(os.Stderr, "config meta transformer initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// Special functions
-	initProgramFunctions()
+	if err := initProgramFunctions(); err != nil {
+		fmt.Fprintf(os.Stderr, "config program function initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 
 	// Text replacement initialization
-	initTextReplace()
+	if err := initTextReplace(); err != nil {
+		fmt.Fprintf(os.Stderr, "config text replace initialization failure: %v", err)
+		fmt.Println()
+		os.Exit(1)
+	}
 }
 
 // Execute is the primary initializer of Viper
@@ -120,7 +152,7 @@ func execute() error {
 type BatchConfig struct {
 	ID         int64
 	Video      string
-	Json       string
+	JSON       string
 	IsDirs     bool
 	SkipVideos bool
 }
@@ -135,8 +167,8 @@ func checkFileDirs() error {
 
 	videoFileSet := viper.IsSet(keys.VideoFiles)
 	videoDirSet := viper.IsSet(keys.VideoDirs)
-	jsonFileSet := viper.IsSet(keys.JsonFiles)
-	jsonDirSet := viper.IsSet(keys.JsonDirs)
+	jsonFileSet := viper.IsSet(keys.JSONFiles)
+	jsonDirSet := viper.IsSet(keys.JSONDirs)
 
 	if videoFileSet {
 		videoFiles = viper.GetStringSlice(keys.VideoFiles)
@@ -147,11 +179,11 @@ func checkFileDirs() error {
 	}
 
 	if jsonFileSet {
-		jsonFiles = viper.GetStringSlice(keys.JsonFiles)
+		jsonFiles = viper.GetStringSlice(keys.JSONFiles)
 	}
 
 	if jsonDirSet {
-		jsonDirs = viper.GetStringSlice(keys.JsonDirs)
+		jsonDirs = viper.GetStringSlice(keys.JSONDirs)
 	}
 
 	if len(videoDirs) > len(jsonDirs) || len(videoFiles) > len(jsonFiles) {
@@ -186,7 +218,7 @@ func checkFileDirs() error {
 
 			tasks = append(tasks, BatchConfig{
 				Video:  videoDirs[i],
-				Json:   jsonDirs[i],
+				JSON:   jsonDirs[i],
 				IsDirs: true,
 			})
 			vDirCount++
@@ -209,7 +241,7 @@ func checkFileDirs() error {
 			}
 
 			tasks = append(tasks, BatchConfig{
-				Json:       j[i],
+				JSON:       j[i],
 				IsDirs:     true,
 				SkipVideos: true,
 			})
@@ -239,7 +271,7 @@ func checkFileDirs() error {
 
 			tasks = append(tasks, BatchConfig{
 				Video:  videoFiles[i],
-				Json:   jsonFiles[i],
+				JSON:   jsonFiles[i],
 				IsDirs: false,
 			})
 			vFileCount++
@@ -261,7 +293,7 @@ func checkFileDirs() error {
 				}
 
 				tasks = append(tasks, BatchConfig{
-					Json:       j[i],
+					JSON:       j[i],
 					IsDirs:     false,
 					SkipVideos: true,
 				})
@@ -323,17 +355,17 @@ func verifyInputFiletypes() {
 	for _, data := range argsVInputExts {
 		switch data {
 		case "mkv":
-			inputVExts = append(inputVExts, enums.VID_EXTS_MKV)
+			inputVExts = append(inputVExts, enums.VidExtsMKV)
 		case "mp4":
-			inputVExts = append(inputVExts, enums.VID_EXTS_MP4)
+			inputVExts = append(inputVExts, enums.VidExtsMP4)
 		case "webm":
-			inputVExts = append(inputVExts, enums.VID_EXTS_WEBM)
+			inputVExts = append(inputVExts, enums.VidExtsWebM)
 		default:
-			inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
+			inputVExts = append(inputVExts, enums.VidExtsAll)
 		}
 	}
 	if len(inputVExts) == 0 {
-		inputVExts = append(inputVExts, enums.VID_EXTS_ALL)
+		inputVExts = append(inputVExts, enums.VidExtsAll)
 	}
 	logging.D(2, "Received video input extension filter: %v", inputVExts)
 	viper.Set(keys.InputVExtsEnum, inputVExts)
@@ -344,15 +376,15 @@ func verifyInputFiletypes() {
 	for _, data := range argsMInputExts {
 		switch data {
 		case "json":
-			inputMExts = append(inputMExts, enums.META_EXTS_JSON)
+			inputMExts = append(inputMExts, enums.MetaExtsJSON)
 		case "nfo":
-			inputMExts = append(inputMExts, enums.META_EXTS_NFO)
+			inputMExts = append(inputMExts, enums.MetaExtsNFO)
 		default:
-			inputMExts = append(inputMExts, enums.META_EXTS_ALL)
+			inputMExts = append(inputMExts, enums.MetaExtsAll)
 		}
 	}
 	if len(inputMExts) == 0 {
-		inputMExts = append(inputMExts, enums.META_EXTS_ALL)
+		inputMExts = append(inputMExts, enums.MetaExtsAll)
 	}
 	logging.D(2, "Received meta input extension filter: %v", inputMExts)
 	viper.Set(keys.InputMExtsEnum, inputMExts)
@@ -362,16 +394,16 @@ func verifyInputFiletypes() {
 func verifyHWAcceleration() {
 	switch viper.GetString(keys.GPU) {
 	case "nvidia":
-		viper.Set(keys.GPUEnum, enums.GPU_NVIDIA)
+		viper.Set(keys.GPUEnum, enums.GPUNvidia)
 		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	case "amd":
-		viper.Set(keys.GPUEnum, enums.GPU_AMD)
+		viper.Set(keys.GPUEnum, enums.GPUAMD)
 		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	case "intel":
-		viper.Set(keys.GPUEnum, enums.GPU_INTEL)
+		viper.Set(keys.GPUEnum, enums.GPUIntel)
 		logging.P("GPU acceleration selected by user: %v", keys.GPU)
 	default:
-		viper.Set(keys.GPUEnum, enums.GPU_NO_HW_ACCEL)
+		viper.Set(keys.GPUEnum, enums.GPUNone)
 	}
 }
 
@@ -390,7 +422,7 @@ func verifyConcurrencyLimit() {
 }
 
 // verifyCPUUsage verifies the value used to limit the CPU needed to spawn a new routine
-func verifyResourceLimits() error {
+func verifyResourceLimits() {
 
 	if minFreeMem := viper.GetString(keys.MinFreeMemInput); minFreeMem != "" && minFreeMem != "0" {
 		const (
@@ -423,7 +455,8 @@ func verifyResourceLimits() error {
 
 		minFreeMemInt, err := strconv.Atoi(minFreeMem)
 		if err != nil {
-			return fmt.Errorf("invalid min free memory argument %q for Metarr, should ", minFreeMem)
+			logging.E(0, "Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
+			currentAvailableMem.Available = 1024
 		}
 
 		parsedMinFree := uint64(minFreeMemInt) * multiplyFactor
@@ -453,7 +486,6 @@ func verifyResourceLimits() error {
 		}
 		viper.Set(keys.MaxCPU, maxCPUUsage)
 	}
-	return nil
 }
 
 // Verify the output filetype is valid for FFmpeg
@@ -500,13 +532,13 @@ func verifyPurgeMetafiles() {
 
 	switch purgeType {
 	case "all":
-		e = enums.PURGEMETA_ALL
+		e = enums.PurgeMetaAll
 	case "json":
-		e = enums.PURGEMETA_JSON
+		e = enums.PurgeMetaJSON
 	case "nfo":
-		e = enums.PURGEMETA_NFO
+		e = enums.PurgeMetaNFO
 	default:
-		e = enums.PURGEMETA_NONE
+		e = enums.PurgeMetaNone
 	}
 
 	viper.Set(keys.MetaPurgeEnum, e)

@@ -3,13 +3,13 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
-	presets "metarr/internal/transformations/presets"
-	utils "metarr/internal/utils/browser"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/transformations/transpresets"
+	"metarr/internal/utils/browser"
+	"metarr/internal/utils/logging"
 	"strings"
 	"unicode"
 )
@@ -17,7 +17,7 @@ import (
 // shouldRename determines if file rename operations are needed for this file
 func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	dateFmt := cfg.GetString(keys.FileDateFmt)
-	rName := enums.RENAMING_SKIP
+	rName := enums.RenamingSkip
 
 	var ok bool
 	if cfg.IsSet(keys.Rename) {
@@ -31,7 +31,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	case fd.FilenameMetaPrefix != "",
 		len(fd.ModelFileSfxReplace) != 0,
 		dateFmt != "",
-		rName != enums.RENAMING_SKIP:
+		rName != enums.RenamingSkip:
 
 		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
 			fd.OriginalVideoPath,
@@ -39,7 +39,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 			fd.ModelFileSfxReplace,
 			dateFmt,
 			fd.FilenameDateTag,
-			rName != enums.RENAMING_SKIP)
+			rName != enums.RenamingSkip)
 
 		rename = true
 	}
@@ -57,11 +57,11 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 
 	for _, url := range urls {
 
-		_, domain, _, _ := utils.ExtractDomainName(url)
+		_, domain, _, _ := browser.ExtractDomainName(url)
 
 		switch {
 		case strings.Contains(domain, "censored.tv"):
-			presets.CensoredTvTransformations(fd)
+			transpresets.CensoredTvTransformations(fd)
 			logging.I("Found transformation preset for URL %q", url)
 			return url
 		default:
@@ -76,9 +76,9 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 
 	switch m.MetaFileType {
-	case enums.METAFILE_JSON:
+	case enums.MetaFiletypeJSON:
 		return m.JSONBaseName, m.JSONDirectory, m.JSONFilePath
-	case enums.METAFILE_NFO:
+	case enums.MetaFiletypeNFO:
 		return m.NFOBaseName, m.NFODirectory, m.NFOFilePath
 	default:
 		logging.E(0, "No metafile type set in model %v", m)
@@ -90,9 +90,9 @@ func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 
 	switch style {
-	case enums.RENAMING_SPACES:
+	case enums.RenamingSpaces:
 		output = strings.ReplaceAll(input, "_", " ")
-	case enums.RENAMING_UNDERSCORES:
+	case enums.RenamingUnderscores:
 		output = strings.ReplaceAll(input, " ", "_")
 	default:
 		logging.I("Skipping space or underscore renaming conventions...")
@@ -114,7 +114,7 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 		renamedMeta = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedMeta)
 	}
 
-	if style == enums.RENAMING_UNDERSCORES {
+	if style == enums.RenamingUnderscores {
 		renamedVideo = strings.ReplaceAll(renamedVideo, " ", "_")
 		renamedMeta = strings.ReplaceAll(renamedMeta, " ", "_")
 	}
@@ -133,13 +133,13 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 
 	switch style {
 
-	case enums.RENAMING_SPACES:
+	case enums.RenamingSpaces:
 		contractionsMap = regex.ContractionMapSpacesCompile()
 
-	case enums.RENAMING_UNDERSCORES:
+	case enums.RenamingUnderscores:
 		contractionsMap = regex.ContractionMapUnderscoresCompile()
 
-	case enums.RENAMING_FIXES_ONLY:
+	case enums.RenamingFixesOnly:
 		contractionsMap = regex.ContractionMapAllCompile()
 
 	default:
@@ -221,7 +221,7 @@ func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) str
 
 // replaceLoneS performs replacements without regex
 func replaceLoneS(f string, style enums.ReplaceToStyle) string {
-	if style == enums.RENAMING_SKIP {
+	if style == enums.RenamingSkip {
 		return f
 	}
 
@@ -233,7 +233,7 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 	for f != prevString {
 		prevString = f
 
-		if style == enums.RENAMING_SPACES || style == enums.RENAMING_FIXES_ONLY {
+		if style == enums.RenamingSpaces || style == enums.RenamingFixesOnly {
 			if strings.HasSuffix(f, " s") {
 				f = fmt.Sprintf("%ss", f[:len(f)-2])
 			}
@@ -261,7 +261,7 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 			f = strings.ReplaceAll(f, " s}", "s}")
 		}
 
-		if style == enums.RENAMING_UNDERSCORES || style == enums.RENAMING_FIXES_ONLY {
+		if style == enums.RenamingUnderscores || style == enums.RenamingFixesOnly {
 			if strings.HasSuffix(f, "_s") {
 				f = fmt.Sprintf("%ss", f[:len(f)-2])
 			}

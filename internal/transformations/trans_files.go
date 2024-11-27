@@ -1,14 +1,15 @@
+// Package transformations handles the transforming of files, e.g. generating new filenames.
 package transformations
 
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	enums "metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	writefs "metarr/internal/utils/fs/write"
-	logging "metarr/internal/utils/logging"
-	validate "metarr/internal/utils/validation"
+	"metarr/internal/utils/fs/fswrite"
+	"metarr/internal/utils/logging"
+	"metarr/internal/utils/validation"
 	"path/filepath"
 	"strings"
 )
@@ -76,7 +77,7 @@ func (fp *fileProcessor) writeResult() error {
 		deletedMeta bool
 	)
 
-	fsWriter, err := writefs.NewFSFileWriter(fp.fd, fp.skipVideos)
+	fsWriter, err := fswrite.NewFSFileWriter(fp.fd, fp.skipVideos)
 	if err != nil {
 		return err
 	}
@@ -87,13 +88,13 @@ func (fp *fileProcessor) writeResult() error {
 
 	if cfg.IsSet(keys.MetaPurge) {
 		if err, deletedMeta = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
-			return fmt.Errorf("failed to purge metafile: %v", err)
+			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
 
 	if cfg.IsSet(keys.MoveOnComplete) {
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
-			return fmt.Errorf("failed to move to destination folder: %v", err)
+			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
 	}
 	return nil
@@ -114,7 +115,7 @@ func (fp *fileProcessor) handleRenaming() error {
 	// Fix contractions
 	var err error
 	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoBaseName, fp.style); err != nil {
-		return fmt.Errorf("failed to fix contractions for %s. error: %v", renamedVideo, err)
+		return fmt.Errorf("failed to fix contractions for %s. error: %w", renamedVideo, err)
 	}
 
 	// Add tags and trim
@@ -138,7 +139,7 @@ func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
 		return filepath.Ext(originalPath)
 	}
 
-	vidExt := validate.ValidateExtension(cfg.GetString(keys.OutputFiletype))
+	vidExt := validation.ValidateExtension(cfg.GetString(keys.OutputFiletype))
 	if vidExt == "" {
 		vidExt = filepath.Ext(originalPath)
 	}
@@ -227,13 +228,13 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 		}
 	}
 
-	if len(suffixes) == 0 && style == enums.RENAMING_SKIP {
+	if len(suffixes) == 0 && style == enums.RenamingSkip {
 		return fileBase
 	} else if len(suffixes) > 0 {
 		fileBase = replaceSuffix(fileBase, suffixes)
 	}
 
-	if style != enums.RENAMING_SKIP {
+	if style != enums.RenamingSkip {
 		fileBase = applyNamingStyle(style, fileBase)
 	} else {
 		logging.D(1, "No naming style selected, skipping rename style")

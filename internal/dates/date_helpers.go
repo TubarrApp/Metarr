@@ -2,8 +2,8 @@ package dates
 
 import (
 	"fmt"
-	enums "metarr/internal/domain/enums"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/enums"
+	"metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 )
@@ -109,7 +109,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 
 	if len(d) >= 8 {
 		switch dateFmt {
-		case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
+		case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
 			year = d[2:4]
 		default:
 			year = d[:4]
@@ -140,7 +140,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 		if (i == 20 || i == 19) && j > 12 { // First guess year
 			logging.I("Guessing date string %q as year", d)
 			switch dateFmt {
-			case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
+			case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
 				return d[2:4], "", "", nil
 			default:
 				return d[:4], "", "", nil
@@ -161,7 +161,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 			} else if i == 20 || i == 19 { // Final guess year
 				logging.I("Guessing date string %q as year after failed day-month check", d)
 				switch dateFmt {
-				case enums.DATEFMT_DD_MM_YY, enums.DATEFMT_MM_DD_YY, enums.DATEFMT_YY_DD_MM, enums.DATEFMT_YY_MM_DD:
+				case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
 					return d[2:4], "", "", nil
 				default:
 					return d[:4], "", "", nil

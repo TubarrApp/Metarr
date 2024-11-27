@@ -1,4 +1,5 @@
-package utils
+// Package backup handles the nacking up of files.
+package backup
 
 import (
 	"fmt"
@@ -15,7 +16,7 @@ var (
 	muBackup sync.Mutex
 )
 
-// createBackup creates a backup copy of the original file before modifying it.
+// BackupFile creates a backup copy of the original file before modifying it.
 func BackupFile(file *os.File) error {
 
 	originalFilePath := file.Name()
@@ -29,7 +30,9 @@ func BackupFile(file *os.File) error {
 		return fmt.Errorf("failed to get current file position: %w", err)
 	}
 	defer func() {
-		file.Seek(currentPos, io.SeekStart)
+		if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
+			logging.E(0, "Failed to seek file %q: %v", file.Name(), err)
+		}
 	}()
 
 	muBackup.Lock()
@@ -45,7 +48,11 @@ func BackupFile(file *os.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to create backup file: %w", err)
 	}
-	defer backupFile.Close()
+	defer func() {
+		if err := backupFile.Close(); err != nil {
+			logging.E(0, "Failed to close file %q: %v", backupFile.Name(), err)
+		}
+	}()
 
 	// Copy the content of the original file to the backup file
 	buf := make([]byte, 4*1024*1024)
@@ -62,7 +69,7 @@ func BackupFile(file *os.File) error {
 func generateBackupFilename(originalFilePath string) string {
 	ext := filepath.Ext(originalFilePath)
 	base := strings.TrimSuffix(originalFilePath, ext)
-	return fmt.Sprintf(base + consts.BackupTag + ext)
+	return base + consts.BackupTag + ext
 }
 
 // RenameToBackup renames the passed in file

@@ -1,134 +1,139 @@
+// Package enums holds enumerated variables.
 package enums
 
-// User selection of filetypes to convert from
+// ConvertFromFiletype is the type of filename to perform conversions on.
 type ConvertFromFiletype int
 
 const (
-	VID_EXTS_ALL ConvertFromFiletype = iota
-	VID_EXTS_MKV
-	VID_EXTS_MP4
-	VID_EXTS_WEBM
+	VidExtsAll ConvertFromFiletype = iota
+	VidExtsMKV
+	VidExtsMP4
+	VidExtsWebM
 )
 
-// MetaFiletypeFilter filters the metadata files to read from
+// MetaFiletypeFilter filters the metadata files to read from.
 type MetaFiletypeFilter int
 
 const (
-	META_EXTS_ALL MetaFiletypeFilter = iota
-	META_EXTS_JSON
-	META_EXTS_NFO
+	MetaExtsAll MetaFiletypeFilter = iota
+	MetaExtsJSON
+	MetaExtsNFO
 )
 
-// OverrideMetaType holds the value for the type of metafield to override all values of (e.g. "credits")
+// OverrideMetaType holds the value for the type of metafield to override all values of (e.g. "credits").
 type OverrideMetaType int
 
 const (
-	OVERRIDE_META_NONE OverrideMetaType = iota
-	OVERRIDE_META_CREDITS
+	OverrideMetaNone OverrideMetaType = iota
+	OverrideMetaCredits
 )
 
+// MetaOpType stores the meta operation type directive (e.g. set).
 type MetaOpType int
 
 const (
-	METAOPS_NONE MetaOpType = iota
-	METAOPS_SET
+	MetaOpsNone MetaOpType = iota
+	MetaOpsSet
 )
 
-// User system graphics hardware for transcoding
+// SysGPU holds flags related to HW transcoding.
 type SysGPU int
 
 const (
-	GPU_NO_HW_ACCEL SysGPU = iota
-	GPU_AMD
-	GPU_INTEL
-	GPU_NVIDIA
+	GPUNone SysGPU = iota
+	GPUAMD
+	GPUIntel
+	GPUNvidia
 )
 
-// Naming syle
+// ReplaceToStyle dictates a naming convention to use, e.g. spaces or underscores.
+//
+// RenamingFixesOnly only fixes things like contractions, without changing the style.
 type ReplaceToStyle int
 
 const (
-	RENAMING_SKIP ReplaceToStyle = iota
-	RENAMING_UNDERSCORES
-	RENAMING_FIXES_ONLY
-	RENAMING_SPACES
+	RenamingSkip ReplaceToStyle = iota
+	RenamingFixesOnly
+	RenamingSpaces
+	RenamingUnderscores
 )
 
-// Date formats
+// DateFormat holds the date format directive (e.g. yyyy-mm-dd).
 type DateFormat int
 
 const (
-	DATEFMT_SKIP DateFormat = iota
-	DATEFMT_YYYY_MM_DD
-	DATEFMT_YY_MM_DD
-	DATEFMT_YYYY_DD_MM
-	DATEFMT_YY_DD_MM
-	DATEFMT_DD_MM_YYYY
-	DATEFMT_DD_MM_YY
-	DATEFMT_MM_DD_YYYY
-	DATEFMT_MM_DD_YY
-	DATEFMT_DD_MM
-	DATEFMT_MM_DD
+	DateFmtSkip DateFormat = iota
+	DateYyyyMmDd
+	DateYyMmDd
+	DateYyyyDdMm
+	DateYyDdMm
+	DateDdMmYyyy
+	DateDdMmYy
+	DateMmDdYyyy
+	DateMmDdYy
+	DateDdMm
+	DateMmDd
 )
 
-// Date tag location
+// MetaDateTagLocation determines where a date tag should be added in a string.
 type MetaDateTagLocation int
 
 const (
-	DATE_TAG_LOC_PFX MetaDateTagLocation = iota
-	DATE_TAG_LOC_SFX
+	DatetagLocPrefix MetaDateTagLocation = iota
+	DatetagLocSuffix
 )
 
+// MetaDateTaggingType determines the type of operation to perform for date tags.
 type MetaDateTaggingType int
 
 const (
-	DATE_TAG_ADD_OP MetaDateTaggingType = iota
-	DATE_TAG_DEL_OP
+	DatetagAddOp MetaDateTaggingType = iota
+	DatetagDelOp
 )
 
-// Web tags
-type MetaFiletypeFound int
+// MetaFiletype is the type of meta file, e.g. JSON or NFO.
+type MetaFiletype int
 
 const (
-	METAFILE_JSON MetaFiletypeFound = iota
-	METAFILE_NFO
+	MetaFiletypeJSON MetaFiletype = iota
+	MetaFiletypeNFO
 )
 
-// Viper variable types
+// ViperVarTypes relates to Viper configuration variable types.
 type ViperVarTypes int
 
 const (
-	VIPER_ANY ViperVarTypes = iota
-	VIPER_BOOL
-	VIPER_INT
-	VIPER_STRING
-	VIPER_STRING_SLICE
+	ViperVarAny ViperVarTypes = iota
+	ViperVarBool
+	ViperVarInt
+	ViperVarString
+	ViperVarStringSlice
 )
 
-// Purge metafile types
+// PurgeMetafiles sets directives for the deletion of metafiles upon process completion.
 type PurgeMetafiles int
 
 const (
-	PURGEMETA_ALL PurgeMetafiles = iota
-	PURGEMETA_JSON
-	PURGEMETA_NFO
-	PURGEMETA_NONE
+	PurgeMetaAll PurgeMetafiles = iota
+	PurgeMetaJSON
+	PurgeMetaNFO
+	PurgeMetaNone
 )
 
-// Web tags
+// WebClassTags relates to the type of data to grab from a web page.
 type WebClassTags int
 
 const (
-	WEBCLASS_DATE WebClassTags = iota
-	WEBCLASS_TITLE
-	WEBCLASS_DESCRIPTION
-	WEBCLASS_CREDITS
-	WEBCLASS_WEBINFO
+	WebclassDate WebClassTags = iota
+	WebclassTitle
+	WebclassDescription
+	WebclassCredits
+	WebclassWebInfo
 )
 
-// Presets
+// SitePresets holds presets for different video sites.
 type SitePresets int
 
 const (
-	PRESET_CENSOREDTV SitePresets = iota
+	PresetCensoredTV SitePresets = iota
 )

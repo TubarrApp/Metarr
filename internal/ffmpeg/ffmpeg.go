@@ -1,3 +1,4 @@
+// Package ffmpeg handles FFmpeg command building and execution.
 package ffmpeg
 
 import (
@@ -7,16 +8,16 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	backup "metarr/internal/utils/fs/backup"
+	"metarr/internal/utils/fs/backup"
 	"metarr/internal/utils/logging"
-	validate "metarr/internal/utils/validation"
+	"metarr/internal/utils/validation"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
 
-// executeVideo writes metadata to a single video file
+// ExecuteVideo writes metadata to a single video file.
 func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	var (
 		tmpOutPath, outExt string
@@ -27,7 +28,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Extension validation - now checks length and format immediately
 	if cfg.IsSet(keys.OutputFiletype) {
-		if outExt = validate.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
+		if outExt = validation.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
 			logging.E(0, "Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
@@ -55,7 +56,9 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	defer func() {
 		if _, err := os.Stat(tmpOutPath); err == nil {
-			os.Remove(tmpOutPath)
+			if err := os.Remove(tmpOutPath); err != nil {
+				logging.E(0, "Failed to remove %q: %v", tmpOutPath, err)
+			}
 		}
 	}()
 
@@ -84,7 +87,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	// Run the ffmpeg command
 	logging.P("%s!!! Starting FFmpeg command for %q...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
+		logging.AddToErrorArray(err)
 		return fmt.Errorf("failed to run FFmpeg command: %w", err)
 	}
 
@@ -101,8 +104,8 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	// Delete original after potential backup ops
 	err = os.Remove(origPath)
 	if err != nil {
-		logging.ErrorArray = append(logging.ErrorArray, err)
-		return fmt.Errorf("failed to remove original file (%s). Error: %v", origPath, err)
+		logging.AddToErrorArray(err)
+		return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
 	}
 
 	//
@@ -118,7 +121,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	return nil
 }
 
-// dontProcess determines whether the program should process this video (meta already exists and file extensions are unchanged)
+// dontProcess determines whether the program should process this video (meta already exists and file extensions are unchanged).
 func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
 	if fd.MetaAlreadyExists {
 
@@ -133,7 +136,7 @@ func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
 	return dontProcess
 }
 
-// makeBackup performs the backup
+// makeBackup performs the backup.
 func makeBackup(origPath string) error {
 
 	origInfo, err := os.Stat(origPath)

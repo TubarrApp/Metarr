@@ -1,17 +1,18 @@
+// Package dates performs operations related to parsing and handling dates.
 package dates
 
 import (
 	"errors"
 	"fmt"
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"strings"
 
 	"github.com/araddon/dateparse"
 )
 
-// ParseWordDate parses and formats the inputted word date (e.g. Jan 2nd)
+// ParseWordDate parses and formats the inputted word date (e.g. Jan 2nd, 2006).
 func ParseWordDate(dateString string) (string, error) {
 
 	t, err := dateparse.ParseAny(dateString)
@@ -22,7 +23,7 @@ func ParseWordDate(dateString string) (string, error) {
 	return t.Format("2006-01-02"), nil
 }
 
-// ParseAndFormatDate parses and formats the inputted date string
+// ParseNumDate parses and formats the inputted numerical date string.
 func ParseNumDate(dateNum string) (string, error) {
 
 	t, err := dateparse.ParseAny(dateNum)
@@ -59,10 +60,10 @@ func ParseNumDate(dateNum string) (string, error) {
 	return dateStr, nil
 }
 
-// YyyyMmDd converts inputted date strings into the user's defined format
+// YyyyMmDd converts inputted date strings into the user's defined format.
 func YyyyMmDd(date string) (string, bool) {
 
-	var t string = ""
+	t := ""
 	if tIdx := strings.Index(date, "T"); tIdx != -1 {
 		t = date[tIdx:]
 	}
@@ -83,18 +84,18 @@ func YyyyMmDd(date string) (string, bool) {
 	return date, false
 }
 
-// formatDateString formats the date as a hyphenated string
+// FormatDateString formats the date as a hyphenated string.
 func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string, error) {
 	var parts [3]string
 
 	switch dateFmt {
-	case enums.DATEFMT_YYYY_MM_DD, enums.DATEFMT_YY_MM_DD:
+	case enums.DateYyyyMmDd, enums.DateYyMmDd:
 		parts = [3]string{year, month, day}
-	case enums.DATEFMT_YYYY_DD_MM, enums.DATEFMT_YY_DD_MM:
+	case enums.DateYyyyDdMm, enums.DateYyDdMm:
 		parts = [3]string{year, day, month}
-	case enums.DATEFMT_DD_MM_YYYY, enums.DATEFMT_DD_MM_YY:
+	case enums.DateDdMmYyyy, enums.DateDdMmYy:
 		parts = [3]string{day, month, year}
-	case enums.DATEFMT_MM_DD_YYYY, enums.DATEFMT_MM_DD_YY:
+	case enums.DateMmDdYyyy, enums.DateMmDdYy:
 		parts = [3]string{month, day, year}
 	}
 
@@ -105,7 +106,7 @@ func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string
 	return result, nil
 }
 
-// FormatAllDates formats timestamps into a hyphenated form
+// FormatAllDates formats timestamps into a hyphenated form.
 func FormatAllDates(fd *models.FileData) string {
 	var (
 		result string
@@ -116,11 +117,11 @@ func FormatAllDates(fd *models.FileData) string {
 	d := fd.MDates
 
 	fields := []string{
-		d.Originally_Available_At,
+		d.OriginallyAvailableAt,
 		d.ReleaseDate,
 		d.Date,
 		d.UploadDate,
-		d.Creation_Time,
+		d.CreationTime,
 	}
 
 	for _, field := range fields {
@@ -132,7 +133,7 @@ func FormatAllDates(fd *models.FileData) string {
 				logging.D(2, "Got formatted date %q", result)
 
 				if d.StringDate, err = ParseNumDate(d.FormattedDate); err != nil {
-					logging.E(0, err.Error())
+					logging.E(0, "Failed to parse date %q: %v", d.FormattedDate, err)
 				}
 				logging.D(2, "Got string date %q", d.StringDate)
 				return result

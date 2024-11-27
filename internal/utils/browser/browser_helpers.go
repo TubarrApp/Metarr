@@ -1,4 +1,4 @@
-package utils
+package browser
 
 import (
 	logging "metarr/internal/utils/logging"
