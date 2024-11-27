@@ -1,4 +1,4 @@
-// Package logging handles debugging and logging, as well as logging file writes.
+// Package logging handles debugging and logging, as well as writing to the log file.
 package logging
 
 import (
