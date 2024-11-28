@@ -4,6 +4,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
+	"metarr/internal/utils/printout"
 	"strings"
 )
 
@@ -24,34 +25,47 @@ func fillNFOCredits(fd *models.FileData) bool {
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)
+	printMap := make(map[string]string, len(fieldMap))
+	defer func() {
+		if len(printMap) > 0 {
+			if logging.Level > 0 && len(printMap) > 0 {
+				printout.PrintGrabbedFields("time and date", printMap)
+			}
+		}
+	}()
 
 	if n.Actors != nil {
 		for _, actor := range n.Actors {
 			c.Actors = append(c.Actors, actor.Name)
 		}
 		fillSingleCredits(c.Actors, &c.Actor)
+		printMap[consts.NActors] = strings.Join(c.Actors, ",")
 	}
 	if n.Directors != nil {
 		c.Directors = append(c.Directors, n.Directors...)
 		fillSingleCredits(c.Directors, &c.Director)
+		printMap[consts.NDirector] = strings.Join(c.Directors, ",")
 	}
 	if n.Producers != nil {
 		c.Producers = append(c.Producers, n.Producers...)
 		fillSingleCredits(c.Producers, &c.Producer)
+		printMap[consts.NProducer] = strings.Join(c.Producers, ",")
 	}
 	if n.Writers != nil {
 		c.Writers = append(c.Writers, n.Writers...)
 		fillSingleCredits(c.Writers, &c.Writer)
+		printMap[consts.NWriter] = strings.Join(c.Writers, ",")
 	}
 	if n.Publishers != nil {
 		c.Publishers = append(c.Publishers, n.Publishers...)
 		fillSingleCredits(c.Publishers, &c.Publisher)
+		printMap[consts.NPublisher] = strings.Join(c.Publishers, ",")
 	}
 	if n.Studios != nil {
 		c.Studios = append(c.Studios, n.Studios...)
 		fillSingleCredits(c.Studios, &c.Studio)
+		printMap[consts.NStudio] = strings.Join(c.Studios, ",")
 	}
-
 	return true
 }
 
@@ -77,62 +91,4 @@ func fillSingleCredits(entries []string, target *string) {
 	}
 
 	*target = strings.Join(filtered, ", ")
-}
-
-func unpackCredits(fd *models.FileData, creditsData map[string]any) bool {
-	c := fd.MCredits
-	filled := false
-
-	// Recursive helper to search for "role" within nested maps
-	var findRoles func(data map[string]any)
-	findRoles = func(data map[string]any) {
-		// Check each key-value pair within the actor data
-		for k, v := range data {
-
-			switch value := v.(type) {
-			case string:
-				if k == "role" {
-					if role, ok := v.(string); ok {
-						logging.D(3, "Adding role %q to actors", role)
-						c.Actors = append(c.Actors, role)
-						filled = true
-					}
-				}
-			case map[string]any: // Regular map
-				findRoles(value)
-
-			case []any: // Nested map
-				for _, item := range value {
-					if nestedMap, ok := item.(map[string]any); ok {
-						findRoles(nestedMap)
-					}
-				}
-			}
-		}
-	}
-
-	// Access the "cast" data to find "actor" entries
-	if castData, ok := creditsData["cast"].(map[string]any); ok {
-		if actorsData, ok := castData["actor"].([]any); ok {
-			for _, actorData := range actorsData {
-				if actorMap, ok := actorData.(map[string]any); ok {
-					if name, ok := actorMap["name"].(string); ok {
-						logging.D(3, "Adding actor name %q", name)
-						c.Actors = append(c.Actors, name)
-						filled = true
-					}
-					if role, ok := actorMap["role"].(string); ok {
-						logging.D(3, "Adding actor role %q", role)
-						filled = true
-					}
-				}
-			}
-		} else {
-			logging.D(1, "'actor' key is present but not a valid structure")
-		}
-	} else {
-		logging.D(1, "'cast' key is missing or not a map")
-	}
-
-	return filled
 }

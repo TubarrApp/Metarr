@@ -29,7 +29,9 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	printMap := make(map[string]string, len(fieldMap))
 
 	defer func() {
-		printout.PrintGrabbedFields("time and date", printMap)
+		if logging.Level > 0 && len(printMap) > 0 {
+			printout.PrintGrabbedFields("time and date", printMap)
+		}
 	}()
 
 	if n.Premiered != "" {

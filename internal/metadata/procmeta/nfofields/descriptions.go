@@ -3,6 +3,7 @@ package nfofields
 import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
+	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
 )
 
@@ -19,6 +20,13 @@ func fillNFODescriptions(fd *models.FileData) bool {
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)
+	printMap := make(map[string]string, len(fieldMap))
+
+	defer func() {
+		if logging.Level > 0 && len(printMap) > 0 {
+			printout.PrintGrabbedFields("descriptions", printMap)
+		}
+	}()
 
 	if n.Description != "" {
 		if d.Description == "" {
@@ -28,6 +36,7 @@ func fillNFODescriptions(fd *models.FileData) bool {
 			d.LongDescription = n.Description
 		}
 	}
+
 	if n.Plot != "" {
 		if d.Description == "" {
 			d.Description = n.Plot
@@ -49,6 +58,7 @@ func fillNFODescriptions(fd *models.FileData) bool {
 			d.Synopsis = d.Description
 		}
 	}
+
 	if d.Summary == "" {
 		switch {
 		case n.Plot != "":
@@ -61,6 +71,7 @@ func fillNFODescriptions(fd *models.FileData) bool {
 			d.Summary = d.Description
 		}
 	}
+
 	if d.Comment == "" {
 		switch {
 		case n.Plot != "":
@@ -74,6 +85,13 @@ func fillNFODescriptions(fd *models.FileData) bool {
 		}
 	}
 
-	printout.CreateModelPrintout(fd, fd.NFOFilePath, "Parsing NFO descriptions")
+	if d.LongDescription != "" {
+		printMap[consts.NDescription] = d.LongDescription
+	}
+
+	if d.Description != "" {
+		printMap[consts.NDescription] = d.Description
+	}
+
 	return true
 }

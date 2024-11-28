@@ -4,6 +4,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
+	"metarr/internal/utils/printout"
 )
 
 // fillNFOTitles attempts to fill in title info from NFO
@@ -20,57 +21,45 @@ func fillNFOTitles(fd *models.FileData) bool {
 
 	// Post-unmarshal clean
 	cleanEmptyFields(fieldMap)
+	printMap := make(map[string]string, len(fieldMap))
+
+	defer func() {
+		if logging.Level > 0 && len(printMap) > 0 {
+			printout.PrintGrabbedFields("titles", printMap)
+		}
+	}()
 
 	logging.I("Grab NFO metadata: %v", t)
 
 	if n.Title.Main != "" {
 		if t.Title == "" {
 			t.Title = n.Title.Main
+			printMap[consts.NTitle] = t.Title
 		}
 	}
+
 	if n.Title.Original != "" {
 		if t.Fulltitle == "" {
 			t.Fulltitle = n.Title.Original
 		}
 		if t.Title == "" {
 			t.Title = n.Title.Original
+			printMap[consts.NTitle] = t.Title
 		}
 	}
+
 	if n.Title.Sub != "" {
 		if t.Subtitle == "" {
 			t.Subtitle = n.Title.Sub
+			printMap[consts.NSubtitle] = t.Subtitle
 		}
 	}
+
 	if n.Title.PlainText != "" {
 		if t.Title == "" {
 			t.Title = n.Title.PlainText
+			printMap[consts.NTitle] = t.Title
 		}
 	}
 	return true
-}
-
-// unpackTitle unpacks common nested title elements to the model.
-func unpackTitle(fd *models.FileData, titleData map[string]any) bool {
-	t := fd.MTitleDesc
-	filled := false
-
-	for key, value := range titleData {
-		switch key {
-		case "main":
-			if strVal, ok := value.(string); ok {
-				logging.D(3, "Setting main title to %q", strVal)
-				t.Title = strVal
-				filled = true
-			}
-		case "sub":
-			if strVal, ok := value.(string); ok {
-				logging.D(3, "Setting subtitle to %q", strVal)
-				t.Subtitle = strVal
-				filled = true
-			}
-		default:
-			logging.D(1, "Unknown nested title element %q, skipping...", key)
-		}
-	}
-	return filled
 }
