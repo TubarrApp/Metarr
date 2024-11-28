@@ -7,13 +7,13 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/processing"
+	"metarr/internal/utils/benchmark"
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
 	"os"
 	"os/signal"
-	"runtime/pprof"
-	"runtime/trace"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -29,9 +29,11 @@ const (
 
 // Sigs here prevents heap escape
 var (
-	startTime time.Time
-	sigInt    = syscall.SIGINT
-	sigTerm   = syscall.SIGTERM
+	startTime         time.Time
+	sigInt            = syscall.SIGINT
+	sigTerm           = syscall.SIGTERM
+	benchFiles        *benchmark.BenchFiles
+	err, benchErrExit error
 )
 
 func init() {
@@ -40,11 +42,26 @@ func init() {
 
 	// Benchmarking
 	if cfg.GetBool(keys.Benchmarking) {
-		setupBenchmarking()
+		// Get directory of main.go (helpful for benchmarking file save locations)
+		_, mainGoPath, _, ok := runtime.Caller(0)
+		if !ok {
+			fmt.Fprintf(os.Stderr, "Error getting current working directory. Got: %v\n", mainGoPath)
+			os.Exit(1)
+		}
+		benchFiles, err = benchmark.SetupBenchmarking(mainGoPath)
 	}
+
 }
 
 func main() {
+	defer func() {
+		if benchErrExit != nil {
+			benchmark.CloseBenchFiles(benchFiles, "", err)
+		} else {
+			benchmark.CloseBenchFiles(benchFiles, fmt.Sprintf("Benchmark ending at: %s", time.Now().Format(timeFormat)), nil)
+		}
+	}()
+
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Println()
@@ -73,6 +90,7 @@ func main() {
 
 	if err := fsread.InitFetchFilesVars(); err != nil {
 		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
+		benchErrExit = err
 		cancel() // Do not remove call before exit
 		os.Exit(1)
 	}
@@ -82,6 +100,7 @@ func main() {
 	if cfg.IsSet(keys.BatchPairs) {
 		if err := processing.StartBatchLoop(core); err != nil {
 			logging.E(0, "error during batch loop: %v", err)
+			benchErrExit = err
 			cancel()
 			os.Exit(1)
 		}
@@ -93,78 +112,4 @@ func main() {
 	logging.I(endLogFormat, endTime.Format(timeFormat))
 	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
 	fmt.Println()
-}
-
-// Benchmarking ////////////////////////////////////////////////////////////////////////////////////////////
-
-type benchFiles struct {
-	cpuFile   *os.File
-	memFile   *os.File
-	traceFile *os.File
-}
-
-func setupBenchmarking() {
-	var (
-		b   benchFiles
-		err error
-	)
-
-	// CPU profile
-	b.cpuFile, err = os.Create("cpu.prof")
-	if err != nil {
-		closeBenchFiles(&b, fmt.Sprintf("could not create CPU profile: %v", err))
-	}
-
-	if err := pprof.StartCPUProfile(b.cpuFile); err != nil {
-		closeBenchFiles(&b, fmt.Sprintf("could not start CPU profile: %v", err))
-	}
-
-	defer pprof.StopCPUProfile()
-
-	// Memory profile
-	b.memFile, err = os.Create("mem.prof")
-	if err != nil {
-		closeBenchFiles(&b, fmt.Sprintf("could not create memory profile: %v", err))
-	}
-	defer func() {
-		if cfg.GetBool(keys.Benchmarking) {
-			if err := pprof.WriteHeapProfile(b.memFile); err != nil {
-				closeBenchFiles(&b, fmt.Sprintf("could not write memory profile: %v", err))
-			}
-		}
-	}()
-
-	// Trace
-	b.traceFile, err = os.Create("trace.out")
-	if err != nil {
-		closeBenchFiles(&b, fmt.Sprintf("could not create trace file: %v", err))
-	}
-	if err := trace.Start(b.traceFile); err != nil {
-		closeBenchFiles(&b, fmt.Sprintf("could not start trace: %v", err))
-	}
-}
-
-// closeBenchFiles closes bench files on program termination
-func closeBenchFiles(b *benchFiles, exitMsg string) {
-
-	if b.cpuFile != nil {
-		if err := b.cpuFile.Close(); err != nil {
-			logging.E(0, "Failed to close file %q: %v", b.cpuFile.Name(), err)
-		}
-	}
-
-	if b.memFile != nil {
-		if err := b.memFile.Close(); err != nil {
-			logging.E(0, "Failed to close file %q: %v", b.memFile.Name(), err)
-		}
-	}
-
-	if b.traceFile != nil {
-		if err := b.traceFile.Close(); err != nil {
-			logging.E(0, "Failed to close file %q: %v", b.traceFile.Name(), err)
-		}
-	}
-
-	logging.E(0, "%s", exitMsg)
-	os.Exit(1)
 }

@@ -204,11 +204,13 @@ func (b *ffCommandBuilder) setGPUAcceleration() {
 			case enums.GPUIntel:
 				b.gpuAccel = consts.IntelAccel[:]
 			}
+		} else {
+			logging.E(0, "Wrong type or null enums.SysGPU. Got: %T", gpuFlag)
 		}
 	}
 }
 
-// setFormatFlags adds commands specific for the extension input and output
+// setFormatFlags adds commands specific for the extension input and output.
 func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 	inExt := strings.ToLower(filepath.Ext(b.inputFile))
 	outExt = strings.ToLower(outExt)
@@ -241,7 +243,7 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		inExt, outExt)
 }
 
-// buildFinalCommand assembles the final FFmpeg command
+// buildFinalCommand assembles the final FFmpeg command.
 func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 
 	args := make([]string, 0, calculateCommandCapacity(b))
@@ -279,22 +281,22 @@ func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
 	return args, nil
 }
 
-// calculateCommandCapacity determines the total length needed for the command
+// calculateCommandCapacity determines the total length needed for the command.
 func calculateCommandCapacity(b *ffCommandBuilder) int {
 	const (
-		inputFlags   = 2 // "-y", "-i"
-		inputFile    = 1 // input file
-		formatFlag   = 1 // "-codec"
-		outputFile   = 1 // output file
-		metadataFlag = 1 // "-metadata" for each metadata entry
-		keyValuePair = 1 // "key=value" for each metadata entry
+		base = 2 + // "-y", "-i"
+			1 + // <input file>
+			1 + // "--codec"
+			1 // <output file>
+
+		mapArgMultiply = 1 + // "-metadata" for each metadata entry
+			1 // "key=value" for each metadata entry
 	)
 
-	totalCapacity := len(b.gpuAccel) + // GPU acceleration flags if any
-		inputFlags + inputFile + // Input related flags and file
-		(len(b.metadataMap) * (metadataFlag + keyValuePair)) + // Metadata entries
-		len(b.formatFlags) + // Format flags (like -codec copy)
-		outputFile
+	totalCapacity := base
+	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
+	totalCapacity += len(b.gpuAccel)
+	totalCapacity += len(b.formatFlags)
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity

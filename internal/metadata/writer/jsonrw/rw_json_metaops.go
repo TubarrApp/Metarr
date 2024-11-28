@@ -282,7 +282,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 	return newAddition, nil
 }
 
-// jsonFieldDateTag sets date tags in designated meta fields
+// jsonFieldDateTag sets date tags in designated meta fields.
 func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
 
 	logging.D(2, "Making metadata date tag for %q...", fd.OriginalVideoBaseName)
@@ -323,7 +323,6 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 		// Apply the tag based on location
 		switch d.Loc {
 		case enums.DatetagLocPrefix:
-
 			switch op {
 			case enums.DatetagDelOp:
 				before := strVal
@@ -338,22 +337,19 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 				} else {
 					logging.E(0, "Failed to strip date tag from %q", before)
 				}
-
 			case enums.DatetagAddOp:
-
 				j[fld] = fmt.Sprintf("%s %s", tag, strVal)
 				logging.I("Added date tag %q as prefix to field %q", tag, fld)
 				edited = true
 			}
 
 		case enums.DatetagLocSuffix:
-
 			switch op {
 			case enums.DatetagDelOp:
-
 				before := strVal
 				result := strings.TrimPrefix(strVal, tag)
 				result = cleanFieldValue(result)
+
 				j[fld] = result
 
 				if j[fld] != before {
@@ -362,7 +358,6 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 				} else {
 					logging.E(0, "Failed to strip date tag from %q", before)
 				}
-
 			case enums.DatetagAddOp:
 
 				j[fld] = fmt.Sprintf("%s %s", strVal, tag)
