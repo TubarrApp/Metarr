@@ -52,6 +52,7 @@ const (
 	BatchPairs     string = "batchPairs"
 	MetaPurgeEnum  string = "metaPurgeEnum"
 	OutputFiletype string = "outputFiletype"
+	BenchFiles     string = "benchFiles"
 )
 
 // Filter for files

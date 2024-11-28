@@ -38,11 +38,17 @@ const (
 var (
 	cpuProfPath,
 	memProfPath,
-	traceOutPath string
+	traceOutPath,
+	mainWd string
 )
 
+// InjectMainWorkDir injects the main.go path variable into this package.
+func InjectMainWorkDir(mainGoPath string) {
+	mainWd = filepath.Dir(mainGoPath)
+}
+
 // SetupBenchmarking sets up and initiates benchmarking for a program run.
-func SetupBenchmarking(mainWd string) (*BenchFiles, error) {
+func SetupBenchmarking() (*BenchFiles, error) {
 	var err error
 	b := new(BenchFiles)
 

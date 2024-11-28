@@ -7,6 +7,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/utils/benchmark"
 	"metarr/internal/utils/logging"
 	"os"
 	"strconv"
@@ -20,6 +21,16 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
 	Short: "metarr is a video and metatagging tool",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if viper.IsSet(keys.Benchmarking) {
+			if benchFiles, err := benchmark.SetupBenchmarking(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				return
+			} else {
+				viper.Set(keys.BenchFiles, benchFiles)
+			}
+		}
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Flags().Lookup("help").Changed {
 			return nil // Stop further execution if help is invoked

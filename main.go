@@ -29,39 +29,25 @@ const (
 
 // Sigs here prevents heap escape
 var (
-	startTime         time.Time
-	sigInt            = syscall.SIGINT
-	sigTerm           = syscall.SIGTERM
-	benchFiles        *benchmark.BenchFiles
-	err, benchErrExit error
+	startTime time.Time
+	sigInt    = syscall.SIGINT
+	sigTerm   = syscall.SIGTERM
+	benchErr  error
 )
 
 func init() {
 	startTime = time.Now()
 	logging.I(startLogFormat, startTime.Format(timeFormat))
 
-	// Benchmarking
-	if cfg.GetBool(keys.Benchmarking) {
-		// Get directory of main.go (helpful for benchmarking file save locations)
-		_, mainGoPath, _, ok := runtime.Caller(0)
-		if !ok {
-			fmt.Fprintf(os.Stderr, "Error getting current working directory. Got: %v\n", mainGoPath)
-			os.Exit(1)
-		}
-		benchFiles, err = benchmark.SetupBenchmarking(mainGoPath)
+	_, mainGoPath, _, ok := runtime.Caller(0)
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Error getting current working directory. Got: %v\n", mainGoPath)
+		os.Exit(1)
 	}
-
+	benchmark.InjectMainWorkDir(mainGoPath)
 }
 
 func main() {
-	defer func() {
-		if benchErrExit != nil {
-			benchmark.CloseBenchFiles(benchFiles, "", err)
-		} else {
-			benchmark.CloseBenchFiles(benchFiles, fmt.Sprintf("Benchmark ending at: %s", time.Now().Format(timeFormat)), nil)
-		}
-	}()
-
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Println()
@@ -74,6 +60,21 @@ func main() {
 		fmt.Println()
 		return // Exit early if not meant to execute
 	}
+
+	defer func() {
+		if cfg.IsSet(keys.BenchFiles) {
+			benchFiles, ok := cfg.Get(keys.BenchFiles).(*benchmark.BenchFiles)
+			if !ok || benchFiles == nil {
+				logging.E(0, "Null benchFiles or wrong type. Got type: %T", benchFiles)
+				return
+			}
+			if benchErr != nil {
+				benchmark.CloseBenchFiles(benchFiles, "", benchErr)
+			} else {
+				benchmark.CloseBenchFiles(benchFiles, fmt.Sprintf("Benchmark ended at %v", time.Now().Format(time.RFC1123Z)), nil)
+			}
+		}
+	}()
 
 	// Program elements
 	ctx, cancel := context.WithCancel(context.Background())
@@ -90,7 +91,7 @@ func main() {
 
 	if err := fsread.InitFetchFilesVars(); err != nil {
 		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
-		benchErrExit = err
+		benchErr = err
 		cancel() // Do not remove call before exit
 		os.Exit(1)
 	}
@@ -100,7 +101,7 @@ func main() {
 	if cfg.IsSet(keys.BatchPairs) {
 		if err := processing.StartBatchLoop(core); err != nil {
 			logging.E(0, "error during batch loop: %v", err)
-			benchErrExit = err
+			benchErr = err
 			cancel()
 			os.Exit(1)
 		}
