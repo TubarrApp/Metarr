@@ -129,7 +129,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	logging.D(3, "About to make date tag for: %v", file.Name())
 
 	if logging.Level > 3 {
-		printout.CreateModelPrintout(fd, fd.OriginalVideoBaseName, "Printing model fields")
+		printout.CreateModelPrintout(fd, fd.OriginalVideoBaseName, "Printing model fields before making date tag")
 	}
 
 	// Add new filename tag for files

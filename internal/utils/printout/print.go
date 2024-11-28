@@ -45,12 +45,46 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 		b.WriteString("\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n")
 	}
 
-	// Add fields from the struct
-	addSection("File Information", printStructFields(model))
-
 	switch m := model.(type) {
 	case *models.FileData:
 
+		var fileInfo = struct {
+			VideoDirectory        string
+			OriginalVideoPath     string
+			OriginalVideoBaseName string
+			TempOutputFilePath    string
+			FinalVideoPath        string
+			FinalVideoBaseName    string
+			FilenameMetaPrefix    string
+			FilenameDateTag       string
+			RenamedVideoPath      string
+			RenamedMetaPath       string
+			JSONDirectory         string
+			JSONFilePath          string
+			JSONBaseName          string
+			NFOBaseName           string
+			NFODirectory          string
+			NFOFilePath           string
+		}{
+			VideoDirectory:        m.VideoDirectory,
+			OriginalVideoPath:     m.OriginalVideoPath,
+			OriginalVideoBaseName: m.OriginalVideoBaseName,
+			TempOutputFilePath:    m.TempOutputFilePath,
+			FinalVideoPath:        m.FinalVideoPath,
+			FinalVideoBaseName:    m.FinalVideoBaseName,
+			FilenameMetaPrefix:    m.FilenameMetaPrefix,
+			FilenameDateTag:       m.FilenameDateTag,
+			RenamedVideoPath:      m.RenamedVideoPath,
+			RenamedMetaPath:       m.RenamedMetaPath,
+			JSONDirectory:         m.JSONDirectory,
+			JSONFilePath:          m.JSONFilePath,
+			JSONBaseName:          m.JSONBaseName,
+			NFOBaseName:           m.NFOBaseName,
+			NFODirectory:          m.NFODirectory,
+			NFOFilePath:           m.NFOFilePath,
+		}
+
+		addSection("File Information", printStructFields(fileInfo))
 		addSection("Credits", printStructFields(m.MCredits))
 		addSection("Titles and descriptions", printStructFields(m.MTitleDesc))
 		addSection("Dates and timestamps", printStructFields(m.MDates))
@@ -103,7 +137,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	logging.P("%s", b.String())
 }
 
-// Function to print the fields of a struct using reflection
+// printStructFields prints the fields of a struct using reflection. Only on high debug levels.
 func printStructFields(s any) string {
 	val := reflect.ValueOf(s)
 

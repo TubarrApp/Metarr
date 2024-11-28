@@ -9,6 +9,9 @@ const (
 
 // Buffers
 const (
+	KB        = 1 * 1024
+	GB        = 1024 * 1024 * 1024
+	MB        = 1024 * 1024
 	Buffer4MB = 4 * 1024 * 1024
 )
 

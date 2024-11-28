@@ -436,11 +436,6 @@ func verifyConcurrencyLimit() {
 func verifyResourceLimits() {
 
 	if minFreeMem := viper.GetString(keys.MinFreeMemInput); minFreeMem != "" && minFreeMem != "0" {
-		const (
-			mGB = 1024 * 1024 * 1024
-			mMB = 1024 * 1024
-			mKB = 1024
-		)
 
 		minFreeMem = strings.ToUpper(minFreeMem)
 		minFreeMem = strings.TrimSuffix(minFreeMem, "B")
@@ -449,25 +444,25 @@ func verifyResourceLimits() {
 		switch {
 		case strings.HasSuffix(minFreeMem, "G"):
 			minFreeMem = strings.TrimSuffix(minFreeMem, "G")
-			multiplyFactor = mGB
+			multiplyFactor = consts.GB
 		case strings.HasSuffix(minFreeMem, "M"):
 			minFreeMem = strings.TrimSuffix(minFreeMem, "M")
-			multiplyFactor = mMB
+			multiplyFactor = consts.MB
 		case strings.HasSuffix(minFreeMem, "K"):
 			minFreeMem = strings.TrimSuffix(minFreeMem, "K")
-			multiplyFactor = mKB
+			multiplyFactor = consts.KB
 		}
 
 		currentAvailableMem, err := mem.VirtualMemory()
 		if err != nil {
 			logging.E(0, "Could not get system memory, using default max RAM requirements: %v", err)
-			currentAvailableMem.Available = 1024
+			currentAvailableMem.Available = consts.GB // Guess 1 gig (conservative)
 		}
 
 		minFreeMemInt, err := strconv.Atoi(minFreeMem)
 		if err != nil {
 			logging.E(0, "Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
-			currentAvailableMem.Available = 1024
+			currentAvailableMem.Available = consts.GB
 		}
 
 		parsedMinFree := uint64(minFreeMemInt) * multiplyFactor

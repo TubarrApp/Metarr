@@ -35,7 +35,7 @@ func FillNFO(fd *models.FileData) bool {
 	}
 
 	if logging.Level > 2 {
-		printout.CreateModelPrintout(fd, fd.NFOBaseName, "Fill metadata from NFO for file %q", fd.NFOFilePath)
+		printout.CreateModelPrintout(fd, fd.NFOBaseName, "After filling metadata from NFO for file %q", fd.NFOFilePath)
 	}
 
 	return filled

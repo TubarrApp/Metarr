@@ -3,6 +3,7 @@ package processing
 import (
 	"fmt"
 	"metarr/internal/cfg"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -98,7 +99,7 @@ func sysResourceLoop(fileStr string) {
 		// Log resource info only once when insufficient resources are detected
 		if !resourceMsg {
 			logging.I("Not enough system resources to process %s, waiting...", fileStr)
-			logging.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(1024*1024), CPUUsage)
+			logging.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(consts.MB), CPUUsage)
 			resourceMsg = true
 		}
 

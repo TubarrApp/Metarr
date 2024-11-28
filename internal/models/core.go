@@ -21,13 +21,12 @@ func NewFileData() *FileData {
 
 type FileData struct {
 	// Files & dirs
-	VideoDirectory        string   `json:"-" xml:"-"`
-	OriginalVideoPath     string   `json:"-" xml:"-"`
-	OriginalVideoBaseName string   `json:"-" xml:"-"`
-	TempOutputFilePath    string   `json:"-" xml:"-"`
-	FinalVideoPath        string   `json:"-" xml:"-"`
-	FinalVideoBaseName    string   `json:"-" xml:"-"`
-	VideoFile             *os.File `json:"-" xml:"-"`
+	VideoDirectory        string `json:"-" xml:"-"`
+	OriginalVideoPath     string `json:"-" xml:"-"`
+	OriginalVideoBaseName string `json:"-" xml:"-"`
+	TempOutputFilePath    string `json:"-" xml:"-"`
+	FinalVideoPath        string `json:"-" xml:"-"`
+	FinalVideoBaseName    string `json:"-" xml:"-"`
 
 	// Transformations
 	FilenameMetaPrefix string `json:"-" xml:"-"`

@@ -179,7 +179,6 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error)
 	videoData.OriginalVideoPath = videoFile.Name()
 	videoData.OriginalVideoBaseName = strings.TrimSuffix(videoFilename, filepath.Ext(videoFilename))
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
-	videoData.VideoFile = videoFile
 
 	logging.D(3, "Created video file data for single file: %s", videoFilename)
 

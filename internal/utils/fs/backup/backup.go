@@ -55,7 +55,7 @@ func BackupFile(file *os.File) error {
 	}()
 
 	// Copy the content of the original file to the backup file
-	buf := make([]byte, 4*1024*1024)
+	buf := make([]byte, consts.Buffer4MB)
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)

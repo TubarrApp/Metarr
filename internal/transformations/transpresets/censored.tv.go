@@ -32,7 +32,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		}
 	}
 
-	var newSfx = make([]models.MetaTrimSuffix, 0, 4)
+	var newSfx = make([]models.MetaTrimSuffix, 0, len(trimSfx)+4)
 
 	newSfx = append(newSfx, models.MetaTrimSuffix{
 		Field:  "title",
