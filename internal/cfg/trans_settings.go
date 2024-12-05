@@ -389,15 +389,15 @@ func setRenameFlag() {
 	switch argRenameFlag {
 	case "spaces", "space":
 		renameFlag = enums.RenamingSpaces
-		logging.P("Rename style selected: %v", argRenameFlag)
+		logging.I("Rename style selected: %v", argRenameFlag)
 
 	case "underscores", "underscore":
 		renameFlag = enums.RenamingUnderscores
-		logging.P("Rename style selected: %v", argRenameFlag)
+		logging.I("Rename style selected: %v", argRenameFlag)
 
 	case "fixes", "fix", "fixes-only", "fixesonly":
 		renameFlag = enums.RenamingFixesOnly
-		logging.P("Rename style selected: %v", argRenameFlag)
+		logging.I("Rename style selected: %v", argRenameFlag)
 
 	default:
 		logging.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")

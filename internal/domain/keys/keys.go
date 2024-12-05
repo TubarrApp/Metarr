@@ -75,21 +75,18 @@ const (
 
 // Meta edits
 const (
-	MOverwrite string = "meta-overwrite"
-	MPreserve  string = "meta-preserve"
-
+	MOverwrite      string = "meta-overwrite"
+	MPreserve       string = "meta-preserve"
 	MCopyToField    string = "copyToField"
 	MPasteFromField string = "pasteFromField"
-
-	MAppend      string = "metaAppend"
-	MNewField    string = "metaNewField"
-	MPrefix      string = "metaPrefix"
-	MReplaceText string = "metaReplaceText"
-	MTrimPrefix  string = "metaTrimPrefix"
-	MTrimSuffix  string = "metaTrimSuffix"
-
-	MDateTagMap    string = "metaDateTagMap"
-	MDelDateTagMap string = "metaDelDateTagMap"
+	MAppend         string = "metaAppend"
+	MNewField       string = "metaNewField"
+	MPrefix         string = "metaPrefix"
+	MReplaceText    string = "metaReplaceText"
+	MTrimPrefix     string = "metaTrimPrefix"
+	MTrimSuffix     string = "metaTrimSuffix"
+	MDateTagMap     string = "metaDateTagMap"
+	MDelDateTagMap  string = "metaDelDateTagMap"
 )
 
 // MultiEntryFields lists the fields containing multiple entries.

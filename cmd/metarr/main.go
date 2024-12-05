@@ -3,6 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"runtime"
+	"sync"
+	"syscall"
+	"time"
+
 	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -11,19 +18,13 @@ import (
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
-	"os"
-	"os/signal"
-	"runtime"
-	"sync"
-	"syscall"
-	"time"
 )
 
 // String constants
 const (
 	timeFormat     = "2006-01-02 15:04:05.00 MST"
-	startLogFormat = "metarr started at: %s"
-	endLogFormat   = "metarr finished at: %s"
+	startLogFormat = "Metarr started at: %s"
+	endLogFormat   = "Metarr finished at: %s"
 	elapsedFormat  = "Time elapsed: %.2f seconds"
 )
 
