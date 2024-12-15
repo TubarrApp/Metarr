@@ -88,6 +88,19 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		go workerProcess(batch, w, jobs, results, wg, ctx)
 	}
 
+	// Add collector to wait group
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for result := range results {
+			if result != nil {
+				muProcessed.Lock()
+				processedModels = append(processedModels, result)
+				muProcessed.Unlock()
+			}
+		}
+	}()
+
 	// Send jobs to workers
 	for name, data := range batch.bp.syncMapToRegularMap(&batch.bp.files.matched) {
 		jobs <- workItem{
@@ -98,17 +111,6 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		}
 	}
 	close(jobs)
-
-	// Collect results in a separate goroutine
-	go func() {
-		for result := range results {
-			if result != nil {
-				muProcessed.Lock()
-				processedModels = append(processedModels, result)
-				muProcessed.Unlock()
-			}
-		}
-	}()
 
 	wg.Wait()
 	close(results)
