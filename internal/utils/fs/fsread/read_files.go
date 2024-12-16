@@ -106,12 +106,12 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	metaFiles := make(map[string]*models.FileData, len(files))
 
 	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-
 		ext := filepath.Ext(file.Name())
 		logging.D(3, "Checking file %q with extension %q", file.Name(), ext)
+
+		if file.IsDir() || !metaExtensions[ext] {
+			continue
+		}
 
 		if cfg.IsSet(keys.FilePrefixes) {
 			if !HasPrefix(file.Name(), inputPrefixes) {
@@ -119,20 +119,8 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			}
 		}
 
-		var match bool
-		for extKey := range metaExtensions {
-			if metaExtensions[extKey] {
-				match = true
-				break
-			}
-		}
-
-		if !match {
-			continue
-		}
-
-		videoFilenameBase := filepath.Base(file.Name())
-		baseName := strings.TrimSuffix(videoFilenameBase, ext)
+		metaFilenameBase := filepath.Base(file.Name())
+		baseName := strings.TrimSuffix(metaFilenameBase, ext)
 
 		m := models.NewFileData()
 		filePath := filepath.Join(metaDir.Name(), file.Name())

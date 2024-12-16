@@ -88,10 +88,11 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		go workerProcess(batch, w, jobs, results, wg, ctx)
 	}
 
-	// Add collector to wait group
-	wg.Add(1)
+	// Collector routine
+	var collectorWg sync.WaitGroup
+	collectorWg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer collectorWg.Done()
 		for result := range results {
 			if result != nil {
 				muProcessed.Lock()
@@ -111,9 +112,10 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		}
 	}
 	close(jobs)
-
 	wg.Wait()
+
 	close(results)
+	collectorWg.Wait()
 
 	// Handle temp files and cleanup
 	if err = cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
@@ -212,10 +214,8 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 				})
 			}
 		}
-	}
-
-	// Batch is a file request...
-	if !batch.IsDirs {
+		// Batch is a file request...
+	} else if !batch.IsDirs {
 		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
 		if err != nil {
 			logging.E(0, "Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
@@ -299,12 +299,10 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 	default:
 	}
 
-	var muPrint sync.Mutex
-
 	// Print progress for metadata
 	currentMeta := atomic.AddInt32(&bp.counts.processedMeta, 1)
 	totalMeta := atomic.LoadInt32(&bp.counts.totalMeta)
-	printProgress(typeMeta, currentMeta, totalMeta, fd.JSONDirectory, &muPrint)
+	printProgress(typeMeta, currentMeta, totalMeta, fd.JSONDirectory)
 
 	// System resource check
 	sysResourceLoop(filename)
@@ -337,7 +335,7 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 	// Print progress for video
 	currentVideo := atomic.AddInt32(&bp.counts.processedVideo, 1)
 	totalVideo := atomic.LoadInt32(&bp.counts.totalVideo)
-	printProgress(typeVideo, currentVideo, totalVideo, fd.JSONDirectory, &muPrint)
+	printProgress(typeVideo, currentVideo, totalVideo, fd.JSONDirectory)
 
 	return fd, nil
 }

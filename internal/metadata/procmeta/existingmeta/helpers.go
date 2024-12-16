@@ -26,7 +26,7 @@ type ffprobeTags struct {
 	Composer     string `json:"composer"`
 }
 
-// safeGetDatePart safely extracts the date part before 'T' if it exists
+// safeGetDatePart safely extracts the date part before 'T' if it exists.
 func safeGetDatePart(timeStr string) string {
 	timeStr = strings.TrimSpace(timeStr)
 	if parts := strings.Split(timeStr, "T"); len(parts) > 0 {
@@ -35,6 +35,7 @@ func safeGetDatePart(timeStr string) string {
 	return timeStr
 }
 
+// printArray provides a simple print of metadata captured by FFprobe.
 func printArray(s []string) {
 	str := strings.Join(s, ", ")
 	logging.I("FFprobe captured %s", str)

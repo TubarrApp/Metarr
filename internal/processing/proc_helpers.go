@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	muResource sync.Mutex
+	muPrint, muResource sync.Mutex
 )
 
 // renameFiles performs renaming operations.
@@ -149,7 +149,7 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 }
 
 // printProgress creates a printout of the current process completion status.
-func printProgress(fileType string, current, total int32, directory string, muPrint *sync.Mutex) {
+func printProgress(fileType string, current, total int32, directory string) {
 	muPrint.Lock()
 	defer muPrint.Unlock()
 

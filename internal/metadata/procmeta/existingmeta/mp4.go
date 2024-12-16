@@ -98,7 +98,9 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 	}
 
 	// Print all captured metadata
-	printArray(ffContent)
+	if logging.Level > 0 {
+		printArray(ffContent)
+	}
 
 	return matches
 }
