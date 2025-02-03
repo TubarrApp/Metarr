@@ -36,16 +36,6 @@ const (
 	MetaOpsSet
 )
 
-// SysGPU holds flags related to HW transcoding.
-type SysGPU int
-
-const (
-	GPUNone SysGPU = iota
-	GPUAMD
-	GPUIntel
-	GPUNvidia
-)
-
 // ReplaceToStyle dictates a naming convention to use, e.g. spaces or underscores.
 //
 // RenamingFixesOnly only fixes things like contractions, without changing the style.

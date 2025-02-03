@@ -65,11 +65,6 @@ const (
 	InputMExtsEnum string = "inputMetaExtsEnum"
 )
 
-// Performance
-const (
-	GPUEnum string = "gpuEnum"
-)
-
 // Filename edits
 const (
 	Rename             string = "Rename"

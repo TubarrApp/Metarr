@@ -214,7 +214,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 	sb.WriteString(gpuFlag)
 
 	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:v", sb.String())
-	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:a", "copy")
+	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:a", "aac")
 
 	command := append(b.gpuAccel, b.gpuAccelCodec...)
 	logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
