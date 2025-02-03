@@ -22,7 +22,7 @@ var (
 
 // GPU hardware flags
 var (
-	NvidiaAccel = [...]string{"-hwaccel", "nvdec"}
-	AMDAccel    = [...]string{"-hwaccel", "vulkan"}
-	IntelAccel  = [...]string{"-hwaccel", "qsv"}
+	NvidiaAccel = [...]string{"-hwaccel", "cuda", "-hwaccel_output_format", "nvenc"}
+	AMDAccel    = [...]string{"-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}
+	IntelAccel  = [...]string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"}
 )

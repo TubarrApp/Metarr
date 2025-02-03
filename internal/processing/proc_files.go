@@ -88,7 +88,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		go workerProcess(batch, w, jobs, results, wg, ctx)
 	}
 
-	// Collector routine
+	// Collector routine to collect results from the results channel
 	var collectorWg sync.WaitGroup
 	collectorWg.Add(1)
 	go func() {

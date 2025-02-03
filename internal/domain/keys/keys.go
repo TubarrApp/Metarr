@@ -38,6 +38,10 @@ const (
 	OutputFiletypeInput string = "ext"
 	MoveOnComplete      string = "output-directory"
 	InputPreset         string = "preset"
+
+	UseGPU           string = "hwaccel"
+	TranscodeCodec   string = "transcode-codec"
+	TranscodeQuality string = "transcode-quality"
 )
 
 // Primary program

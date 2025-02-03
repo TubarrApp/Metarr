@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// initFilesDirs initializes user flag settings for input files and directories
+// initFilesDirs initializes user flag settings for input files and directories.
 func initFilesDirs() error {
 
 	// Batch
@@ -45,7 +45,7 @@ func initFilesDirs() error {
 	return nil
 }
 
-// initResourceRelated initializes user flag settings for parameters related to system hardware
+// initResourceRelated initializes user flag settings for parameters related to system hardware.
 func initResourceRelated() error {
 
 	// Concurrency limit
@@ -74,7 +74,7 @@ func initResourceRelated() error {
 	return nil
 }
 
-// initAllFileTransformers initializes user flag settings for transformations applying to all files
+// initAllFileTransformers initializes user flag settings for transformations applying to all files.
 func initAllFileTransformers() error {
 
 	// Prefix file with metafield
@@ -115,7 +115,7 @@ func initAllFileTransformers() error {
 	return nil
 }
 
-// initMetaTransformers initializes user flag settings for manipulation of metadata
+// initMetaTransformers initializes user flag settings for manipulation of metadata.
 func initMetaTransformers() error {
 
 	// Metadata transformations
@@ -153,7 +153,7 @@ func initMetaTransformers() error {
 	return nil
 }
 
-// initVideoTransformers initializes user flag settings for transformation of video files
+// initVideoTransformers initializes user flag settings for transformation of video files.
 func initVideoTransformers() error {
 
 	// Output extension type
@@ -161,10 +161,27 @@ func initVideoTransformers() error {
 	if err := viper.BindPFlag(keys.OutputFiletypeInput, rootCmd.PersistentFlags().Lookup(keys.OutputFiletypeInput)); err != nil {
 		return err
 	}
+
+	// HW acceleration
+	rootCmd.PersistentFlags().String(keys.UseGPU, "", "Use hardware for accelerated encoding/decoding")
+	if err := viper.BindPFlag(keys.UseGPU, rootCmd.PersistentFlags().Lookup(keys.UseGPU)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().String(keys.TranscodeCodec, "", "Codec to use for encoding/decoding")
+	if err := viper.BindPFlag(keys.TranscodeCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeCodec)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().String(keys.TranscodeQuality, "", "Quality profile for encoding/decoding (p1 [worst] to p7 [best])")
+	if err := viper.BindPFlag(keys.TranscodeQuality, rootCmd.PersistentFlags().Lookup(keys.TranscodeQuality)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-// initFiltering initializes user flag settings for filtering files to work with
+// initFiltering initializes user flag settings for filtering files to work with.
 func initFiltering() error {
 
 	// Video file extensions to convert
@@ -187,7 +204,7 @@ func initFiltering() error {
 	return nil
 }
 
-// initProgramFunctions initializes user flag settings for miscellaneous program features such as debug level
+// initProgramFunctions initializes user flag settings for miscellaneous program features such as debug level.
 func initProgramFunctions() error {
 
 	// Debugging level

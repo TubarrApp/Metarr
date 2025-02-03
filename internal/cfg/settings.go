@@ -116,9 +116,6 @@ func Execute() error {
 // execute more thoroughly handles settings created in the Viper init
 func execute() error {
 
-	// Parse GPU settings and set commands
-	verifyHWAcceleration()
-
 	// Concurrency
 	verifyConcurrencyLimit()
 
@@ -142,6 +139,11 @@ func execute() error {
 
 	// Verify user metafile purge settings
 	verifyPurgeMetafiles()
+
+	// Parse GPU settings and set commands
+	if err := verifyHWAcceleration(); err != nil {
+		return err
+	}
 
 	// Ensure no video and metadata location conflicts
 	if err := checkFileDirs(); err != nil {
@@ -402,20 +404,17 @@ func verifyInputFiletypes() {
 }
 
 // verifyHWAcceleration checks and sets HW acceleration to use
-func verifyHWAcceleration() {
-	switch viper.GetString(keys.GPU) {
-	case "nvidia":
-		viper.Set(keys.GPUEnum, enums.GPUNvidia)
-		logging.P("GPU acceleration selected by user: %v", keys.GPU)
-	case "amd":
-		viper.Set(keys.GPUEnum, enums.GPUAMD)
-		logging.P("GPU acceleration selected by user: %v", keys.GPU)
-	case "intel":
-		viper.Set(keys.GPUEnum, enums.GPUIntel)
-		logging.P("GPU acceleration selected by user: %v", keys.GPU)
-	default:
-		viper.Set(keys.GPUEnum, enums.GPUNone)
+func verifyHWAcceleration() error {
+	if err := validateGPU(); err != nil {
+		return err
 	}
+	if err := validateTranscodeCodec(); err != nil {
+		return err
+	}
+	if err := validateTranscodeQuality(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // verifyConcurrencyLimit checks and ensures correct concurrency limit input
@@ -494,7 +493,7 @@ func verifyResourceLimits() {
 	}
 }
 
-// Verify the output filetype is valid for FFmpeg
+// verifyOutputFiletype verifies the output filetype is valid for FFmpeg.
 func verifyOutputFiletype() {
 	if !viper.IsSet(keys.OutputFiletypeInput) {
 		return
@@ -523,7 +522,7 @@ func verifyOutputFiletype() {
 	}
 }
 
-// verifyPurgeMetafiles checks and sets the type of metafile purge to perform
+// verifyPurgeMetafiles checks and sets the type of metafile purge to perform.
 func verifyPurgeMetafiles() {
 	if !viper.IsSet(keys.MetaPurge) {
 		return
@@ -548,4 +547,84 @@ func verifyPurgeMetafiles() {
 	}
 
 	viper.Set(keys.MetaPurgeEnum, e)
+}
+
+// validateGPU validates the user input GPU selection.
+func validateGPU() error {
+	if !viper.IsSet(keys.UseGPU) {
+		return nil
+	}
+
+	g := viper.GetString(keys.UseGPU)
+	g = strings.ToLower(g)
+
+	switch g {
+	case "qsv", "intel":
+		viper.Set(keys.UseGPU, "qsv")
+	case "amd", "radeon", "vaapi":
+		viper.Set(keys.UseGPU, "vaapi")
+	case "nvidia", "cuda":
+		viper.Set(keys.UseGPU, "cuda")
+	default:
+		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
+	}
+	return nil
+}
+
+// validateTranscodeCodec validates the user input codec selection.
+func validateTranscodeCodec() error {
+	if !viper.IsSet(keys.TranscodeCodec) {
+		return nil
+	}
+
+	c := viper.GetString(keys.TranscodeCodec)
+	c = strings.ToLower(c)
+	c = strings.ReplaceAll(c, ".", "")
+
+	switch c {
+	case "h264", "hevc":
+		viper.Set(keys.TranscodeCodec, "h264")
+	case "h265":
+		viper.Set(keys.TranscodeCodec, "hevc")
+	default:
+		return fmt.Errorf("entered codec %q not supported. Tubarr supports h264 and HEVC (h265)", c)
+	}
+	return nil
+}
+
+// validateTranscodeQuality validates the transcode quality preset.
+func validateTranscodeQuality() error {
+	if !viper.IsSet(keys.TranscodeQuality) {
+		return nil
+	}
+
+	q := viper.GetString(keys.TranscodeQuality)
+	q = strings.ToLower(q)
+	q = strings.ReplaceAll(q, " ", "")
+
+	switch q {
+	case "p1", "p2", "p3", "p4", "p5", "p6", "p7":
+		logging.I("Got transcode quality profile %q", q)
+		viper.Set(keys.TranscodeQuality, q)
+		return nil
+	}
+
+	qNum, err := strconv.Atoi(q)
+	if err != nil {
+		return fmt.Errorf("input should be p1 to p7, validation of transcoder quality failed")
+	}
+
+	var qualProf string
+	switch {
+	case qNum < 0:
+		qualProf = "p1"
+	case qNum > 7:
+		qualProf = "p7"
+	default:
+		qualProf = "p" + strconv.Itoa(qNum)
+	}
+	logging.I("Got transcode quality profile %q", qualProf)
+
+	viper.Set(keys.TranscodeQuality, qualProf)
+	return nil
 }

@@ -3,7 +3,6 @@ package ffmpeg
 import (
 	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
@@ -13,12 +12,13 @@ import (
 
 // ffCommandBuilder handles FFmpeg command construction
 type ffCommandBuilder struct {
-	inputFile   string
-	outputFile  string
-	formatFlags []string
-	gpuAccel    []string
-	metadataMap map[string]string
-	builder     *strings.Builder
+	inputFile     string
+	outputFile    string
+	formatFlags   []string
+	gpuAccel      []string
+	gpuAccelCodec []string
+	metadataMap   map[string]string
+	builder       *strings.Builder
 }
 
 // newFfCommandBuilder creates a new FFmpeg command builder
@@ -34,12 +34,10 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 // buildCommand constructs the complete FFmpeg command
 func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
 
-	b.setGPUAcceleration()
 	b.addAllMetadata(fd)
-	b.setFormatFlags(outExt)
 
 	// Return the fully appended argument string
-	return b.buildFinalCommand()
+	return b.buildFinalCommand(outExt)
 }
 
 // addAllMetadata combines all metadata into a single map
@@ -192,22 +190,57 @@ func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
 }
 
 // setGPUAcceleration sets appropriate GPU acceleration flags
-func (b *ffCommandBuilder) setGPUAcceleration() {
-	if cfg.IsSet(keys.GPUEnum) {
-		gpuFlag, ok := cfg.Get(keys.GPUEnum).(enums.SysGPU)
-		if ok {
-			switch gpuFlag {
-			case enums.GPUNvidia:
-				b.gpuAccel = consts.NvidiaAccel[:]
-			case enums.GPUAMD:
-				b.gpuAccel = consts.AMDAccel[:]
-			case enums.GPUIntel:
-				b.gpuAccel = consts.IntelAccel[:]
-			}
-		} else {
-			logging.E(0, "Wrong type or null enums.SysGPU. Got: %T", gpuFlag)
-		}
+func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
+	switch gpuFlag {
+	case "nvenc":
+		b.gpuAccel = consts.NvidiaAccel[:]
+	case "vaapi":
+		b.gpuAccel = consts.AMDAccel[:]
+	case "qsv":
+		b.gpuAccel = consts.IntelAccel[:]
+	default:
+		logging.E(0, "Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
+		return
 	}
+}
+
+// setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
+func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec string) {
+
+	sb := strings.Builder{}
+	sb.Grow(len(transcodeCodec) + 1 + len(gpuFlag))
+	sb.WriteString(transcodeCodec)
+	sb.WriteRune('_')
+	sb.WriteString(gpuFlag)
+
+	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:v", sb.String())
+	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:a", "copy")
+
+	command := append(b.gpuAccel, b.gpuAccelCodec...)
+	logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
+}
+
+// getHWAccelFlags checks and returns the flags for HW acceleration.
+func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, proceed bool) {
+	if cfg.IsSet(keys.UseGPU) {
+		gpuFlag = cfg.GetString(keys.UseGPU)
+	}
+
+	if cfg.IsSet(keys.TranscodeCodec) {
+		transcodeCodec = cfg.GetString(keys.TranscodeCodec)
+	}
+
+	if gpuFlag == "" && transcodeCodec == "" {
+		logging.I("HW acceleration flags disabled, using software encode/decode")
+		return "", "", false
+	}
+
+	if (transcodeCodec == "" && gpuFlag != "") || (transcodeCodec != "" && gpuFlag == "") {
+		logging.E(0, "Need both HW accel option (entered: %q) and codec (entered: %q), falling back to software transcode...", gpuFlag, transcodeCodec)
+		return "", "", false
+	}
+
+	return gpuFlag, transcodeCodec, true
 }
 
 // setFormatFlags adds commands specific for the extension input and output.
@@ -223,37 +256,47 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 	logging.I("Input extension: %q, output extension: %q, File: %s",
 		inExt, outExt, b.inputFile)
 
-	// Get format preset from map
-	if presets, exists := formatMap[outExt]; exists {
-		// Try exact input format match
-		if preset, exists := presets[inExt]; exists {
-			b.formatFlags = preset.flags
-			return
+	if len(b.gpuAccel) == 0 {
+		// Get format preset from map
+		if presets, exists := formatMap[outExt]; exists {
+			// Try exact input format match
+			if preset, exists := presets[inExt]; exists {
+				b.formatFlags = preset.flags
+				return
+			}
+			// Fall back to default preset for this output format
+			if preset, exists := presets["*"]; exists {
+				b.formatFlags = preset.flags
+				return
+			}
 		}
-		// Fall back to default preset for this output format
-		if preset, exists := presets["*"]; exists {
-			b.formatFlags = preset.flags
-			return
-		}
+		// Fall back to copy preset if no mapping found
+		b.formatFlags = copyPreset.flags
+		logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
+			inExt, outExt)
 	}
-
-	// Fall back to copy preset if no mapping found
-	b.formatFlags = copyPreset.flags
-	logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
-		inExt, outExt)
 }
 
 // buildFinalCommand assembles the final FFmpeg command.
-func (b *ffCommandBuilder) buildFinalCommand() ([]string, error) {
+func (b *ffCommandBuilder) buildFinalCommand(outExt string) ([]string, error) {
 
 	args := make([]string, 0, calculateCommandCapacity(b))
 
-	if len(b.gpuAccel) > 0 {
+	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags()
+	if useAccel {
+		b.setGPUAcceleration(gpuFlag)
 		args = append(args, b.gpuAccel...)
+
+		args = append(args, "-y", "-i", b.inputFile)
+
+		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
+		args = append(args, b.gpuAccelCodec...)
+	} else if b.inputFile != "" {
+		args = append(args, "-y", "-i", b.inputFile)
 	}
 
-	if b.inputFile != "" {
-		args = append(args, "-y", "-i", b.inputFile)
+	if len(b.gpuAccel) == 0 {
+		b.setFormatFlags(outExt)
 	}
 
 	// Add all -metadata commands
@@ -296,6 +339,7 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 	totalCapacity := base
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccel)
+	totalCapacity += len(b.gpuAccelCodec)
 	totalCapacity += len(b.formatFlags)
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
