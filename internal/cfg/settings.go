@@ -140,6 +140,11 @@ func execute() error {
 	// Verify user metafile purge settings
 	verifyPurgeMetafiles()
 
+	// Parse and verify the audio codec
+	if err := verifyAudioCodec(); err != nil {
+		return err
+	}
+
 	// Parse GPU settings and set commands
 	if err := verifyHWAcceleration(); err != nil {
 		return err
@@ -547,6 +552,24 @@ func verifyPurgeMetafiles() {
 	}
 
 	viper.Set(keys.MetaPurgeEnum, e)
+}
+
+// verifyAudioCodec verifies the audio codec to use for transcode/encode operations.
+func verifyAudioCodec() error {
+	if !viper.IsSet(keys.TranscodeAudioCodec) {
+		return nil
+	}
+
+	a := viper.GetString(keys.TranscodeAudioCodec)
+	a = strings.ToLower(a)
+
+	switch a {
+	case "aac", "copy":
+		viper.Set(keys.TranscodeAudioCodec, a)
+	default:
+		return fmt.Errorf("audio codec flag %q is not currently implemented in this program, aborting", a)
+	}
+	return nil
 }
 
 // validateGPU validates the user input GPU selection.

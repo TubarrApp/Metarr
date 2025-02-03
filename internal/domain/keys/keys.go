@@ -17,7 +17,6 @@ const (
 	FilePrefixes   string = "prefix"
 
 	Concurrency     string = "concurrency"
-	GPU             string = "gpu"
 	MaxCPU          string = "max-cpu"
 	MinFreeMemInput string = "min-free-mem"
 
@@ -42,6 +41,8 @@ const (
 	UseGPU           string = "hwaccel"
 	TranscodeCodec   string = "transcode-codec"
 	TranscodeQuality string = "transcode-quality"
+
+	TranscodeAudioCodec string = "transcode-audio-codec"
 )
 
 // Primary program

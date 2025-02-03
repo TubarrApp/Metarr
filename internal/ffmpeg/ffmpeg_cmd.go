@@ -17,6 +17,7 @@ type ffCommandBuilder struct {
 	formatFlags   []string
 	gpuAccel      []string
 	gpuAccelCodec []string
+	audioCodec    []string
 	metadataMap   map[string]string
 	builder       *strings.Builder
 }
@@ -34,10 +35,18 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 // buildCommand constructs the complete FFmpeg command
 func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
 
+	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags()
+	if useAccel {
+		b.setGPUAcceleration(gpuFlag)
+		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
+	} else {
+		b.setFormatFlags(outExt)
+	}
+	b.setAudioCodec()
 	b.addAllMetadata(fd)
 
 	// Return the fully appended argument string
-	return b.buildFinalCommand(outExt)
+	return b.buildFinalCommand(useAccel)
 }
 
 // addAllMetadata combines all metadata into a single map
@@ -189,7 +198,25 @@ func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
 	}
 }
 
-// setGPUAcceleration sets appropriate GPU acceleration flags
+// setAudioCodec sets the audio codec for transcode operations.
+func (b *ffCommandBuilder) setAudioCodec() {
+	if !cfg.IsSet(keys.TranscodeAudioCodec) {
+		b.audioCodec = append(b.audioCodec, "-c:a", "copy")
+		return
+	}
+
+	codec := cfg.GetString(keys.TranscodeAudioCodec)
+	codec = strings.ToLower(codec)
+
+	switch codec {
+	case "aac":
+		b.audioCodec = append(b.audioCodec, "-c:a", "aac")
+	default:
+		b.audioCodec = append(b.audioCodec, "-c:a", "copy")
+	}
+}
+
+// setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 	switch gpuFlag {
 	case "nvenc":
@@ -214,7 +241,6 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 	sb.WriteString(gpuFlag)
 
 	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:v", sb.String())
-	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:a", "aac")
 
 	command := append(b.gpuAccel, b.gpuAccelCodec...)
 	logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
@@ -278,25 +304,23 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 }
 
 // buildFinalCommand assembles the final FFmpeg command.
-func (b *ffCommandBuilder) buildFinalCommand(outExt string) ([]string, error) {
+func (b *ffCommandBuilder) buildFinalCommand(hwAccel bool) ([]string, error) {
 
 	args := make([]string, 0, calculateCommandCapacity(b))
 
-	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags()
-	if useAccel {
-		b.setGPUAcceleration(gpuFlag)
-		args = append(args, b.gpuAccel...)
-
-		args = append(args, "-y", "-i", b.inputFile)
-
-		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
-		args = append(args, b.gpuAccelCodec...)
-	} else if b.inputFile != "" {
-		args = append(args, "-y", "-i", b.inputFile)
-	}
-
-	if len(b.gpuAccel) == 0 {
-		b.setFormatFlags(outExt)
+	if b.inputFile != "" {
+		if hwAccel {
+			args = append(args, b.gpuAccel...)
+			args = append(args, "-y", "-i", b.inputFile)
+			args = append(args, b.gpuAccelCodec...)
+			if len(b.audioCodec) > 0 {
+				args = append(args, b.audioCodec...)
+			} else {
+				args = append(args, "-c:a", "copy")
+			}
+		} else {
+			args = append(args, "-y", "-i", b.inputFile)
+		}
 	}
 
 	// Add all -metadata commands

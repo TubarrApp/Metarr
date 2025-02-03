@@ -65,12 +65,6 @@ func initResourceRelated() error {
 	if err := viper.BindPFlag(keys.MinFreeMemInput, rootCmd.PersistentFlags().Lookup(keys.MinFreeMemInput)); err != nil {
 		return err
 	}
-
-	// Hardware accelerated transcoding
-	rootCmd.PersistentFlags().StringP(keys.GPU, "g", "none", "GPU acceleration type (nvidia, amd, intel, none)")
-	if err := viper.BindPFlag(keys.GPU, rootCmd.PersistentFlags().Lookup(keys.GPU)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -175,6 +169,11 @@ func initVideoTransformers() error {
 
 	rootCmd.PersistentFlags().String(keys.TranscodeQuality, "", "Quality profile for encoding/decoding (p1 [worst] to p7 [best])")
 	if err := viper.BindPFlag(keys.TranscodeQuality, rootCmd.PersistentFlags().Lookup(keys.TranscodeQuality)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().String(keys.TranscodeAudioCodec, "", "Audio codec for encoding/decoding (e.g. 'aac', 'copy')")
+	if err := viper.BindPFlag(keys.TranscodeAudioCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeAudioCodec)); err != nil {
 		return err
 	}
 
