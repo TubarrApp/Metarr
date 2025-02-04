@@ -20,7 +20,6 @@ var (
 	h264Preset = formatPreset{
 		flags: concat(
 			consts.VideoToH264Balanced[:],
-			consts.PixelFmtYuv420p[:],
 			consts.AudioToAAC[:],
 			consts.AudioBitrate[:],
 		),
@@ -39,7 +38,6 @@ var (
 	webmPreset = formatPreset{
 		flags: concat(
 			consts.VideoToH264Balanced[:],
-			consts.PixelFmtYuv420p[:],
 			consts.KeyframeBalanced[:],
 			consts.AudioToAAC[:],
 			consts.AudioBitrate[:],

@@ -39,10 +39,13 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
 		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
-	} else {
-		b.setFormatFlags(outExt)
 	}
+
 	b.setAudioCodec()
+
+	b.setFormatFlags(outExt)
+	b.replaceFormatFlagsWithUser()
+
 	b.addAllMetadata(fd)
 
 	// Return the fully appended argument string
@@ -201,18 +204,19 @@ func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
 // setAudioCodec sets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setAudioCodec() {
 	if !cfg.IsSet(keys.TranscodeAudioCodec) {
-		b.audioCodec = append(b.audioCodec, "-c:a", "copy")
 		return
 	}
 
 	codec := cfg.GetString(keys.TranscodeAudioCodec)
 	codec = strings.ToLower(codec)
+	codec = strings.ReplaceAll(codec, " ", "")
+	codec = strings.ReplaceAll(codec, ".", "")
 
 	switch codec {
 	case "aac":
-		b.audioCodec = append(b.audioCodec, "-c:a", "aac")
+		b.audioCodec = consts.AudioToAAC[:]
 	default:
-		b.audioCodec = append(b.audioCodec, "-c:a", "copy")
+		b.audioCodec = consts.AudioCodecCopy[:]
 	}
 }
 
@@ -282,24 +286,46 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 	logging.I("Input extension: %q, output extension: %q, File: %s",
 		inExt, outExt, b.inputFile)
 
-	if len(b.gpuAccel) == 0 {
-		// Get format preset from map
-		if presets, exists := formatMap[outExt]; exists {
-			// Try exact input format match
-			if preset, exists := presets[inExt]; exists {
-				b.formatFlags = preset.flags
-				return
+	// Get format preset from map
+	if presets, exists := formatMap[outExt]; exists {
+		// Try exact input format match
+		if preset, exists := presets[inExt]; exists {
+			b.formatFlags = preset.flags
+			return
+		}
+		// Fall back to default preset for this output format
+		if preset, exists := presets["*"]; exists {
+			b.formatFlags = preset.flags
+			return
+		}
+	}
+	// Fall back to copy preset if no mapping found
+	b.formatFlags = copyPreset.flags
+	logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
+		inExt, outExt)
+}
+
+// replaceFormatFlagsWithUser replaces the preset format flags with those inputted by the user.
+func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
+	for i, entry := range b.formatFlags {
+		switch entry {
+		case "-c:v":
+			if len(b.gpuAccelCodec) == 2 {
+				if len(b.formatFlags) >= i {
+					b.formatFlags[i+1] = b.gpuAccelCodec[1]
+				} else {
+					logging.E(0, "Unexpected end of format flags")
+				}
 			}
-			// Fall back to default preset for this output format
-			if preset, exists := presets["*"]; exists {
-				b.formatFlags = preset.flags
-				return
+		case "-c:a":
+			if len(b.audioCodec) == 2 {
+				if len(b.formatFlags) >= i {
+					b.formatFlags[i+1] = b.audioCodec[1]
+				} else {
+					logging.E(0, "Unexpected end of format flags")
+				}
 			}
 		}
-		// Fall back to copy preset if no mapping found
-		b.formatFlags = copyPreset.flags
-		logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
-			inExt, outExt)
 	}
 }
 
@@ -312,14 +338,12 @@ func (b *ffCommandBuilder) buildFinalCommand(hwAccel bool) ([]string, error) {
 		if hwAccel {
 			args = append(args, b.gpuAccel...)
 			args = append(args, "-y", "-i", b.inputFile)
-			args = append(args, b.gpuAccelCodec...)
-			if len(b.audioCodec) > 0 {
-				args = append(args, b.audioCodec...)
-			} else {
-				args = append(args, "-c:a", "copy")
-			}
 		} else {
 			args = append(args, "-y", "-i", b.inputFile)
+		}
+
+		if len(b.formatFlags) > 0 {
+			args = append(args, b.formatFlags...)
 		}
 	}
 
@@ -335,10 +359,6 @@ func (b *ffCommandBuilder) buildFinalCommand(hwAccel bool) ([]string, error) {
 		// Write argument
 		logging.I("Adding metadata argument: '-metadata %s", b.builder.String())
 		args = append(args, "-metadata", b.builder.String())
-	}
-
-	if len(b.formatFlags) > 0 {
-		args = append(args, b.formatFlags...)
 	}
 
 	if b.outputFile != "" {
