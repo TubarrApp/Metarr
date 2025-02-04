@@ -2,7 +2,7 @@ package consts
 
 // AV codec copy
 var (
-	AVCodecCopy = [...]string{"-codec", "copy"}
+	AVCodecCopy = [...]string{"-c:v", "copy", "-c:a", "copy", "-c:s", "copy", "-c:d", "copy"}
 )
 
 // Audio flags
