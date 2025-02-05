@@ -246,6 +246,10 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 
 	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:v", sb.String())
 
+	if gpuFlag == "vaapi" {
+		b.gpuAccelCodec = append(b.gpuAccelCodec, consts.VaapiCompatibility...)
+	}
+
 	command := append(b.gpuAccel, b.gpuAccelCodec...)
 	logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
 }

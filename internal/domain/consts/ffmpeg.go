@@ -27,3 +27,8 @@ var (
 	AMDAccel    = [...]string{"-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}
 	IntelAccel  = [...]string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"}
 )
+
+// HW Accel Flags
+var (
+	VaapiCompatibility = []string{"-vf", "format=nv12,hwupload"}
+)
