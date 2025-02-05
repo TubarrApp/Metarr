@@ -38,9 +38,10 @@ const (
 	MoveOnComplete      string = "output-directory"
 	InputPreset         string = "preset"
 
-	UseGPU           string = "hwaccel"
-	TranscodeCodec   string = "transcode-codec"
-	TranscodeQuality string = "transcode-quality"
+	UseGPU             string = "hwaccel"
+	TranscodeDeviceDir string = "transcode-gpu-directory"
+	TranscodeCodec     string = "transcode-codec"
+	TranscodeQuality   string = "transcode-quality"
 
 	TranscodeAudioCodec string = "transcode-audio-codec"
 )

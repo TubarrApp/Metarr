@@ -586,11 +586,24 @@ func validateGPU() error {
 		viper.Set(keys.UseGPU, "qsv")
 	case "amd", "radeon", "vaapi":
 		viper.Set(keys.UseGPU, "vaapi")
+
+		if !viper.IsSet(keys.TranscodeDeviceDir) {
+			return fmt.Errorf("must specify the GPU directory, e.g. '/dev/dri/renderD128'")
+		} else {
+			gpuDir := viper.GetString(keys.TranscodeDeviceDir)
+
+			_, err := os.Stat(gpuDir)
+			if os.IsNotExist(err) {
+				return fmt.Errorf("driver location %q does not appear to exist?", gpuDir)
+			}
+		}
+
 	case "nvidia", "cuda":
 		viper.Set(keys.UseGPU, "cuda")
 	default:
 		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
 	}
+
 	return nil
 }
 
