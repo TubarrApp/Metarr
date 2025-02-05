@@ -247,6 +247,8 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:v", sb.String())
 
 	if gpuFlag == "vaapi" {
+		devDir := []string{"-vaapi_device", cfg.GetString(keys.TranscodeDeviceDir)}
+		b.gpuAccelCodec = append(b.gpuAccelCodec, devDir...)
 		b.gpuAccelCodec = append(b.gpuAccelCodec, consts.VaapiCompatibility...)
 	}
 
