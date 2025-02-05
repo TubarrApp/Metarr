@@ -30,5 +30,5 @@ var (
 
 // HW Accel Flags
 var (
-	VaapiCompatibility = []string{"-vf", "format=nv12,hwupload"}
+	VaapiCompatibility = []string{"-vf", "hwupload"}
 )

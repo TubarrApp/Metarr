@@ -177,6 +177,11 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	rootCmd.PersistentFlags().String(keys.TranscodeVideoFilter, "", "Transcoder video filter settings")
+	if err := viper.BindPFlag(keys.TranscodeVideoFilter, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoFilter)); err != nil {
+		return err
+	}
+
 	rootCmd.PersistentFlags().String(keys.TranscodeAudioCodec, "", "Audio codec for encoding/decoding (e.g. 'aac', 'copy')")
 	if err := viper.BindPFlag(keys.TranscodeAudioCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeAudioCodec)); err != nil {
 		return err

@@ -222,16 +222,35 @@ func (b *ffCommandBuilder) setAudioCodec() {
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
+	var (
+		vfFlags string
+	)
+
+	if cfg.IsSet(keys.TranscodeVideoFilter) {
+		vfFlags = cfg.GetString(keys.TranscodeVideoFilter)
+	}
+
 	switch gpuFlag {
 	case "nvenc":
 		b.gpuAccel = consts.NvidiaAccel[:]
 	case "vaapi":
 		b.gpuAccel = consts.AMDAccel[:]
+
+		// Add default compatibility flags
+		if vfFlags == "" {
+			b.formatFlags = append(b.formatFlags, consts.VaapiCompatibility...)
+		}
+
 	case "qsv":
 		b.gpuAccel = consts.IntelAccel[:]
 	default:
 		logging.E(0, "Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
 		return
+	}
+
+	// Add custom -vf flags
+	if vfFlags != "" {
+		b.formatFlags = append(b.formatFlags, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
 	}
 }
 
@@ -244,13 +263,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 	sb.WriteRune('_')
 	sb.WriteString(gpuFlag)
 
-	b.gpuAccelCodec = append(b.gpuAccelCodec, "-c:v", sb.String())
-
-	if gpuFlag == "vaapi" {
-		devDir := []string{"-vaapi_device", cfg.GetString(keys.TranscodeDeviceDir)}
-		b.gpuAccelCodec = append(b.gpuAccelCodec, devDir...)
-		b.gpuAccelCodec = append(b.gpuAccelCodec, consts.VaapiCompatibility...)
-	}
+	b.gpuAccelCodec = []string{"-c:v", sb.String()}
 
 	command := append(b.gpuAccel, b.gpuAccelCodec...)
 	logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
@@ -318,7 +331,20 @@ func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
 		case "-c:v":
 			if len(b.gpuAccelCodec) == 2 {
 				if len(b.formatFlags) >= i {
+					logging.I("Replacing preset %q with user selected %q", b.formatFlags[i+1], b.gpuAccelCodec[1])
 					b.formatFlags[i+1] = b.gpuAccelCodec[1]
+
+					// VAAPI
+					if strings.Contains(b.gpuAccelCodec[1], "vaapi") {
+						devDir := []string{"-vaapi_device", cfg.GetString(keys.TranscodeDeviceDir)}
+						b.formatFlags = append(b.formatFlags, devDir...)
+					}
+
+					// QSV
+					if strings.Contains(b.gpuAccelCodec[1], "qsv") {
+						devDir := []string{"-qsv_device", cfg.GetString(keys.TranscodeDeviceDir)}
+						b.formatFlags = append(b.formatFlags, devDir...)
+					}
 				} else {
 					logging.E(0, "Unexpected end of format flags")
 				}
