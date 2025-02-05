@@ -238,7 +238,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 
 		// Add default compatibility flags
 		if vfFlags == "" {
-			b.formatFlags = append(b.formatFlags, consts.VaapiCompatibility...)
+			b.gpuAccel = append(b.gpuAccel, consts.VaapiCompatibility...)
 		}
 
 	case "qsv":
@@ -250,7 +250,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 
 	// Add custom -vf flags
 	if vfFlags != "" {
-		b.formatFlags = append(b.formatFlags, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
+		b.gpuAccel = append(b.gpuAccel, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
 	}
 }
 
@@ -337,13 +337,13 @@ func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
 					// VAAPI
 					if strings.Contains(b.gpuAccelCodec[1], "vaapi") {
 						devDir := []string{"-vaapi_device", cfg.GetString(keys.TranscodeDeviceDir)}
-						b.formatFlags = append(b.formatFlags, devDir...)
+						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 
 					// QSV
 					if strings.Contains(b.gpuAccelCodec[1], "qsv") {
 						devDir := []string{"-qsv_device", cfg.GetString(keys.TranscodeDeviceDir)}
-						b.formatFlags = append(b.formatFlags, devDir...)
+						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 				} else {
 					logging.E(0, "Unexpected end of format flags")
