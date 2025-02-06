@@ -51,7 +51,7 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	b.addAllMetadata(fd)
 
 	// Return the fully appended argument string
-	return b.buildFinalCommand(useAccel, autoHWAccel)
+	return b.buildFinalCommand(gpuFlag, useAccel, autoHWAccel)
 }
 
 // addAllMetadata combines all metadata into a single map
@@ -224,35 +224,16 @@ func (b *ffCommandBuilder) setAudioCodec() {
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
-	var (
-		vfFlags string
-	)
-
-	if cfg.IsSet(keys.TranscodeVideoFilter) {
-		vfFlags = cfg.GetString(keys.TranscodeVideoFilter)
-	}
-
 	switch gpuFlag {
 	case "nvenc":
 		b.gpuAccel = consts.NvidiaAccel[:]
 	case "vaapi":
 		b.gpuAccel = consts.AMDAccel[:]
-
-		// Add default compatibility flags
-		if vfFlags == "" {
-			b.gpuAccel = append(b.gpuAccel, consts.VaapiCompatibility...)
-		}
-
 	case "qsv":
 		b.gpuAccel = consts.IntelAccel[:]
 	default:
 		logging.E(0, "Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
 		return
-	}
-
-	// Add custom -vf flags
-	if vfFlags != "" {
-		b.gpuAccel = append(b.gpuAccel, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
 	}
 }
 
@@ -369,7 +350,7 @@ func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
 }
 
 // buildFinalCommand assembles the final FFmpeg command.
-func (b *ffCommandBuilder) buildFinalCommand(hwAccel, autoHWAccel bool) ([]string, error) {
+func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAccel bool) ([]string, error) {
 	args := make([]string, 0, calculateCommandCapacity(b))
 
 	if b.inputFile != "" {
@@ -390,6 +371,15 @@ func (b *ffCommandBuilder) buildFinalCommand(hwAccel, autoHWAccel bool) ([]strin
 
 		if !autoHWAccel && len(b.formatFlags) > 0 {
 			args = append(args, b.formatFlags...)
+
+			if cfg.IsSet(keys.TranscodeVideoFilter) {
+				args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
+			} else {
+				switch gpuFlag {
+				case "vaapi":
+					args = append(args, consts.VaapiCompatibility...)
+				}
+			}
 		}
 	}
 
