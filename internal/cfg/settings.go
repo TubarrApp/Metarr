@@ -600,6 +600,8 @@ func validateGPU() error {
 
 	case "nvidia", "cuda":
 		viper.Set(keys.UseGPU, "cuda")
+	case "auto", "automatic", "automate", "automated":
+		viper.Set(keys.UseGPU, "auto")
 	default:
 		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
 	}
