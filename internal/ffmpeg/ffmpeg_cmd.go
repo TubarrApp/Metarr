@@ -278,7 +278,7 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 
 		// If auto, return early
 		if strings.ToLower(gpuFlag) == "auto" {
-			return gpuFlag, transcodeCodec, true, false
+			return gpuFlag, transcodeCodec, false, true
 		}
 	}
 
