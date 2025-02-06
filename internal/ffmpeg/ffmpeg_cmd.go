@@ -296,7 +296,7 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 		return "", "", false, false
 	}
 
-	return gpuFlag, transcodeCodec, false, true
+	return gpuFlag, transcodeCodec, true, false
 }
 
 // setFormatFlags adds commands specific for the extension input and output.
@@ -381,7 +381,6 @@ func (b *ffCommandBuilder) buildFinalCommand(hwAccel, autoHWAccel bool) ([]strin
 			if len(b.audioCodec) > 0 {
 				args = append(args, b.audioCodec...)
 			}
-
 		} else if hwAccel {
 			args = append(args, b.gpuAccel...)
 			args = append(args, "-y", "-i", b.inputFile)
