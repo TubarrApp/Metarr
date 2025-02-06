@@ -35,7 +35,7 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 // buildCommand constructs the complete FFmpeg command
 func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
 
-	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags()
+	gpuFlag, transcodeCodec, useAccel, autoHWAccel := b.getHWAccelFlags()
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
 		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
@@ -43,13 +43,15 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 
 	b.setAudioCodec()
 
-	b.setFormatFlags(outExt)
-	b.replaceFormatFlagsWithUser()
+	if !autoHWAccel {
+		b.setFormatFlags(outExt)
+		b.replaceFormatFlagsWithUser()
+	}
 
 	b.addAllMetadata(fd)
 
 	// Return the fully appended argument string
-	return b.buildFinalCommand(useAccel)
+	return b.buildFinalCommand(useAccel, autoHWAccel)
 }
 
 // addAllMetadata combines all metadata into a single map
@@ -270,9 +272,14 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 }
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
-func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, proceed bool) {
+func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, useHWAccel, autoHWAccel bool) {
 	if cfg.IsSet(keys.UseGPU) {
 		gpuFlag = cfg.GetString(keys.UseGPU)
+
+		// If auto, return early
+		if strings.ToLower(gpuFlag) == "auto" {
+			return gpuFlag, transcodeCodec, true, false
+		}
 	}
 
 	if cfg.IsSet(keys.TranscodeCodec) {
@@ -281,15 +288,15 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, pr
 
 	if gpuFlag == "" && transcodeCodec == "" {
 		logging.I("HW acceleration flags disabled, using software encode/decode")
-		return "", "", false
+		return "", "", false, false
 	}
 
 	if (transcodeCodec == "" && gpuFlag != "") || (transcodeCodec != "" && gpuFlag == "") {
 		logging.E(0, "Need both HW accel option (entered: %q) and codec (entered: %q), falling back to software transcode...", gpuFlag, transcodeCodec)
-		return "", "", false
+		return "", "", false, false
 	}
 
-	return gpuFlag, transcodeCodec, true
+	return gpuFlag, transcodeCodec, false, true
 }
 
 // setFormatFlags adds commands specific for the extension input and output.
@@ -362,19 +369,27 @@ func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
 }
 
 // buildFinalCommand assembles the final FFmpeg command.
-func (b *ffCommandBuilder) buildFinalCommand(hwAccel bool) ([]string, error) {
-
+func (b *ffCommandBuilder) buildFinalCommand(hwAccel, autoHWAccel bool) ([]string, error) {
 	args := make([]string, 0, calculateCommandCapacity(b))
 
 	if b.inputFile != "" {
-		if hwAccel {
+
+		if autoHWAccel {
+			args = append(args, consts.AutoHWAccel...)
+			args = append(args, "-y", "-i", b.inputFile)
+
+			if len(b.audioCodec) > 0 {
+				args = append(args, b.audioCodec...)
+			}
+
+		} else if hwAccel {
 			args = append(args, b.gpuAccel...)
 			args = append(args, "-y", "-i", b.inputFile)
 		} else {
 			args = append(args, "-y", "-i", b.inputFile)
 		}
 
-		if len(b.formatFlags) > 0 {
+		if !autoHWAccel && len(b.formatFlags) > 0 {
 			args = append(args, b.formatFlags...)
 		}
 	}
@@ -415,6 +430,8 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 	totalCapacity := base
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccel)
+	totalCapacity += len(b.audioCodec)
+	totalCapacity += len(consts.AutoHWAccel)
 	totalCapacity += len(b.gpuAccelCodec)
 	totalCapacity += len(b.formatFlags)
 

@@ -26,6 +26,7 @@ var (
 	NvidiaAccel = [...]string{"-hwaccel", "cuda", "-hwaccel_output_format", "nvenc"}
 	AMDAccel    = [...]string{"-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}
 	IntelAccel  = [...]string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"}
+	AutoHWAccel = []string{"-hwaccel", "auto"}
 )
 
 // HW Accel Flags
