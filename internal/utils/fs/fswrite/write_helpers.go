@@ -28,53 +28,72 @@ func moveOrCopyFile(src, dst string) error {
 	}
 
 	// Try rename (pure move) first
-	if err = os.Rename(src, dst); err == nil { // If err IS nil
-		dstHash, verifyErr := calculateFileHash(dst)
-		if verifyErr != nil {
-			return fmt.Errorf("move verification failed: %w", verifyErr)
+	if err = os.Rename(src, dst); err == nil { // If err IS nil (rename succeeded)
+
+		// Calculate destination file hash
+		dstHash, dstHashErr := calculateFileHash(dst)
+
+		// Failed to get destination file hash
+		if dstHashErr != nil {
+			logging.W("Failed to calculate destination file hash, move may or may not have failed: %v\n\nAttempted move: %q → %q", dstHashErr, src, dst)
+			return nil
 		}
-		if !bytes.Equal(srcHash, dstHash) {
-			return fmt.Errorf("hash mismatch after move (src: %d, dest: %d)", len(srcHash), len(dstHash))
+
+		// Hash comparison
+		if !bytes.Equal(srcHash, dstHash) { // Hash mismatch (FAIL)
+
+			err = fmt.Errorf("hash mismatch between %q and %q", src, dst) // Set to latest error
+
+			logging.E(0, "Hash mismatch after move (src: %x, dest: %x)", srcHash, dstHash)
+			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
+				logging.E(0, "Unable to remove failed moved file %q: %q", dst, delErr)
+			}
+			// Do not return here, program will continue and attempt a copy
+
+		} else { // Hash match (SUCCESS)
+			logging.S(0, "Moved file: %q → %q", src, dst)
+			return nil
 		}
+	}
+
+	// removed wrapper: "if strings.Contains(err.Error(), "invalid cross-device link")"
+	// around the following block... Successful move should return nil above.
+
+	logging.E(0, "Encountered move error: %v... Falling back to copy for moving %q to %q", err, src, dst)
+
+	// Copy the file
+	if err := copyFile(src, dst); err != nil {
+		if err := os.Remove(dst); err != nil {
+			logging.E(0, "Failed to remove failed copied file %q due to error: %v", dst, err)
+		}
+		return fmt.Errorf("failed to copy file: %w", err)
+	}
+
+	// Verify copy with hash comparison
+	dstHash, copyDstHashErr := calculateFileHash(dst)
+
+	// Failed to verify destination file hash
+	if copyDstHashErr != nil {
+		logging.W("Failed to calculate destination file hash, copy may or may not have failed: %v\n\nAttempted move: %q → %q", copyDstHashErr, src, dst)
 		return nil
 	}
 
-	logging.S(0, "Moved file: %q → %q", src, dst)
-
-	// If cross-device error, fall back to copy+delete
-	if strings.Contains(err.Error(), "invalid cross-device link") {
-		logging.D(1, "Falling back to copy for moving %q to %q", src, dst)
-
-		// Copy the file
-		if err := copyFile(src, dst); err != nil {
-			if err := os.Remove(dst); err != nil {
-				logging.E(0, "Failed to remove %q: %v", dst, err)
-			}
-			return fmt.Errorf("failed to copy file: %w", err)
+	// Hash mismatch
+	if !bytes.Equal(srcHash, dstHash) {
+		if err := os.Remove(dst); err != nil {
+			logging.E(0, "Failed to remove failed copied file %q due to error: %v", dst, err)
 		}
-
-		// Verify copy with hash comparison
-		dstHash, verifyErr := calculateFileHash(dst)
-		if verifyErr != nil {
-			if err := os.Remove(dst); err != nil {
-				logging.E(0, "Failed to remove %q: %v", dst, err)
-			}
-			return fmt.Errorf("copy verification failed: %w", verifyErr)
-		}
-		if !bytes.Equal(srcHash, dstHash) {
-			if err := os.Remove(dst); err != nil {
-				logging.E(0, "Failed to remove %q: %v", dst, err)
-			}
-			return fmt.Errorf("hash mismatch after copy")
-		}
-
-		// Remove source after successful copy and verification
-		if err := os.Remove(src); err != nil {
-			logging.E(0, "Failed to remove source file after verified copy: %v", err)
-		}
-		return nil
+		return fmt.Errorf("hash mismatch after copy, removed failed copied file %q", dst)
 	}
-	return fmt.Errorf("failed to move file: %w", err)
+
+	// Success...
+	// Remove source after successful copy and verification
+	if err := os.Remove(src); err != nil {
+		logging.E(0, "Failed to remove source file after verified copy due to error: %v", err)
+		// Return nil anyway, user will simply need to manually delete the original
+	}
+
+	return nil
 }
 
 // copyFile copies a file to a target destination.
