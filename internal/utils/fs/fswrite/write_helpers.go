@@ -22,13 +22,22 @@ func moveOrCopyFile(src, dst string) error {
 		return nil // Same file, nothing to do
 	}
 
+	var srcHashErr error
+
+	// Store original file hash
 	srcHash, err := calculateFileHash(src)
 	if err != nil {
-		return fmt.Errorf("failed to calculate initial source hash: %w", err)
+		srcHashErr = err
 	}
 
 	// Try rename (pure move) first
-	if err = os.Rename(src, dst); err == nil { // If err IS nil (rename succeeded)
+	if err = os.Rename(src, dst); err == nil { // If err IS nil (move ("rename") succeeded)
+
+		// Return with warning if no source hash calc
+		if srcHashErr != nil {
+			logging.W("Unable to calculate initial file hash due to error (%v)... Skipping move hash checks.\n\nAttempted move: %q → %q", srcHashErr, src, dst)
+			return nil
+		}
 
 		// Calculate destination file hash
 		dstHash, dstHashErr := calculateFileHash(dst)
@@ -43,8 +52,8 @@ func moveOrCopyFile(src, dst string) error {
 		if !bytes.Equal(srcHash, dstHash) { // Hash mismatch (FAIL)
 
 			err = fmt.Errorf("hash mismatch between %q and %q", src, dst) // Set to latest error
-
 			logging.E(0, "Hash mismatch after move (src: %x, dest: %x)", srcHash, dstHash)
+
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
 				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
@@ -62,39 +71,50 @@ func moveOrCopyFile(src, dst string) error {
 	logging.E(0, "Encountered move error: %v... Falling back to copy for moving %q to %q", err, src, dst)
 
 	// Copy the file
-	if err := copyFile(src, dst); err != nil {
+	if err := copyFile(src, dst); err == nil { // If err IS nil (copy succeeded)
+
+		// Return with warning if no source hash calc
+		if srcHashErr != nil {
+			logging.W("Unable to calculate initial file hash due to error (%v)... Skipping copy hash checks.\n\nAttempted copy: %q → %q", srcHashErr, src, dst)
+			return nil
+		}
+
+		// Verify copy with hash comparison
+		dstHash, copyDstHashErr := calculateFileHash(dst)
+
+		// Failed to verify destination file hash
+		if copyDstHashErr != nil {
+			logging.W("Failed to calculate destination file hash, copy may or may not have failed: %v\n\nAttempted copy: %q → %q", copyDstHashErr, src, dst)
+			return nil
+		}
+
+		// Hash mismatch
+		if !bytes.Equal(srcHash, dstHash) {
+
+			logging.E(0, "Hash mismatch after move (src: %x, dest: %x)", srcHash, dstHash)
+
+			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
+				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
+			}
+			return fmt.Errorf("hash mismatch between %q and %q", src, dst)
+		}
+
+		// Else hash match (SUCCESS)
+
+		// Remove source after successful copy and verification
+		if err := os.Remove(src); err != nil {
+			logging.W("Failed to remove source file after verified copy due to error: %v", err)
+			// Do not return error, user will simply need to manually delete the original
+		}
+
+		logging.S(0, "Copied file and removed original: %q → %q", src, dst)
+		return nil
+	} else {
 		if err := os.Remove(dst); err != nil {
 			logging.E(0, "Failed to remove failed copied file %q due to error: %v", dst, err)
 		}
-		return fmt.Errorf("failed to copy file: %w", err)
+		return fmt.Errorf("failed to copy file %q → %q: %w", src, dst, err)
 	}
-
-	// Verify copy with hash comparison
-	dstHash, copyDstHashErr := calculateFileHash(dst)
-
-	// Failed to verify destination file hash
-	if copyDstHashErr != nil {
-		logging.W("Failed to calculate destination file hash, copy may or may not have failed: %v\n\nAttempted move: %q → %q", copyDstHashErr, src, dst)
-		return nil
-	}
-
-	// Hash mismatch
-	if !bytes.Equal(srcHash, dstHash) {
-		if err := os.Remove(dst); err != nil {
-			logging.E(0, "Unable to remove failed copied file %q due to error: %v", dst, err)
-		}
-		return fmt.Errorf("hash mismatch after copy, removed failed copied file %q", dst)
-	}
-
-	// Success...
-	// Remove source after successful copy and verification
-	if err := os.Remove(src); err != nil {
-		logging.E(0, "Failed to remove source file after verified copy due to error: %v", err)
-		// Return nil anyway, user will simply need to manually delete the original
-	}
-
-	logging.S(0, "Copied file and removed original: %q → %q", src, dst)
-	return nil
 }
 
 // copyFile copies a file to a target destination.
