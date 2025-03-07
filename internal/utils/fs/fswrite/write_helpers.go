@@ -51,8 +51,7 @@ func moveOrCopyFile(src, dst string) error {
 		// Hash comparison
 		if !bytes.Equal(srcHash, dstHash) { // Hash mismatch (FAIL)
 
-			err = fmt.Errorf("hash mismatch between %q and %q", src, dst) // Set to latest error
-			logging.E(0, "Hash mismatch after move (src: %x, dest: %x)", srcHash, dstHash)
+			err = fmt.Errorf("hash mismatch (source: %x, destination: %x)\n\nAttempted move %q → %q", srcHash, dstHash, src, dst)
 
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
 				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
@@ -68,7 +67,7 @@ func moveOrCopyFile(src, dst string) error {
 	// removed wrapper: "if strings.Contains(err.Error(), "invalid cross-device link")"
 	// around the following block... Successful move should return nil above.
 
-	logging.E(0, "Encountered move error: %v... Falling back to copy for moving %q to %q", err, src, dst)
+	logging.E(0, "Move error: %v\n\nAttempting to copy %q to %q instead...", err, src, dst)
 
 	// Copy the file
 	if err := copyFile(src, dst); err == nil { // If err IS nil (copy succeeded)
@@ -88,15 +87,12 @@ func moveOrCopyFile(src, dst string) error {
 			return nil
 		}
 
-		// Hash mismatch
-		if !bytes.Equal(srcHash, dstHash) {
-
-			logging.E(0, "Hash mismatch after move (src: %x, dest: %x)", srcHash, dstHash)
-
+		// Hash comparison
+		if !bytes.Equal(srcHash, dstHash) { // Hash mismatch (FAIL)
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
 				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
-			return fmt.Errorf("hash mismatch between %q and %q", src, dst)
+			return fmt.Errorf("hash mismatch after copy (source: %x, destination: %x)\n\nAttempted copy %q → %q", srcHash, dstHash, src, dst)
 		}
 
 		// Else hash match (SUCCESS)
