@@ -125,7 +125,6 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 			if err := moveOrCopyFile(fs.RenamedVideo, videoDestPath); err != nil {
 				return fmt.Errorf("failed to move video file from %q → %q: %w", fs.RenamedVideo, videoDestPath, err)
 			}
-			logging.S(0, "Moved file: %q → %q", fs.RenamedVideo, videoDestPath)
 		}
 	}
 
@@ -135,7 +134,6 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 			if err := moveOrCopyFile(fs.RenamedMeta, metaDestPath); err != nil {
 				return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.RenamedMeta, metaDestPath, err)
 			}
-			logging.S(0, "Moved file: %q → %q", fs.RenamedMeta, metaDestPath)
 		}
 	}
 	return nil
