@@ -46,7 +46,7 @@ func moveOrCopyFile(src, dst string) error {
 
 			logging.E(0, "Hash mismatch after move (src: %x, dest: %x)", srcHash, dstHash)
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
-				logging.E(0, "Unable to remove failed moved file %q: %q", dst, delErr)
+				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
 			// Do not return here, program will continue and attempt a copy
 
@@ -81,7 +81,7 @@ func moveOrCopyFile(src, dst string) error {
 	// Hash mismatch
 	if !bytes.Equal(srcHash, dstHash) {
 		if err := os.Remove(dst); err != nil {
-			logging.E(0, "Failed to remove failed copied file %q due to error: %v", dst, err)
+			logging.E(0, "Unable to remove failed copied file %q due to error: %v", dst, err)
 		}
 		return fmt.Errorf("hash mismatch after copy, removed failed copied file %q", dst)
 	}
@@ -93,6 +93,7 @@ func moveOrCopyFile(src, dst string) error {
 		// Return nil anyway, user will simply need to manually delete the original
 	}
 
+	logging.S(0, "Copied file and removed original: %q → %q", src, dst)
 	return nil
 }
 
