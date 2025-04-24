@@ -243,7 +243,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 	sb := strings.Builder{}
 	sb.Grow(len(transcodeCodec) + 1 + len(gpuFlag))
 	sb.WriteString(transcodeCodec)
-	sb.WriteRune('_')
+	sb.WriteByte('_')
 	sb.WriteString(gpuFlag)
 
 	b.gpuAccelCodec = []string{"-c:v", sb.String()}

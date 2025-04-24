@@ -271,6 +271,9 @@ func checkFileDirs() error {
 	// Make file batches
 	if len(videoFiles) > 0 {
 		for i := range videoFiles {
+
+			logging.D(3, "Checking video file %q ...", videoFiles[i])
+
 			vInfo, err := os.Stat(videoFiles[i])
 			if err != nil {
 				return err
@@ -278,6 +281,8 @@ func checkFileDirs() error {
 			if vInfo.IsDir() {
 				return fmt.Errorf("directory %q entered instead of file", vInfo.Name())
 			}
+
+			logging.D(3, "Checking JSON file %q ...", jsonFiles[i])
 
 			jInfo, err := os.Stat(jsonFiles[i])
 			if err != nil {
