@@ -1,11 +1,13 @@
 package ffmpeg
 
 import (
+	"fmt"
 	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -290,6 +292,19 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		return
 	}
 
+	// IMPLEMENT: Remux if output codecs are desired
+
+	// if viper.IsSet("output-video-codec") || viper.IsSet("output-audio-codec") {
+	// 	vCodec, aCodec, err := b.checkCodecs()
+	// 	if err != nil {
+	// 		logging.E(0, "Error checking codecs: %v", err)
+	// 	}
+	// 	if vCodec == "output-video-codec" && aCodec == "output-audio-codec" {
+	// 		b.formatFlags = copyPreset.flags
+	// 		return
+	// 	}
+	// }
+
 	logging.I("Input extension: %q, output extension: %q, File: %s",
 		inExt, outExt, b.inputFile)
 
@@ -426,4 +441,40 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
+}
+
+// checkCodecs checks the input codec to determine if a straight remux is possible.
+func (b *ffCommandBuilder) checkCodecs() (videoCodec, audioCodec string, err error) {
+
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=codec_name",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		b.inputFile,
+	)
+
+	videoCodecBytes, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("cannot read video codec: %v", err)
+	}
+	videoCodec = strings.TrimSpace(string(videoCodecBytes))
+
+	cmd = exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "a:0", // first audio stream
+		"-show_entries", "stream=codec_name",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		b.inputFile,
+	)
+
+	audioCodecBytes, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("cannot read audio codec: %v", err)
+	}
+	audioCodec = strings.TrimSpace(string(audioCodecBytes))
+
+	logging.D(2, "Detected codecs - video: %s, audio: %s", videoCodec, audioCodec)
+
+	return videoCodec, audioCodec, nil
 }

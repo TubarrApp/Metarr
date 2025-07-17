@@ -69,6 +69,7 @@ var formatMap = map[string]map[string]formatPreset{
 	},
 	consts.ExtWEBM: {
 		consts.ExtWEBM: copyPreset,
+		consts.ExtMP4:  copyPreset,
 		"*":            webmPreset,
 	},
 }
