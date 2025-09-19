@@ -234,7 +234,7 @@ func validateMetaOps() error {
 
 		case "delete-date-tag":
 			if len(parts) != 4 {
-				return errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+				return errors.New("delete-date-tag should be in format 'field:delete-date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
 			var loc enums.MetaDateTagLocation
 
@@ -254,7 +254,7 @@ func validateMetaOps() error {
 					Format: e,
 				}
 				fmt.Println()
-				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
+				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
 				fmt.Println()
 			}
 

@@ -135,6 +135,11 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 		path      string
 	)
 
+	if len(files) == 0 {
+		logging.I("No temporary files to clean up")
+		return nil
+	}
+
 	for _, data := range files {
 		path = data.TempOutputFilePath
 		if _, err := os.Stat(path); err == nil {
