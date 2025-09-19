@@ -48,6 +48,10 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		move = true
 	}
 
+	if cfg.IsSet(keys.InputFileDatePfx) {
+		rename = true
+	}
+
 	return rename, move
 }
 

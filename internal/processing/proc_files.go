@@ -251,6 +251,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 
 	// Strip existing date tag
 	if cfg.GetBool(keys.DeleteDateTagPfx) {
+		logging.I("Stripping date tags from files...")
 		err := transformations.StripDateTag(matchedFiles, videoMap, metaMap)
 		if err != nil {
 			logging.E(0, "Failed to strip date tags: %v", err)

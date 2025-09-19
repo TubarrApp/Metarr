@@ -222,19 +222,19 @@ func copyFile(src, dst string) error {
 func shouldProcess(src, dst string, isVid, skipVids bool) bool {
 	switch {
 	case skipVids && isVid:
-		logging.I("Not processing video files. Skip vids is %v", skipVids)
+		logging.I("Not moving or renaming video files. Skip vids is %v", skipVids)
 		return false
 
 	case strings.EqualFold(src, dst):
-		logging.I("Not processing files. Source and destination match: Src: %v, Dest %v", src, dst)
+		logging.I("Not moving or renaming files. Source and destination match: Src: %v, Dest %v", src, dst)
 		return false
 
 	case src == "", dst == "":
-		logging.I("Not processing files. Source or destination path empty: Src: %v, Dest %v", src, dst)
+		logging.I("Not moving or renaming files. Source or destination path empty: Src: %v, Dest %v", src, dst)
 		return false
 
 	default:
-		logging.I("Processing file operations for %q", src)
+		logging.I("Conducting move/rename file operations for %q", src)
 		return true
 	}
 }

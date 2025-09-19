@@ -101,7 +101,8 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	}
 
 	if fs.RenamedVideo == "" && fs.RenamedMeta == "" {
-		return fmt.Errorf("video and metafile source strings both empty for %q", fs.Fd.OriginalVideoBaseName)
+		logging.D(1, "Skipping video or metadata renaming, as the renamed strings are empty")
+		return nil
 	}
 
 	dstIn := cfg.GetString(keys.MoveOnComplete)

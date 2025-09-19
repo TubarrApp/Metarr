@@ -4,9 +4,9 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/cfg"
-	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/regex"
 	"metarr/internal/models"
 	"metarr/internal/utils/fs/fswrite"
 	"metarr/internal/utils/logging"
@@ -229,7 +229,7 @@ func StripDateTag(
 			if open == 0 && close > open {
 				dateStr := videoBase[open+1 : close]
 
-				if _, err := dates.ParseNumDate(dateStr); err != nil {
+				if !regex.DateTagCompile().MatchString(dateStr) {
 					logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
 					goto metadata // skip video rename if invalid
 				}
@@ -275,8 +275,8 @@ func StripDateTag(
 		if open == 0 && close > open {
 			dateStr := metaBase[open+1 : close]
 
-			if _, err := dates.ParseNumDate(dateStr); err != nil {
-				logging.I("%v in metadata file %v is not a valid date", dateStr, metaPath)
+			if !regex.DateTagCompile().MatchString(dateStr) {
+				logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
 				continue
 			}
 

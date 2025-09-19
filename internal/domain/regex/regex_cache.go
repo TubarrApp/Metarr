@@ -10,6 +10,7 @@ import (
 
 var (
 	AnsiEscape                *regexp.Regexp
+	DateTagDetect             *regexp.Regexp
 	ExtraSpaces               *regexp.Regexp
 	InvalidChars              *regexp.Regexp
 	SpecialChars              *regexp.Regexp
@@ -19,6 +20,7 @@ var (
 
 	// Initialize sync.Once for each compilation
 	ansiEscapeOnce              sync.Once
+	dateTagDetectOnce           sync.Once
 	extraSpacesOnce             sync.Once
 	invalidCharsOnce            sync.Once
 	specialCharsOnce            sync.Once
@@ -99,6 +101,17 @@ func AnsiEscapeCompile() *regexp.Regexp {
 		AnsiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	})
 	return AnsiEscape
+}
+
+// DateTagCompile compiles regex to detect date structures (used in filename date tag stripping)
+func DateTagCompile() *regexp.Regexp {
+	dateTagDetectOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+
+		DateTagDetect = regexp.MustCompile(`^\d{2,4}-\d{2}-\d{2}$`)
+	})
+	return DateTagDetect
 }
 
 // ExtraSpacesCompile compiles regex for extra spaces
