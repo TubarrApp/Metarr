@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"metarr/internal/cfg"
+	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/metadata/metatags"
@@ -326,7 +327,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 			switch op {
 			case enums.DatetagDelOp:
 				before := strVal
-				result := strings.TrimPrefix(strVal, tag)
+				result := dates.StripDateTag(strVal, d.Loc)
 				result = cleanFieldValue(result)
 
 				j[fld] = result
@@ -347,7 +348,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 			switch op {
 			case enums.DatetagDelOp:
 				before := strVal
-				result := strings.TrimPrefix(strVal, tag)
+				result := dates.StripDateTag(strVal, d.Loc)
 				result = cleanFieldValue(result)
 
 				j[fld] = result

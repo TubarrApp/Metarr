@@ -4,6 +4,7 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/cfg"
+	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
@@ -211,8 +212,8 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	return nil
 }
 
-// StripDateTag strips [date] prefixes from video and metadata files.
-func StripDateTag(
+// StripDateTagFromFilename strips [date] prefixes from video and metadata files.
+func StripDateTagFromFilename(
 	matchedFiles map[string]*models.FileData,
 	videoMap map[string]*models.FileData,
 	metaMap map[string]*models.FileData,
@@ -234,7 +235,7 @@ func StripDateTag(
 					goto metadata // skip video rename if invalid
 				}
 
-				newBase := strings.TrimLeft(videoBase[close+1:], " ")
+				newBase := dates.StripDateTag(videoBase, enums.DatetagLocPrefix)
 				newVideoPath := filepath.Join(dir, newBase)
 
 				if err := os.Rename(fdata.OriginalVideoPath, newVideoPath); err != nil {
@@ -280,7 +281,7 @@ func StripDateTag(
 				continue
 			}
 
-			newBase := strings.TrimLeft(metaBase[close+1:], " ")
+			newBase := dates.StripDateTag(metaBase, enums.DatetagLocPrefix)
 			newMetaPath := filepath.Join(filepath.Dir(metaPath), newBase)
 
 			if err := os.Rename(metaPath, newMetaPath); err != nil {

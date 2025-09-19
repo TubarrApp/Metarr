@@ -3,6 +3,7 @@ package dates
 import (
 	"fmt"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/regex"
 	"metarr/internal/utils/logging"
 	"strconv"
 	"strings"
@@ -251,4 +252,35 @@ func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
 	default:
 		return false, false
 	}
+}
+
+// StripDateTag removes [yy-mm-dd] or [yyyy-mm-dd] tags from a field string.
+func StripDateTag(val string, loc enums.MetaDateTagLocation) string {
+	val = strings.TrimSpace(val)
+
+	switch loc {
+	case enums.DatetagLocPrefix:
+		open := strings.IndexRune(val, '[')
+		close := strings.IndexRune(val, ']')
+
+		if open == 0 && close > open {
+			dateStr := val[open+1 : close]
+			if regex.DateTagCompile().MatchString(dateStr) {
+				return strings.TrimLeft(val[close+1:], " ")
+			}
+		}
+
+	case enums.DatetagLocSuffix:
+		open := strings.LastIndex(val, "[")
+		close := strings.LastIndex(val, "]")
+
+		if open >= 0 && close > open && close == len(val)-1 {
+			dateStr := val[open+1 : close]
+			if regex.DateTagCompile().MatchString(dateStr) {
+				return strings.TrimSpace(val[:open])
+			}
+		}
+	}
+
+	return val
 }
