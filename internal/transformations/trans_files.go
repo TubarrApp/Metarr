@@ -4,12 +4,14 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/cfg"
+	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/fs/fswrite"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/validation"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -206,6 +208,102 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	}
 
 	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
+	return nil
+}
+
+// StripDateTag strips [date] prefixes from video and metadata files.
+func StripDateTag(
+	matchedFiles map[string]*models.FileData,
+	videoMap map[string]*models.FileData,
+	metaMap map[string]*models.FileData,
+) error {
+	for oldPath, fdata := range matchedFiles {
+		// --- Handle video file ---
+		if fdata.OriginalVideoPath != "" {
+			dir := filepath.Dir(fdata.OriginalVideoPath)
+			videoBase := filepath.Base(fdata.OriginalVideoPath)
+
+			open := strings.IndexRune(videoBase, '[')
+			close := strings.IndexRune(videoBase, ']')
+
+			if open == 0 && close > open {
+				dateStr := videoBase[open+1 : close]
+
+				if _, err := dates.ParseNumDate(dateStr); err != nil {
+					logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
+					goto metadata // skip video rename if invalid
+				}
+
+				newBase := strings.TrimLeft(videoBase[close+1:], " ")
+				newVideoPath := filepath.Join(dir, newBase)
+
+				if err := os.Rename(fdata.OriginalVideoPath, newVideoPath); err != nil {
+					return fmt.Errorf("failed to rename video %q -> %q: %w", fdata.OriginalVideoPath, newVideoPath, err)
+				}
+
+				// Update FileData fields
+				fdata.OriginalVideoPath = newVideoPath
+				fdata.OriginalVideoBaseName = newBase
+
+				// Update map keys
+				delete(videoMap, oldPath)
+				videoMap[newVideoPath] = fdata
+
+				delete(matchedFiles, oldPath)
+				matchedFiles[newVideoPath] = fdata
+				oldPath = newVideoPath
+			}
+		}
+
+	metadata:
+		// --- Handle metadata file ---
+		var metaPath string
+		var metaBase string
+		if fdata.JSONFilePath != "" {
+			metaPath = fdata.JSONFilePath
+			metaBase = filepath.Base(metaPath)
+		} else if fdata.NFOFilePath != "" {
+			metaPath = fdata.NFOFilePath
+			metaBase = filepath.Base(metaPath)
+		} else {
+			continue
+		}
+
+		open := strings.IndexRune(metaBase, '[')
+		close := strings.IndexRune(metaBase, ']')
+
+		if open == 0 && close > open {
+			dateStr := metaBase[open+1 : close]
+
+			if _, err := dates.ParseNumDate(dateStr); err != nil {
+				logging.I("%v in metadata file %v is not a valid date", dateStr, metaPath)
+				continue
+			}
+
+			newBase := strings.TrimLeft(metaBase[close+1:], " ")
+			newMetaPath := filepath.Join(filepath.Dir(metaPath), newBase)
+
+			if err := os.Rename(metaPath, newMetaPath); err != nil {
+				return fmt.Errorf("failed to rename metadata %q -> %q: %w", metaPath, newMetaPath, err)
+			}
+
+			// Update FileData fields
+			if fdata.JSONFilePath != "" {
+				fdata.JSONFilePath = newMetaPath
+				fdata.JSONBaseName = newBase
+			} else if fdata.NFOFilePath != "" {
+				fdata.NFOFilePath = newMetaPath
+				fdata.NFOBaseName = newBase
+			}
+
+			// Update map keys
+			delete(metaMap, oldPath)
+			metaMap[newMetaPath] = fdata
+
+			delete(matchedFiles, oldPath)
+			matchedFiles[newMetaPath] = fdata
+		}
+	}
 	return nil
 }
 

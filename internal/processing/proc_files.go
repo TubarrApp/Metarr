@@ -9,6 +9,7 @@ import (
 	"metarr/internal/ffmpeg"
 	"metarr/internal/metadata/procmeta"
 	"metarr/internal/models"
+	"metarr/internal/transformations"
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"os"
@@ -246,6 +247,14 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		}
 	} else {
 		matchedFiles = metaMap
+	}
+
+	// Strip existing date tag
+	if cfg.GetBool(keys.DeleteDateTagPfx) {
+		err := transformations.StripDateTag(matchedFiles, videoMap, metaMap)
+		if err != nil {
+			logging.E(0, "Failed to strip date tags: %v", err)
+		}
 	}
 
 	var (

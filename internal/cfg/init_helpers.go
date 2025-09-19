@@ -83,6 +83,12 @@ func initAllFileTransformers() error {
 		return err
 	}
 
+	// Strip existing date tag
+	rootCmd.PersistentFlags().Bool(keys.DeleteDateTagPfx, false, "Delete existing date tags from files")
+	if err := viper.BindPFlag(keys.DeleteDateTagPfx, rootCmd.PersistentFlags().Lookup(keys.DeleteDateTagPfx)); err != nil {
+		return err
+	}
+
 	// Rename convention
 	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, fixes-only, or skip)")
 	if err := viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle)); err != nil {
