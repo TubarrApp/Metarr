@@ -69,8 +69,8 @@ const (
 type MetaDateTagLocation int
 
 const (
-	DatetagLocPrefix MetaDateTagLocation = iota
-	DatetagLocSuffix
+	DateTagLogPrefix MetaDateTagLocation = iota
+	DateTagLogSuffix
 )
 
 // MetaDateTaggingType determines the type of operation to perform for date tags.

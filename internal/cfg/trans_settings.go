@@ -214,9 +214,9 @@ func validateMetaOps() error {
 
 			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DatetagLocPrefix
+				loc = enums.DateTagLogPrefix
 			case "suffix":
-				loc = enums.DatetagLocSuffix
+				loc = enums.DateTagLogSuffix
 			default:
 				return errors.New("date tag location must be prefix, or suffix")
 			}
@@ -240,9 +240,9 @@ func validateMetaOps() error {
 
 			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DatetagLocPrefix
+				loc = enums.DateTagLogPrefix
 			case "suffix":
-				loc = enums.DatetagLocSuffix
+				loc = enums.DateTagLogSuffix
 			default:
 				return errors.New("date tag location must be prefix, or suffix")
 			}

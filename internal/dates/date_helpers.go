@@ -259,7 +259,7 @@ func StripDateTag(val string, loc enums.MetaDateTagLocation) string {
 	val = strings.TrimSpace(val)
 
 	switch loc {
-	case enums.DatetagLocPrefix:
+	case enums.DateTagLogPrefix:
 		open := strings.IndexRune(val, '[')
 		close := strings.IndexRune(val, ']')
 
@@ -270,7 +270,7 @@ func StripDateTag(val string, loc enums.MetaDateTagLocation) string {
 			}
 		}
 
-	case enums.DatetagLocSuffix:
+	case enums.DateTagLogSuffix:
 		open := strings.LastIndex(val, "[")
 		close := strings.LastIndex(val, "]")
 

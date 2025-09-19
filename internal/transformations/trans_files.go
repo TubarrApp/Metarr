@@ -235,7 +235,7 @@ func StripDateTagFromFilename(
 					goto metadata // skip video rename if invalid
 				}
 
-				newBase := dates.StripDateTag(videoBase, enums.DatetagLocPrefix)
+				newBase := dates.StripDateTag(videoBase, enums.DateTagLogPrefix)
 				newVideoPath := filepath.Join(dir, newBase)
 
 				if err := os.Rename(fdata.OriginalVideoPath, newVideoPath); err != nil {
@@ -281,7 +281,7 @@ func StripDateTagFromFilename(
 				continue
 			}
 
-			newBase := dates.StripDateTag(metaBase, enums.DatetagLocPrefix)
+			newBase := dates.StripDateTag(metaBase, enums.DateTagLogPrefix)
 			newMetaPath := filepath.Join(filepath.Dir(metaPath), newBase)
 
 			if err := os.Rename(metaPath, newMetaPath); err != nil {
