@@ -348,7 +348,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	// Delete date tag first, user's may want to delete and re-build
 	if cfg.IsSet(keys.MDelDateTagMap) {
-		logging.D(3, "Stripping metafield date tag...")
+		logging.D(1, "Stripping metafield date tag...")
 		if delDateTagMap, ok := cfg.Get(keys.MDelDateTagMap).(map[string]models.MetaDateTag); ok {
 
 			if len(delDateTagMap) > 0 {
@@ -368,7 +368,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	// Add date tag
 	if cfg.IsSet(keys.MDateTagMap) {
-		logging.D(3, "Adding metafield date tag...")
+		logging.D(1, "Adding metafield date tag...")
 		if dateTagMap, ok := cfg.Get(keys.MDateTagMap).(map[string]models.MetaDateTag); ok {
 
 			if len(dateTagMap) > 0 {
@@ -387,7 +387,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	}
 
 	if !edited {
-		logging.D(2, "No date tag edits made, returning...")
+		logging.D(1, "No date tag edits made, returning...")
 		return false, nil
 	}
 

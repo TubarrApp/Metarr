@@ -315,9 +315,9 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 			return false, fmt.Errorf("failed to generate date tag for field %q: %w", fld, err)
 		}
 
-		if strings.Contains(strVal, tag) {
+		if op == enums.DatetagAddOp && strings.Contains(strVal, tag) {
 			logging.I("Tag %q already exists in field %q", tag, strVal)
-			return false, nil
+			continue // skip this field
 		}
 
 		// Apply the tag based on location
