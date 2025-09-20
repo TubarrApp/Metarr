@@ -274,8 +274,8 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 		return "", "", false, false
 	}
 
-	if (transcodeCodec == "" && gpuFlag != "") || (transcodeCodec != "" && gpuFlag == "") {
-		logging.E(0, "Need both HW accel option (entered: %q) and codec (entered: %q), falling back to software transcode...", gpuFlag, transcodeCodec)
+	if gpuFlag != "" && transcodeCodec == "" {
+		logging.E(0, "HW accel (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
 		return "", "", false, false
 	}
 
