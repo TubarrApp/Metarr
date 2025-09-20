@@ -291,14 +291,13 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 		}
 	}
 
-	if cfg.IsSet(keys.TranscodeCodec) {
-		transcodeCodec = cfg.GetString(keys.TranscodeCodec)
-	}
-
-	// No GPU flag or codec
-	if gpuFlag == "" && transcodeCodec == "" {
+	if gpuFlag == "" {
 		logging.I("HW acceleration flags disabled, using software encode/decode")
 		return "", "", false, false
+	}
+
+	if cfg.IsSet(keys.TranscodeCodec) {
+		transcodeCodec = cfg.GetString(keys.TranscodeCodec)
 	}
 
 	// GPU flag but no codec
