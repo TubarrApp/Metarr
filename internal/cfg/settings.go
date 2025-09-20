@@ -626,7 +626,7 @@ func validateTranscodeCodec() error {
 
 	switch c {
 	case "h264", "hevc":
-		viper.Set(keys.TranscodeCodec, "h264")
+		viper.Set(keys.TranscodeCodec, c)
 	case "h265":
 		viper.Set(keys.TranscodeCodec, "hevc")
 	default:

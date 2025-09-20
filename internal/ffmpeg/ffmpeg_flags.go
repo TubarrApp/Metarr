@@ -19,7 +19,7 @@ var (
 	// Standard h264 conversion
 	h264Preset = formatPreset{
 		flags: concat(
-			consts.VideoToH264Balanced[:],
+			consts.VideoToH264[:],
 			consts.AudioToAAC[:],
 			consts.AudioBitrate[:],
 		),
@@ -37,7 +37,7 @@ var (
 	// Full webm conversion preset
 	webmPreset = formatPreset{
 		flags: concat(
-			consts.VideoToH264Balanced[:],
+			consts.VideoToH264[:],
 			consts.KeyframeBalanced[:],
 			consts.AudioToAAC[:],
 			consts.AudioBitrate[:],

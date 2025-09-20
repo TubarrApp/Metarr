@@ -15,6 +15,8 @@ var (
 // Video flags
 var (
 	VideoCodecCopy      = [...]string{"-c:v", "copy"}
+	VideoToH264         = [...]string{"-c:v", "libx264"}
+	VideoToH265         = [...]string{"-c:v", "libx265"}
 	VideoToH264Balanced = [...]string{"-c:v", "libx264", "-profile:v", "main"}
 	CRFQuality          = [...]string{"-crf", "23"}
 	PixelFmtYuv420p     = [...]string{"-pix_fmt", "yuv420p"}

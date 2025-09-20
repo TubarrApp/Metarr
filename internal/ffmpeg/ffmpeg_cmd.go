@@ -14,14 +14,15 @@ import (
 
 // ffCommandBuilder handles FFmpeg command construction
 type ffCommandBuilder struct {
-	inputFile     string
-	outputFile    string
-	formatFlags   []string
-	gpuAccel      []string
-	gpuAccelCodec []string
-	audioCodec    []string
-	metadataMap   map[string]string
-	builder       *strings.Builder
+	inputFile          string
+	outputFile         string
+	formatFlags        []string
+	gpuAccel           []string
+	gpuAccelCodec      []string
+	audioCodec         []string
+	videoCodecSoftware []string
+	metadataMap        map[string]string
+	builder            *strings.Builder
 }
 
 // newFfCommandBuilder creates a new FFmpeg command builder
@@ -41,6 +42,10 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
 		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
+	}
+
+	if !useAccel && cfg.IsSet(keys.TranscodeCodec) {
+		b.setSoftwareVideoCodec()
 	}
 
 	b.setAudioCodec()
@@ -224,6 +229,27 @@ func (b *ffCommandBuilder) setAudioCodec() {
 	}
 }
 
+// setSoftwareVideoCodec sets the audio codec for transcode operations.
+func (b *ffCommandBuilder) setSoftwareVideoCodec() {
+	if !cfg.IsSet(keys.TranscodeCodec) {
+		return
+	}
+
+	codec := cfg.GetString(keys.TranscodeCodec)
+	codec = strings.ToLower(codec)
+	codec = strings.ReplaceAll(codec, " ", "")
+	codec = strings.ReplaceAll(codec, ".", "")
+
+	switch codec {
+	case "h264", "x264":
+		b.videoCodecSoftware = consts.VideoToH264[:]
+	case "hevc", "h265":
+		b.videoCodecSoftware = consts.VideoToH265[:]
+	default:
+		b.videoCodecSoftware = nil
+	}
+}
+
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 	switch gpuFlag {
@@ -269,11 +295,13 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 		transcodeCodec = cfg.GetString(keys.TranscodeCodec)
 	}
 
+	// No GPU flag or codec
 	if gpuFlag == "" && transcodeCodec == "" {
 		logging.I("HW acceleration flags disabled, using software encode/decode")
 		return "", "", false, false
 	}
 
+	// GPU flag but no codec
 	if gpuFlag != "" && transcodeCodec == "" {
 		logging.E(0, "HW accel (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
 		return "", "", false, false
@@ -291,19 +319,6 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		b.formatFlags = copyPreset.flags
 		return
 	}
-
-	// IMPLEMENT: Remux if output codecs are desired
-
-	// if viper.IsSet("output-video-codec") || viper.IsSet("output-audio-codec") {
-	// 	vCodec, aCodec, err := b.checkCodecs()
-	// 	if err != nil {
-	// 		logging.E(0, "Error checking codecs: %v", err)
-	// 	}
-	// 	if vCodec == "output-video-codec" && aCodec == "output-audio-codec" {
-	// 		b.formatFlags = copyPreset.flags
-	// 		return
-	// 	}
-	// }
 
 	logging.I("Input extension: %q, output extension: %q, File: %s",
 		inExt, outExt, b.inputFile)
@@ -331,7 +346,10 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
 	for i, entry := range b.formatFlags {
 		switch entry {
+
 		case "-c:v":
+
+			// HW Accel Case
 			if len(b.gpuAccelCodec) == 2 {
 				if len(b.formatFlags) >= i {
 					logging.I("Replacing preset %q with user selected %q", b.formatFlags[i+1], b.gpuAccelCodec[1])
@@ -352,6 +370,17 @@ func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
 					logging.E(0, "Unexpected end of format flags")
 				}
 			}
+
+			// Software codec case
+			if len(b.videoCodecSoftware) == 2 {
+				if len(b.formatFlags) > i {
+					logging.I("Replacing preset %q with software codec %q", b.formatFlags[i+1], b.videoCodecSoftware[1])
+					b.formatFlags[i+1] = b.videoCodecSoftware[1]
+				} else {
+					logging.E(0, "Unexpected end of format flags")
+				}
+			}
+
 		case "-c:a":
 			if len(b.audioCodec) == 2 {
 				if len(b.formatFlags) >= i {
@@ -435,6 +464,7 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccel)
 	totalCapacity += len(b.audioCodec)
+	totalCapacity += len(b.videoCodecSoftware)
 	totalCapacity += len(consts.AutoHWAccel)
 	totalCapacity += len(b.gpuAccelCodec)
 	totalCapacity += len(b.formatFlags)
