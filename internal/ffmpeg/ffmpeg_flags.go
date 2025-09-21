@@ -38,7 +38,6 @@ var (
 	webmPreset = formatPreset{
 		flags: concat(
 			consts.VideoToH264[:],
-			consts.KeyframeBalanced[:],
 			consts.AudioToAAC[:],
 			consts.AudioBitrate[:],
 		),

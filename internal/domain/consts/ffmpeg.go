@@ -20,7 +20,6 @@ var (
 	VideoToH264Balanced = [...]string{"-c:v", "libx264", "-profile:v", "main"}
 	CRFQuality          = [...]string{"-crf", "23"}
 	PixelFmtYuv420p     = [...]string{"-pix_fmt", "yuv420p"}
-	KeyframeBalanced    = [...]string{"-g", "50", "-keyint_min", "30"}
 )
 
 // GPU hardware flags
@@ -33,5 +32,5 @@ var (
 
 // HW Accel Flags
 var (
-	VaapiCompatibility = []string{"-vf", "hwupload"}
+	VaapiCompatibility = []string{"-vf", "format=nv12,hwupload"}
 )
