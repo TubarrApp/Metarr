@@ -27,7 +27,6 @@ var (
 		flags: concat(
 			consts.VideoToH264[:],
 			consts.AudioToAAC[:],
-			consts.AudioBitrate[:],
 		),
 	}
 
@@ -36,7 +35,6 @@ var (
 		flags: concat(
 			consts.VideoCodecCopy[:],
 			consts.AudioToAAC[:],
-			consts.AudioBitrate[:],
 		),
 	}
 
@@ -45,7 +43,6 @@ var (
 		flags: concat(
 			consts.VideoToH264[:],
 			consts.AudioToAAC[:],
-			consts.AudioBitrate[:],
 		),
 	}
 )

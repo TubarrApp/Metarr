@@ -9,7 +9,6 @@ var (
 var (
 	AudioCodecCopy = [...]string{"-c:a", "copy"}
 	AudioToAAC     = [...]string{"-c:a", "aac"}
-	AudioBitrate   = [...]string{"-b:a", "256k"}
 )
 
 // Video flags

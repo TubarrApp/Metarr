@@ -278,10 +278,6 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 
 	args = append(args, "-y", "-i", b.inputFile)
 
-	if len(b.audioCodec) > 0 {
-		args = append(args, b.audioCodec...)
-	}
-
 	// Apply format flags if format flags exist
 	if len(b.formatFlags) > 0 {
 		args = append(args, b.formatFlags...)
