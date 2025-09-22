@@ -38,6 +38,10 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 // buildCommand constructs the complete FFmpeg command
 func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
 
+	if b.inputFile == "" || b.outputFile == "" {
+		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
+	}
+
 	gpuFlag, transcodeCodec, useAccel, autoHWAccel := b.getHWAccelFlags()
 
 	if useAccel {
@@ -264,10 +268,6 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 // buildFinalCommand assembles the final FFmpeg command.
 func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAccel bool) ([]string, error) {
 	args := make([]string, 0, calculateCommandCapacity(b))
-
-	if b.inputFile == "" || b.outputFile == "" {
-		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
-	}
 
 	switch {
 
