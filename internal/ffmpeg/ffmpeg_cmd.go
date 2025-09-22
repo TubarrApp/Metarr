@@ -163,8 +163,8 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 	}
 
 	// GPU flag but no codec
-	if gpuFlag != "" && transcodeCodec == "" {
-		logging.E(0, "HW accel (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
+	if gpuFlag != "auto" && transcodeCodec == "" {
+		logging.E(0, "Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
 		return "", "", false
 	}
 
