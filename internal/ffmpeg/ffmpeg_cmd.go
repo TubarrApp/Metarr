@@ -25,7 +25,7 @@ type ffCommandBuilder struct {
 	builder            *strings.Builder
 }
 
-// newFfCommandBuilder creates a new FFmpeg command builder
+// newFfCommandBuilder creates a new FFmpeg command builder.
 func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuilder {
 	return &ffCommandBuilder{
 		builder:     &strings.Builder{},
@@ -35,7 +35,7 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 	}
 }
 
-// buildCommand constructs the complete FFmpeg command
+// buildCommand constructs the complete FFmpeg command.
 func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
 
 	if b.inputFile == "" || b.outputFile == "" {
@@ -175,6 +175,7 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 
 	if gpuMap, exists := unsafeHardwareEncode[gpuFlag]; exists {
 		if unsafe, ok := gpuMap[vCodec]; ok && unsafe {
+			logging.I("Codec in input file %v is %v, which is not reliably safe for hardware transcoding of type %v. Falling back to software transcode.", b.inputFile, vCodec, gpuFlag)
 			return "", "", false, false
 		}
 	}
@@ -346,6 +347,10 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 
 // checkCodecs checks the input codec to determine if a straight remux is possible.
 func (b *ffCommandBuilder) checkCodecs() (videoCodec, audioCodec string, err error) {
+
+	if b.inputFile == "" {
+		return "", "", fmt.Errorf("input file is empty, cannot check codecs")
+	}
 
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
