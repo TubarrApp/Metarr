@@ -347,6 +347,10 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 // checkCodecs checks the input codec to determine if a straight remux is possible.
 func (b *ffCommandBuilder) checkCodecs() (videoCodec, audioCodec string, err error) {
 
+	if b.inputFile == "" {
+		return "", "", fmt.Errorf("input file is empty, cannot check codecs")
+	}
+
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
 		"-select_streams", "v:0",
