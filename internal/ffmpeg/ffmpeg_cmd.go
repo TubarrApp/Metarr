@@ -270,7 +270,7 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 
 // buildFinalCommand assembles the final FFmpeg command.
 func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]string, error) {
-	args := make([]string, 0, calculateCommandCapacity(b))
+	args := make([]string, 0, b.calculateCommandCapacity(gpuFlag))
 
 	if hwAccel {
 		args = append(args, b.gpuAccel...)
@@ -310,7 +310,7 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 }
 
 // calculateCommandCapacity determines the total length needed for the command.
-func calculateCommandCapacity(b *ffCommandBuilder) int {
+func (b *ffCommandBuilder) calculateCommandCapacity(gpuFlag string) int {
 	const (
 		base = 2 + // "-y", "-i"
 			1 + // <input file>
@@ -322,13 +322,20 @@ func calculateCommandCapacity(b *ffCommandBuilder) int {
 	)
 
 	totalCapacity := base
+	totalCapacity += 2 // "-hwaccel" and type
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccel)
-	totalCapacity += len(b.audioCodec)
 	totalCapacity += len(b.videoCodecSoftware)
-	totalCapacity += len(consts.AutoHWAccel)
 	totalCapacity += len(b.gpuAccelCodec)
 	totalCapacity += len(b.formatFlags)
+
+	if gpuFlag == "vaapi" {
+		totalCapacity += len(consts.VaapiCompatibility)
+	}
+
+	if cfg.IsSet(keys.TranscodeVideoFilter) {
+		totalCapacity += 1 + len(cfg.GetString(keys.TranscodeVideoFilter))
+	}
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
