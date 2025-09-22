@@ -52,8 +52,8 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	b.setAudioCodec()
 
 	if !autoHWAccel {
-		b.setFormatFlags(outExt)
-		b.replaceFormatFlagsWithUser()
+		b.setDefaultFormatFlags(outExt)
+		b.setUserFormatFlags()
 	}
 
 	b.addAllMetadata(fd)
@@ -178,8 +178,8 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 	return gpuFlag, transcodeCodec, true, false
 }
 
-// setFormatFlags adds commands specific for the extension input and output.
-func (b *ffCommandBuilder) setFormatFlags(outExt string) {
+// setDefaultFormatFlags adds commands specific for the extension input and output.
+func (b *ffCommandBuilder) setDefaultFormatFlags(outExt string) {
 	inExt := strings.ToLower(filepath.Ext(b.inputFile))
 	outExt = strings.ToLower(outExt)
 
@@ -210,8 +210,8 @@ func (b *ffCommandBuilder) setFormatFlags(outExt string) {
 		inExt, outExt)
 }
 
-// replaceFormatFlagsWithUser replaces the preset format flags with those inputted by the user.
-func (b *ffCommandBuilder) replaceFormatFlagsWithUser() {
+// setUserFormatFlags replaces the preset format flags with those inputted by the user.
+func (b *ffCommandBuilder) setUserFormatFlags() {
 	for i, entry := range b.formatFlags {
 		switch entry {
 
