@@ -266,8 +266,9 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAcce
 	args := make([]string, 0, calculateCommandCapacity(b))
 
 	if b.inputFile == "" || b.outputFile == "" {
-		logging.E(0, "Input file or output file is empty.\n\nInput file: %v\nOutput file: %v\n", b.inputFile, b.outputFile)
+		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
+
 	switch {
 
 	// Auto hardware acceleration
