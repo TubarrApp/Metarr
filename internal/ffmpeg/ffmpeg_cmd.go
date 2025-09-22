@@ -42,31 +42,28 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
 
-	gpuFlag, transcodeCodec, useAccel, autoHWAccel := b.getHWAccelFlags()
+	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags()
 
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
 		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
 	}
 
+	// Get codecs
 	if !useAccel && cfg.IsSet(keys.TranscodeCodec) {
-		b.setSoftwareVideoCodec()
+		b.setVideoSoftwareCodec()
 	}
-
 	b.setAudioCodec()
 
-	if !autoHWAccel {
-		b.setDefaultFormatFlags(outExt)
-		b.setUserFormatFlags()
-	}
-
+	b.setDefaultFormatFlags(outExt)
+	b.setUserFormatFlags()
 	b.addAllMetadata(fd)
 
 	// Return the fully appended argument string
-	return b.buildFinalCommand(gpuFlag, useAccel, autoHWAccel)
+	return b.buildFinalCommand(gpuFlag, useAccel)
 }
 
-// setAudioCodec sets the audio codec for transcode operations.
+// setAudioCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setAudioCodec() {
 	if !cfg.IsSet(keys.TranscodeAudioCodec) {
 		return
@@ -79,14 +76,14 @@ func (b *ffCommandBuilder) setAudioCodec() {
 
 	switch codec {
 	case "aac":
-		b.audioCodec = consts.AudioToAAC[:]
+		b.audioCodec = []string{"-c:a", codec}
 	default:
 		b.audioCodec = consts.AudioCodecCopy[:]
 	}
 }
 
-// setSoftwareVideoCodec sets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setSoftwareVideoCodec() {
+// setVideoSoftwareCodec gets the audio codec for transcode operations.
+func (b *ffCommandBuilder) setVideoSoftwareCodec() {
 	if !cfg.IsSet(keys.TranscodeCodec) {
 		return
 	}
@@ -109,12 +106,14 @@ func (b *ffCommandBuilder) setSoftwareVideoCodec() {
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 	switch gpuFlag {
+	case "auto":
+		b.gpuAccel = consts.AutoHWAccel[:]
 	case "nvenc":
 		b.gpuAccel = consts.NvidiaAccel[:]
-	case "vaapi":
-		b.gpuAccel = consts.AMDAccel[:]
 	case "qsv":
 		b.gpuAccel = consts.IntelAccel[:]
+	case "vaapi":
+		b.gpuAccel = consts.VaapiAccel[:]
 	default:
 		logging.E(0, "Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
 		return
@@ -123,6 +122,11 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec string) {
+
+	if gpuFlag == "auto" {
+		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
+		return
+	}
 
 	sb := strings.Builder{}
 	sb.Grow(len(transcodeCodec) + 1 + len(gpuFlag))
@@ -137,22 +141,20 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 }
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
-func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, useHWAccel, autoHWAccel bool) {
+func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, useHWAccel bool) {
+
+	// Should use GPU?
+	if !cfg.IsSet(keys.UseGPU) {
+		return "", "", false
+	}
 
 	// Check GPU flag
-	if cfg.IsSet(keys.UseGPU) {
-		gpuFlag = cfg.GetString(keys.UseGPU)
-		gpuFlag = strings.ToLower(gpuFlag)
+	gpuFlag = cfg.GetString(keys.UseGPU)
+	gpuFlag = strings.ToLower(gpuFlag)
 
-		switch gpuFlag {
-		case "auto":
-			return gpuFlag, transcodeCodec, false, true
-		case "":
-			logging.I("HW acceleration flags disabled, using software encode/decode")
-			return "", "", false, false
-		default:
-			// Continue logic below
-		}
+	if gpuFlag == "" {
+		logging.I("HW acceleration flags disabled, using software encode/decode")
+		return "", "", false
 	}
 
 	// Fetch transcode codec
@@ -163,24 +165,24 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 	// GPU flag but no codec
 	if gpuFlag != "" && transcodeCodec == "" {
 		logging.E(0, "HW accel (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
-		return "", "", false, false
+		return "", "", false
 	}
 
 	// Check HW acceleration compatability
 	vCodec, _, err := b.checkCodecs()
 	if err != nil {
-		return "", "", false, false
+		return "", "", false
 	}
 	vCodec = strings.ToLower(vCodec)
 
 	if gpuMap, exists := unsafeHardwareEncode[gpuFlag]; exists {
 		if unsafe, ok := gpuMap[vCodec]; ok && unsafe {
 			logging.I("Codec in input file %v is %v, which is not reliably safe for hardware transcoding of type %v. Falling back to software transcode.", b.inputFile, vCodec, gpuFlag)
-			return "", "", false, false
+			return "", "", false
 		}
 	}
 
-	return gpuFlag, transcodeCodec, true, false
+	return gpuFlag, transcodeCodec, true
 }
 
 // setDefaultFormatFlags adds commands specific for the extension input and output.
@@ -267,21 +269,11 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 }
 
 // buildFinalCommand assembles the final FFmpeg command.
-func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAccel bool) ([]string, error) {
+func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]string, error) {
 	args := make([]string, 0, calculateCommandCapacity(b))
 
 	switch {
 
-	// Auto hardware acceleration
-	case autoHWAccel:
-		args = append(args, consts.AutoHWAccel...)
-		args = append(args, "-y", "-i", b.inputFile)
-
-		if len(b.audioCodec) > 0 {
-			args = append(args, b.audioCodec...)
-		}
-
-		// Hardware acceleration (non-auto)
 	case hwAccel:
 		args = append(args, b.gpuAccel...)
 		args = append(args, "-y", "-i", b.inputFile)
@@ -291,12 +283,18 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAcce
 		args = append(args, "-y", "-i", b.inputFile)
 	}
 
-	// Apply format flags if not autoHWAccel and format flags exist
-	if !autoHWAccel && len(b.formatFlags) > 0 {
+	if len(b.audioCodec) > 0 {
+		args = append(args, b.audioCodec...)
+	}
+
+	// Apply format flags if format flags exist
+	if len(b.formatFlags) > 0 {
 		args = append(args, b.formatFlags...)
-		if cfg.IsSet(keys.TranscodeVideoFilter) {
+
+		switch {
+		case cfg.IsSet(keys.TranscodeVideoFilter):
 			args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
-		} else if gpuFlag == "vaapi" {
+		case gpuFlag == "vaapi":
 			args = append(args, consts.VaapiCompatibility...)
 		}
 	}

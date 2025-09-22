@@ -25,7 +25,7 @@ var (
 // GPU hardware flags
 var (
 	NvidiaAccel = [...]string{"-hwaccel", "cuda"}
-	AMDAccel    = [...]string{}
+	VaapiAccel  = [...]string{}
 	IntelAccel  = [...]string{}
 	AutoHWAccel = []string{"-hwaccel", "auto"}
 )
