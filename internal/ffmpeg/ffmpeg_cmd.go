@@ -266,31 +266,34 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAcce
 	args := make([]string, 0, calculateCommandCapacity(b))
 
 	if b.inputFile != "" {
+		switch {
 
-		if autoHWAccel {
+		// Auto hardware acceleration
+		case autoHWAccel:
 			args = append(args, consts.AutoHWAccel...)
 			args = append(args, "-y", "-i", b.inputFile)
 
 			if len(b.audioCodec) > 0 {
 				args = append(args, b.audioCodec...)
 			}
-		} else if hwAccel {
+
+			// Hardware acceleration (non-auto)
+		case hwAccel:
 			args = append(args, b.gpuAccel...)
 			args = append(args, "-y", "-i", b.inputFile)
-		} else {
+
+			// No format flags set, default
+		default:
 			args = append(args, "-y", "-i", b.inputFile)
 		}
 
+		// Apply format flags if not autoHWAccel and format flags exist
 		if !autoHWAccel && len(b.formatFlags) > 0 {
 			args = append(args, b.formatFlags...)
-
 			if cfg.IsSet(keys.TranscodeVideoFilter) {
 				args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
-			} else {
-				switch gpuFlag {
-				case "vaapi":
-					args = append(args, consts.VaapiCompatibility...)
-				}
+			} else if gpuFlag == "vaapi" {
+				args = append(args, consts.VaapiCompatibility...)
 			}
 		}
 	}
