@@ -10,6 +10,12 @@ type formatPreset struct {
 	flags []string
 }
 
+var unsafeHardwareEncode = map[string]map[string]bool{
+	"nvenc": {"mjpeg": true}, // hypothetical crashes
+	"vaapi": {"vp8": true, "vp9": true, "av1": true},
+	"qsv":   {"vp8": true, "vp9": true, "av1": true},
+}
+
 var (
 	// Direct copy preset
 	copyPreset = formatPreset{

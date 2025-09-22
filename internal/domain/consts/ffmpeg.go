@@ -18,15 +18,15 @@ var (
 	VideoToH264         = [...]string{"-c:v", "libx264"}
 	VideoToH265         = [...]string{"-c:v", "libx265"}
 	VideoToH264Balanced = [...]string{"-c:v", "libx264", "-profile:v", "main"}
-	CRFQuality          = [...]string{"-crf", "23"}
+	CRFQuality          = [...]string{"-crf", "20", "-preset", "slow"}
 	PixelFmtYuv420p     = [...]string{"-pix_fmt", "yuv420p"}
 )
 
 // GPU hardware flags
 var (
-	NvidiaAccel = [...]string{"-hwaccel", "cuda", "-hwaccel_output_format", "nvenc"}
-	AMDAccel    = [...]string{"-hwaccel", "vaapi", "-hwaccel_output_format", "vaapi"}
-	IntelAccel  = [...]string{"-hwaccel", "qsv", "-hwaccel_output_format", "qsv"}
+	NvidiaAccel = [...]string{"-hwaccel", "cuda"}
+	AMDAccel    = [...]string{}
+	IntelAccel  = [...]string{}
 	AutoHWAccel = []string{"-hwaccel", "auto"}
 )
 
