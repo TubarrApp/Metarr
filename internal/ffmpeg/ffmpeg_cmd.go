@@ -265,36 +265,37 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAccel bool) ([]string, error) {
 	args := make([]string, 0, calculateCommandCapacity(b))
 
-	if b.inputFile != "" {
-		switch {
+	if b.inputFile == "" || b.outputFile == "" {
+		logging.E(0, "Input file or output file is empty.\n\nInput file: %v\nOutput file: %v\n", b.inputFile, b.outputFile)
+	}
+	switch {
 
-		// Auto hardware acceleration
-		case autoHWAccel:
-			args = append(args, consts.AutoHWAccel...)
-			args = append(args, "-y", "-i", b.inputFile)
+	// Auto hardware acceleration
+	case autoHWAccel:
+		args = append(args, consts.AutoHWAccel...)
+		args = append(args, "-y", "-i", b.inputFile)
 
-			if len(b.audioCodec) > 0 {
-				args = append(args, b.audioCodec...)
-			}
-
-			// Hardware acceleration (non-auto)
-		case hwAccel:
-			args = append(args, b.gpuAccel...)
-			args = append(args, "-y", "-i", b.inputFile)
-
-			// No format flags set, default
-		default:
-			args = append(args, "-y", "-i", b.inputFile)
+		if len(b.audioCodec) > 0 {
+			args = append(args, b.audioCodec...)
 		}
 
-		// Apply format flags if not autoHWAccel and format flags exist
-		if !autoHWAccel && len(b.formatFlags) > 0 {
-			args = append(args, b.formatFlags...)
-			if cfg.IsSet(keys.TranscodeVideoFilter) {
-				args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
-			} else if gpuFlag == "vaapi" {
-				args = append(args, consts.VaapiCompatibility...)
-			}
+		// Hardware acceleration (non-auto)
+	case hwAccel:
+		args = append(args, b.gpuAccel...)
+		args = append(args, "-y", "-i", b.inputFile)
+
+		// No format flags set, default
+	default:
+		args = append(args, "-y", "-i", b.inputFile)
+	}
+
+	// Apply format flags if not autoHWAccel and format flags exist
+	if !autoHWAccel && len(b.formatFlags) > 0 {
+		args = append(args, b.formatFlags...)
+		if cfg.IsSet(keys.TranscodeVideoFilter) {
+			args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
+		} else if gpuFlag == "vaapi" {
+			args = append(args, consts.VaapiCompatibility...)
 		}
 	}
 
@@ -312,9 +313,7 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel, autoHWAcce
 		args = append(args, "-metadata", b.builder.String())
 	}
 
-	if b.outputFile != "" {
-		args = append(args, b.outputFile)
-	}
+	args = append(args, b.outputFile)
 
 	return args, nil
 }
