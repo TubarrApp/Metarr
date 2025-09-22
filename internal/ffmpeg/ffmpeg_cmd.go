@@ -272,16 +272,11 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]string, error) {
 	args := make([]string, 0, calculateCommandCapacity(b))
 
-	switch {
-
-	case hwAccel:
+	if hwAccel {
 		args = append(args, b.gpuAccel...)
-		args = append(args, "-y", "-i", b.inputFile)
-
-		// No format flags set, default
-	default:
-		args = append(args, "-y", "-i", b.inputFile)
 	}
+
+	args = append(args, "-y", "-i", b.inputFile)
 
 	if len(b.audioCodec) > 0 {
 		args = append(args, b.audioCodec...)
