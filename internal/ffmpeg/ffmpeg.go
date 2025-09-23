@@ -38,7 +38,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	logging.I("Will execute video from extension %q → %q", origExt, outExt)
 
-	if dontProcess(fd, outExt) {
+	if skipProcessing(fd, outExt) {
 		return nil
 	}
 
@@ -121,11 +121,51 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	return nil
 }
 
-// dontProcess determines whether the program should process this video (meta already exists and file extensions are unchanged).
-func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
-	if fd.MetaAlreadyExists {
+// skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
+func skipProcessing(fd *models.FileData, outExt string) bool {
 
-		logging.I("Metadata already exists in the file, skipping processing...")
+	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoBaseName)
+
+	var (
+		desiredVCodec, desiredACodec           string
+		differentExt, metaExists, codecsDiffer bool
+	)
+
+	// Check for extension difference
+	currentExt := strings.ToLower(filepath.Ext(fd.OriginalVideoPath))
+
+	if currentExt != outExt {
+		differentExt = true
+	}
+
+	logging.D(2, "Current extension: %q\nDesired extension: %q\n\nExtensions differ? %v", currentExt, outExt, differentExt)
+
+	// Check codec mismatches
+	vCodec, aCodec, err := checkCodecs(fd.OriginalVideoPath)
+	if err != nil {
+		logging.E(0, "Failed to check input file codec: %v", err)
+	}
+
+	if cfg.IsSet(keys.TranscodeCodec) {
+		desiredVCodec = cfg.GetString(keys.TranscodeCodec)
+	}
+	if cfg.IsSet(keys.TranscodeAudioCodec) {
+		desiredACodec = cfg.GetString(keys.TranscodeAudioCodec)
+	}
+
+	if desiredVCodec != vCodec || desiredACodec != aCodec {
+		codecsDiffer = true
+	}
+
+	logging.D(2, "Current video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
+
+	// Check if metadata already exists
+	metaExists = fd.MetaAlreadyExists
+
+	// Final checks
+	if !codecsDiffer && !differentExt && metaExists {
+
+		logging.I("Metadata already exists in the file, codecs match, and extensions match. Skipping processing...")
 		origPath := fd.OriginalVideoPath
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
@@ -133,7 +173,9 @@ func dontProcess(fd *models.FileData, outExt string) (dontProcess bool) {
 		fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
 		return true
 	}
-	return dontProcess
+
+	logging.I("Metadata, codec, or file extension mismatch. Continuing to process file %q", fd.OriginalVideoBaseName)
+	return false
 }
 
 // makeBackup performs the backup.
@@ -160,4 +202,44 @@ func makeBackup(origPath string) error {
 	}
 
 	return nil
+}
+
+// checkCodecs checks the input codec to determine if a straight remux is possible.
+func checkCodecs(inputFile string) (videoCodec, audioCodec string, err error) {
+
+	if inputFile == "" {
+		return "", "", fmt.Errorf("input file is empty, cannot check codecs")
+	}
+
+	cmd := exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "v:0",
+		"-show_entries", "stream=codec_name",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		inputFile,
+	)
+
+	videoCodecBytes, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("cannot read video codec: %v", err)
+	}
+	videoCodec = strings.TrimSpace(string(videoCodecBytes))
+
+	cmd = exec.Command("ffprobe",
+		"-v", "error",
+		"-select_streams", "a:0", // first audio stream
+		"-show_entries", "stream=codec_name",
+		"-of", "default=noprint_wrappers=1:nokey=1",
+		inputFile,
+	)
+
+	audioCodecBytes, err := cmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("cannot read audio codec: %v", err)
+	}
+	audioCodec = strings.TrimSpace(string(audioCodecBytes))
+
+	logging.D(1, "Detected codecs - video: %s, audio: %s", videoCodec, audioCodec)
+
+	return videoCodec, audioCodec, nil
 }

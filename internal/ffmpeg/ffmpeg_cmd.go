@@ -7,7 +7,6 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
-	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -42,7 +41,13 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
 
-	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags()
+	// Grab current codecs
+	vCodec, aCodec, err := checkCodecs(b.inputFile)
+	if err != nil {
+		logging.E(0, "Failed to check codecs in file %q: %v", b.inputFile, err)
+	}
+
+	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags(vCodec)
 
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
@@ -50,10 +55,10 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	}
 
 	// Get codecs
-	if !useAccel && cfg.IsSet(keys.TranscodeCodec) {
+	if b.gpuAccelCodec == nil {
 		b.setVideoSoftwareCodec()
 	}
-	b.setAudioCodec()
+	b.setAudioCodec(aCodec)
 
 	b.setDefaultFormatFlags(outExt)
 	b.setUserFormatFlags()
@@ -64,7 +69,7 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setAudioCodec() {
+func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 	if !cfg.IsSet(keys.TranscodeAudioCodec) {
 		return
 	}
@@ -74,11 +79,11 @@ func (b *ffCommandBuilder) setAudioCodec() {
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
 
-	switch codec {
-	case "aac":
-		b.audioCodec = []string{"-c:a", codec}
+	switch {
+	case codec == currentACodec, codec == "":
+		b.audioCodec = consts.AudioCodecCopy[:] // Codecs match or user codec empty, use copy
 	default:
-		b.audioCodec = consts.AudioCodecCopy[:]
+		b.audioCodec = []string{"-c:a", codec}
 	}
 }
 
@@ -141,7 +146,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 }
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
-func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, useHWAccel bool) {
+func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCodec string, useHWAccel bool) {
 
 	// Should use GPU?
 	if !cfg.IsSet(keys.UseGPU) {
@@ -167,13 +172,6 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, transcodeCodec string, us
 		logging.E(0, "Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
 		return "", "", false
 	}
-
-	// Check HW acceleration compatability
-	vCodec, _, err := b.checkCodecs()
-	if err != nil {
-		return "", "", false
-	}
-	vCodec = strings.ToLower(vCodec)
 
 	if gpuMap, exists := unsafeHardwareEncode[gpuFlag]; exists {
 		if unsafe, ok := gpuMap[vCodec]; ok && unsafe {
@@ -334,49 +332,9 @@ func (b *ffCommandBuilder) calculateCommandCapacity(gpuFlag string) int {
 	}
 
 	if cfg.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 1 + len(cfg.GetString(keys.TranscodeVideoFilter))
+		totalCapacity += 1 + len(cfg.GetString(keys.TranscodeVideoFilter)) // "-vf" and flag
 	}
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
-}
-
-// checkCodecs checks the input codec to determine if a straight remux is possible.
-func (b *ffCommandBuilder) checkCodecs() (videoCodec, audioCodec string, err error) {
-
-	if b.inputFile == "" {
-		return "", "", fmt.Errorf("input file is empty, cannot check codecs")
-	}
-
-	cmd := exec.Command("ffprobe",
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=codec_name",
-		"-of", "default=noprint_wrappers=1:nokey=1",
-		b.inputFile,
-	)
-
-	videoCodecBytes, err := cmd.Output()
-	if err != nil {
-		return "", "", fmt.Errorf("cannot read video codec: %v", err)
-	}
-	videoCodec = strings.TrimSpace(string(videoCodecBytes))
-
-	cmd = exec.Command("ffprobe",
-		"-v", "error",
-		"-select_streams", "a:0", // first audio stream
-		"-show_entries", "stream=codec_name",
-		"-of", "default=noprint_wrappers=1:nokey=1",
-		b.inputFile,
-	)
-
-	audioCodecBytes, err := cmd.Output()
-	if err != nil {
-		return "", "", fmt.Errorf("cannot read audio codec: %v", err)
-	}
-	audioCodec = strings.TrimSpace(string(audioCodecBytes))
-
-	logging.D(2, "Detected codecs - video: %s, audio: %s", videoCodec, audioCodec)
-
-	return videoCodec, audioCodec, nil
 }

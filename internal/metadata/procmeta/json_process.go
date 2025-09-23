@@ -159,7 +159,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	// Check if metadata is already existent in target file
 	if filetypeMetaCheckSwitch(ctx, fd) {
-		logging.I("Metadata already exists in target file %q, will skip processing", fd.OriginalVideoBaseName)
+		logging.I("Metadata already exists in target file %q, and current and desired codecs are identical, will skip processing", fd.OriginalVideoBaseName)
 		fd.MetaAlreadyExists = true
 	}
 
