@@ -36,11 +36,11 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		outExt = origExt
 	}
 
-	logging.I("Will execute video from extension %q → %q", origExt, outExt)
-
 	if skipProcessing(fd, outExt) {
 		return nil
 	}
+
+	logging.I("Will execute video from extension %q → %q", origExt, outExt)
 
 	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
 
