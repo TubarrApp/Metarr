@@ -124,7 +124,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
 func skipProcessing(fd *models.FileData, outExt string) bool {
 
-	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoBaseName)
+	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	var (
 		desiredVCodec, desiredACodec           string
@@ -138,7 +138,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 		differentExt = true
 	}
 
-	logging.D(2, "Current extension: %q\nDesired extension: %q\n\nExtensions differ? %v", currentExt, outExt, differentExt)
+	logging.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
 
 	// Check codec mismatches
 	if cfg.IsSet(keys.TranscodeCodec) {
@@ -157,7 +157,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 		if desiredVCodec != vCodec || desiredACodec != aCodec {
 			codecsDiffer = true
 		}
-		logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoBaseName, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
+		logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoPath, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
 	}
 
 	// Check if metadata already exists
@@ -167,7 +167,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	// Final checks
 	if !codecsDiffer && !differentExt && metaExists {
 
-		logging.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoBaseName)
+		logging.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoPath)
 		origPath := fd.OriginalVideoPath
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
@@ -176,7 +176,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 		return true
 	}
 
-	logging.I("Metadata, codec, or file extension mismatch. Continuing to process file %q", fd.OriginalVideoBaseName)
+	logging.I("Metadata, codec, or file extension mismatch. Continuing to process file %q", fd.OriginalVideoPath)
 	return false
 }
 
