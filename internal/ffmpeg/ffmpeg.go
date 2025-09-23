@@ -141,11 +141,6 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	logging.D(2, "Current extension: %q\nDesired extension: %q\n\nExtensions differ? %v", currentExt, outExt, differentExt)
 
 	// Check codec mismatches
-	vCodec, aCodec, err := checkCodecs(fd.OriginalVideoPath)
-	if err != nil {
-		logging.E(0, "Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
-	}
-
 	if cfg.IsSet(keys.TranscodeCodec) {
 		desiredVCodec = cfg.GetString(keys.TranscodeCodec)
 	}
@@ -153,11 +148,17 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 		desiredACodec = cfg.GetString(keys.TranscodeAudioCodec)
 	}
 
-	if desiredVCodec != "" && desiredVCodec != vCodec || desiredACodec != "" && desiredACodec != aCodec {
-		codecsDiffer = true
-	}
+	if desiredVCodec != "" || desiredACodec != "" {
+		vCodec, aCodec, err := checkCodecs(fd.OriginalVideoPath)
+		if err != nil {
+			logging.E(0, "Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
+		}
 
-	logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoBaseName, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
+		if desiredVCodec != vCodec || desiredACodec != aCodec {
+			codecsDiffer = true
+		}
+		logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoBaseName, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
+	}
 
 	// Check if metadata already exists
 	metaExists = fd.MetaAlreadyExists
