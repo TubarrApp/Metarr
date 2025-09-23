@@ -143,7 +143,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	// Check codec mismatches
 	vCodec, aCodec, err := checkCodecs(fd.OriginalVideoPath)
 	if err != nil {
-		logging.E(0, "Failed to check input file codec: %v", err)
+		logging.E(0, "Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
 	}
 
 	if cfg.IsSet(keys.TranscodeCodec) {
@@ -153,19 +153,20 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 		desiredACodec = cfg.GetString(keys.TranscodeAudioCodec)
 	}
 
-	if desiredVCodec != vCodec || desiredACodec != aCodec {
+	if desiredVCodec != "" && desiredVCodec != vCodec || desiredACodec != "" && desiredACodec != aCodec {
 		codecsDiffer = true
 	}
 
-	logging.D(2, "Current video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
+	logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoBaseName, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
 
 	// Check if metadata already exists
 	metaExists = fd.MetaAlreadyExists
+	logging.D(2, "Metadata mismatch in file %q", fd.OriginalVideoBaseName)
 
 	// Final checks
 	if !codecsDiffer && !differentExt && metaExists {
 
-		logging.I("Metadata already exists in the file, codecs match, and extensions match. Skipping processing...")
+		logging.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoBaseName)
 		origPath := fd.OriginalVideoPath
 		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
