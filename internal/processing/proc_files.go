@@ -86,7 +86,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	// Start workers
 	for w := 1; w <= numWorkers; w++ {
 		wg.Add(1)
-		go workerProcess(batch, w, jobs, results, wg, ctx)
+		go workerVideoProcess(batch, w, jobs, results, wg, ctx)
 	}
 
 	// Collector routine to collect results from the results channel
@@ -132,8 +132,8 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	return nil
 }
 
-// workerProcess performs the video processing operation for a worker.
-func workerProcess(batch *batch, id int, jobs <-chan workItem, results chan<- *models.FileData, wg *sync.WaitGroup, ctx context.Context) {
+// workerVideoProcess performs the video processing operation for a worker.
+func workerVideoProcess(batch *batch, id int, jobs <-chan workItem, results chan<- *models.FileData, wg *sync.WaitGroup, ctx context.Context) {
 	defer wg.Done()
 
 	for job := range jobs {

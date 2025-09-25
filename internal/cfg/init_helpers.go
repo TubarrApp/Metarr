@@ -55,7 +55,7 @@ func initResourceRelated() error {
 	}
 
 	// CPU usage
-	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 100.0, "Max CPU usage")
+	rootCmd.PersistentFlags().Float64P(keys.MaxCPU, "c", 101.0, "Max CPU usage")
 	if err := viper.BindPFlag(keys.MaxCPU, rootCmd.PersistentFlags().Lookup(keys.MaxCPU)); err != nil {
 		return err
 	}

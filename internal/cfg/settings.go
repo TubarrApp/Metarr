@@ -486,7 +486,7 @@ func verifyResourceLimits() {
 		viper.Set(keys.MinFreeMem, parsedMinFree)
 	}
 
-	if maxCPUUsage := viper.GetFloat64(keys.MaxCPU); maxCPUUsage != 100.0 {
+	if maxCPUUsage := viper.GetFloat64(keys.MaxCPU); maxCPUUsage != 101.0 {
 		switch {
 		case maxCPUUsage > 100.0:
 			maxCPUUsage = 100.0

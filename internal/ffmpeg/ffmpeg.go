@@ -42,7 +42,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	logging.I("Will execute video from extension %q → %q", origExt, outExt)
 
-	fmt.Printf("\nWriting metadata for file: %s\n", origPath)
+	fmt.Printf("\nWriting metadata for file: %q\n", origPath)
 
 	dir := fd.VideoDirectory
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), origExt)
@@ -108,7 +108,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
 	}
 
-	//
+	// Move temp file to final video path
 	err = os.Rename(tmpOutPath, fd.FinalVideoPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
@@ -162,7 +162,9 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 
 	// Check if metadata already exists
 	metaExists = fd.MetaAlreadyExists
-	logging.D(2, "Metadata mismatch in file %q", fd.OriginalVideoBaseName)
+	if !metaExists {
+		logging.D(2, "Metadata mismatch in file %q", fd.OriginalVideoPath)
+	}
 
 	// Final checks
 	if !codecsDiffer && !differentExt && metaExists {

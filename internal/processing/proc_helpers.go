@@ -5,10 +5,10 @@ import (
 	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/transformations"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"sync"
@@ -72,12 +72,10 @@ func sysResourceLoop(fileStr string) {
 		maxBackoff  = 10 * time.Second
 	)
 
-	memoryThreshold := cfg.GetUint64(keys.MinFreeMem)
-
 	for {
 		// Fetch system resources and determine if processing can proceed
 		muResource.Lock()
-		proceed, availableMemory, CPUUsage, err := checkSysResources(memoryThreshold)
+		proceed, availableMemory, CPUUsage, err := checkSysResources()
 		muResource.Unlock()
 
 		if err != nil {
@@ -112,18 +110,21 @@ func sysResourceLoop(fileStr string) {
 }
 
 // checkAvailableMemory checks if enough memory is available (at least the threshold).
-func checkSysResources(requiredMemory uint64) (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
+func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
+
+	requiredMemory := cfg.GetUint64(keys.MinFreeMem) // Default 0
+	maxCPUUsage := cfg.GetFloat64(keys.MaxCPU)       // Default 101.0
+
 	vMem, err := mem.VirtualMemory()
 	if err != nil {
 		return false, 0, 0, err
 	}
 
-	cpuPct, err := cpu.Percent(0, false)
+	cpuPct, err := cpu.Percent(0, false) // "false" outputs average across all cores
 	if err != nil {
 		return false, 0, 0, err
 	}
 
-	maxCPUUsage := cfg.GetFloat64(keys.MaxCPU)
 	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCPUUsage), vMem.Available, cpuPct[0], nil
 }
 
