@@ -69,7 +69,7 @@ var rootCmd = &cobra.Command{
 func init() {
 	// Env vars
 	viper.AutomaticEnv()
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_")) // Convert "video-directory" to "video-directory"
+	viper.SetEnvKeyReplacer(strings.NewReplacer("_", "-")) // Convert "video_directory" to "video-directory"
 
 	// Config file
 	rootCmd.PersistentFlags().String(keys.ConfigPath, "", "Specify a path to your preset configuration file")
