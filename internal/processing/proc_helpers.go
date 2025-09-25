@@ -64,7 +64,7 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 	}
 }
 
-// sysResourceLoop checks the system resources, controlling whether a new routine should be spawned
+// sysResourceLoop checks the system resources, staying in the loop until resources meet the set critera
 func sysResourceLoop(fileStr string) {
 	var (
 		resourceMsg bool

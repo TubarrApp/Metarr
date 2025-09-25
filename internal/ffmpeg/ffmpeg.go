@@ -154,7 +154,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 			logging.E(0, "Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
 		}
 
-		if desiredVCodec != vCodec || desiredACodec != aCodec {
+		if desiredVCodec != vCodec && desiredVCodec != "" || desiredACodec != aCodec && desiredACodec != "" {
 			codecsDiffer = true
 		}
 		logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoPath, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)

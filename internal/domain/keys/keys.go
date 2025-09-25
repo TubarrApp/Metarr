@@ -10,6 +10,7 @@ const (
 	JSONFiles       string = "json-file"
 	MetaPurge       string = "purge-metafile"
 
+	ConfigPath string = "config-file"
 	CookiePath string = "cookie-dir"
 
 	InputMetaExts  string = "input-meta-exts"

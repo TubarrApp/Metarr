@@ -1,7 +1,10 @@
 package cfg
 
 import (
+	"fmt"
 	keys "metarr/internal/domain/keys"
+	"metarr/internal/utils/logging"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -245,5 +248,24 @@ func initProgramFunctions() error {
 	if err := viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking)); err != nil {
 		return err
 	}
+	return nil
+}
+
+// initOrExit attempts to run the function and exits the program on failure.
+func initOrExit(err error, failMsg string) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", failMsg, err)
+		os.Exit(1)
+	}
+}
+
+// loadConfigFile loads in the preset configuration file.
+func loadConfigFile(file string) error {
+	logging.I("Using configuration file %q", file)
+	viper.SetConfigFile(file)
+	if err := viper.ReadInConfig(); err != nil {
+		return err
+	}
+
 	return nil
 }

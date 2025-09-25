@@ -22,12 +22,37 @@ var rootCmd = &cobra.Command{
 	Use:   "metarr",
 	Short: "metarr is a video and metatagging tool",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// Setup benchmarking
 		if viper.IsSet(keys.Benchmarking) {
 			if benchFiles, err := benchmark.SetupBenchmarking(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				return
 			} else {
 				viper.Set(keys.BenchFiles, benchFiles)
+			}
+		}
+
+		// Setup flags from config file
+		if viper.IsSet(keys.ConfigPath) {
+			configFile := viper.GetString(keys.ConfigPath)
+
+			cInfo, err := os.Stat(configFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed check for config file path: %v", err)
+				fmt.Println()
+				os.Exit(1)
+			} else if cInfo.IsDir() {
+				fmt.Fprintf(os.Stderr, "config file entered is a directory, should be a file")
+				fmt.Println()
+				os.Exit(1)
+			}
+
+			if configFile != "" {
+				// load and normalize keys from any Viper-supported config file
+				if err := loadConfigFile(configFile); err != nil {
+					fmt.Fprintf(os.Stderr, "failed loading config file: %v\n", err)
+					os.Exit(1)
+				}
 			}
 		}
 	},
@@ -42,74 +67,60 @@ var rootCmd = &cobra.Command{
 
 // init sets the initial Viper settings
 func init() {
-	// Files and directories
-	if err := initFilesDirs(); err != nil {
-		fmt.Fprintf(os.Stderr, "config files & dirs initialization failure: %v", err)
+	// Env vars
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_")) // Convert "video-directory" to "video-directory"
+
+	// Config file
+	rootCmd.PersistentFlags().String(keys.ConfigPath, "", "Specify a path to your preset configuration file")
+	if err := viper.BindPFlag(keys.ConfigPath, rootCmd.PersistentFlags().Lookup(keys.ConfigPath)); err != nil {
+		fmt.Fprintf(os.Stderr, "config file path setting failure: %v", err)
 		fmt.Println()
 		os.Exit(1)
 	}
+
+	// Files and directories
+	initOrExit(initFilesDirs(),
+		"files & dirs initialization failure")
 
 	// System resource related
-	if err := initResourceRelated(); err != nil {
-		fmt.Fprintf(os.Stderr, "config resource element initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initResourceRelated(),
+		"config resource element initialization failure")
 
 	// Filtering
-	if err := initFiltering(); err != nil {
-		fmt.Fprintf(os.Stderr, "config filtering initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initFiltering(),
+		"config filtering initialization failure")
 
 	// All file transformations
-	if err := initAllFileTransformers(); err != nil {
-		fmt.Fprintf(os.Stderr, "config file transformer initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initAllFileTransformers(),
+		"config file transformer initialization failure")
 
 	// Filename transformations
-	if err := initVideoTransformers(); err != nil {
-		fmt.Fprintf(os.Stderr, "config video transformer initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initVideoTransformers(),
+		"config video transformer initialization failure")
 
 	// Metadata and metafile manipulation
-	if err := initMetaTransformers(); err != nil {
-		fmt.Fprintf(os.Stderr, "config meta transformer initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initMetaTransformers(),
+		"config meta transformer initialization failure")
 
 	// Special functions
-	if err := initProgramFunctions(); err != nil {
-		fmt.Fprintf(os.Stderr, "config program function initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initProgramFunctions(),
+		"config program function initialization failure")
 
 	// Text replacement initialization
-	if err := initTextReplace(); err != nil {
-		fmt.Fprintf(os.Stderr, "config text replace initialization failure: %v", err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initOrExit(initTextReplace(),
+		"config text replace initialization failure")
 }
 
 // Execute is the primary initializer of Viper
 func Execute() error {
-
 	fmt.Println()
 
-	err := rootCmd.Execute()
-	if err != nil {
+	if err := rootCmd.Execute(); err != nil {
 		logging.E(0, "Failed to execute cobra")
 		return err
-
 	}
+
 	return nil
 }
 
@@ -155,7 +166,6 @@ func execute() error {
 		return err
 	}
 
-	logging.D(1, "Initializing text replace")
 	if err := initTextReplace(); err != nil {
 		return err
 	}
