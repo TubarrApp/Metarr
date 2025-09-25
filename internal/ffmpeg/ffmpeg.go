@@ -134,7 +134,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	// Check for extension difference
 	currentExt := strings.ToLower(filepath.Ext(fd.OriginalVideoPath))
 
-	if currentExt != outExt {
+	if currentExt != outExt && outExt != "" {
 		differentExt = true
 	}
 
