@@ -46,6 +46,8 @@ const (
 	TranscodeQuality     string = "transcode-quality"
 	TranscodeVideoFilter string = "transcode-video-filter"
 	TranscodeAudioCodec  string = "transcode-audio-codec"
+
+	ExtraFFmpegArgs string = "extra-ffmpeg-args"
 )
 
 // Primary program

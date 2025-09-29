@@ -302,6 +302,13 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 		args = append(args, "-metadata", b.builder.String())
 	}
 
+	// Extra FFmpeg arguments
+	if cfg.IsSet(keys.ExtraFFmpegArgs) {
+		extraFFmpegArgs := strings.Fields(cfg.GetString(keys.ExtraFFmpegArgs))
+		args = append(args, extraFFmpegArgs...)
+	}
+
+	// Add output file
 	args = append(args, b.outputFile)
 
 	return args, nil
