@@ -226,11 +226,11 @@ func shouldProcess(src, dst string, isVid, skipVids bool) bool {
 		return false
 
 	case strings.EqualFold(src, dst):
-		logging.I("Not moving or renaming files. Source and destination match: Src: %v, Dest %v", src, dst)
+		logging.I("Not moving or renaming files. Source and destination match: Src: %q, Dest: %q", src, dst)
 		return false
 
 	case src == "", dst == "":
-		logging.I("Not moving or renaming files. Source or destination path empty: Src: %v, Dest %v", src, dst)
+		logging.I("Not moving or renaming files. Source or destination path empty: Src: %q, Dest: %q", src, dst)
 		return false
 
 	default:
