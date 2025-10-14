@@ -25,7 +25,7 @@ const (
 	timeFormat     = "2006-01-02 15:04:05.00 MST"
 	startLogFormat = "Metarr started at: %s"
 	endLogFormat   = "Metarr finished at: %s"
-	elapsedFormat  = "Time elapsed: %.2f seconds"
+	elapsedFormat  = "Time elapsed: %.2f seconds\n"
 )
 
 // Sigs here prevents heap escape
@@ -56,9 +56,7 @@ func main() {
 	}
 
 	if !cfg.GetBool("execute") {
-		fmt.Println()
-		logging.I(`(Separate fields supporting multiple entries by commas with no spaces e.g. "title:example,date:20240101")`)
-		fmt.Println()
+		logging.I("\n(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
 		return // Exit early if not meant to execute
 	}
 
@@ -113,5 +111,4 @@ func main() {
 	endTime := time.Now()
 	logging.I(endLogFormat, endTime.Format(timeFormat))
 	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
-	fmt.Println()
 }

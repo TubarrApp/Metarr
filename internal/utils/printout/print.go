@@ -180,9 +180,7 @@ func PrintGrabbedFields(fieldType string, p map[string]string) {
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
-	fmt.Println()
-	logging.I("Found and stored %s metadata fields from metafile:", fieldType)
-	fmt.Println()
+	logging.I("\nFound and stored %s metadata fields from metafile:\n", fieldType)
 
 	for k, v := range p {
 		if k != "" && v != "" {

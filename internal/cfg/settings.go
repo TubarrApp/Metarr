@@ -38,12 +38,10 @@ var rootCmd = &cobra.Command{
 
 			cInfo, err := os.Stat(configFile)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed check for config file path: %v", err)
-				fmt.Println()
+				fmt.Fprintf(os.Stderr, "failed check for config file path: %v\n", err)
 				os.Exit(1)
 			} else if cInfo.IsDir() {
-				fmt.Fprintf(os.Stderr, "config file entered is a directory, should be a file")
-				fmt.Println()
+				fmt.Fprintf(os.Stderr, "config file entered is a directory, should be a file\n")
 				os.Exit(1)
 			}
 
@@ -74,8 +72,7 @@ func init() {
 	// Config file
 	rootCmd.PersistentFlags().String(keys.ConfigPath, "", "Specify a path to your preset configuration file")
 	if err := viper.BindPFlag(keys.ConfigPath, rootCmd.PersistentFlags().Lookup(keys.ConfigPath)); err != nil {
-		fmt.Fprintf(os.Stderr, "config file path setting failure: %v", err)
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "config file path setting failure: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -115,7 +112,6 @@ func init() {
 // Execute is the primary initializer of Viper
 func Execute() error {
 	fmt.Println()
-
 	if err := rootCmd.Execute(); err != nil {
 		logging.E(0, "Failed to execute cobra")
 		return err
