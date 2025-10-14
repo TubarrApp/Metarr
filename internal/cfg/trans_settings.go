@@ -114,9 +114,7 @@ func validateMetaOps() error {
 				Value: value,
 			}
 			newField = append(newField, newFieldModel)
-			fmt.Println()
 			logging.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
-			fmt.Println()
 
 		case "append":
 			switch field {
@@ -129,9 +127,7 @@ func validateMetaOps() error {
 				Suffix: value,
 			}
 			apnd = append(apnd, apndModel)
-			fmt.Println()
 			logging.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Suffix)
-			fmt.Println()
 
 		case "prefix":
 			pfxModel := models.MetaPrefix{
@@ -139,9 +135,7 @@ func validateMetaOps() error {
 				Prefix: value,
 			}
 			pfx = append(pfx, pfxModel)
-			fmt.Println()
 			logging.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
-			fmt.Println()
 
 		case "trim-suffix":
 			tSfxModel := models.MetaTrimSuffix{
@@ -149,9 +143,7 @@ func validateMetaOps() error {
 				Suffix: value,
 			}
 			trimSfx = append(trimSfx, tSfxModel)
-			fmt.Println()
 			logging.D(3, "Added new suffix trim op:\nField: %s\nSuffix: %s", tSfxModel.Field, tSfxModel.Suffix)
-			fmt.Println()
 
 		case "trim-prefix":
 			tPfxModel := models.MetaTrimPrefix{
@@ -159,9 +151,7 @@ func validateMetaOps() error {
 				Prefix: value,
 			}
 			trimPfx = append(trimPfx, tPfxModel)
-			fmt.Println()
 			logging.D(3, "Added new prefix trim op:\nField: %s\nPrefix: %s", tPfxModel.Field, tPfxModel.Prefix)
-			fmt.Println()
 
 		case "copy-to":
 			c := models.CopyToField{
@@ -169,9 +159,7 @@ func validateMetaOps() error {
 				Dest:  value,
 			}
 			copyToField = append(copyToField, c)
-			fmt.Println()
 			logging.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
-			fmt.Println()
 
 		case "paste-from":
 			p := models.PasteFromField{
@@ -179,9 +167,7 @@ func validateMetaOps() error {
 				Origin: value,
 			}
 			pasteFromField = append(pasteFromField, p)
-			fmt.Println()
 			logging.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
-			fmt.Println()
 
 		case "replace":
 			if len(parts) != 4 {
@@ -202,9 +188,7 @@ func validateMetaOps() error {
 			}
 
 			replace = append(replace, rModel)
-			fmt.Println()
 			logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
-			fmt.Println()
 
 		case "date-tag":
 			if len(parts) != 4 {
@@ -227,9 +211,7 @@ func validateMetaOps() error {
 					Loc:    loc,
 					Format: e,
 				}
-				fmt.Println()
 				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
-				fmt.Println()
 			}
 
 		case "delete-date-tag":
@@ -253,9 +235,7 @@ func validateMetaOps() error {
 					Loc:    loc,
 					Format: e,
 				}
-				fmt.Println()
 				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
-				fmt.Println()
 			}
 
 		default:
@@ -349,9 +329,7 @@ func metaOpsMapLength(metaOpsInput []string, m metaOpsLen) metaOpsLen {
 			}
 		}
 	}
-	fmt.Println()
 	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d\nDelete date tags: %d\nCopy operations: %d\nPaste operations: %d", m.newLen, m.apndLen, m.pfxLen, m.trimSfxLen, m.trimPfxLen, m.replaceLen, m.dTagLen, m.delDTagLen, m.copyToFieldLen, m.pasteFromFieldLen)
-	fmt.Println()
 	return m
 }
 
