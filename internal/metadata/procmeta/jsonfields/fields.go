@@ -42,7 +42,7 @@ func unpackJSON(fmap map[string]*string, json map[string]any) bool {
 	// Match decoded JSON to field map
 	for k, ptr := range fmap {
 		if ptr == nil {
-			logging.E(0, "fieldMap entry pointer unexpectedly nil")
+			logging.E("fieldMap entry pointer unexpectedly nil")
 			continue
 		}
 

@@ -49,7 +49,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	defer func() {
 		if !success {
 			if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-				logging.E(0, "Failed to seek file %q: %v", file.Name(), err)
+				logging.E("Failed to seek file %q: %v", file.Name(), err)
 			}
 		}
 	}()
@@ -177,7 +177,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		replace = fd.ModelMReplace
 	} else if cfg.IsSet(keys.MReplaceText) {
 		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
-			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", replace)
+			logging.E("Could not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
 
@@ -187,7 +187,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		trimPfx = fd.ModelMTrimPrefix
 	} else if cfg.IsSet(keys.MTrimPrefix) {
 		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
-			logging.E(0, "Could not retrieve prefix trim, wrong type: '%T'", trimPfx)
+			logging.E("Could not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
 
@@ -196,7 +196,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		trimSfx = fd.ModelMTrimSuffix
 	} else if cfg.IsSet(keys.MTrimSuffix) {
 		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
-			logging.E(0, "Could not retrieve suffix trim, wrong type: '%T'", trimSfx)
+			logging.E("Could not retrieve suffix trim, wrong type: '%T'", trimSfx)
 		}
 	}
 
@@ -206,7 +206,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		apnd = fd.ModelMAppend
 	} else if cfg.IsSet(keys.MAppend) {
 		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
-			logging.E(0, "Could not retrieve appends, wrong type: '%T'", apnd)
+			logging.E("Could not retrieve appends, wrong type: '%T'", apnd)
 		}
 	}
 
@@ -215,7 +215,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		pfx = fd.ModelMPrefix
 	} else if cfg.IsSet(keys.MPrefix) {
 		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
-			logging.E(0, "Could not retrieve prefix, wrong type: '%T'", pfx)
+			logging.E("Could not retrieve prefix, wrong type: '%T'", pfx)
 		}
 	}
 
@@ -225,20 +225,20 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		newField = fd.ModelMNewField
 	} else if cfg.IsSet(keys.MNewField) {
 		if newField, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
-			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", newField)
+			logging.E("Could not retrieve new fields, wrong type: '%T'", newField)
 		}
 	}
 
 	// Copy/paste
 	if cfg.IsSet(keys.MCopyToField) {
 		if copyTo, ok = cfg.Get(keys.MCopyToField).([]models.CopyToField); !ok {
-			logging.E(0, "Could not retrieve copy operations, wrong type: '%T'", copyTo)
+			logging.E("Could not retrieve copy operations, wrong type: '%T'", copyTo)
 		}
 	}
 
 	if cfg.IsSet(keys.MPasteFromField) {
 		if pasteFrom, ok = cfg.Get(keys.MPasteFromField).([]models.PasteFromField); !ok {
-			logging.E(0, "Could not retrieve paste operations, wrong type: '%T'", pasteFrom)
+			logging.E("Could not retrieve paste operations, wrong type: '%T'", pasteFrom)
 		}
 	}
 
@@ -248,7 +248,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Replace
 	if len(replace) > 0 {
 		if ok, err := replaceJSON(currentMeta, replace); err != nil {
-			logging.E(0, "Failed to replace fields with %+v: %v", replace, err)
+			logging.E("Failed to replace fields with %+v: %v", replace, err)
 		} else if ok {
 			edited = true
 		}
@@ -257,7 +257,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Trim
 	if len(trimPfx) > 0 {
 		if ok, err := trimJSONPrefix(currentMeta, trimPfx); err != nil {
-			logging.E(0, "Failed to trim prefixes with %+v: %v", trimPfx, err)
+			logging.E("Failed to trim prefixes with %+v: %v", trimPfx, err)
 		} else if ok {
 			edited = true
 		}
@@ -265,7 +265,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	if len(trimSfx) > 0 {
 		if ok, err := trimJSONSuffix(currentMeta, trimSfx); err != nil {
-			logging.E(0, "Failed to trim suffixes with %+v: %v", trimSfx, err)
+			logging.E("Failed to trim suffixes with %+v: %v", trimSfx, err)
 		} else if ok {
 			edited = true
 		}
@@ -274,7 +274,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Append and prefix
 	if len(apnd) > 0 {
 		if ok, err := jsonAppend(currentMeta, filename, apnd); err != nil {
-			logging.E(0, "Failed to append fields with %+v: %v", apnd, err)
+			logging.E("Failed to append fields with %+v: %v", apnd, err)
 		} else if ok {
 			edited = true
 		}
@@ -282,7 +282,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	if len(pfx) > 0 {
 		if ok, err := jsonPrefix(currentMeta, filename, pfx); err != nil {
-			logging.E(0, "Failed to prefix fields with %+v: %v", pfx, err)
+			logging.E("Failed to prefix fields with %+v: %v", pfx, err)
 		} else if ok {
 			edited = true
 		}
@@ -291,7 +291,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Copy/paste
 	if len(copyTo) > 0 {
 		if ok, err := copyToField(currentMeta, copyTo); err != nil {
-			logging.E(0, "Failed to copy field with %+v: %v", copyTo, err)
+			logging.E("Failed to copy field with %+v: %v", copyTo, err)
 		} else if ok {
 			edited = true
 		}
@@ -299,7 +299,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	if len(pasteFrom) > 0 {
 		if ok, err := pasteFromField(currentMeta, pasteFrom); err != nil {
-			logging.E(0, "Failed to paste field with %+v: %v", pasteFrom, err)
+			logging.E("Failed to paste field with %+v: %v", pasteFrom, err)
 		} else if ok {
 			edited = true
 		}
@@ -308,7 +308,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Add new
 	if len(newField) > 0 {
 		if ok, err := setJSONField(currentMeta, filename, fd.ModelMOverwrite, newField); err != nil {
-			logging.E(0, "Failed to set fields with %+v: %v", newField, err)
+			logging.E("Failed to set fields with %+v: %v", newField, err)
 		} else if ok {
 			edited = true
 		}
@@ -327,7 +327,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Save the meta back into the model
 	rw.updateMeta(currentMeta)
 
-	logging.S(0, "\nSuccessfully applied metadata edits to: %v", file.Name())
+	logging.S("\nSuccessfully applied metadata edits to: %v", file.Name())
 
 	return edited, nil
 }
@@ -353,15 +353,15 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 			if len(delDateTagMap) > 0 {
 
 				if ok, err := jsonFieldDateTag(currentMeta, delDateTagMap, fd, enums.DatetagDelOp); err != nil {
-					logging.E(0, "failed to delete date tag in %q: %v", fd.JSONFilePath, err)
+					logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
 				} else if ok {
 					edited = true
 				}
 			} else {
-				logging.E(0, "delDateTagMap grabbed empty")
+				logging.E("delDateTagMap grabbed empty")
 			}
 		} else {
-			logging.E(0, "Got null or wrong type for %s: %T", keys.MDelDateTagMap, delDateTagMap)
+			logging.E("Got null or wrong type for %s: %T", keys.MDelDateTagMap, delDateTagMap)
 		}
 	}
 
@@ -373,15 +373,15 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 			if len(dateTagMap) > 0 {
 
 				if ok, err := jsonFieldDateTag(currentMeta, dateTagMap, fd, enums.DatetagAddOp); err != nil {
-					logging.E(0, "failed to add date tag in %q: %v", fd.JSONFilePath, err)
+					logging.E("failed to add date tag in %q: %v", fd.JSONFilePath, err)
 				} else if ok {
 					edited = true
 				}
 			} else {
-				logging.E(0, "dateTagMap grabbed empty")
+				logging.E("dateTagMap grabbed empty")
 			}
 		} else {
-			logging.E(0, "Got null or wrong type for %s: %T", keys.MDateTagMap, dateTagMap)
+			logging.E("Got null or wrong type for %s: %T", keys.MDateTagMap, dateTagMap)
 		}
 	}
 
@@ -397,7 +397,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	rw.updateMeta(currentMeta)
 
-	logging.S(0, "\nSuccessfully applied date tag JSON edits to: %v", file.Name())
+	logging.S("\nSuccessfully applied date tag JSON edits to: %v", file.Name())
 
 	return edited, nil
 }

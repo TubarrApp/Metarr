@@ -55,7 +55,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	day = dayStringSwitch(day)
 
 	dateStr = fmt.Sprintf("%s %s, %s", month, day, year)
-	logging.S(1, "Made string form date: %q", dateStr)
+	logging.S("Made string form date: %q", dateStr)
 
 	return dateStr, nil
 }
@@ -72,12 +72,12 @@ func YyyyMmDd(date string) (string, bool) {
 
 	if len(date) >= 8 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", date[:4], date[4:6], date[6:8], t)
-		logging.S(2, "Made date %s", formatted)
+		logging.S("Made date %s", formatted)
 		return formatted, true
 
 	} else if len(date) >= 6 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", date[:2], date[2:4], date[4:6], t)
-		logging.S(2, "Made date %s", formatted)
+		logging.S("Made date %s", formatted)
 		return formatted, true
 	}
 	logging.D(3, "Returning empty or short date element (%s) without formatting", date)
@@ -133,13 +133,13 @@ func FormatAllDates(fd *models.FileData) string {
 				logging.D(2, "Got formatted date %q", result)
 
 				if d.StringDate, err = ParseNumDate(d.FormattedDate); err != nil {
-					logging.E(0, "Failed to parse date %q: %v", d.FormattedDate, err)
+					logging.E("Failed to parse date %q: %v", d.FormattedDate, err)
 				}
 				logging.D(2, "Got string date %q", d.StringDate)
 				return result
 			}
 		}
 	}
-	logging.E(0, "Failed to format dates")
+	logging.E("Failed to format dates")
 	return ""
 }

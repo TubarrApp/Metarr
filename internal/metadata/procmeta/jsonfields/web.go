@@ -84,7 +84,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 // webInfoFill fills web info data into the model.
 func webInfoFill(s *string, val string, w *models.MetadataWebData) (filled bool) {
 	if s == nil {
-		logging.E(0, "String passed in null")
+		logging.E("String passed in null")
 		return false
 	}
 	logging.D(3, "Got URL: %s", val)

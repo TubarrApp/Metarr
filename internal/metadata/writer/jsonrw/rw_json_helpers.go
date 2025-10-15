@@ -66,7 +66,7 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	defer func() {
 		if !success {
 			if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-				logging.E(0, "Failed to seek file %q: %v", file.Name(), err)
+				logging.E("Failed to seek file %q: %v", file.Name(), err)
 			}
 		}
 	}()

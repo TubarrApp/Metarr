@@ -23,7 +23,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	if cfg.IsSet(keys.Rename) {
 		rName, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle)
 		if !ok {
-			logging.E(0, "Got wrong type or null rename. Got %T, want %q", rName, "enums.ReplaceToStyle")
+			logging.E("Got wrong type or null rename. Got %T, want %q", rName, "enums.ReplaceToStyle")
 		}
 	}
 
@@ -85,7 +85,7 @@ func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 	case enums.MetaFiletypeNFO:
 		return m.NFOBaseName, m.NFODirectory, m.NFOFilePath
 	default:
-		logging.E(0, "No metafile type set in model %v", m)
+		logging.E("No metafile type set in model %v", m)
 		return "", "", ""
 	}
 }

@@ -54,12 +54,12 @@ func moveOrCopyFile(src, dst string) error {
 			err = fmt.Errorf("hash mismatch (source: %x, destination: %x)\n\nAttempted move %q → %q", srcHash, dstHash, src, dst)
 
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
-				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
+				logging.E("Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
 			// Do not return here, program will continue and attempt a copy
 
 		} else { // Hash match (SUCCESS)
-			logging.S(0, "Moved file: %q → %q", src, dst)
+			logging.S("Moved file: %q → %q", src, dst)
 			return nil
 		}
 	}
@@ -67,7 +67,7 @@ func moveOrCopyFile(src, dst string) error {
 	// removed wrapper: "if strings.Contains(err.Error(), "invalid cross-device link")"
 	// around the following block... Successful move should return nil above.
 
-	logging.E(0, "Move error: %v\n\nAttempting to copy %q to %q instead...", err, src, dst)
+	logging.E("Move error: %v\n\nAttempting to copy %q to %q instead...", err, src, dst)
 
 	// Copy the file
 	if err := copyFile(src, dst); err == nil { // If err IS nil (copy succeeded)
@@ -90,7 +90,7 @@ func moveOrCopyFile(src, dst string) error {
 		// Hash comparison
 		if !bytes.Equal(srcHash, dstHash) { // Hash mismatch (FAIL)
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
-				logging.E(0, "Unable to remove failed moved file %q due to error: %v", dst, delErr)
+				logging.E("Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
 			return fmt.Errorf("hash mismatch after copy (source: %x, destination: %x)\n\nAttempted copy %q → %q", srcHash, dstHash, src, dst)
 		}
@@ -103,11 +103,11 @@ func moveOrCopyFile(src, dst string) error {
 			// Do not return error, user will simply need to manually delete the original
 		}
 
-		logging.S(0, "Copied file and removed original: %q → %q", src, dst)
+		logging.S("Copied file and removed original: %q → %q", src, dst)
 		return nil
 	} else {
 		if err := os.Remove(dst); err != nil {
-			logging.E(0, "Failed to remove failed copied file %q due to error: %v", dst, err)
+			logging.E("Failed to remove failed copied file %q due to error: %v", dst, err)
 		}
 		return fmt.Errorf("failed to copy file %q → %q: %w", src, dst, err)
 	}
@@ -160,7 +160,7 @@ func copyFile(src, dst string) error {
 	}
 	defer func() {
 		if err := sourceFile.Close(); err != nil {
-			logging.E(0, "Failed to close %q: %v", sourceFile.Name(), err)
+			logging.E("Failed to close %q: %v", sourceFile.Name(), err)
 		}
 	}()
 
@@ -172,11 +172,11 @@ func copyFile(src, dst string) error {
 	// Cleanup on function exit
 	defer func() {
 		if err := destFile.Close(); err != nil {
-			logging.E(0, "Failed to close %q: %v", sourceFile.Name(), err)
+			logging.E("Failed to close %q: %v", sourceFile.Name(), err)
 		}
 		if err != nil {
 			if err := os.Remove(dst); err != nil {
-				logging.E(0, "Failed to remove %q: %v", dst, err)
+				logging.E("Failed to remove %q: %v", dst, err)
 			}
 		}
 	}()
@@ -186,7 +186,7 @@ func copyFile(src, dst string) error {
 	bufferedDest := bufio.NewWriterSize(destFile, consts.Buffer4MB)
 	defer func() {
 		if err := bufferedDest.Flush(); err != nil {
-			logging.E(0, "failed to flush buffer for %q: %v", destFile.Name(), err)
+			logging.E("failed to flush buffer for %q: %v", destFile.Name(), err)
 		}
 	}()
 
@@ -247,7 +247,7 @@ func calculateFileHash(fpath string) ([]byte, error) {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logging.E(0, "Failed to close %q: %v", file.Name(), err)
+			logging.E("Failed to close %q: %v", file.Name(), err)
 		}
 	}()
 

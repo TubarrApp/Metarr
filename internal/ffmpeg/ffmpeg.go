@@ -29,7 +29,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	// Extension validation - now checks length and format immediately
 	if cfg.IsSet(keys.OutputFiletype) {
 		if outExt = validation.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
-			logging.E(0, "Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
+			logging.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
 	} else {
@@ -57,7 +57,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	defer func() {
 		if _, err := os.Stat(tmpOutPath); err == nil {
 			if err := os.Remove(tmpOutPath); err != nil {
-				logging.E(0, "Failed to remove %q: %v", tmpOutPath, err)
+				logging.E("Failed to remove %q: %v", tmpOutPath, err)
 			}
 		}
 	}()
@@ -114,7 +114,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
-	logging.S(0, "Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
+	logging.S("Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
 		fd.FinalVideoPath,
 		fd.MTitleDesc.Title)
 
@@ -151,7 +151,7 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	if desiredVCodec != "" || desiredACodec != "" {
 		vCodec, aCodec, err := checkCodecs(fd.OriginalVideoPath)
 		if err != nil {
-			logging.E(0, "Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
+			logging.E("Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
 		}
 
 		if desiredVCodec != vCodec && desiredVCodec != "" || desiredACodec != aCodec && desiredACodec != "" {

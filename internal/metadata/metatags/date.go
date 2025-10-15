@@ -26,7 +26,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 
 	if fd.MDates.FormattedDate == "" {
 		if date, found = extractDateFromMetadata(metadata); !found {
-			logging.E(0, "No dates found in JSON file")
+			logging.E("No dates found in JSON file")
 			return "", nil
 		}
 	} else {
@@ -40,12 +40,12 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 
 	dateStr, err := dates.FormatDateString(year, month, day, dateFmt)
 	if dateStr == "" || err != nil {
-		logging.E(0, "Failed to create date string")
+		logging.E("Failed to create date string")
 		return "", nil
 	}
 
 	dateTag := fmt.Sprintf("[%s]", dateStr)
-	logging.S(0, "Made date tag %q from file '%v'", dateTag, fd.OriginalVideoBaseName)
+	logging.S("Made date tag %q from file '%v'", dateTag, fd.OriginalVideoBaseName)
 	return dateTag, nil
 }
 

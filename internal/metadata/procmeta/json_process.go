@@ -50,7 +50,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logging.E(0, "Failed to close file %q: %v", file.Name(), err)
+			logging.E("Failed to close file %q: %v", file.Name(), err)
 		}
 	}()
 
@@ -104,7 +104,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	if cfg.IsSet(keys.MDateTagMap) || cfg.IsSet(keys.MDelDateTagMap) {
 		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
-			logging.E(0, "Failed to make date tag edits for metadata in file %q: %v", file.Name(), err)
+			logging.E("Failed to make date tag edits for metadata in file %q: %v", file.Name(), err)
 		} else if !ok {
 			logging.D(1, "Did not make date tag edits for metadata, tag already exists?")
 		}
@@ -141,11 +141,11 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		dateFmt, ok := cfg.Get(keys.FileDateFmt).(enums.DateFormat)
 		switch {
 		case !ok:
-			logging.E(0, "Got null or wrong type for file date format. Got type %T", dateFmt)
+			logging.E("Got null or wrong type for file date format. Got type %T", dateFmt)
 		case dateFmt != enums.DateFmtSkip:
 			dateTag, err := metatags.MakeDateTag(data, fd, dateFmt)
 			if err != nil {
-				logging.E(0, "Failed to make date tag: %v", err)
+				logging.E("Failed to make date tag: %v", err)
 			}
 			if !strings.Contains(file.Name(), dateTag) {
 				fd.FilenameDateTag = dateTag

@@ -113,7 +113,7 @@ func init() {
 func Execute() error {
 	fmt.Println()
 	if err := rootCmd.Execute(); err != nil {
-		logging.E(0, "Failed to execute cobra")
+		logging.E("Failed to execute cobra")
 		return err
 	}
 
@@ -358,7 +358,7 @@ func verifyFilePrefixes() {
 // verifyMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
 func verifyMetaOverwritePreserve() {
 	if GetBool(keys.MOverwrite) && GetBool(keys.MPreserve) {
-		logging.E(0, "Cannot enter both meta preserve AND meta overwrite, exiting...")
+		logging.E("Cannot enter both meta preserve AND meta overwrite, exiting...")
 		os.Exit(1)
 	}
 }
@@ -440,7 +440,7 @@ func verifyConcurrencyLimit() {
 	switch {
 	case maxConcurrentProcesses < 1:
 		maxConcurrentProcesses = 1
-		logging.E(2, "Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
+		logging.E("Max concurrency set too low, set to minimum value: %d", maxConcurrentProcesses)
 	default:
 		logging.I("Max concurrency: %d", maxConcurrentProcesses)
 	}
@@ -470,13 +470,13 @@ func verifyResourceLimits() {
 
 		currentAvailableMem, err := mem.VirtualMemory()
 		if err != nil {
-			logging.E(0, "Could not get system memory, using default max RAM requirements: %v", err)
+			logging.E("Could not get system memory, using default max RAM requirements: %v", err)
 			currentAvailableMem.Available = consts.GB // Guess 1 gig (conservative)
 		}
 
 		minFreeMemInt, err := strconv.Atoi(minFreeMem)
 		if err != nil {
-			logging.E(0, "Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
+			logging.E("Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
 			currentAvailableMem.Available = consts.GB
 		}
 
@@ -496,11 +496,11 @@ func verifyResourceLimits() {
 		switch {
 		case maxCPUUsage > 100.0:
 			maxCPUUsage = 100.0
-			logging.E(2, "Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
+			logging.E("Max CPU usage entered too high, setting to default max: %.2f%%", maxCPUUsage)
 
 		case maxCPUUsage < 1.0:
 			maxCPUUsage = 10.0
-			logging.E(0, "Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
+			logging.E("Max CPU usage entered too low, setting to default low: %.2f%%", maxCPUUsage)
 		}
 		if maxCPUUsage != 100.0 {
 			logging.I("Max CPU usage: %.2f%%", maxCPUUsage)

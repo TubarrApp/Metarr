@@ -18,7 +18,7 @@ var muPrint sync.Mutex
 // taskName allows you to enter your own identifier for this task which will display in terminal.
 func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	if model == nil {
-		logging.E(0, "Model entered nil for taskname %q", taskName)
+		logging.E("Model entered nil for taskname %q", taskName)
 		return
 	}
 

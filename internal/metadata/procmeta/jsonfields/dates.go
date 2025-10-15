@@ -28,7 +28,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 	}
 
 	if ok := unpackJSON(fieldMap, json); !ok {
-		logging.E(1, "Failed to unpack date JSON, no dates currently exist in file?")
+		logging.E("Failed to unpack date JSON, no dates currently exist in file?")
 	}
 
 	var printMap map[string]string
@@ -44,7 +44,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 	var gotDate bool
 	for k, ptr := range fieldMap {
 		if ptr == nil {
-			logging.E(0, "Unexpected nil pointer in fieldMap")
+			logging.E("Unexpected nil pointer in fieldMap")
 			continue
 		}
 
@@ -91,11 +91,11 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
 		} else if t.StringDate, err = dates.ParseNumDate(t.FormattedDate); err != nil {
-			logging.E(0, "Failed to parse date %q: %v", t.FormattedDate, err)
+			logging.E("Failed to parse date %q: %v", t.FormattedDate, err)
 		}
 
 		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
-			logging.E(0, "Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
+			logging.E("Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
 		}
 
 		return true
@@ -114,7 +114,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 	if scrapedDate != "" {
 		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.E(0, "Failed to parse date %q: %v", scrapedDate, err)
+			logging.E("Failed to parse date %q: %v", scrapedDate, err)
 			return false
 		}
 		if t.ReleaseDate == "" {
@@ -149,7 +149,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 			dates.FormatAllDates(fd)
 		}
 		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
-			logging.E(0, "Failed to write new metadata (%s) into JSON file %q: %v", date, fd.JSONFilePath, err)
+			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", date, fd.JSONFilePath, err)
 		}
 		return true
 	}

@@ -44,7 +44,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 
 	errArray := logging.GetErrorArray()
 	if len(errArray) == 0 {
-		logging.S(0, "Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
+		logging.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
 		return nil
 	}
 
@@ -77,7 +77,7 @@ func (bp *batchProcessor) logFailedVideos() {
 
 	for i, failed := range bp.failures.items {
 		if i == 0 {
-			logging.E(0, "Program finished, but some errors were encountered:")
+			logging.E("Program finished, but some errors were encountered:")
 		}
 		logging.P("\nFilename: %v", failed.filename)
 		logging.P("Error: %v", failed.err)

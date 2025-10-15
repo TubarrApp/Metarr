@@ -38,7 +38,7 @@ func fillTitles(fd *models.FileData, json map[string]any) (map[string]any, bool)
 	// Fill fieldMap entries
 	for k, ptr := range fieldMap {
 		if ptr == nil {
-			logging.E(0, "fieldMap entry pointer unexpectedly nil")
+			logging.E("fieldMap entry pointer unexpectedly nil")
 			continue
 		}
 
@@ -80,7 +80,7 @@ func fillTitles(fd *models.FileData, json map[string]any) (map[string]any, bool)
 
 	data, err := fd.JSONFileRW.WriteJSON(fieldMap)
 	if err != nil {
-		logging.E(0, "Error writing JSON for file %q: %v", fd.JSONFilePath, err)
+		logging.E("Error writing JSON for file %q: %v", fd.JSONFilePath, err)
 		return data, false
 	}
 

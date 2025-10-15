@@ -69,7 +69,7 @@ func StartBatchLoop(core *models.Core) error {
 
 	batches, ok := cfg.Get(keys.BatchPairs).([]cfg.BatchConfig)
 	if !ok {
-		logging.E(0, "Wrong type or null batch pair. Type: %T", batches)
+		logging.E("Wrong type or null batch pair. Type: %T", batches)
 		return nil
 	}
 
@@ -94,14 +94,14 @@ func StartBatchLoop(core *models.Core) error {
 		// Open video file if necessary
 		if !skipVideos {
 			if openVideo, err = os.Open(batch.Video); err != nil {
-				logging.E(0, "Failed to open %s", batch.Video)
+				logging.E("Failed to open %s", batch.Video)
 				continue
 			}
 		}
 
 		// Open JSON file
 		if openJSON, err = os.Open(batch.JSON); err != nil {
-			logging.E(0, "Failed to open %s", batch.JSON)
+			logging.E("Failed to open %s", batch.JSON)
 
 			// Close accompanying video...
 			if openVideo != nil {
@@ -135,11 +135,11 @@ func StartBatchLoop(core *models.Core) error {
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {
 			if err := openVideo.Close(); err != nil {
-				logging.E(0, "Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
+				logging.E("Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
 			}
 		}
 		if err := openJSON.Close(); err != nil {
-			logging.E(0, "Failed to close JSON file %q after successful iteration: %v", openVideo.Name(), err)
+			logging.E("Failed to close JSON file %q after successful iteration: %v", openVideo.Name(), err)
 		}
 
 		job++

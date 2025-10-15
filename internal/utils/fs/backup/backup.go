@@ -31,7 +31,7 @@ func BackupFile(file *os.File) error {
 	}
 	defer func() {
 		if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-			logging.E(0, "Failed to seek file %q: %v", file.Name(), err)
+			logging.E("Failed to seek file %q: %v", file.Name(), err)
 		}
 	}()
 
@@ -50,7 +50,7 @@ func BackupFile(file *os.File) error {
 	}
 	defer func() {
 		if err := backupFile.Close(); err != nil {
-			logging.E(0, "Failed to close file %q: %v", backupFile.Name(), err)
+			logging.E("Failed to close file %q: %v", backupFile.Name(), err)
 		}
 	}()
 
@@ -76,7 +76,7 @@ func generateBackupFilename(originalFilePath string) string {
 func RenameToBackup(filename string) (backupName string, err error) {
 
 	if filename == "" {
-		logging.E(0, "filename was passed in to backup empty")
+		logging.E("filename was passed in to backup empty")
 	}
 
 	backupName = generateBackupFilename(filename)

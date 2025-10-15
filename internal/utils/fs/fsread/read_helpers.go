@@ -14,7 +14,7 @@ import (
 // HasFileExtension checks if the file has a valid extension from a passed in map.
 func HasFileExtension(filename string, extensions map[string]bool) bool {
 	if extensions == nil {
-		logging.E(0, "Extensions sent in nil.")
+		logging.E("Extensions sent in nil.")
 		return false
 	}
 

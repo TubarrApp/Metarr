@@ -32,12 +32,12 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
 	w.Cookies, err = getBrowserCookies(w.WebpageURL)
 	if err != nil {
-		logging.E(2, "Was unable to grab browser cookies: %v", err)
+		logging.E("Was unable to grab browser cookies: %v", err)
 	}
 	for _, try := range w.TryURLs {
 		data, err = scrape(try, w.Cookies, find, false)
 		if err != nil {
-			logging.E(0, "Failed to scrape %q for requested metadata: %v", try, err)
+			logging.E("Failed to scrape %q for requested metadata: %v", try, err)
 		} else {
 			break
 		}
@@ -56,7 +56,7 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 		}
 
 		lastErr = err
-		logging.E(0, "Scrape attempt %d/%d failed for %s: %v",
+		logging.E("Scrape attempt %d/%d failed for %s: %v",
 			attempt, maxRetries, url, err)
 
 		if attempt < maxRetries {
@@ -142,7 +142,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 		case "":
 			return "", scrapeError
 		default:
-			logging.E(0, "Error during scrape (%v) but got result anyway. Returning result %q...", scrapeError, result)
+			logging.E("Error during scrape (%v) but got result anyway. Returning result %q...", scrapeError, result)
 			return result, nil
 		}
 	}
@@ -182,7 +182,7 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 				}
 
 				if value != "" {
-					logging.S(0, "Grabbed value %q for URL %q using preset scraper", value, url)
+					logging.S("Grabbed value %q for URL %q using preset scraper", value, url)
 					*result = rule.Process(value)
 				}
 			})

@@ -26,7 +26,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			logging.E(0, "Failed to close file %q: %v", file.Name(), err)
+			logging.E("Failed to close file %q: %v", file.Name(), err)
 		}
 	}()
 
@@ -38,7 +38,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 
 	data, err := nfoRW.DecodeMetadata(file)
 	if err != nil || data == nil {
-		logging.E(0, "Failed to decode metadata from file: %v", err)
+		logging.E("Failed to decode metadata from file: %v", err)
 	} else {
 		// Store NFO data in model
 		fd.NFOData = data
@@ -46,7 +46,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 
 	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd)
 	if err != nil {
-		logging.E(0, "Encountered issue making meta edits: %v", err)
+		logging.E("Encountered issue making meta edits: %v", err)
 	}
 	if edited {
 		logging.D(2, "Refreshing NFO metadata after edits were made...")
@@ -60,7 +60,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 
 	// Fill to file metadata
 	if ok := nfofields.FillNFO(fd); !ok {
-		logging.E(0, "No metadata filled from NFO file...")
+		logging.E("No metadata filled from NFO file...")
 	}
 	return fd, nil
 }

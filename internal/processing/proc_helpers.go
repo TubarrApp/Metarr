@@ -33,7 +33,7 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 
 	if cfg.IsSet(keys.Rename) {
 		if replaceStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
-			logging.E(0, "Received wrong type for rename style. Got %T", replaceStyle)
+			logging.E("Received wrong type for rename style. Got %T", replaceStyle)
 		} else {
 			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
 		}
@@ -58,9 +58,9 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 	err := transformations.FileRename(fd, replaceStyle, skipVideos)
 	if err != nil {
 		logging.AddToErrorArray(err)
-		logging.E(0, "Failed to rename files: %v", err)
+		logging.E("Failed to rename files: %v", err)
 	} else {
-		logging.S(0, "Successfully formatted file names in directory: %s", directory)
+		logging.S("Successfully formatted file names in directory: %s", directory)
 	}
 }
 
@@ -80,7 +80,7 @@ func sysResourceLoop(fileStr string) {
 
 		if err != nil {
 			logging.AddToErrorArray(err)
-			logging.E(0, "Error checking system resources: %v", err)
+			logging.E("Error checking system resources: %v", err)
 
 			time.Sleep(backoff)
 			backoff *= 2

@@ -81,7 +81,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		} else {
 			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
 			if err != nil {
-				logging.E(0, "Error parsing date %q: %v", t.FormattedDate, err)
+				logging.E("Error parsing date %q: %v", t.FormattedDate, err)
 			}
 		}
 
@@ -103,7 +103,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	if scrapedDate != "" {
 		date, err = dates.ParseWordDate(scrapedDate)
 		if err != nil || date == "" {
-			logging.E(0, "Failed to parse date %q: %v", scrapedDate, err)
+			logging.E("Failed to parse date %q: %v", scrapedDate, err)
 			return false
 		} else {
 			if t.ReleaseDate == "" {

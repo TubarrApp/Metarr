@@ -64,7 +64,7 @@ func main() {
 		if cfg.IsSet(keys.BenchFiles) {
 			benchFiles, ok := cfg.Get(keys.BenchFiles).(*benchmark.BenchFiles)
 			if !ok || benchFiles == nil {
-				logging.E(0, "Null benchFiles or wrong type. Got type: %T", benchFiles)
+				logging.E("Null benchFiles or wrong type. Got type: %T", benchFiles)
 				return
 			}
 			if benchErr != nil {
@@ -89,7 +89,7 @@ func main() {
 	}
 
 	if err := fsread.InitFetchFilesVars(); err != nil {
-		logging.E(0, "Failed to initialize variables to fetch files. Exiting...")
+		logging.E("Failed to initialize variables to fetch files. Exiting...")
 		benchErr = err
 		cancel() // Do not remove call before exit
 		os.Exit(1)
@@ -99,7 +99,7 @@ func main() {
 
 	if cfg.IsSet(keys.BatchPairs) {
 		if err := processing.StartBatchLoop(core); err != nil {
-			logging.E(0, "error during batch loop: %v", err)
+			logging.E("error during batch loop: %v", err)
 			benchErr = err
 			cancel()
 			os.Exit(1)

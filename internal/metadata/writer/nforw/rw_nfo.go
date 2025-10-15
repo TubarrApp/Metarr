@@ -121,7 +121,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		replace = fd.ModelMReplace
 	} else if cfg.IsSet(keys.MReplaceText) {
 		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
-			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", replace)
+			logging.E("Count not retrieve prefix trim, wrong type: '%T'", replace)
 		}
 	}
 
@@ -131,7 +131,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		trimPfx = fd.ModelMTrimPrefix
 	} else if cfg.IsSet(keys.MTrimPrefix) {
 		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
-			logging.E(0, "Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
+			logging.E("Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
 		}
 	}
 
@@ -140,7 +140,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		trimSfx = fd.ModelMTrimSuffix
 	} else if cfg.IsSet(keys.MTrimSuffix) {
 		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
-			logging.E(0, "Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
+			logging.E("Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
 		}
 	}
 
@@ -150,7 +150,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		apnd = fd.ModelMAppend
 	} else if cfg.IsSet(keys.MAppend) {
 		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
-			logging.E(0, "Count not retrieve appends, wrong type: '%T'", apnd)
+			logging.E("Count not retrieve appends, wrong type: '%T'", apnd)
 		}
 	}
 
@@ -159,7 +159,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		pfx = fd.ModelMPrefix
 	} else if cfg.IsSet(keys.MPrefix) {
 		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
-			logging.E(0, "Count not retrieve prefix, wrong type: '%T'", pfx)
+			logging.E("Count not retrieve prefix, wrong type: '%T'", pfx)
 		}
 	}
 
@@ -169,7 +169,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		newField = fd.ModelMNewField
 	} else if cfg.IsSet(keys.MNewField) {
 		if newField, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
-			logging.E(0, "Could not retrieve new fields, wrong type: '%T'", pfx)
+			logging.E("Could not retrieve new fields, wrong type: '%T'", pfx)
 		}
 	}
 
@@ -177,7 +177,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Replace
 	if len(replace) > 0 {
 		if newContent, ok, err = rw.replaceXML(data, replace); err != nil {
-			logging.E(0, "failed to replace XML with %+v: %v", replace, err)
+			logging.E("failed to replace XML with %+v: %v", replace, err)
 		} else if ok {
 			edited = true
 		}
@@ -186,7 +186,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Trim
 	if len(trimPfx) > 0 {
 		if newContent, ok, err = rw.trimXMLPrefix(data, trimPfx); err != nil {
-			logging.E(0, "failed to trim XML prefix with %+v: %v", trimPfx, err)
+			logging.E("failed to trim XML prefix with %+v: %v", trimPfx, err)
 		} else if ok {
 			edited = true
 		}
@@ -194,7 +194,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 	if len(trimSfx) > 0 {
 		if newContent, ok, err = rw.trimXMLSuffix(data, trimSfx); err != nil {
-			logging.E(0, "failed to trim XML suffix with %+v: %v", trimSfx, err)
+			logging.E("failed to trim XML suffix with %+v: %v", trimSfx, err)
 		} else if ok {
 			edited = true
 		}
@@ -203,7 +203,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Append and prefix
 	if len(apnd) > 0 {
 		if newContent, ok, err = rw.xmlAppend(data, apnd); err != nil {
-			logging.E(0, "failed to append XML with %+v: %v", apnd, err)
+			logging.E("failed to append XML with %+v: %v", apnd, err)
 		} else if ok {
 			edited = true
 		}
@@ -211,7 +211,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 	if len(pfx) > 0 {
 		if newContent, ok, err = rw.xmlPrefix(data, pfx); err != nil {
-			logging.E(0, "failed to prefix XML with %+v: %v", pfx, err)
+			logging.E("failed to prefix XML with %+v: %v", pfx, err)
 		} else if ok {
 			edited = true
 		}
@@ -220,7 +220,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Add new
 	if len(newField) > 0 {
 		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, newField); err != nil {
-			logging.E(0, "failed to add new XML fields with %+v: %v", newField, err)
+			logging.E("failed to add new XML fields with %+v: %v", newField, err)
 		} else if ok {
 			edited = true
 		}
@@ -556,7 +556,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 
 				reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 				if err != nil {
-					logging.E(0, "Failed to retrieve reply from user prompt: %v", err)
+					logging.E("Failed to retrieve reply from user prompt: %v", err)
 				}
 
 				switch reply {
@@ -605,13 +605,13 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		// No cast tag exists, create new structure
 		movieStart := strings.Index(data, "<movie>")
 		if movieStart == -1 {
-			logging.E(0, "Invalid XML structure: no movie tag found")
+			logging.E("Invalid XML structure: no movie tag found")
 			return data, false
 		}
 
 		movieEnd := strings.Index(data, "</movie>")
 		if movieEnd == -1 {
-			logging.E(0, "Invalid XML structure: no closing movie tag found")
+			logging.E("Invalid XML structure: no closing movie tag found")
 			return data, false
 		}
 
@@ -621,7 +621,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		// Find the right spot to insert
 		contentStart := movieStart + len("<movie>")
 		if contentStart >= len(data) {
-			logging.E(0, "Invalid XML structure: movie tag at end of data")
+			logging.E("Invalid XML structure: movie tag at end of data")
 			return data, false
 		}
 
@@ -630,7 +630,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 
 	// Cast exists, validate indices
 	if castStart == -1 || castEnd == -1 || castStart >= len(data) || castEnd > len(data) {
-		logging.E(0, "Invalid XML structure: mismatched cast tags")
+		logging.E("Invalid XML structure: mismatched cast tags")
 		return data, false
 	}
 

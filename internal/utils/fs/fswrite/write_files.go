@@ -77,7 +77,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputVideo, fs.RenamedVideo, err)
 		}
-		logging.S(0, "Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
+		logging.S("Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
 	}
 
 	// Rename meta file
@@ -85,7 +85,7 @@ func (fs *FSFileWriter) WriteResults() error {
 		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
-		logging.S(0, "Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
+		logging.S("Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
 	}
 
 	return nil
@@ -195,7 +195,7 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 		return fmt.Errorf("unable to delete meta file: %w", err), false
 	}
 
-	logging.S(0, "Successfully deleted metafile. Bye bye %q!", file)
+	logging.S("Successfully deleted metafile. Bye bye %q!", file)
 
 	return nil, true
 }

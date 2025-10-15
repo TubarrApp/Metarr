@@ -28,7 +28,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	if cfg.IsSet(keys.MTrimSuffix) {
 		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
-			logging.E(2, "Got type %T, may be null", trimSfx)
+			logging.E("Got type %T, may be null", trimSfx)
 		}
 	}
 
@@ -76,7 +76,7 @@ func censoredTvFSuffixes(fd *models.FileData) {
 	if cfg.IsSet(keys.FilenameReplaceSfx) {
 		existingSfx, ok := cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
 		if !ok {
-			logging.E(2, "Unexpected type %T, initializing new suffix list.", existingSfx)
+			logging.E("Unexpected type %T, initializing new suffix list.", existingSfx)
 		} else {
 			sfx = existingSfx
 		}

@@ -29,7 +29,7 @@ func dayStringSwitch(day string) string {
 
 	num, err := strconv.Atoi(day)
 	if err != nil {
-		logging.E(0, "Failed to convert date string to number")
+		logging.E("Failed to convert date string to number")
 		return day
 	}
 
@@ -83,7 +83,7 @@ func monthStringSwitch(month string) string {
 	case "12":
 		monthStr = "Dec"
 	default:
-		logging.E(0, "Failed to make month string from month number %q", month)
+		logging.E("Failed to make month string from month number %q", month)
 		monthStr = "Jan"
 	}
 	return monthStr

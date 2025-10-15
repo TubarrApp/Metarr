@@ -67,7 +67,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	wg := core.Wg
 
 	if err := processMetadataFiles(batch.bp, ctx, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed); err != nil {
-		logging.E(0, "Error processing metadata files: %v", err)
+		logging.E("Error processing metadata files: %v", err)
 	}
 
 	setupCleanup(batch, ctx, cancel, cleanupChan, wg, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
@@ -121,7 +121,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	// Handle temp files and cleanup
 	if err = cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
 		logging.AddToErrorArray(err)
-		logging.E(0, "Failed to cleanup temp files: %v", err)
+		logging.E("Failed to cleanup temp files: %v", err)
 	}
 
 	errArray := logging.GetErrorArray()
@@ -150,7 +150,7 @@ func workerVideoProcess(batch *batch, id int, jobs <-chan workItem, results chan
 
 			executed, err := executeFile(batch.bp, ctx, skipVideos, filename, job.fileData)
 			if err != nil {
-				logging.E(0, "Worker %d error executing file %q: %v", id, filename, err)
+				logging.E("Worker %d error executing file %q: %v", id, filename, err)
 				continue
 			}
 
@@ -176,7 +176,7 @@ func processMetadataFiles(bp *batchProcessor, ctx context.Context, matchedFiles 
 
 		if err != nil {
 			logging.AddToErrorArray(err)
-			logging.E(0, "Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)
+			logging.E("Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)
 
 			muFailed.Lock()
 			bp.logFailedVideos()
@@ -198,7 +198,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	if batch.IsDirs {
 		metaMap, err = fsread.GetMetadataFiles(openMeta)
 		if err != nil {
-			logging.E(0, "Failed to retrieve metadata files in %q: %v", openMeta.Name(), err)
+			logging.E("Failed to retrieve metadata files in %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
@@ -208,7 +208,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		if !skipVideos {
 			videoMap, err = fsread.GetVideoFiles(openVideo)
 			if err != nil {
-				logging.E(0, "Failed to retrieve video files in %q: %v", openVideo.Name(), err)
+				logging.E("Failed to retrieve video files in %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
 					err:      err.Error(),
@@ -219,7 +219,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	} else if !batch.IsDirs {
 		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
 		if err != nil {
-			logging.E(0, "Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
+			logging.E("Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
@@ -229,7 +229,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		if !skipVideos {
 			videoMap, err = fsread.GetSingleVideoFile(openVideo)
 			if err != nil {
-				logging.E(0, "Failed to retrieve video file %q: %v", openVideo.Name(), err)
+				logging.E("Failed to retrieve video file %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
 					err:      err.Error(),
@@ -254,7 +254,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		logging.I("Stripping date tags from files...")
 		err := transformations.StripDateTagFromFilename(matchedFiles, videoMap, metaMap)
 		if err != nil {
-			logging.E(0, "Failed to strip date tags: %v", err)
+			logging.E("Failed to strip date tags: %v", err)
 		}
 	}
 
@@ -327,7 +327,7 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 
 				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
 				logging.AddToErrorArray(errMsg)
-				logging.E(0, "Failed to execute video %q: %v", fd.OriginalVideoPath, err)
+				logging.E("Failed to execute video %q: %v", fd.OriginalVideoPath, err)
 
 				bp.addFailure(failedVideo{
 					filename: filename,
@@ -335,11 +335,11 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 				})
 				return nil, errMsg
 			}
-			logging.S(0, "Successfully processed video %s", filename)
+			logging.S("Successfully processed video %s", filename)
 		}
 	} else {
 		logging.I("Processing metadata file: %s", filename)
-		logging.S(0, "Successfully processed metadata for %s", filename)
+		logging.S("Successfully processed metadata for %s", filename)
 	}
 
 	// Print progress for video
@@ -364,7 +364,7 @@ func setupCleanup(batch *batch, ctx context.Context, cancel context.CancelFunc, 
 		wg.Wait()
 
 		if err := cleanupTempFiles(videoMap); err != nil {
-			logging.E(0, "Failed to cleanup temp files: %v", err)
+			logging.E("Failed to cleanup temp files: %v", err)
 		}
 
 		muFailed.Lock()

@@ -21,7 +21,7 @@ func replaceJSON(j map[string]any, rplce []models.MetaReplace) (bool, error) {
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
 	if len(rplce) == 0 {
-		logging.E(0, "Called replaceJson without replacements")
+		logging.E("Called replaceJson without replacements")
 		return false, nil
 	}
 
@@ -50,7 +50,7 @@ func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) (bool, error
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
-		logging.E(0, "Called trimJsonPrefix without prefixes to trim")
+		logging.E("Called trimJsonPrefix without prefixes to trim")
 		return false, nil
 	}
 
@@ -79,7 +79,7 @@ func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) (bool, error
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
-		logging.E(0, "Called trimJsonSuffix without prefixes to trim")
+		logging.E("Called trimJsonSuffix without prefixes to trim")
 		return false, nil
 	}
 
@@ -108,7 +108,7 @@ func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) (bool, 
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
 	if len(apnd) == 0 {
-		logging.E(0, "No new suffixes to append for file %q", file)
+		logging.E("No new suffixes to append for file %q", file)
 		return false, nil // No replacements to apply
 	}
 
@@ -140,7 +140,7 @@ func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) (bool, e
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(pfx) == 0 {
-		logging.E(0, "No new prefix replacements found for file %q", file)
+		logging.E("No new prefix replacements found for file %q", file)
 		return false, nil // No replacements to apply
 	}
 
@@ -169,7 +169,7 @@ func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) (bool, e
 // setJSONField can insert a new field which does not yet exist into the metadata file
 func setJSONField(j map[string]any, file string, ow bool, newField []models.MetaNewField) (bool, error) {
 	if len(newField) == 0 {
-		logging.E(0, "No new field additions found for file %q", file)
+		logging.E("No new field additions found for file %q", file)
 		return false, nil
 	}
 
@@ -229,7 +229,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 
 					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
 					if err != nil {
-						logging.E(0, "Failed to retrieve reply from user prompt: %v", err)
+						logging.E("Failed to retrieve reply from user prompt: %v", err)
 					}
 
 					switch reply {
@@ -336,7 +336,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 					logging.I("Deleted date tag %q prefix from field %q", tag, fld)
 					edited = true
 				} else {
-					logging.E(0, "Failed to strip date tag from %q", before)
+					logging.E("Failed to strip date tag from %q", before)
 				}
 			case enums.DatetagAddOp:
 				j[fld] = fmt.Sprintf("%s %s", tag, strVal)
@@ -357,7 +357,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 					logging.I("Deleted date tag %q suffix from field %q", tag, fld)
 					edited = true
 				} else {
-					logging.E(0, "Failed to strip date tag from %q", before)
+					logging.E("Failed to strip date tag from %q", before)
 				}
 			case enums.DatetagAddOp:
 
@@ -379,7 +379,7 @@ func copyToField(j map[string]any, copyTo []models.CopyToField) (bool, error) {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(copyTo) == 0 {
-		logging.E(0, "No new copy operations found")
+		logging.E("No new copy operations found")
 		return false, nil
 	}
 
@@ -410,7 +410,7 @@ func pasteFromField(j map[string]any, paste []models.PasteFromField) (bool, erro
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(paste) == 0 {
-		logging.E(0, "No new paste operations found")
+		logging.E("No new paste operations found")
 		return false, nil
 	}
 

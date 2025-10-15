@@ -3,6 +3,8 @@ package logging
 
 import (
 	"fmt"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/regex"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,22 +13,22 @@ import (
 	"sync"
 	"time"
 
-	"metarr/internal/domain/consts"
-	"metarr/internal/domain/regex"
-
 	"github.com/rs/zerolog"
 )
 
+// Global logging variables.
 var (
-	Level      int  = -1
-	Loggable   bool = false
+	Level    = -1
+	Loggable = false
+)
+
+var (
 	fileLogger zerolog.Logger
-	muErr      sync.Mutex
 	errorArray = make([]error, 0, 8)
 	console    = os.Stdout
 
 	builderPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return new(strings.Builder)
 		},
 	}
@@ -41,9 +43,21 @@ const (
 	tagLine = " : " + consts.ColorDimCyan + "Line:" + consts.ColorReset + " "
 	tagEnd  = "]\n"
 
-	JFunction = "function"
-	JFile     = "file"
-	JLine     = "line"
+	jFunction = "function"
+	jFile     = "file"
+	jLine     = "line"
+)
+
+// logLevel represents different logging levels
+type logType int
+
+const (
+	logError logType = iota
+	logWarn
+	logInfo
+	logDebug
+	logSuccess
+	logPrint
 )
 
 func init() {
@@ -55,7 +69,7 @@ func SetupLogging(targetDir string) error {
 	logfile, err := os.OpenFile(
 		filepath.Join(targetDir, metarrLogFile),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		0644,
+		consts.PermsLogFile,
 	)
 	if err != nil {
 		return err
@@ -65,7 +79,7 @@ func SetupLogging(targetDir string) error {
 	fileLogger = zerolog.New(logfile).With().Timestamp().Logger()
 	Loggable = true
 
-	b := builderPool.Get().(*strings.Builder)
+	b := builderPool.Get().(*strings.Builder) //nolint:errcheck
 	b.Reset()
 	defer func() {
 		b.Reset()
@@ -88,268 +102,164 @@ func SetupLogging(targetDir string) error {
 func writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
 	if _, err := fmt.Fprintf(console, "%s%s%s %s", consts.ColorBrightBlack, timestamp, consts.ColorReset, msg); err != nil {
-		E(0, "Encountered error writing to console: %v", err)
+		E("Encountered error writing to console: %v", err)
 	}
 }
 
-// E logs error messages, and appends to the global error array.
-func E(l int, msg string, args ...interface{}) {
-	if Level < l {
+// callerInfo retrieves caller information for logging
+type callerInfo struct {
+	funcName string
+	file     string
+	line     int
+	lineStr  string
+}
+
+// getCaller gets caller information from the call stack
+func getCaller(skip int) callerInfo {
+	pc, file, line, _ := runtime.Caller(skip)
+	return callerInfo{
+		funcName: filepath.Base(runtime.FuncForPC(pc).Name()),
+		file:     filepath.Base(file),
+		line:     line,
+		lineStr:  strconv.Itoa(line),
+	}
+}
+
+// buildLogMessage constructs a log message with optional caller info
+func buildLogMessage(prefix, msg string, caller *callerInfo) string {
+	b := builderPool.Get().(*strings.Builder) //nolint:errcheck
+	b.Reset()
+	defer func() {
+		b.Reset()
+		builderPool.Put(b)
+	}()
+
+	if caller != nil {
+		// Message with caller info
+		b.Grow(len(prefix) +
+			len(msg) +
+			1 +
+			len(tagFunc) +
+			len(caller.funcName) +
+			len(tagFile) +
+			len(caller.file) +
+			len(tagLine) +
+			len(caller.lineStr) +
+			len(tagEnd))
+
+		b.WriteString(prefix)
+		b.WriteString(msg)
+
+		if !strings.HasSuffix(msg, "\n") {
+			b.WriteByte(' ')
+		}
+
+		b.WriteString(tagFunc)
+		b.WriteString(caller.funcName)
+		b.WriteString(tagFile)
+		b.WriteString(caller.file)
+		b.WriteString(tagLine)
+		b.WriteString(caller.lineStr)
+		b.WriteString(tagEnd)
+	} else {
+		// Simple message without caller info
+		b.Grow(len(prefix) + len(msg) + 1)
+		b.WriteString(prefix)
+		b.WriteString(msg)
+		b.WriteByte('\n')
+	}
+
+	return b.String()
+}
+
+// logToFile logs to the file logger based on level
+func logToFile(level logType, msg string, caller *callerInfo) {
+	if !Loggable {
 		return
 	}
 
-	pc, file, line, _ := runtime.Caller(1)
-	lineStr := strconv.Itoa(line)
-	file = filepath.Base(file)
-	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
+	cleanMsg := regex.AnsiEscapeCompile().ReplaceAllString(msg, "")
 
+	if caller != nil {
+		// Log with caller info
+		event := getZerologEvent(level).
+			Str(jFunction, caller.funcName).
+			Str(jFile, caller.file).
+			Int(jLine, caller.line)
+		event.Msg(cleanMsg)
+	} else {
+		// Log without caller info
+		getZerologEvent(level).Msg(cleanMsg)
+	}
+}
+
+// getZerologEvent returns the appropriate zerolog event for the level
+func getZerologEvent(level logType) *zerolog.Event {
+	switch level {
+	case logError:
+		return fileLogger.Error()
+	case logWarn:
+		return fileLogger.Warn()
+	case logDebug:
+		return fileLogger.Debug()
+	default:
+		return fileLogger.Info()
+	}
+}
+
+// log is the core logging function that handles all logging operations
+func log(level logType, prefix, msg string, withCaller bool, args ...any) {
 	if len(args) > 0 {
 		msg = fmt.Sprintf(msg, args...)
 	}
 
-	b := builderPool.Get().(*strings.Builder)
-	b.Reset()
-	defer func() {
-		b.Reset()
-		builderPool.Put(b)
-	}()
-
-	b.Grow(len(consts.RedError) +
-		len(msg) +
-		1 +
-		len(tagFunc) +
-		len(funcName) +
-		len(tagFile) +
-		len(file) +
-		len(tagLine) +
-		len(lineStr) +
-		len(tagEnd))
-
-	b.WriteString(consts.RedError)
-	b.WriteString(msg)
-
-	if !strings.HasSuffix(msg, "\n") {
-		b.WriteByte(' ')
+	var caller *callerInfo
+	if withCaller {
+		c := getCaller(3) // Skip: getCaller, log, and the public function (logging.E / logging.D)
+		caller = &c
 	}
 
-	b.WriteString(tagFunc)
-	b.WriteString(funcName)
-	b.WriteString(tagFile)
-	b.WriteString(file)
-	b.WriteString(tagLine)
-	b.WriteString(lineStr)
-	b.WriteString(tagEnd)
-
-	writeToConsole(b.String())
-	if Loggable {
-		fileLogger.Error().
-			Str(JFunction, funcName).
-			Str(JFile, file).
-			Int(JLine, line).
-			Msg(regex.AnsiEscapeCompile().ReplaceAllString(msg, ""))
-	}
+	logMsg := buildLogMessage(prefix, msg, caller)
+	writeToConsole(logMsg)
+	logToFile(level, msg, caller)
 }
 
-// S logs success messages.
-func S(l int, msg string, args ...interface{}) {
+// E logs error messages
+func E(msg string, args ...any) {
+	log(logError, consts.RedError, msg, true, args...)
+}
+
+// S logs success messages
+func S(msg string, args ...any) {
+	log(logSuccess, consts.GreenSuccess, msg, false, args...)
+}
+
+// D logs debug messages
+func D(l int, msg string, args ...any) {
 	if Level < l {
 		return
 	}
-
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	b := builderPool.Get().(*strings.Builder)
-	b.Reset()
-	defer func() {
-		b.Reset()
-		builderPool.Put(b)
-	}()
-
-	b.Grow(len(consts.GreenSuccess) +
-		len(msg) + 1)
-
-	b.WriteString(consts.GreenSuccess)
-	b.WriteString(msg)
-	b.WriteByte('\n')
-
-	writeToConsole(b.String())
-	if Loggable {
-		fileLogger.Info().Msg(regex.AnsiEscapeCompile().ReplaceAllString(msg, ""))
-	}
+	log(logDebug, consts.YellowDebug, msg, true, args...)
 }
 
-// D logs debug messages.
-func D(l int, msg string, args ...interface{}) {
-	if Level < l {
-		return
-	}
-
-	pc, file, line, _ := runtime.Caller(1)
-	lineStr := strconv.Itoa(line)
-	file = filepath.Base(file)
-	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
-
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	b := builderPool.Get().(*strings.Builder)
-	b.Reset()
-	defer func() {
-		b.Reset()
-		builderPool.Put(b)
-	}()
-
-	b.Grow(len(consts.YellowDebug) +
-		len(msg) +
-		1 +
-		len(tagFunc) +
-		len(funcName) +
-		len(tagFile) +
-		len(file) +
-		len(tagLine) +
-		len(lineStr) +
-		len(tagEnd))
-
-	b.WriteString(consts.YellowDebug)
-	b.WriteString(msg)
-
-	if !strings.HasSuffix(msg, "\n") {
-		b.WriteByte(' ')
-	}
-
-	b.WriteString(tagFunc)
-	b.WriteString(funcName)
-	b.WriteString(tagFile)
-	b.WriteString(file)
-	b.WriteString(tagLine)
-	b.WriteString(lineStr)
-	b.WriteString(tagEnd)
-
-	writeToConsole(b.String())
-	if Loggable {
-		fileLogger.Debug().
-			Str(JFunction, funcName).
-			Str(JFile, file).
-			Int(JLine, line).
-			Msg(regex.AnsiEscapeCompile().ReplaceAllString(msg, ""))
-	}
+// W logs warning messages
+func W(msg string, args ...any) {
+	log(logWarn, consts.YellowWarning, msg, false, args...)
 }
 
-// W logs debug messages.
-func W(msg string, args ...interface{}) {
-
-	pc, file, line, _ := runtime.Caller(1)
-	lineStr := strconv.Itoa(line)
-	file = filepath.Base(file)
-	funcName := filepath.Base(runtime.FuncForPC(pc).Name())
-
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	b := builderPool.Get().(*strings.Builder)
-	b.Reset()
-	defer func() {
-		b.Reset()
-		builderPool.Put(b)
-	}()
-
-	b.Grow(len(consts.YellowWarning) +
-		len(msg) +
-		1 +
-		len(tagFunc) +
-		len(funcName) +
-		len(tagFile) +
-		len(file) +
-		len(tagLine) +
-		len(lineStr) +
-		len(tagEnd))
-
-	b.WriteString(consts.YellowWarning)
-	b.WriteString(msg)
-
-	if !strings.HasSuffix(msg, "\n") {
-		b.WriteByte(' ')
-	}
-
-	b.WriteString(tagFunc)
-	b.WriteString(funcName)
-	b.WriteString(tagFile)
-	b.WriteString(file)
-	b.WriteString(tagLine)
-	b.WriteString(lineStr)
-	b.WriteString(tagEnd)
-
-	writeToConsole(b.String())
-	if Loggable {
-		fileLogger.Warn().
-			Str(JFunction, funcName).
-			Str(JFile, file).
-			Int(JLine, line).
-			Msg(regex.AnsiEscapeCompile().ReplaceAllString(msg, ""))
-	}
+// I logs info messages
+func I(msg string, args ...any) {
+	log(logInfo, consts.BlueInfo, msg, false, args...)
 }
 
-// I logs info messages.
-func I(msg string, args ...interface{}) {
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	b := builderPool.Get().(*strings.Builder)
-	b.Reset()
-	defer func() {
-		b.Reset()
-		builderPool.Put(b)
-	}()
-
-	b.Grow(len(consts.BlueInfo) +
-		len(msg) + 1)
-
-	b.WriteString(consts.BlueInfo)
-	b.WriteString(msg)
-	b.WriteByte('\n')
-
-	writeToConsole(b.String())
-	if Loggable {
-		fileLogger.Info().Msg(regex.AnsiEscapeCompile().ReplaceAllString(msg, ""))
-	}
-}
-
-// P logs plain messages.
-func P(msg string, args ...interface{}) {
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	b := builderPool.Get().(*strings.Builder)
-	b.Reset()
-	defer func() {
-		b.Reset()
-		builderPool.Put(b)
-	}()
-
-	b.Grow(len(msg) + 1)
-
-	b.WriteString(msg)
-	b.WriteByte('\n')
-
-	writeToConsole(b.String())
-	if Loggable {
-		fileLogger.Info().Msg(msg)
-	}
+// P logs plain messages
+func P(msg string, args ...any) {
+	log(logPrint, "", msg, false, args...)
 }
 
 // AddToErrorArray adds an error to the error array under lock.
 func AddToErrorArray(err error) {
-	muErr.Lock()
-	if err != nil {
-		errorArray = append(errorArray, err)
-	}
-	muErr.Unlock()
+	errorArray = append(errorArray, err)
 }
 
 // GetErrorArray returns the error array.

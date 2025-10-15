@@ -44,7 +44,7 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 	// Grab current codecs
 	vCodec, aCodec, err := checkCodecs(b.inputFile)
 	if err != nil {
-		logging.E(0, "Failed to check codecs in file %q: %v", b.inputFile, err)
+		logging.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
 
 	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags(vCodec)
@@ -120,7 +120,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 	case "vaapi":
 		b.gpuAccel = consts.VaapiAccel[:]
 	default:
-		logging.E(0, "Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
+		logging.E("Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
 		return
 	}
 }
@@ -169,7 +169,7 @@ func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCod
 
 	// GPU flag but no codec
 	if gpuFlag != "auto" && transcodeCodec == "" {
-		logging.E(0, "Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
+		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
 		return "", "", false
 	}
 
@@ -240,7 +240,7 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 				} else {
-					logging.E(0, "Unexpected end of format flags")
+					logging.E("Unexpected end of format flags")
 				}
 			}
 
@@ -250,7 +250,7 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 					logging.I("Replacing preset %q with software codec %q", b.formatFlags[i+1], b.videoCodecSoftware[1])
 					b.formatFlags[i+1] = b.videoCodecSoftware[1]
 				} else {
-					logging.E(0, "Unexpected end of format flags")
+					logging.E("Unexpected end of format flags")
 				}
 			}
 
@@ -259,7 +259,7 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 				if len(b.formatFlags) >= i {
 					b.formatFlags[i+1] = b.audioCodec[1]
 				} else {
-					logging.E(0, "Unexpected end of format flags")
+					logging.E("Unexpected end of format flags")
 				}
 			}
 		}

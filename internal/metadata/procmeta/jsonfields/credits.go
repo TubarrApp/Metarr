@@ -69,7 +69,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 		// Check if filled
 		for k, ptr := range fieldMap {
 			if ptr == nil {
-				logging.E(0, "Unexpected nil pointer in credits fieldMap")
+				logging.E("Unexpected nil pointer in credits fieldMap")
 				continue
 			}
 
@@ -101,7 +101,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 	case filled:
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
+			logging.E("Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
 			return json, true
 		}
 
@@ -126,7 +126,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.JSONFilePath, err)
+			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.JSONFilePath, err)
 			return json, true
 		}
 
@@ -142,7 +142,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[string]string, bool) {
 	logging.D(2, "Checking credits field overrides...")
 	if fieldMap == nil {
-		logging.E(0, "fieldMap passed in null")
+		logging.E("fieldMap passed in null")
 		return printMap, false
 	}
 
@@ -154,7 +154,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 		if m, exists := models.ReplaceOverrideMap[enums.OverrideMetaCredits]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
+					logging.E("Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
 				logging.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
@@ -174,7 +174,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 		if val, exists := models.SetOverrideMap[enums.OverrideMetaCredits]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
+					logging.E("Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
 				logging.I("Overriding old %q → %q", *ptr, val)
@@ -194,7 +194,7 @@ func overrideAll(fieldMap map[string]*string, printMap map[string]string) (map[s
 		if val, exists := models.AppendOverrideMap[enums.OverrideMetaCredits]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E(0, "Entry is nil in fieldMap %v", fieldMap)
+					logging.E("Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
 

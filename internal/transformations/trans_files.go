@@ -322,7 +322,7 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 	} else if cfg.IsSet(keys.FilenameReplaceSfx) {
 		suffixes, ok = cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
 		if !ok && len(fd.ModelFileSfxReplace) == 0 {
-			logging.E(0, "Got wrong type %T for filename replace suffixes", suffixes)
+			logging.E("Got wrong type %T for filename replace suffixes", suffixes)
 			return fileBase
 		}
 	}

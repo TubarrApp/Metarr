@@ -56,7 +56,7 @@ func BitchuteComParseDate(date string) string {
 	if len(dateSplit) >= 3 {
 		digit, err = strconv.Atoi(dateSplit[0])
 		if err != nil {
-			logging.E(0, "Failed to convert string to digits: %v", err)
+			logging.E("Failed to convert string to digits: %v", err)
 		}
 		unit = strings.TrimSuffix(strings.ToLower(dateSplit[1]), "s") // handles both "hour" and "hours"
 
@@ -84,10 +84,10 @@ func BitchuteComParseDate(date string) string {
 		case "year":
 			return now.AddDate(-digit, 0, 0).Format(time.RFC3339)
 		default:
-			logging.E(0, "Unknown time unit: %s", unit)
+			logging.E("Unknown time unit: %s", unit)
 			return ""
 		}
 	}
-	logging.E(0, "Wrong date length passed in")
+	logging.E("Wrong date length passed in")
 	return ""
 }

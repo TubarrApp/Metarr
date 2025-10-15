@@ -36,7 +36,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 	if (datePfx || dateSfx) && t.StringDate != "" {
 		for _, ptr := range fieldMap {
 			if ptr == nil {
-				logging.E(0, "Unexpected nil pointer in descriptions fieldMap")
+				logging.E("Unexpected nil pointer in descriptions fieldMap")
 				continue
 			}
 
@@ -80,7 +80,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 	// Attempt to fill empty description fields by inference
 	for k, ptr := range fieldMap {
 		if ptr == nil {
-			logging.E(0, "Unexpected nil pointer in descriptions fieldMap")
+			logging.E("Unexpected nil pointer in descriptions fieldMap")
 			continue
 		}
 
@@ -102,11 +102,11 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
+			logging.E("Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
 		}
 
 		if len(rtn) == 0 {
-			logging.E(0, "Length of return value is 0, returning original data from descriptions functions")
+			logging.E("Length of return value is 0, returning original data from descriptions functions")
 			return data, true
 		}
 
@@ -126,7 +126,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 
 		for _, ptr := range fieldMap {
 			if ptr == nil {
-				logging.E(0, "Unexpected nil in descriptions fieldMap")
+				logging.E("Unexpected nil in descriptions fieldMap")
 				continue
 			}
 
@@ -138,7 +138,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 		// Insert new scraped fields into file
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E(0, "Failed to insert new data (%s) into JSON file %q: %v", description, fd.JSONFilePath, err)
+			logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.JSONFilePath, err)
 		} else if rtn != nil {
 
 			data = rtn
