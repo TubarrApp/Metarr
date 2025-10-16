@@ -44,6 +44,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 
 	errArray := logging.GetErrorArray()
 	if len(errArray) == 0 {
+		fmt.Println()
 		logging.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
 		return nil
 	}

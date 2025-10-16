@@ -195,7 +195,7 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 		return fmt.Errorf("unable to delete meta file: %w", err), false
 	}
 
-	logging.S("Successfully deleted metafile. Bye bye %q!", file)
+	logging.S("Successfully deleted metafile %q", file)
 
 	return nil, true
 }

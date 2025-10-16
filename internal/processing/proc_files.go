@@ -335,10 +335,11 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 				})
 				return nil, errMsg
 			}
+			fmt.Println()
 			logging.S("Successfully processed video %s", filename)
 		}
 	} else {
-		logging.I("Processing metadata file: %s", filename)
+		fmt.Println()
 		logging.S("Successfully processed metadata for %s", filename)
 	}
 
