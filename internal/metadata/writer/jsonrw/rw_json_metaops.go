@@ -278,8 +278,6 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 			newAddition = true
 		}
 	}
-	logging.D(3, "JSON after transformations: %v", j)
-
 	return newAddition, nil
 }
 
