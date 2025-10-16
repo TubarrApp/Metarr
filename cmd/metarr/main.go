@@ -56,7 +56,8 @@ func main() {
 	}
 
 	if !cfg.GetBool("execute") {
-		logging.I("\n(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
+		fmt.Println()
+		logging.I("(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
 		return // Exit early if not meant to execute
 	}
 

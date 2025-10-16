@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"sync"
@@ -79,7 +79,8 @@ func (bp *batchProcessor) logFailedVideos() {
 		if i == 0 {
 			logging.E("Program finished, but some errors were encountered:")
 		}
-		logging.P("\nFilename: %v", failed.filename)
+		fmt.Println()
+		logging.P("Filename: %v", failed.filename)
 		logging.P("Error: %v", failed.err)
 	}
 	fmt.Println()

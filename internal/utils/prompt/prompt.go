@@ -46,7 +46,8 @@ func PromptMetaReplace(promptMsg string, ow, ps bool) (string, error) {
 		}
 	}
 
-	logging.I("\n%s", promptMsg)
+	fmt.Println()
+	logging.I("%s", promptMsg)
 
 	// Wait for user input
 	select {

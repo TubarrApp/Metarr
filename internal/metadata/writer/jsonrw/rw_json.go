@@ -327,7 +327,8 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Save the meta back into the model
 	rw.updateMeta(currentMeta)
 
-	logging.S("\nSuccessfully applied metadata edits to: %v", file.Name())
+	fmt.Println()
+	logging.S("Successfully applied metadata edits to: %v", file.Name())
 
 	return edited, nil
 }
@@ -397,7 +398,8 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	rw.updateMeta(currentMeta)
 
-	logging.S("\nSuccessfully applied date tag JSON edits to: %v", file.Name())
+	fmt.Println()
+	logging.S("Successfully applied date tag JSON edits to: %v", file.Name())
 
 	return edited, nil
 }
