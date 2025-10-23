@@ -146,7 +146,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 	// New fields
 	if len(fd.MetaOps.NewFields) > 0 {
-		logging.I("Model for file %q applying preset new field additions", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
 		newField = fd.MetaOps.NewFields
 	}
 

@@ -200,7 +200,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	// New fields
 	if len(fd.MetaOps.NewFields) > 0 {
-		logging.I("Model for file %q applying preset new field additions", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
 		newField = fd.MetaOps.NewFields
 	}
 
@@ -304,8 +304,9 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	return edited, nil
 }
 
-// JSONDateTagEdits is a public function to add date tags into the metafile, this is useful because
-// the dates may not yet be scraped when the initial MakeJSONEdits runs
+// JSONDateTagEdits is a public function to add date tags into the metafile.
+//
+// This is useful because the dates may not yet be scraped when the initial MakeJSONEdits runs.
 func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	if file == nil {
 		return false, errors.New("file passed in nil")
@@ -318,42 +319,24 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	logging.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
 
 	// Delete date tag first, user's may want to delete and re-build
-	if viper.IsSet(keys.MDelDateTagMap) {
-		logging.D(1, "Stripping metafield date tag...")
-		if delDateTagMap, ok := viper.Get(keys.MDelDateTagMap).(map[string]models.MetaDateTag); ok {
+	if len(fd.MetaOps.DeleteDateTags) > 0 {
+		logging.I("Stripping metafield date tags (User entered: %v)", fd.MetaOps.DeleteDateTags)
 
-			if len(delDateTagMap) > 0 {
-
-				if ok, err := jsonFieldDateTag(currentMeta, delDateTagMap, fd, enums.DatetagDelOp); err != nil {
-					logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
-				} else if ok {
-					edited = true
-				}
-			} else {
-				logging.E("delDateTagMap grabbed empty")
-			}
-		} else {
-			logging.E("Got null or wrong type for %s: %T", keys.MDelDateTagMap, delDateTagMap)
+		if ok, err := jsonFieldDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd, enums.DatetagDelOp); err != nil {
+			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
+		} else if ok {
+			edited = true
 		}
 	}
 
 	// Add date tag
-	if viper.IsSet(keys.MDateTagMap) {
-		logging.D(1, "Adding metafield date tag...")
-		if dateTagMap, ok := viper.Get(keys.MDateTagMap).(map[string]models.MetaDateTag); ok {
+	if len(fd.MetaOps.DateTags) > 0 {
+		logging.I("StrippAddinging metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
 
-			if len(dateTagMap) > 0 {
-
-				if ok, err := jsonFieldDateTag(currentMeta, dateTagMap, fd, enums.DatetagAddOp); err != nil {
-					logging.E("failed to add date tag in %q: %v", fd.JSONFilePath, err)
-				} else if ok {
-					edited = true
-				}
-			} else {
-				logging.E("dateTagMap grabbed empty")
-			}
-		} else {
-			logging.E("Got null or wrong type for %s: %T", keys.MDateTagMap, dateTagMap)
+		if ok, err := jsonFieldDateTag(currentMeta, fd.MetaOps.DateTags, fd, enums.DatetagAddOp); err != nil {
+			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
+		} else if ok {
+			edited = true
 		}
 	}
 

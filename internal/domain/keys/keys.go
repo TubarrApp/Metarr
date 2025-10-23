@@ -36,6 +36,7 @@ const (
 	NoFileOverwrite string = "no-file-overwrite"
 
 	Benchmarking    string = "benchmark"
+	OutputFiletype  string = "output-ext"
 	OutputDirectory string = "output-directory"
 	InputPreset     string = "preset"
 
@@ -58,10 +59,8 @@ const (
 
 // Files and directories
 const (
-	BatchPairs     string = "batchPairs"
-	MetaPurgeEnum  string = "metaPurgeEnum"
-	OutputFiletype string = "outputFiletype"
-	BenchFiles     string = "benchFiles"
+	BatchPairs    string = "batchPairs"
+	MetaPurgeEnum string = "metaPurgeEnum"
 )
 
 // Filter for files
