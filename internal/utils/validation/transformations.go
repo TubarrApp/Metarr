@@ -12,7 +12,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-type MetaOpsLen struct {
+// metaOpsLen holds lengths for meta ops to calculate allocation sizes.
+type metaOpsLen struct {
 	newLen,
 	apndLen,
 	pfxLen,
@@ -34,7 +35,7 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 		return models.NewMetaOps(), nil // Return empty initialized struct
 	}
 
-	m := MetaOpsMapLength(MetaOpsInput, MetaOpsLen{})
+	m := metaOpsMapLength(MetaOpsInput, metaOpsLen{})
 
 	ops := &models.MetaOps{
 		SetOverrides:     make(map[enums.OverrideMetaType]string, m.newLen),
@@ -165,15 +166,16 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			default:
 				return nil, errors.New("date tag location must be prefix, or suffix")
 			}
-			if e, err := dateEnum(parts[3]); err != nil {
+			e, err := dateEnum(parts[3])
+			if err != nil {
 				return nil, err
-			} else {
-				ops.DateTags[field] = models.MetaDateTag{
-					Loc:    loc,
-					Format: e,
-				}
-				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
 			}
+
+			ops.DateTags[field] = models.MetaDateTag{
+				Loc:    loc,
+				Format: e,
+			}
+			logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
 
 		case "delete-date-tag":
 			if len(parts) != 4 {
@@ -189,15 +191,17 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			default:
 				return nil, errors.New("date tag location must be prefix, or suffix")
 			}
-			if e, err := dateEnum(parts[3]); err != nil {
+
+			e, err := dateEnum(parts[3])
+			if err != nil {
 				return nil, err
-			} else {
-				ops.DeleteDateTags[field] = models.MetaDateTag{
-					Loc:    loc,
-					Format: e,
-				}
-				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
 			}
+
+			ops.DeleteDateTags[field] = models.MetaDateTag{
+				Loc:    loc,
+				Format: e,
+			}
+			logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
 
 		default:
 			return nil, fmt.Errorf("unrecognized meta operation %q (valid operations: add, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, copy-from)", parts[1])
@@ -206,8 +210,8 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 	return ops, nil
 }
 
-// MetaOpsMapLength quickly grabs the lengths needed for each map
-func MetaOpsMapLength(MetaOpsInput []string, m MetaOpsLen) MetaOpsLen {
+// metaOpsMapLength quickly grabs the lengths needed for each map
+func metaOpsMapLength(MetaOpsInput []string, m metaOpsLen) metaOpsLen {
 
 	for _, op := range MetaOpsInput {
 		if i := strings.IndexByte(op, ':'); i >= 0 {
@@ -260,6 +264,27 @@ func ValidateFilenameSuffixReplace(filenameReplaceSuffixInput []string) error {
 	if len(filenameReplaceSuffix) > 0 {
 		logging.I("Meta replace suffixes: %v", filenameReplaceSuffix)
 		viper.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+	}
+	return nil
+}
+
+// ValidateFilenamePrefixReplace checks if the input format for filename prefix replacement is valid
+func ValidateFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
+	filenameReplacePrefix := make([]models.FilenameReplacePrefix, 0, len(filenameReplacePrefixInput))
+
+	for _, pair := range filenameReplacePrefixInput {
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) < 2 {
+			return errors.New("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
+		}
+		filenameReplacePrefix = append(filenameReplacePrefix, models.FilenameReplacePrefix{
+			Prefix:      parts[0],
+			Replacement: parts[1],
+		})
+	}
+	if len(filenameReplacePrefix) > 0 {
+		logging.I("Meta replace prefixes: %v", filenameReplacePrefix)
+		viper.Set(keys.FilenameReplacePfx, filenameReplacePrefixInput)
 	}
 	return nil
 }

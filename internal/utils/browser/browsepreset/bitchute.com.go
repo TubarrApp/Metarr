@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// BitchuteComRules holds rules for scraping bitchute.com
+// BitchuteComRules holds rules for scraping bitchute.com.
 var BitchuteComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WebclassCredits: {
 

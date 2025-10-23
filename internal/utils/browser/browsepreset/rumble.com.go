@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// RumbleComRules holds rules for scraping rumble.com
+// RumbleComRules holds rules for scraping rumble.com.
 var RumbleComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WebclassCredits: {
 

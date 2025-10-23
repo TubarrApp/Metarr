@@ -38,14 +38,14 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 		return "", fmt.Errorf("failed to parse date components: %w", err)
 	}
 
-	dateStr, err := dates.FormatDateString(year, month, day, dateFmt)
-	if dateStr == "" || err != nil {
+	dateStr := dates.FormatDateString(year, month, day, dateFmt)
+	if dateStr == "" {
 		logging.E("Failed to create date string")
 		return "", nil
 	}
 
 	dateTag := fmt.Sprintf("[%s]", dateStr)
-	logging.S("Made date tag %q from file '%v'", dateTag, fd.FinalVideoPath)
+	logging.I("Made date tag %q from file '%v'", dateTag, fd.FinalVideoPath)
 	return dateTag, nil
 }
 

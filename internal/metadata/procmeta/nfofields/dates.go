@@ -101,40 +101,39 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		err  error
 	)
 	if scrapedDate != "" {
-		date, err = dates.ParseWordDate(scrapedDate)
-		if err != nil || date == "" {
+		if date, err = dates.ParseWordDate(scrapedDate); err != nil || date == "" {
 			logging.E("Failed to parse date %q: %v", scrapedDate, err)
 			return false
-		} else {
-			if t.ReleaseDate == "" {
-				t.ReleaseDate = date
-			}
-			if t.Date == "" {
-				t.Date = date
-			}
-			if t.CreationTime == "" {
-				t.CreationTime = fmt.Sprintf("%sT00:00:00Z", date)
-			}
-			if t.UploadDate == "" {
-				t.UploadDate = date
-			}
-			if t.OriginallyAvailableAt == "" {
-				t.OriginallyAvailableAt = date
-			}
-			if t.FormattedDate == "" {
-				t.FormattedDate = date
-			}
-			if len(date) >= 4 {
-				t.Year = date[:4]
-			}
+		}
 
-			printMap[consts.NPremiereDate] = t.ReleaseDate
-			printMap[consts.NAired] = t.Date
-			printMap[consts.NYear] = t.Year
+		if t.ReleaseDate == "" {
+			t.ReleaseDate = date
+		}
+		if t.Date == "" {
+			t.Date = date
+		}
+		if t.CreationTime == "" {
+			t.CreationTime = fmt.Sprintf("%sT00:00:00Z", date)
+		}
+		if t.UploadDate == "" {
+			t.UploadDate = date
+		}
+		if t.OriginallyAvailableAt == "" {
+			t.OriginallyAvailableAt = date
+		}
+		if t.FormattedDate == "" {
+			t.FormattedDate = date
+		}
+		if len(date) >= 4 {
+			t.Year = date[:4]
+		}
 
-			if t.FormattedDate == "" {
-				dates.FormatAllDates(fd)
-			}
+		printMap[consts.NPremiereDate] = t.ReleaseDate
+		printMap[consts.NAired] = t.Date
+		printMap[consts.NYear] = t.Year
+
+		if t.FormattedDate == "" {
+			dates.FormatAllDates(fd)
 		}
 	}
 

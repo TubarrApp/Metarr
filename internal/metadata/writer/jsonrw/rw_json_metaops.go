@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -12,18 +13,16 @@ import (
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // replaceJSON makes user defined JSON replacements
-func replaceJSON(j map[string]any, rplce []models.MetaReplace) (bool, error) {
+func replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
 
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
 	if len(rplce) == 0 {
 		logging.E("Called replaceJson without replacements")
-		return false, nil
+		return false
 	}
 
 	edited := false
@@ -42,17 +41,17 @@ func replaceJSON(j map[string]any, rplce []models.MetaReplace) (bool, error) {
 		}
 	}
 	logging.D(5, "After JSON replace: %v", j)
-	return edited, nil
+	return edited
 }
 
 // trimJSONPrefix trims defined prefixes from specified fields
-func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) (bool, error) {
+func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
 
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
 		logging.E("Called trimJsonPrefix without prefixes to trim")
-		return false, nil
+		return false
 	}
 
 	edited := false
@@ -71,17 +70,17 @@ func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) (bool, error
 		}
 	}
 	logging.D(5, "After prefix trim: %v", j)
-	return edited, nil
+	return edited
 }
 
 // trimJSONSuffix trims defined suffixes from specified fields
-func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) (bool, error) {
+func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
 
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
 		logging.E("Called trimJsonSuffix without prefixes to trim")
-		return false, nil
+		return false
 	}
 
 	edited := false
@@ -100,17 +99,17 @@ func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) (bool, error
 		}
 	}
 	logging.D(5, "After suffix trim: %v", j)
-	return edited, nil
+	return edited
 }
 
 // jsonAppend appends to the fields in the JSON data
-func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) (bool, error) {
+func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
 
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
 	if len(apnd) == 0 {
 		logging.E("No new suffixes to append for file %q", file)
-		return false, nil // No replacements to apply
+		return false // No replacements to apply
 	}
 
 	edited := false
@@ -131,18 +130,17 @@ func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) (bool, 
 		}
 	}
 	logging.D(5, "After JSON suffix append: %v", j)
-
-	return edited, nil
+	return edited
 }
 
 // jsonPrefix applies prefixes to the fields in the JSON data
-func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) (bool, error) {
+func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) bool {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(pfx) == 0 {
 		logging.E("No new prefix replacements found for file %q", file)
-		return false, nil // No replacements to apply
+		return false // No replacements to apply
 	}
 
 	edited := false
@@ -163,8 +161,7 @@ func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) (bool, e
 		}
 	}
 	logging.D(5, "After adding prefixes: %v", j)
-
-	return edited, nil
+	return edited
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file
@@ -179,12 +176,12 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 		metaPS bool
 	)
 
-	if !viper.IsSet(keys.MOverwrite) && !viper.IsSet(keys.MPreserve) {
+	if !cfg.IsSet(keys.MOverwrite) && !cfg.IsSet(keys.MPreserve) {
 		logging.I("Model is set to overwrite")
 		metaOW = ow
 	} else {
-		metaOW = viper.GetBool(keys.MOverwrite)
-		metaPS = viper.GetBool(keys.MPreserve)
+		metaOW = cfg.GetBool(keys.MOverwrite)
+		metaPS = cfg.GetBool(keys.MPreserve)
 		logging.I("Meta OW: %v Meta Preserve: %v", metaOW, metaPS)
 	}
 
@@ -228,7 +225,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 						n.Field, existingValue, file,
 					)
 
-					reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
+					reply, err := prompt.MetaReplace(promptMsg, metaOW, metaPS)
 					if err != nil {
 						logging.E("Failed to retrieve reply from user prompt: %v", err)
 					}
@@ -236,7 +233,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 					switch reply {
 					case "Y":
 						logging.D(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, file)
-						viper.Set(keys.MOverwrite, true)
+						cfg.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
 
@@ -251,7 +248,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 
 					case "N":
 						logging.D(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, file)
-						viper.Set(keys.MPreserve, true)
+						cfg.Set(keys.MPreserve, true)
 						metaPS = true
 						fallthrough
 
@@ -373,13 +370,13 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 }
 
 // copyToField copies values from one meta field to another
-func copyToField(j map[string]any, copyTo []models.CopyToField) (bool, error) {
+func copyToField(j map[string]any, copyTo []models.CopyToField) bool {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(copyTo) == 0 {
 		logging.E("No new copy operations found")
-		return false, nil
+		return false
 	}
 
 	edited := false
@@ -399,18 +396,17 @@ func copyToField(j map[string]any, copyTo []models.CopyToField) (bool, error) {
 		}
 	}
 	logging.D(5, "After making copy operation changes: %v", j)
-
-	return edited, nil
+	return edited
 }
 
 // pasteFromField copies values from one meta field to another
-func pasteFromField(j map[string]any, paste []models.PasteFromField) (bool, error) {
+func pasteFromField(j map[string]any, paste []models.PasteFromField) bool {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(paste) == 0 {
 		logging.E("No new paste operations found")
-		return false, nil
+		return false
 	}
 
 	edited := false
@@ -430,5 +426,5 @@ func pasteFromField(j map[string]any, paste []models.PasteFromField) (bool, erro
 	}
 	logging.D(5, "After making paste operation changes: %v", j)
 
-	return edited, nil
+	return edited
 }

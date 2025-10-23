@@ -11,6 +11,7 @@ import (
 	"golang.org/x/text/language"
 )
 
+// CensoredTvRules holds rules for scraping censored.tv.
 var CensoredTvRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WebclassDate: {
 		{Selector: ".main-episode-player-container p.text-muted.text-right.text-date.mb-0", Process: strings.TrimSpace},

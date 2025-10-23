@@ -17,7 +17,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
 	Short: "metarr is a video and metatagging tool",
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		// Set logging level
 		logging.Level = min(max(viper.GetInt(keys.DebugLevel), 0), 5)
 
@@ -53,7 +53,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 	},
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, _ []string) error {
 		if cmd.Flags().Lookup("help").Changed {
 			return nil
 		}

@@ -3,17 +3,16 @@ package main
 import (
 	"errors"
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/paths"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
-
-	"github.com/spf13/viper"
 )
 
 // initializeApplication sets up the application for the current run.
-func initializeApplication() error {
+func initializeApplication() {
 	// Setup files/dirs
 	if err := paths.InitProgFilesDirs(); err != nil {
 		fmt.Printf("Metarr exiting with error: %v\n", err)
@@ -27,8 +26,6 @@ func initializeApplication() error {
 	if err := logging.SetupLogging(paths.HomeMetarrDir); err != nil {
 		fmt.Printf("could not set up logging, proceeding without: %v", err)
 	}
-
-	return nil
 }
 
 // initializeBatchConfigs ensures the entered files and directories are valid and creates batch pairs.
@@ -36,20 +33,20 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 	metaOps = models.EnsureMetaOps(metaOps)
 
 	var videoDirs, videoFiles, jsonDirs, jsonFiles []string
-	if viper.IsSet(keys.VideoFiles) {
-		videoFiles = viper.GetStringSlice(keys.VideoFiles)
+	if cfg.IsSet(keys.VideoFiles) {
+		videoFiles = cfg.GetStringSlice(keys.VideoFiles)
 	}
 
-	if viper.IsSet(keys.VideoDirs) {
-		videoDirs = viper.GetStringSlice(keys.VideoDirs)
+	if cfg.IsSet(keys.VideoDirs) {
+		videoDirs = cfg.GetStringSlice(keys.VideoDirs)
 	}
 
-	if viper.IsSet(keys.JSONFiles) {
-		jsonFiles = viper.GetStringSlice(keys.JSONFiles)
+	if cfg.IsSet(keys.JSONFiles) {
+		jsonFiles = cfg.GetStringSlice(keys.JSONFiles)
 	}
 
-	if viper.IsSet(keys.JSONDirs) {
-		jsonDirs = viper.GetStringSlice(keys.JSONDirs)
+	if cfg.IsSet(keys.JSONDirs) {
+		jsonDirs = cfg.GetStringSlice(keys.JSONDirs)
 	}
 
 	videoDirs, videoFiles, jsonDirs, jsonFiles = getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles)

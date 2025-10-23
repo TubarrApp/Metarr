@@ -3,15 +3,14 @@ package processing
 
 import (
 	"fmt"
-	keys "metarr/internal/domain/keys"
+	"metarr/internal/cfg"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-
-	"github.com/spf13/viper"
 )
 
 var (
@@ -70,7 +69,7 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 	}
 
 	job := 1
-	skipVideos := viper.GetBool(keys.SkipVideos)
+	skipVideos := cfg.GetBool(keys.SkipVideos)
 
 	// Begin iteration...
 	for _, b := range batches {
@@ -126,7 +125,17 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 			return err
 		}
 
-		logging.I("Finished tasks for files/directories:\n\nVideo: %q\nJSON: %q\n", batch.Video, batch.JSON)
+		// Completion message
+		fileOrDirMsg := "Directory"
+		if !batch.IsDirs {
+			fileOrDirMsg = "File"
+		}
+
+		var videoDoneMsg string
+		if !batch.SkipVideos {
+			videoDoneMsg = fmt.Sprintf("Video %s: %q\n", fileOrDirMsg, batch.Video)
+		}
+		logging.I("Finished tasks for:\n\n%sJSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {
@@ -140,7 +149,6 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 
 		job++
 	}
-
 	logging.I("All batch tasks finished!")
 	return nil
 }

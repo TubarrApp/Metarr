@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// OdyseeComRules holds rules for scraping odysee.com
+// OdyseeComRules holds rules for scraping odysee.com.
 var OdyseeComRules = map[enums.WebClassTags][]models.SelectorRule{
 	enums.WebclassCredits: {
 		{

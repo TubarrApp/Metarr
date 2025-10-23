@@ -3,6 +3,7 @@ package fsread
 
 import (
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -12,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // Variable cache
@@ -27,7 +26,7 @@ var (
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops.
 func InitFetchFilesVars() (err error) {
 	// Handle video extension input
-	inVExts, ok := viper.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype)
+	inVExts, ok := cfg.Get(keys.InputVExtsEnum).([]enums.ConvertFromFiletype)
 	if !ok {
 		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
@@ -37,7 +36,7 @@ func InitFetchFilesVars() (err error) {
 	}
 
 	// Handle meta extension input
-	inMExts, ok := viper.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter)
+	inMExts, ok := cfg.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter)
 	if !ok {
 		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
 	}
@@ -47,7 +46,7 @@ func InitFetchFilesVars() (err error) {
 	}
 
 	// Set prefix filter
-	inputPrefixes = SetPrefixFilter(viper.GetStringSlice(keys.FilePrefixes))
+	inputPrefixes = SetPrefixFilter(cfg.GetStringSlice(keys.FilePrefixes))
 	logging.D(2, "Setting prefix filter: %v", inputPrefixes)
 
 	return nil
@@ -66,7 +65,7 @@ func GetVideoFiles(videoDir *os.File, metaOps *models.MetaOps) (map[string]*mode
 
 	for _, file := range files {
 
-		if viper.IsSet(keys.FilePrefixes) {
+		if cfg.IsSet(keys.FilePrefixes) {
 			if !HasPrefix(file.Name(), inputPrefixes) {
 				continue
 			}
@@ -115,7 +114,7 @@ func GetMetadataFiles(metaDir *os.File, metaOps *models.MetaOps) (map[string]*mo
 			continue
 		}
 
-		if viper.IsSet(keys.FilePrefixes) {
+		if cfg.IsSet(keys.FilePrefixes) {
 			if !HasPrefix(file.Name(), inputPrefixes) {
 				continue
 			}

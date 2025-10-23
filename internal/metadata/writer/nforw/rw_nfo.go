@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
@@ -15,10 +16,9 @@ import (
 	"os"
 	"strings"
 	"sync"
-
-	"github.com/spf13/viper"
 )
 
+// NFOFileRW is used to write NFO files.
 type NFOFileRW struct {
 	mu    sync.RWMutex
 	Model *models.NFOData
@@ -166,43 +166,33 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Make edits:
 	// Replace
 	if len(replace) > 0 {
-		if newContent, ok, err = rw.replaceXML(data, replace); err != nil {
-			logging.E("failed to replace XML with %+v: %v", replace, err)
-		} else if ok {
+		if newContent, ok = rw.replaceXML(data, replace); ok {
 			edited = true
 		}
 	}
 
 	// Trim
 	if len(trimPfx) > 0 {
-		if newContent, ok, err = rw.trimXMLPrefix(data, trimPfx); err != nil {
-			logging.E("failed to trim XML prefix with %+v: %v", trimPfx, err)
-		} else if ok {
+		if newContent, ok = rw.trimXMLPrefix(data, trimPfx); ok {
 			edited = true
 		}
 	}
 
 	if len(trimSfx) > 0 {
-		if newContent, ok, err = rw.trimXMLSuffix(data, trimSfx); err != nil {
-			logging.E("failed to trim XML suffix with %+v: %v", trimSfx, err)
-		} else if ok {
+		if newContent, ok = rw.trimXMLSuffix(data, trimSfx); ok {
 			edited = true
 		}
 	}
 
 	// Append and prefix
 	if len(apnd) > 0 {
-		if newContent, ok, err = rw.xmlAppend(data, apnd); err != nil {
-			logging.E("failed to append XML with %+v: %v", apnd, err)
-		} else if ok {
+		if newContent, ok = rw.xmlAppend(data, apnd); ok {
 			edited = true
 		}
 	}
 
 	if len(pfx) > 0 {
-		if newContent, ok, err = rw.xmlPrefix(data, pfx); err != nil {
-			logging.E("failed to prefix XML with %+v: %v", pfx, err)
-		} else if ok {
+		if newContent, ok = rw.xmlPrefix(data, pfx); ok {
 			edited = true
 		}
 	}
@@ -288,12 +278,11 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 }
 
 // replaceXML applies meta replacement to the fields in the xml data
-func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (dataRtn string, edited bool, err error) {
-
-	logging.D(5, "Entering replaceXml with data: %v", string(data))
+func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (dataRtn string, edited bool) {
+	logging.D(5, "Entering replaceXml with data: %v", data)
 
 	if len(replace) == 0 {
-		return data, false, nil // No replacements to apply
+		return data, false // No replacements to apply
 	}
 
 	for _, replacement := range replace {
@@ -320,16 +309,16 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 		edited = true
 	}
 	logging.D(5, "After meta replacements: %v", data)
-	return data, edited, nil
+	return data, edited
 }
 
 // trimXMLPrefix applies meta replacement to the fields in the xml data
-func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaTrimPrefix) (dataRtn string, edited bool, err error) {
+func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaTrimPrefix) (dataRtn string, edited bool) {
 
-	logging.D(5, "Entering trimXmlPrefix with data: %v", string(data))
+	logging.D(5, "Entering trimXmlPrefix with data: %v", data)
 
 	if len(trimPfx) == 0 {
-		return data, false, nil // No replacements to apply
+		return data, false // No replacements to apply
 	}
 
 	for _, prefix := range trimPfx {
@@ -356,16 +345,16 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaTrimPrefix)
 		edited = true
 	}
 	logging.D(5, "After trimming prefixes: %v", data)
-	return data, edited, nil
+	return data, edited
 }
 
 // trimXMLSuffix trims specified
-func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaTrimSuffix) (dataRtn string, edited bool, err error) {
+func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaTrimSuffix) (dataRtn string, edited bool) {
 
-	logging.D(5, "Entering trimXmlSuffix with data: %v", string(data))
+	logging.D(5, "Entering trimXmlSuffix with data: %v", data)
 
 	if len(trimSfx) == 0 {
-		return data, false, nil // No replacements to apply
+		return data, false // No replacements to apply
 	}
 
 	for _, suffix := range trimSfx {
@@ -392,16 +381,16 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaTrimSuffix)
 		edited = true
 	}
 	logging.D(5, "After meta replacements: %v", data)
-	return data, edited, nil
+	return data, edited
 }
 
 // xmlPrefix applies meta replacement to the fields in the xml data.
-func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool, err error) {
+func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool) {
 
-	logging.D(5, "Entering xmlPrefix with data: %v", string(data))
+	logging.D(5, "Entering xmlPrefix with data: %v", data)
 
 	if len(pfx) == 0 {
-		return data, false, nil // No replacements to apply
+		return data, false // No replacements to apply
 	}
 
 	for _, prefix := range pfx {
@@ -427,16 +416,16 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn st
 		edited = true
 	}
 	logging.D(5, "After trimming prefixes: %v", data)
-	return data, edited, nil
+	return data, edited
 }
 
 // xmlAppend appends elements to XML fields.
-func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn string, edited bool, err error) {
+func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn string, edited bool) {
 
-	logging.D(5, "Entering xmlAppend with data: %v", string(data))
+	logging.D(5, "Entering xmlAppend with data: %v", data)
 
 	if len(apnd) == 0 {
-		return data, false, nil // No replacements to apply
+		return data, false // No replacements to apply
 	}
 
 	for _, append := range apnd {
@@ -462,7 +451,7 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 		edited = true
 	}
 	logging.D(5, "After meta replacements: %v", data)
-	return data, edited, nil
+	return data, edited
 }
 
 // addNewXMLFields can insert new fields which do not yet exist into the metadata file.
@@ -473,7 +462,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		metaPS bool
 	)
 
-	logging.D(5, "Entering addNewXmlFields with data: %v", string(data))
+	logging.D(5, "Entering addNewXmlFields with data: %v", data)
 
 	if len(newField) == 0 {
 		return data, false, nil // No replacements to apply
@@ -482,8 +471,8 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 	if ow {
 		metaOW = true
 	} else {
-		metaOW = viper.GetBool(keys.MOverwrite)
-		metaPS = viper.GetBool(keys.MPreserve)
+		metaOW = cfg.GetBool(keys.MOverwrite)
+		metaPS = cfg.GetBool(keys.MPreserve)
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", newField)
@@ -544,21 +533,21 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 				promptMsg := fmt.Sprintf("Field %q already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
 					addition.Field, content, rw.File.Name())
 
-				reply, err := prompt.PromptMetaReplace(promptMsg, metaOW, metaPS)
+				reply, err := prompt.MetaReplace(promptMsg, metaOW, metaPS)
 				if err != nil {
 					logging.E("Failed to retrieve reply from user prompt: %v", err)
 				}
 
 				switch reply {
 				case "Y":
-					viper.Set(keys.MOverwrite, true)
+					cfg.Set(keys.MOverwrite, true)
 					metaOW = true
 					fallthrough
 				case "y":
 					data = data[:startContent] + addition.Value + data[endIdx:]
 					newAddition = true
 				case "N":
-					viper.Set(keys.MPreserve, true)
+					cfg.Set(keys.MPreserve, true)
 					metaPS = true
 					fallthrough
 				case "n":
@@ -630,11 +619,10 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 	if castEnd-castStart > 1 {
 		// Cast has content, insert with proper spacing
 		return data[:castEnd] + newActor + "\n    " + data[castEnd:], true
-	} else {
-		// Empty cast tag
-		insertPoint := castStart + len("<cast>")
-		return data[:insertPoint] + newActor + "\n    " + data[insertPoint:], true
 	}
+	// Empty cast tag
+	insertPoint := castStart + len("<cast>")
+	return data[:insertPoint] + newActor + "\n    " + data[insertPoint:], true
 }
 
 // flattenField flattens the metadata field for comparison

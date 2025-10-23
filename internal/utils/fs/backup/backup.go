@@ -16,8 +16,8 @@ var (
 	muBackup sync.Mutex
 )
 
-// BackupFile creates a backup copy of the original file before modifying it.
-func BackupFile(file *os.File) error {
+// File creates a backup copy of the original file before modifying it.
+func File(file *os.File) error {
 
 	originalFilePath := file.Name()
 

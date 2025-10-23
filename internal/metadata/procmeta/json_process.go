@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/dates"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
@@ -21,8 +22,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/spf13/viper"
 )
 
 var (
@@ -102,7 +101,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		dates.FormatAllDates(fd)
 	}
 
-	if viper.IsSet(keys.MDateTagMap) || viper.IsSet(keys.MDelDateTagMap) {
+	if len(fd.MetaOps.DateTags) > 0 || len(fd.MetaOps.DeleteDateTags) > 0 {
 		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
 			logging.E("Failed to make date tag edits for metadata in file %q: %v", file.Name(), err)
@@ -132,14 +131,14 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 
 	// Add new filename tag for files
-	if viper.IsSet(keys.MFilenamePfx) {
+	if cfg.IsSet(keys.MFilenamePfx) {
 		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = metatags.MakeFilenameTag(data, file)
 	}
 
 	logging.D(3, "About to make date tag for: %v", file.Name())
-	if viper.IsSet(keys.FileDateFmt) {
-		dateFmt, ok := viper.Get(keys.FileDateFmt).(enums.DateFormat)
+	if cfg.IsSet(keys.FileDateFmt) {
+		dateFmt, ok := cfg.Get(keys.FileDateFmt).(enums.DateFormat)
 		switch {
 		case !ok:
 			logging.E("Got null or wrong type for file date format. Got type %T", dateFmt)
@@ -171,10 +170,10 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	logging.D(4, "Entering filetypeMetaCheckSwitch with %q", fd.OriginalVideoPath)
 
 	var outExt string
-	outFlagSet := viper.IsSet(keys.OutputFiletype)
+	outFlagSet := cfg.IsSet(keys.OutputFiletype)
 
 	if outFlagSet {
-		outExt = viper.GetString(keys.OutputFiletype)
+		outExt = cfg.GetString(keys.OutputFiletype)
 	} else {
 		outExt = filepath.Ext(fd.OriginalVideoPath)
 		logging.D(2, "Got output extension as %s", outExt)

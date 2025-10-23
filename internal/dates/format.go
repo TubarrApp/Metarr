@@ -2,7 +2,6 @@
 package dates
 
 import (
-	"errors"
 	"fmt"
 	"metarr/internal/domain/enums"
 	"metarr/internal/models"
@@ -72,12 +71,12 @@ func YyyyMmDd(date string) (string, bool) {
 
 	if len(date) >= 8 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", date[:4], date[4:6], date[6:8], t)
-		logging.S("Made date %s", formatted)
+		logging.D(3, "Made date %s", formatted)
 		return formatted, true
 
 	} else if len(date) >= 6 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", date[:2], date[2:4], date[4:6], t)
-		logging.S("Made date %s", formatted)
+		logging.D(3, "Made date %s", formatted)
 		return formatted, true
 	}
 	logging.D(3, "Returning empty or short date element (%s) without formatting", date)
@@ -85,7 +84,7 @@ func YyyyMmDd(date string) (string, bool) {
 }
 
 // FormatDateString formats the date as a hyphenated string.
-func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string, error) {
+func FormatDateString(year, month, day string, dateFmt enums.DateFormat) string {
 	var parts [3]string
 
 	switch dateFmt {
@@ -99,11 +98,7 @@ func FormatDateString(year, month, day string, dateFmt enums.DateFormat) (string
 		parts = [3]string{month, day, year}
 	}
 
-	result := joinNonEmpty(parts)
-	if result == "" {
-		return "", errors.New("no valid date components found")
-	}
-	return result, nil
+	return joinNonEmpty(parts)
 }
 
 // FormatAllDates formats timestamps into a hyphenated form.

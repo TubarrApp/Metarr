@@ -2,6 +2,7 @@ package transformations
 
 import (
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
@@ -11,18 +12,16 @@ import (
 	"metarr/internal/utils/logging"
 	"strings"
 	"unicode"
-
-	"github.com/spf13/viper"
 )
 
 // shouldRename determines if file rename operations are needed for this file
 func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
-	dateFmt := viper.GetString(keys.FileDateFmt)
+	dateFmt := cfg.GetString(keys.FileDateFmt)
 	rName := enums.RenamingSkip
 
 	var ok bool
-	if viper.IsSet(keys.Rename) {
-		rName, ok = viper.Get(keys.Rename).(enums.ReplaceToStyle)
+	if cfg.IsSet(keys.Rename) {
+		rName, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle)
 		if !ok {
 			logging.E("Got wrong type or null rename. Got %T, want %q", rName, "enums.ReplaceToStyle")
 		}
@@ -30,14 +29,16 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 
 	switch {
 	case fd.FilenameMetaPrefix != "",
-		len(fd.ModelFileSfxReplace) != 0,
+		len(fd.ModelFileSfxReplace) > 0,
+		len(fd.ModelFilePfxReplace) > 0,
 		dateFmt != "",
 		rName != enums.RenamingSkip:
 
-		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
+		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile prefix replacements:%v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
 			fd.OriginalVideoPath,
 			fd.FilenameMetaPrefix,
 			fd.ModelFileSfxReplace,
+			fd.ModelFilePfxReplace,
 			dateFmt,
 			fd.FilenameDateTag,
 			rName != enums.RenamingSkip)
@@ -45,11 +46,11 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		rename = true
 	}
 
-	if viper.IsSet(keys.OutputDirectory) {
+	if cfg.IsSet(keys.OutputDirectory) {
 		move = true
 	}
 
-	if viper.IsSet(keys.InputFileDatePfx) {
+	if cfg.IsSet(keys.InputFileDatePfx) {
 		rename = true
 	}
 
@@ -213,6 +214,36 @@ func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) str
 		if strings.HasSuffix(filename, suffix.Suffix) {
 			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
 			logging.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
+		}
+	}
+
+	if result != "" {
+		logging.D(2, "Suffix replacement complete: %s -> %s", filename, result)
+		return result
+	}
+
+	return filename
+}
+
+// replacePrefix applies configured suffix replacements to a filename.
+func replacePrefix(filename string, prefixes []models.FilenameReplacePrefix) string {
+
+	logging.D(2, "Received filename %s", filename)
+
+	if len(prefixes) == 0 {
+		logging.D(1, "No prefix replacements configured, keeping original filename: %q", filename)
+		return filename
+	}
+
+	logging.D(2, "Processing filename %s with prefixes: %v", filename, prefixes)
+
+	var result string
+	for _, prefix := range prefixes {
+		logging.D(2, "Checking prefix %q against filename %q", prefix.Prefix, filename)
+
+		if strings.HasPrefix(filename, prefix.Prefix) {
+			result = strings.TrimPrefix(filename, prefix.Prefix) + prefix.Replacement
+			logging.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, prefix.Replacement)
 		}
 	}
 

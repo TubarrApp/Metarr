@@ -46,57 +46,68 @@ type BatchConfig struct {
 	SkipVideos bool
 }
 
+// MOverrideReplacePair holds a value and replacement for overriding metadata.
 type MOverrideReplacePair struct {
 	Value       string
 	Replacement string
 }
 
+// CopyToField contains a field to copy from, and destination field to copy to.
 type CopyToField struct {
 	Field string
 	Dest  string
 }
 
+// PasteFromField contains a field to paste to, and field to paste from.
 type PasteFromField struct {
 	Field  string
 	Origin string
 }
 
+// MetaAppend appends text onto a metafield's value.
 type MetaAppend struct {
 	Field  string
 	Suffix string
 }
 
+// MetaPrefix prefixes text onto a metafield's value.
 type MetaPrefix struct {
 	Field  string
 	Prefix string
 }
 
+// MetaTrimPrefix trims a given prefix from a metafield's value.
 type MetaTrimPrefix struct {
 	Field  string
 	Prefix string
 }
 
+// MetaTrimSuffix trims a given suffix from a metafield's value.
 type MetaTrimSuffix struct {
 	Field  string
 	Suffix string
 }
 
+// MetaNewField contains a new field and value to add to metadata.
 type MetaNewField struct {
 	Field string
 	Value string
 }
 
+// MetaDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDateTag struct {
 	Loc    enums.MetaDateTagLocation
 	Format enums.DateFormat
 }
 
+// MetaReplace contains a field with a given value, and its desired replacement.
 type MetaReplace struct {
 	Field       string
 	Value       string
 	Replacement string
 }
 
+// FilenameDatePrefix contains the year, month, day lengths, and ordering, desired by the user.
 type FilenameDatePrefix struct {
 	YearLength  int
 	MonthLength int
@@ -104,11 +115,19 @@ type FilenameDatePrefix struct {
 	Order       enums.DateFormat
 }
 
+// FilenameReplaceSuffix replaces a suffix from a given filename.
 type FilenameReplaceSuffix struct {
 	Suffix      string
 	Replacement string
 }
 
+// FilenameReplacePrefix replaces a suffix from a given filename.
+type FilenameReplacePrefix struct {
+	Prefix      string
+	Replacement string
+}
+
+// MetadataCredits contains credits metadata.
 type MetadataCredits struct {
 	Override  string `json:"-"`
 	Actor     string `json:"actor" xml:"actor"`
@@ -136,6 +155,7 @@ type MetadataCredits struct {
 	Writers    []string
 }
 
+// MetadataTitlesDescs contains title and description metadata.
 type MetadataTitlesDescs struct {
 	Fulltitle                 string `json:"fulltitle" xml:"title"`
 	Title                     string `json:"title" xml:"originaltitle"`
@@ -148,6 +168,7 @@ type MetadataTitlesDescs struct {
 	Comment                   string `json:"comment" xml:"comment"`
 }
 
+// MetadataDates contains time and date metadata.
 type MetadataDates struct {
 	FormattedDate         string `json:"-" xml:"-"`
 	UploadDate            string `json:"upload_date" xml:"upload_date"`
@@ -159,6 +180,7 @@ type MetadataDates struct {
 	StringDate            string `json:"-"`
 }
 
+// MetadataWebData contains web related metadata.
 type MetadataWebData struct {
 	WebpageURL string         `json:"webpage_url" xml:"webpage_url"`
 	VideoURL   string         `json:"url" xml:"url"`
@@ -168,6 +190,7 @@ type MetadataWebData struct {
 	TryURLs    []string       `json:"-"`
 }
 
+// MetadataShowData contains main show info metadata.
 type MetadataShowData struct {
 	Show         string `json:"show" xml:"show"`
 	EpisodeID    string `json:"episode_id" xml:"episode_id"`
@@ -176,6 +199,7 @@ type MetadataShowData struct {
 	SeasonTitle  string `json:"season_title" xml:"seasontitle"`
 }
 
+// MetadataOtherData contains other misc metadata.
 type MetadataOtherData struct {
 	Language string `json:"language" xml:"language"`
 	Genre    string `json:"genre" xml:"genre"`

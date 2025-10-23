@@ -2,6 +2,7 @@ package jsonfields
 
 import (
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -10,8 +11,6 @@ import (
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // fillDescriptions grabs description data from JSON
@@ -31,8 +30,8 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 	}
 	filled := unpackJSON(fieldMap, data)
 
-	datePfx := viper.GetBool(keys.MDescDatePfx)
-	dateSfx := viper.GetBool(keys.MDescDateSfx)
+	datePfx := cfg.GetBool(keys.MDescDatePfx)
+	dateSfx := cfg.GetBool(keys.MDescDateSfx)
 
 	if (datePfx || dateSfx) && t.StringDate != "" {
 		for _, ptr := range fieldMap {
@@ -144,12 +143,9 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 			data = rtn
 			return data, true
 		}
-
 		logging.D(1, "No descriptions were grabbed from scrape, returning original data map")
-		return data, false
-	} else {
-		return data, false
 	}
+	return data, false
 }
 
 // // fillEmptyDescriptions fills empty description fields by inference

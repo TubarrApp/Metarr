@@ -105,24 +105,10 @@ func ValidateConcurrencyLimit(c int) int {
 	return c
 }
 
-// ValidateDebugLevel checks and sets the debugging level to use
-func ValidateDebugLevel(debugLevel int) {
-	debugLevel = min(max(debugLevel, 0), 5)
-	if debugLevel > 5 {
-		debugLevel = 5
-	} else if debugLevel < 0 {
-		debugLevel = 0
-	}
-	logging.I("Debugging level: %v", debugLevel)
-
-	viper.Set(keys.DebugLevel, debugLevel)
-	logging.Level = int(debugLevel)
-}
-
 // ValidateMinFreeMem flag verifies the format of the free memory flag.
-func ValidateMinFreeMem(minFreeMem string) error {
+func ValidateMinFreeMem(minFreeMem string) {
 	if minFreeMem == "" || minFreeMem == "0" {
-		return nil
+		return
 	}
 
 	minFreeMem = strings.ToUpper(strings.TrimSuffix(minFreeMem, "B"))
@@ -166,7 +152,6 @@ func ValidateMinFreeMem(minFreeMem string) error {
 		logging.I("Min RAM to spawn process: %v", parsedMinFree)
 	}
 	viper.Set(keys.MinFreeMem, parsedMinFree)
-	return nil
 }
 
 // ValidateMaxCPU validates and sets the maximum CPU limit.
@@ -201,10 +186,9 @@ func ValidateOutputFiletype(o string) {
 	for ext := range consts.AllVidExtensions {
 		if o != ext {
 			continue
-		} else {
-			valid = true
-			break
 		}
+		valid = true
+		break
 	}
 
 	if valid {
@@ -346,28 +330,43 @@ func ValidateGPU(g string) error {
 	switch g {
 	case "qsv", "intel":
 		viper.Set(keys.UseGPU, "qsv")
+		if err := checkDriverDirExists(g); err != nil {
+			return err
+		}
+
 	case "amd", "radeon", "vaapi":
 		viper.Set(keys.UseGPU, "vaapi")
-
-		if !viper.IsSet(keys.TranscodeDeviceDir) {
-			return fmt.Errorf("must specify the GPU directory, e.g. '/dev/dri/renderD128'")
-		} else {
-			gpuDir := viper.GetString(keys.TranscodeDeviceDir)
-
-			_, err := os.Stat(gpuDir)
-			if os.IsNotExist(err) {
-				return fmt.Errorf("driver location %q does not appear to exist?", gpuDir)
-			}
+		if err := checkDriverDirExists(g); err != nil {
+			return err
 		}
 
 	case "nvidia", "cuda":
 		viper.Set(keys.UseGPU, "cuda")
+		if err := checkDriverDirExists(g); err != nil {
+			return err
+		}
+
 	case "auto", "automatic", "automate", "automated":
 		viper.Set(keys.UseGPU, "auto")
 	default:
 		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
 	}
 
+	return nil
+}
+
+// checkDriverDirExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
+func checkDriverDirExists(g string) error {
+	if !viper.IsSet(keys.TranscodeDeviceDir) {
+		return fmt.Errorf("must specify the GPU directory for transcoding of type %q, e.g. '/dev/dri/renderD128'", g)
+	}
+
+	gpuDir := viper.GetString(keys.TranscodeDeviceDir)
+
+	_, err := os.Stat(gpuDir)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("driver location %q does not appear to exist?", gpuDir)
+	}
 	return nil
 }
 

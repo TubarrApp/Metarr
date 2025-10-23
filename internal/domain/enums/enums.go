@@ -4,6 +4,7 @@ package enums
 // ConvertFromFiletype is the type of filename to perform conversions on.
 type ConvertFromFiletype int
 
+// ConvertFromFiletype definitions.
 const (
 	VidExtsAll ConvertFromFiletype = iota
 	VidExtsMKV
@@ -14,6 +15,7 @@ const (
 // MetaFiletypeFilter filters the metadata files to read from.
 type MetaFiletypeFilter int
 
+// MetaFiletypeFilter definitions.
 const (
 	MetaExtsAll MetaFiletypeFilter = iota
 	MetaExtsJSON
@@ -23,6 +25,7 @@ const (
 // OverrideMetaType holds the value for the type of metafield to override all values of (e.g. "credits").
 type OverrideMetaType int
 
+// OverrideMetaType definitions.
 const (
 	OverrideMetaNone OverrideMetaType = iota
 	OverrideMetaCredits
@@ -31,6 +34,7 @@ const (
 // MetaOpType stores the meta operation type directive (e.g. set).
 type MetaOpType int
 
+// MetaOpType definitions.
 const (
 	MetaOpsNone MetaOpType = iota
 	MetaOpsSet
@@ -41,6 +45,7 @@ const (
 // RenamingFixesOnly only fixes things like contractions, without changing the style.
 type ReplaceToStyle int
 
+// ReplaceToStyle definitions.
 const (
 	RenamingSkip ReplaceToStyle = iota
 	RenamingFixesOnly
@@ -51,6 +56,7 @@ const (
 // DateFormat holds the date format directive (e.g. yyyy-mm-dd).
 type DateFormat int
 
+// DateFormat definitions.
 const (
 	DateFmtSkip DateFormat = iota
 	DateYyyyMmDd
@@ -68,6 +74,7 @@ const (
 // MetaDateTagLocation determines where a date tag should be added in a string.
 type MetaDateTagLocation int
 
+// MetaDateTagLocation definitions.
 const (
 	DateTagLogPrefix MetaDateTagLocation = iota
 	DateTagLogSuffix
@@ -76,6 +83,7 @@ const (
 // MetaDateTaggingType determines the type of operation to perform for date tags.
 type MetaDateTaggingType int
 
+// MetaDateTaggingType definitions.
 const (
 	DatetagAddOp MetaDateTaggingType = iota
 	DatetagDelOp
@@ -84,6 +92,7 @@ const (
 // MetaFiletype is the type of meta file, e.g. JSON or NFO.
 type MetaFiletype int
 
+// MetaFiletype definitions.
 const (
 	MetaFiletypeJSON MetaFiletype = iota
 	MetaFiletypeNFO
@@ -92,6 +101,7 @@ const (
 // ViperVarTypes relates to Viper configuration variable types.
 type ViperVarTypes int
 
+// ViperVarTypes definitions.
 const (
 	ViperVarAny ViperVarTypes = iota
 	ViperVarBool
@@ -103,6 +113,7 @@ const (
 // PurgeMetafiles sets directives for the deletion of metafiles upon process completion.
 type PurgeMetafiles int
 
+// PurgeMetafiles definitions.
 const (
 	PurgeMetaAll PurgeMetafiles = iota
 	PurgeMetaJSON
@@ -113,6 +124,7 @@ const (
 // WebClassTags relates to the type of data to grab from a web page.
 type WebClassTags int
 
+// WebClassTags definitions.
 const (
 	WebclassDate WebClassTags = iota
 	WebclassTitle
@@ -124,6 +136,7 @@ const (
 // SitePresets holds presets for different video sites.
 type SitePresets int
 
+// SitePresets definitions.
 const (
 	PresetCensoredTV SitePresets = iota
 )

@@ -246,9 +246,9 @@ func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
 
 	switch {
 	case i <= 31 && j <= 12:
-		return ddmm, false
+		return true, false
 	case j <= 31 && i <= 12:
-		return false, mmdd
+		return false, true
 	default:
 		return false, false
 	}
@@ -260,24 +260,24 @@ func StripDateTag(val string, loc enums.MetaDateTagLocation) string {
 
 	switch loc {
 	case enums.DateTagLogPrefix:
-		open := strings.IndexRune(val, '[')
-		close := strings.IndexRune(val, ']')
+		openTag := strings.IndexRune(val, '[')
+		closeTag := strings.IndexRune(val, ']')
 
-		if open == 0 && close > open {
-			dateStr := val[open+1 : close]
+		if openTag == 0 && closeTag > openTag {
+			dateStr := val[openTag+1 : closeTag]
 			if regex.DateTagCompile().MatchString(dateStr) {
-				return strings.TrimLeft(val[close+1:], " ")
+				return strings.TrimLeft(val[closeTag+1:], " ")
 			}
 		}
 
 	case enums.DateTagLogSuffix:
-		open := strings.LastIndex(val, "[")
-		close := strings.LastIndex(val, "]")
+		openTag := strings.LastIndex(val, "[")
+		closeTag := strings.LastIndex(val, "]")
 
-		if open >= 0 && close > open && close == len(val)-1 {
-			dateStr := val[open+1 : close]
+		if openTag >= 0 && closeTag > openTag && closeTag == len(val)-1 {
+			dateStr := val[openTag+1 : closeTag]
 			if regex.DateTagCompile().MatchString(dateStr) {
-				return strings.TrimSpace(val[:open])
+				return strings.TrimSpace(val[:openTag])
 			}
 		}
 	}

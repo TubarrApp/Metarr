@@ -44,24 +44,23 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 			continue
 		}
 
-		switch {
-		case k == consts.JWebpageURL:
+		switch k {
+		case consts.JWebpageURL:
 			if webInfoFill(&w.WebpageURL, val, w) {
 				isFilled = true
 			}
 
-		case k == consts.JURL:
+		case consts.JURL:
 			if webInfoFill(&w.VideoURL, val, w) {
 				isFilled = true
 			}
 
-		case k == consts.JReferer:
+		case consts.JReferer:
 			if webInfoFill(&w.Referer, val, w) {
 				isFilled = true
 			}
 
-		case k == consts.JWebpageDomain, k == consts.JDomain:
-
+		case consts.JWebpageDomain, consts.JDomain:
 			if webInfoFill(&w.Domain, val, w) {
 				isFilled = true
 			}

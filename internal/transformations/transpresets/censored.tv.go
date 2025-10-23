@@ -2,11 +2,10 @@
 package transpresets
 
 import (
+	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
-
-	"github.com/spf13/viper"
 )
 
 // CensoredTvTransformations adds preset transformations to
@@ -27,8 +26,8 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		ok      bool
 	)
 
-	if viper.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = viper.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
+	if cfg.IsSet(keys.MTrimSuffix) {
+		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
 			logging.E("Got type %T, may be null", trimSfx)
 		}
 	}
@@ -74,8 +73,8 @@ func censoredTvFSuffixes(fd *models.FileData) {
 
 	v := fd.OriginalVideoBaseName
 
-	if viper.IsSet(keys.FilenameReplaceSfx) {
-		existingSfx, ok := viper.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
+	if cfg.IsSet(keys.FilenameReplaceSfx) {
+		existingSfx, ok := cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
 		if !ok {
 			logging.E("Unexpected type %T, initializing new suffix list.", existingSfx)
 		} else {

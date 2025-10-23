@@ -73,9 +73,6 @@ func execute() error {
 		validation.ValidateFilePrefixes(viper.GetStringSlice(keys.FilePrefixes))
 	}
 
-	// Debugging level
-	validation.ValidateDebugLevel(viper.GetInt(keys.DebugLevel))
-
 	// Filetype to output as
 	if viper.IsSet(keys.OutputDirectory) {
 		validation.ValidateOutputFiletype(viper.GetString(keys.OutputDirectory))
@@ -135,7 +132,7 @@ func initTransformations() error {
 	validation.ValidateRenameFlag(viper.GetString(keys.RenameStyle))
 
 	// Filename suffix replacements
-	if err := validation.ValidateFilenameSuffixReplace(viper.GetStringSlice(keys.InputFilenameReplaceSfx)); err != nil {
+	if err := validation.ValidateFilenameSuffixReplace(viper.GetStringSlice(keys.FilenameReplaceSfx)); err != nil {
 		return err
 	}
 	return nil

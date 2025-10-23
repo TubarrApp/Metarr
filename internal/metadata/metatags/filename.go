@@ -1,21 +1,20 @@
 package metatags
 
 import (
+	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // MakeFilenameTag creates the metatag string to prefix filenames with.
 func MakeFilenameTag(metadata map[string]any, file *os.File) string {
 	logging.D(5, "Entering makeFilenameTag with data %v", metadata)
 
-	tagFields := viper.GetStringSlice(keys.MFilenamePfx)
+	tagFields := cfg.GetStringSlice(keys.MFilenamePfx)
 	if len(tagFields) == 0 {
 		return ""
 	}

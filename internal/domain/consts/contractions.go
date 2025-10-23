@@ -1,5 +1,7 @@
 package consts
 
+// ContractionsSpaced contains contractions separated by spaces,
+// sometimes left behind when invalid characters are removed by other programs.
 var (
 	ContractionsSpaced = map[string]string{
 		"ain t":     "aint",
@@ -36,6 +38,8 @@ var (
 		"would ve":  "wouldve",
 	}
 
+	// ContractionsSpaced contains contractions separated by underscored,
+	// sometimes left behind when invalid characters are removed by other programs.
 	ContractionsUnderscored = map[string]string{
 		"ain_t":     "aint",
 		"can_t":     "cant",

@@ -11,30 +11,32 @@ import (
 )
 
 const (
-	open          = "{{"
-	close         = "}}"
+	openTag       = "{{"
+	closeTag      = "}}"
 	avgReplaceLen = 32
-	templateLen   = len(open) + len(close) + 4
+	templateLen   = len(openTag) + len(closeTag) + 4
 )
 
-type Directory struct {
+// DirectoryParser is used to access and use directory parsing elements.
+type DirectoryParser struct {
 	FD *models.FileData
 }
 
-func NewDirectoryParser(fd *models.FileData) *Directory {
-	return &Directory{
+// NewDirectoryParser generates a directory parser containing the FileData model.
+func NewDirectoryParser(fd *models.FileData) *DirectoryParser {
+	return &DirectoryParser{
 		FD: fd,
 	}
 }
 
 // ParseDirectory returns the absolute directory path with template replacements.
-func (dp *Directory) ParseDirectory(dir string) (parsedDir string, err error) {
+func (dp *DirectoryParser) ParseDirectory(dir string) (parsedDir string, err error) {
 	if dir == "" {
 		return "", errors.New("directory sent in empty")
 	}
 
 	parsed := dir
-	if strings.Contains(dir, open) {
+	if strings.Contains(dir, openTag) {
 		var err error
 
 		parsed, err = dp.parseTemplate(dir)
@@ -54,9 +56,9 @@ func (dp *Directory) ParseDirectory(dir string) (parsedDir string, err error) {
 // parseTemplate parses template options inside the directory string.
 //
 // Returns error if the desired data isn't present, to prevent unexpected results for the user.
-func (dp *Directory) parseTemplate(dir string) (string, error) {
-	opens := strings.Count(dir, open)
-	closes := strings.Count(dir, close)
+func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
+	opens := strings.Count(dir, openTag)
+	closes := strings.Count(dir, closeTag)
 	if opens != closes {
 		return "", fmt.Errorf("mismatched template delimiters: %d opens, %d closes", opens, closes)
 	}
@@ -66,12 +68,12 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 	remaining := dir
 
 	for i := 0; i < opens; i++ {
-		startIdx := strings.Index(remaining, open)
+		startIdx := strings.Index(remaining, openTag)
 		if startIdx == -1 {
 			return "", fmt.Errorf("%q is missing opening delimiter", remaining)
 		}
 
-		endIdx := strings.Index(remaining, close)
+		endIdx := strings.Index(remaining, openTag)
 		if endIdx == -1 {
 			return "", fmt.Errorf("%q is missing closing delimiter", remaining)
 		}
@@ -80,7 +82,7 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 		b.WriteString(remaining[:startIdx])
 
 		// Replacement string
-		tag := remaining[startIdx+len(open) : endIdx]
+		tag := remaining[startIdx+len(openTag) : endIdx]
 		replacement, err := dp.replace(strings.TrimSpace(tag))
 		if err != nil {
 			return "", err
@@ -88,7 +90,7 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 		b.WriteString(replacement)
 
 		// String after template close
-		remaining = remaining[endIdx+len(close):]
+		remaining = remaining[endIdx+len(closeTag):]
 	}
 
 	// Write any remaining text after last template
@@ -98,7 +100,7 @@ func (dp *Directory) parseTemplate(dir string) (string, error) {
 }
 
 // replace makes template replacements in the directory string.
-func (dp *Directory) replace(tag string) (string, error) {
+func (dp *DirectoryParser) replace(tag string) (string, error) {
 
 	if dp.FD == nil {
 		return "", errors.New("null FileData model")

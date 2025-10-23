@@ -80,7 +80,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 	}
 
 	// Collect all metadata for logging
-	var ffContent []string
+	ffContent := make([]string, 0, len(metaCheckMap))
 	matches := true
 
 	// Check each field

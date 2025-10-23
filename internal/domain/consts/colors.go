@@ -15,6 +15,7 @@ const (
 	ColorDimWhite    = "\x1b[2;37m"
 )
 
+// Tags
 const (
 	RedError      string = ColorRed + "[ERROR] " + ColorReset
 	GreenSuccess  string = ColorGreen + "[Success] " + ColorReset

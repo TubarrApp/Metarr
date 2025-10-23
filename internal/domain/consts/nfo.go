@@ -1,5 +1,6 @@
 package consts
 
+// NFO constants.
 const (
 	// Core Descriptive Metadata
 	NTitle         = "title"

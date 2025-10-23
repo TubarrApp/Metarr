@@ -1,3 +1,4 @@
+// Package main is the main entrypoint of the program.
 package main
 
 import (
@@ -16,8 +17,6 @@ import (
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
-
-	"github.com/spf13/viper"
 )
 
 // String constants
@@ -56,19 +55,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !viper.GetBool("execute") {
+	if !cfg.GetBool("execute") {
 		fmt.Println()
 		logging.I("(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
 		return // Exit early if not meant to execute
 	}
 
 	// Initialize meta ops (outside of Execute command to return MetaOps)
-
-	if err := initializeApplication(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		fmt.Println()
-		os.Exit(1)
-	}
+	initializeApplication()
 	defer benchmark.CloseBenchmarking()
 
 	// Program elements

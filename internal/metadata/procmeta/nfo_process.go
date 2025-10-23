@@ -53,9 +53,8 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 		data, err := fd.NFOFileRW.RefreshMetadata()
 		if err != nil {
 			return nil, err
-		} else {
-			fd.NFOData = data
 		}
+		fd.NFOData = data
 	}
 
 	// Fill to file metadata

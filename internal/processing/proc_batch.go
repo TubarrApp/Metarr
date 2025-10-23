@@ -109,11 +109,11 @@ func (bp *batchProcessor) reset(expectedCount int) {
 	atomic.StoreInt32(&bp.counts.processedVideo, 0)
 
 	// Clear sync.Maps
-	bp.files.matched.Range(func(k, v interface{}) bool {
+	bp.files.matched.Range(func(k, _ interface{}) bool {
 		bp.files.matched.Delete(k)
 		return true
 	})
-	bp.files.video.Range(func(k, v interface{}) bool {
+	bp.files.video.Range(func(k, _ interface{}) bool {
 		bp.files.video.Delete(k)
 		return true
 	})

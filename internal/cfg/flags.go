@@ -95,9 +95,13 @@ func initAllFileTransformers() error {
 		return err
 	}
 
-	// Replace filename suffix
-	rootCmd.PersistentFlags().StringSlice(keys.InputFilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
-	if err := viper.BindPFlag(keys.InputFilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.InputFilenameReplaceSfx)); err != nil {
+	// Replace filename suffix/prefix
+	rootCmd.PersistentFlags().StringSlice(keys.FilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
+	if err := viper.BindPFlag(keys.FilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.FilenameReplaceSfx)); err != nil {
+		return err
+	}
+	rootCmd.PersistentFlags().StringSlice(keys.FilenameReplacePfx, nil, "Replaces a specified prefix on filenames. (prefix:replacement)")
+	if err := viper.BindPFlag(keys.FilenameReplacePfx, rootCmd.PersistentFlags().Lookup(keys.FilenameReplacePfx)); err != nil {
 		return err
 	}
 

@@ -4,6 +4,7 @@ package ffmpeg
 import (
 	"context"
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -14,8 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // ExecuteVideo writes metadata to a single video file.
@@ -28,8 +27,8 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	origExt := filepath.Ext(origPath)
 
 	// Extension validation - now checks length and format immediately
-	if viper.IsSet(keys.OutputFiletype) {
-		if outExt = validation.ValidateExtension(viper.GetString(keys.OutputFiletype)); outExt == "" {
+	if cfg.IsSet(keys.OutputFiletype) {
+		if outExt = validation.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
 			logging.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
@@ -96,7 +95,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
 		logging.I("Original file not type %s, removing %q", outExt, origPath)
 
-	} else if viper.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+	} else if cfg.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
@@ -143,11 +142,11 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	logging.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
 
 	// Check codec mismatches
-	if viper.IsSet(keys.TranscodeCodec) {
-		desiredVCodec = viper.GetString(keys.TranscodeCodec)
+	if cfg.IsSet(keys.TranscodeCodec) {
+		desiredVCodec = cfg.GetString(keys.TranscodeCodec)
 	}
-	if viper.IsSet(keys.TranscodeAudioCodec) {
-		desiredACodec = viper.GetString(keys.TranscodeAudioCodec)
+	if cfg.IsSet(keys.TranscodeAudioCodec) {
+		desiredACodec = cfg.GetString(keys.TranscodeAudioCodec)
 	}
 
 	if desiredVCodec != "" || desiredACodec != "" {
@@ -225,7 +224,7 @@ func checkCodecs(inputFile string) (videoCodec, audioCodec string, err error) {
 
 	videoCodecBytes, err := cmd.Output()
 	if err != nil {
-		return "", "", fmt.Errorf("cannot read video codec: %v", err)
+		return "", "", fmt.Errorf("cannot read video codec: %w", err)
 	}
 	videoCodec = strings.TrimSpace(string(videoCodecBytes))
 
@@ -239,7 +238,7 @@ func checkCodecs(inputFile string) (videoCodec, audioCodec string, err error) {
 
 	audioCodecBytes, err := cmd.Output()
 	if err != nil {
-		return "", "", fmt.Errorf("cannot read audio codec: %v", err)
+		return "", "", fmt.Errorf("cannot read audio codec: %w", err)
 	}
 	audioCodec = strings.TrimSpace(string(audioCodecBytes))
 

@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// Regex cache.
 var (
 	AnsiEscape                *regexp.Regexp
 	DateTagDetect             *regexp.Regexp

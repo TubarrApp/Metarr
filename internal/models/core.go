@@ -8,8 +8,9 @@ import (
 	"sync"
 )
 
+// NewFileData generates a new FileData model.
 func NewFileData() *FileData {
-	return &FileData{
+	fd := &FileData{
 		MTitleDesc: &MetadataTitlesDescs{},
 		MCredits:   &MetadataCredits{},
 		MDates:     &MetadataDates{},
@@ -17,9 +18,10 @@ func NewFileData() *FileData {
 		MWebData:   &MetadataWebData{},
 		MOther:     &MetadataOtherData{},
 	}
+	return fd
 }
 
-// FileDate contains information about the file and how it should be handled.
+// FileData contains information about the file and how it should be handled.
 type FileData struct {
 	// Files & dirs
 	VideoDirectory        string `json:"-" xml:"-"`
@@ -63,6 +65,7 @@ type FileData struct {
 
 	// File transformations
 	ModelFileSfxReplace []FilenameReplaceSuffix
+	ModelFilePfxReplace []FilenameReplacePrefix
 
 	// Misc
 	MetaFileType      enums.MetaFiletype `json:"-" xml:"-"`

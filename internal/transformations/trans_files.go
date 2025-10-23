@@ -3,6 +3,7 @@ package transformations
 
 import (
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -14,8 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // fileProcessor handles the renaming and moving of files.
@@ -90,13 +89,13 @@ func (fp *fileProcessor) writeResult() error {
 		return err
 	}
 
-	if viper.IsSet(keys.MetaPurge) {
-		if err, deletedMeta = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
+	if cfg.IsSet(keys.MetaPurge) {
+		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
 			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
 
-	if viper.IsSet(keys.OutputDirectory) {
+	if cfg.IsSet(keys.OutputDirectory) {
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
@@ -139,11 +138,11 @@ func (fp *fileProcessor) handleRenaming() error {
 
 // determineVideoExtension gets the appropriate video extension.
 func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
-	if !viper.IsSet(keys.OutputFiletype) {
+	if !cfg.IsSet(keys.OutputFiletype) {
 		return filepath.Ext(originalPath)
 	}
 
-	vidExt := validation.ValidateExtension(viper.GetString(keys.OutputFiletype))
+	vidExt := validation.ValidateExtension(cfg.GetString(keys.OutputFiletype))
 	if vidExt == "" {
 		vidExt = filepath.Ext(originalPath)
 	}
@@ -241,11 +240,11 @@ func StripDateTagFromFilename(
 			dir := filepath.Dir(fdata.OriginalVideoPath)
 			videoBase := filepath.Base(fdata.OriginalVideoPath)
 
-			open := strings.IndexRune(videoBase, '[')
-			close := strings.IndexRune(videoBase, ']')
+			openTag := strings.IndexRune(videoBase, '[')
+			closeTag := strings.IndexRune(videoBase, ']')
 
-			if open == 0 && close > open {
-				dateStr := videoBase[open+1 : close]
+			if openTag == 0 && closeTag > openTag {
+				dateStr := videoBase[openTag+1 : closeTag]
 
 				if !regex.DateTagCompile().MatchString(dateStr) {
 					logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
@@ -287,11 +286,11 @@ func StripDateTagFromFilename(
 			continue
 		}
 
-		open := strings.IndexRune(metaBase, '[')
-		close := strings.IndexRune(metaBase, ']')
+		openTag := strings.IndexRune(metaBase, '[')
+		closeTag := strings.IndexRune(metaBase, ']')
 
-		if open == 0 && close > open {
-			dateStr := metaBase[open+1 : close]
+		if openTag == 0 && closeTag > openTag {
+			dateStr := metaBase[openTag+1 : closeTag]
 
 			if !regex.DateTagCompile().MatchString(dateStr) {
 				logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
@@ -331,22 +330,45 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 
 	var (
 		suffixes []models.FilenameReplaceSuffix
-		ok       bool
+		prefixes []models.FilenameReplacePrefix
 	)
 
+	// Get filename suffix replacements
 	if len(fd.ModelFileSfxReplace) > 0 {
 		suffixes = fd.ModelFileSfxReplace
-	} else if viper.IsSet(keys.FilenameReplaceSfx) {
-		suffixes, ok = viper.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
-		if !ok && len(fd.ModelFileSfxReplace) == 0 {
-			logging.E("Got wrong type %T for filename replace suffixes", suffixes)
-			return fileBase
+	}
+
+	if cfg.IsSet(keys.FilenameReplaceSfx) {
+		result, ok := cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
+		if !ok {
+			logging.E("Got wrong type %T for filename replace suffixes", result)
+		} else {
+			suffixes = append(suffixes, result...)
 		}
 	}
 
-	if len(suffixes) == 0 && style == enums.RenamingSkip {
+	// Get filename prefix replacements
+	if len(fd.ModelFilePfxReplace) > 0 {
+		prefixes = fd.ModelFilePfxReplace
+	}
+
+	if cfg.IsSet(keys.FilenameReplacePfx) {
+		result, ok := cfg.Get(keys.FilenameReplacePfx).([]models.FilenameReplacePrefix)
+		if !ok {
+			logging.E("Got wrong type %T for filename replace prefixes", result)
+		} else {
+			prefixes = append(prefixes, result...)
+		}
+	}
+
+	if len(suffixes) == 0 && len(prefixes) == 0 && style == enums.RenamingSkip {
 		return fileBase
-	} else if len(suffixes) > 0 {
+	}
+
+	if len(prefixes) > 0 {
+		fileBase = replacePrefix(fileBase, prefixes)
+	}
+	if len(suffixes) > 0 {
 		fileBase = replaceSuffix(fileBase, suffixes)
 	}
 

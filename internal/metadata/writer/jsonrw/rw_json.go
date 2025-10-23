@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -14,10 +15,9 @@ import (
 	"metarr/internal/utils/logging"
 	"os"
 	"sync"
-
-	"github.com/spf13/viper"
 )
 
+// JSONFileRW is used to access JSON reading/writing utilities.
 type JSONFileRW struct {
 	mu          sync.RWMutex
 	muFileWrite sync.Mutex
@@ -112,7 +112,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 				currentMeta[k] = *ptr
 				updated = true
 
-			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || viper.GetBool(keys.MOverwrite) {
+			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || cfg.GetBool(keys.MOverwrite) {
 				logging.D(3, "Updating field %q from '%v' to %q", k, currentVal, *ptr)
 				currentMeta[k] = *ptr
 				updated = true
@@ -130,8 +130,8 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 	}
 
 	// Backup if option set
-	if viper.GetBool(keys.NoFileOverwrite) {
-		if err := backup.BackupFile(rw.File); err != nil {
+	if cfg.GetBool(keys.NoFileOverwrite) {
+		if err := backup.File(rw.File); err != nil {
 			return currentMeta, fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
@@ -220,60 +220,46 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Make edits:
 	// Replace
 	if len(replace) > 0 {
-		if ok, err := replaceJSON(currentMeta, replace); err != nil {
-			logging.E("Failed to replace fields with %+v: %v", replace, err)
-		} else if ok {
+		if changesMade := replaceJSON(currentMeta, replace); changesMade {
 			edited = true
 		}
 	}
 
 	// Trim
 	if len(trimPfx) > 0 {
-		if ok, err := trimJSONPrefix(currentMeta, trimPfx); err != nil {
-			logging.E("Failed to trim prefixes with %+v: %v", trimPfx, err)
-		} else if ok {
+		if changesMade := trimJSONPrefix(currentMeta, trimPfx); changesMade {
 			edited = true
 		}
 	}
 
 	if len(trimSfx) > 0 {
-		if ok, err := trimJSONSuffix(currentMeta, trimSfx); err != nil {
-			logging.E("Failed to trim suffixes with %+v: %v", trimSfx, err)
-		} else if ok {
+		if changesMade := trimJSONSuffix(currentMeta, trimSfx); changesMade {
 			edited = true
 		}
 	}
 
 	// Append and prefix
 	if len(apnd) > 0 {
-		if ok, err := jsonAppend(currentMeta, filename, apnd); err != nil {
-			logging.E("Failed to append fields with %+v: %v", apnd, err)
-		} else if ok {
+		if changesMade := jsonAppend(currentMeta, filename, apnd); changesMade {
 			edited = true
 		}
 	}
 
 	if len(pfx) > 0 {
-		if ok, err := jsonPrefix(currentMeta, filename, pfx); err != nil {
-			logging.E("Failed to prefix fields with %+v: %v", pfx, err)
-		} else if ok {
+		if changesMade := jsonPrefix(currentMeta, filename, pfx); changesMade {
 			edited = true
 		}
 	}
 
 	// Copy/paste
 	if len(copyTo) > 0 {
-		if ok, err := copyToField(currentMeta, copyTo); err != nil {
-			logging.E("Failed to copy field with %+v: %v", copyTo, err)
-		} else if ok {
+		if ok := copyToField(currentMeta, copyTo); ok {
 			edited = true
 		}
 	}
 
 	if len(pasteFrom) > 0 {
-		if ok, err := pasteFromField(currentMeta, pasteFrom); err != nil {
-			logging.E("Failed to paste field with %+v: %v", pasteFrom, err)
-		} else if ok {
+		if ok := pasteFromField(currentMeta, pasteFrom); ok {
 			edited = true
 		}
 	}

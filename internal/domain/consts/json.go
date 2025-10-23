@@ -1,5 +1,6 @@
 package consts
 
+// JSON credits constants.
 const (
 	JOverrideCredits = "all-credits"
 	JActor           = "actor"
@@ -17,6 +18,7 @@ const (
 	JWriter          = "writer"
 )
 
+// JSON title and description constants.
 const (
 	JComment            = "comment"
 	JDescription        = "description"
@@ -29,6 +31,7 @@ const (
 	JTitle              = "title"
 )
 
+// JSON date/time constants.
 const (
 	JCreationTime        = "creation_time"
 	JDate                = "date"
@@ -40,6 +43,7 @@ const (
 	JReleaseYear         = "release_year"
 )
 
+// JSON web constants.
 const (
 	JDomain        = "domain"
 	JReferer       = "referer"

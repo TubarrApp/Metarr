@@ -4,6 +4,7 @@ package fswrite
 import (
 	"errors"
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -14,10 +15,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/spf13/viper"
 )
 
+// FSFileWriter is a model granting access to file writer functions.
 type FSFileWriter struct {
 	Fd           *models.FileData
 	SkipVids     bool
@@ -28,6 +28,7 @@ type FSFileWriter struct {
 	muFs         sync.RWMutex
 }
 
+// NewFSFileWriter returns a file writer, used for writing changes to filenames etc.
 func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) {
 
 	inputVid := fd.FinalVideoPath
@@ -97,7 +98,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	if !viper.IsSet(keys.OutputDirectory) {
+	if !cfg.IsSet(keys.OutputDirectory) {
 		return nil
 	}
 
@@ -106,7 +107,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return nil
 	}
 
-	dstIn := viper.GetString(keys.OutputDirectory)
+	dstIn := cfg.GetString(keys.OutputDirectory)
 
 	prs := parsing.NewDirectoryParser(fs.Fd)
 	dst, err := prs.ParseDirectory(dstIn)
@@ -142,15 +143,15 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 }
 
 // DeleteMetafile safely removes metadata files once file operations are complete
-func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
+func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 
-	if !viper.IsSet(keys.MetaPurgeEnum) {
-		return errors.New("meta purge enum not set"), false
+	if !cfg.IsSet(keys.MetaPurgeEnum) {
+		return false, errors.New("meta purge enum not set")
 	}
 
-	e, ok := viper.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
+	e, ok := cfg.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
 	if !ok {
-		return fmt.Errorf("wrong type for purge metafile enum. Got %T", e), false
+		return false, fmt.Errorf("wrong type for purge metafile enum. Got %T", e)
 	}
 
 	ext := filepath.Ext(file)
@@ -163,40 +164,40 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 	case enums.PurgeMetaJSON:
 		if ext != consts.MExtJSON {
 			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
-			return nil, false
+			return false, nil
 		}
 
 	case enums.PurgeMetaNFO:
 		if ext != consts.MExtNFO {
 			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
-			return nil, false
+			return false, nil
 		}
 
 	case enums.PurgeMetaNone:
-		return errors.New("user selected to skip purging metadata, this should be inaccessible. Exiting function"), false
+		return false, errors.New("user selected to skip purging metadata, this should be inaccessible. Exiting function")
 
 	default:
-		return errors.New("support not added for this metafile purge enum yet, exiting function"), false
+		return false, errors.New("support not added for this metafile purge enum yet, exiting function")
 	}
 
 	fileInfo, err := os.Stat(file)
 	if err != nil {
-		return err, false
+		return false, err
 	}
 
 	if fileInfo.IsDir() {
-		return fmt.Errorf("metafile %q is a directory, not a file", file), false
+		return false, fmt.Errorf("metafile %q is a directory, not a file", file)
 	}
 
 	if !fileInfo.Mode().IsRegular() {
-		return fmt.Errorf("metafile %q is not a regular file", file), false
+		return false, fmt.Errorf("metafile %q is not a regular file", file)
 	}
 
 	if err := os.Remove(file); err != nil {
-		return fmt.Errorf("unable to delete meta file: %w", err), false
+		return false, fmt.Errorf("unable to delete meta file: %w", err)
 	}
 
 	logging.S("Successfully deleted metafile %q", file)
 
-	return nil, true
+	return true, nil
 }

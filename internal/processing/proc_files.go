@@ -3,6 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
+	"metarr/internal/cfg"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
@@ -15,8 +16,6 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -43,8 +42,8 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		err        error
 	)
 
-	if viper.IsSet(keys.SkipVideos) {
-		skipVideos = viper.GetBool(keys.SkipVideos)
+	if cfg.IsSet(keys.SkipVideos) {
+		skipVideos = cfg.GetBool(keys.SkipVideos)
 	} else {
 		skipVideos = batch.SkipVideos
 	}
@@ -67,16 +66,13 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	ctx := core.Ctx
 	wg := core.Wg
 
-	if err := processMetadataFiles(batch.bp, ctx, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed); err != nil {
-		logging.E("Error processing metadata files: %v", err)
-	}
-
-	setupCleanup(batch, ctx, cancel, cleanupChan, wg, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
+	processMetadataFiles(ctx, batch.bp, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
+	setupCleanup(ctx, cancel, wg, batch, cleanupChan, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
 
-	numWorkers := viper.GetInt(keys.Concurrency)
+	numWorkers := cfg.GetInt(keys.Concurrency)
 	if numWorkers < 1 {
 		numWorkers = 1
 	}
@@ -85,9 +81,9 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	results := make(chan *models.FileData, min(matchedCount, numWorkers*2))
 
 	// Start workers
-	for w := 1; w <= numWorkers; w++ {
+	for worker := 1; worker <= numWorkers; worker++ {
 		wg.Add(1)
-		go workerVideoProcess(batch, w, jobs, results, wg, ctx)
+		go workerVideoProcess(ctx, wg, batch, worker, jobs, results)
 	}
 
 	// Collector routine to collect results from the results channel
@@ -134,7 +130,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 }
 
 // workerVideoProcess performs the video processing operation for a worker.
-func workerVideoProcess(batch *batch, id int, jobs <-chan workItem, results chan<- *models.FileData, wg *sync.WaitGroup, ctx context.Context) {
+func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, id int, jobs <-chan workItem, results chan<- *models.FileData) {
 	defer wg.Done()
 
 	for job := range jobs {
@@ -149,7 +145,7 @@ func workerVideoProcess(batch *batch, id int, jobs <-chan workItem, results chan
 		default:
 			logging.D(1, "Worker %d processing file: %s", id, filename)
 
-			executed, err := executeFile(batch.bp, ctx, skipVideos, filename, job.fileData)
+			executed, err := executeFile(ctx, batch.bp, skipVideos, filename, job.fileData)
 			if err != nil {
 				logging.E("Worker %d error executing file %q: %v", id, filename, err)
 				continue
@@ -163,7 +159,7 @@ func workerVideoProcess(batch *batch, id int, jobs <-chan workItem, results chan
 }
 
 // processMetadataFiles processes metafiles such as .json, .nfo, and so on.
-func processMetadataFiles(bp *batchProcessor, ctx context.Context, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) error {
+func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) {
 	for _, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
@@ -184,7 +180,6 @@ func processMetadataFiles(bp *batchProcessor, ctx context.Context, matchedFiles 
 			muFailed.Unlock()
 		}
 	}
-	return nil
 }
 
 // getFiles returns a map of matched video/metadata files.
@@ -248,7 +243,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 	}
 
 	// Strip existing date tag
-	if viper.GetBool(keys.DeleteDateTagPfx) {
+	if cfg.GetBool(keys.DeleteDateTagPfx) {
 		logging.I("Stripping date tags from files...")
 		err := transformations.StripDateTagFromFilename(matchedFiles, videoMap, metaMap)
 		if err != nil {
@@ -298,7 +293,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 }
 
 // executeFile handles processing for both video and metadata files.
-func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filename string, fd *models.FileData) (*models.FileData, error) {
+func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filename string, fd *models.FileData) (*models.FileData, error) {
 
 	// Check for context cancellation
 	select {
@@ -350,7 +345,7 @@ func executeFile(bp *batchProcessor, ctx context.Context, skipVideos bool, filen
 }
 
 // setupCleanup creates a cleanup routine for file processing.
-func setupCleanup(batch *batch, ctx context.Context, cancel context.CancelFunc, cleanupChan chan os.Signal, wg *sync.WaitGroup, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
+func setupCleanup(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, batch *batch, cleanupChan chan os.Signal, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
 	go func() {
 		select {
 		case <-cleanupChan:

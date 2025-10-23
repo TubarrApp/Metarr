@@ -105,12 +105,12 @@ func moveOrCopyFile(src, dst string) error {
 
 		logging.S("Copied file and removed original: %q → %q", src, dst)
 		return nil
-	} else {
-		if err := os.Remove(dst); err != nil {
-			logging.E("Failed to remove failed copied file %q due to error: %v", dst, err)
-		}
-		return fmt.Errorf("failed to copy file %q → %q: %w", src, dst, err)
 	}
+
+	if err := os.Remove(dst); err != nil {
+		logging.E("Failed to remove failed copied file %q due to error: %v", dst, err)
+	}
+	return fmt.Errorf("failed to copy file %q → %q: %w", src, dst, err)
 }
 
 // copyFile copies a file to a target destination.
