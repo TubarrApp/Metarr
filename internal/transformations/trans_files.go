@@ -41,7 +41,6 @@ func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideo
 
 // process handles the main file transformation processing logic.
 func (fp *fileProcessor) process() error {
-
 	rename, move := shouldRenameOrMove(fp.fd)
 
 	if !rename && !move {
@@ -68,13 +67,11 @@ func (fp *fileProcessor) process() error {
 	if err := fp.writeResult(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
 // writeResult handles the purge and move operations.
 func (fp *fileProcessor) writeResult() error {
-
 	var (
 		err         error
 		deletedMeta bool
@@ -328,25 +325,19 @@ func StripDateTagFromFilename(
 func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.D(2, "Processing metafile base name: %q", fileBase)
 
-	var (
-		suffixes []models.FilenameReplaceSuffix
-		prefixes []models.FilenameReplacePrefix
-	)
+	replacements := fd.FilenameReplaceStrings
+	suffixes := fd.FilenameReplaceSuffix
+	prefixes := fd.FilenameReplacePrefix
 
-	// Get filename suffix replacements
-	if len(fd.ModelFileSfxReplace) > 0 {
-		suffixes = fd.ModelFileSfxReplace
-	}
-
-	// Get filename prefix replacements
-	if len(fd.ModelFilePfxReplace) > 0 {
-		prefixes = fd.ModelFilePfxReplace
-	}
-
-	if len(suffixes) == 0 && len(prefixes) == 0 && style == enums.RenamingSkip {
+	// Renaming to do?
+	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 && style == enums.RenamingSkip {
 		return fileBase
 	}
 
+	// Make replacements
+	if len(replacements) > 0 {
+		fileBase = replaceStrings(fileBase, replacements)
+	}
 	if len(prefixes) > 0 {
 		fileBase = replacePrefix(fileBase, prefixes)
 	}

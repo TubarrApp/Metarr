@@ -29,20 +29,21 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 
 	switch {
 	case fd.FilenameMetaPrefix != "",
-		len(fd.ModelFileSfxReplace) > 0,
-		len(fd.ModelFilePfxReplace) > 0,
+		len(fd.FilenameReplaceSuffix) > 0,
+		len(fd.FilenameReplacePrefix) > 0,
+		len(fd.FilenameReplaceStrings) > 0,
 		dateFmt != "",
 		rName != enums.RenamingSkip:
 
-		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile suffix replacements: %v\nFile prefix replacements:%v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
+		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile string replacements: %v\nFile suffix replacements: %v\nFile prefix replacements:%v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
 			fd.OriginalVideoPath,
 			fd.FilenameMetaPrefix,
-			fd.ModelFileSfxReplace,
-			fd.ModelFilePfxReplace,
+			fd.FilenameReplaceStrings,
+			fd.FilenameReplaceSuffix,
+			fd.FilenameReplacePrefix,
 			dateFmt,
 			fd.FilenameDateTag,
 			rName != enums.RenamingSkip)
-
 		rename = true
 	}
 
@@ -195,6 +196,38 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 		nil
 }
 
+// replaceStrings applies configured string replacements to a filename.
+func replaceStrings(filename string, replaceStrings []models.FilenameReplaceStrings) string {
+	if len(replaceStrings) == 0 {
+		logging.D(1, "No string replacements configured, keeping original filename: %q", filename)
+		return filename
+	}
+
+	logging.D(2, "Processing filename %s with string replacements: %v", filename, replaceStrings)
+
+	for _, rep := range replaceStrings {
+		prevFilename := filename
+		filename = strings.ReplaceAll(filename, rep.FindString, rep.ReplaceWith)
+
+		if filename == prevFilename {
+			lowerFindString := strings.ToLower(rep.FindString)
+			upperFindString := strings.ToUpper(rep.FindString)
+			titleFindString := strings.ToTitle(rep.FindString)
+
+			if strings.Contains(filename, lowerFindString) ||
+				strings.Contains(filename, upperFindString) ||
+				strings.Contains(filename, titleFindString) {
+
+				fmt.Println()
+				logging.W("String replacements are case-sensitive. Found %q in string %q, but not user-specified %q.", lowerFindString, filename, rep.FindString)
+			}
+		} else {
+			logging.D(2, "Replacement made: %s -> %s (replaced %q with %q)", prevFilename, filename, rep.FindString, rep.ReplaceWith)
+		}
+	}
+	return filename
+}
+
 // replaceSuffix applies configured suffix replacements to a filename.
 func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) string {
 
@@ -207,21 +240,15 @@ func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) str
 
 	logging.D(2, "Processing filename %s with suffixes: %v", filename, suffixes)
 
-	var result string
 	for _, suffix := range suffixes {
 		logging.D(2, "Checking suffix %q against filename %q", suffix.Suffix, filename)
 
-		if strings.HasSuffix(filename, suffix.Suffix) {
-			result = strings.TrimSuffix(filename, suffix.Suffix) + suffix.Replacement
+		if before, ok := strings.CutSuffix(filename, suffix.Suffix); ok {
+			filename = before + suffix.Replacement
 			logging.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
+			break // Break after suffix found and removed
 		}
 	}
-
-	if result != "" {
-		logging.D(2, "Suffix replacement complete: %s -> %s", filename, result)
-		return result
-	}
-
 	return filename
 }
 
@@ -237,21 +264,15 @@ func replacePrefix(filename string, prefixes []models.FilenameReplacePrefix) str
 
 	logging.D(2, "Processing filename %s with prefixes: %v", filename, prefixes)
 
-	var result string
 	for _, prefix := range prefixes {
 		logging.D(2, "Checking prefix %q against filename %q", prefix.Prefix, filename)
 
-		if strings.HasPrefix(filename, prefix.Prefix) {
-			result = prefix.Replacement + strings.TrimPrefix(filename, prefix.Prefix)
+		if after, ok := strings.CutPrefix(filename, prefix.Prefix); ok {
+			filename = prefix.Replacement + after
 			logging.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, prefix.Replacement)
+			break // Break after prefix found and removed
 		}
 	}
-
-	if result != "" {
-		logging.D(2, "Prefix replacement complete: %s -> %s", filename, result)
-		return result
-	}
-
 	return filename
 }
 

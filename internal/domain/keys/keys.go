@@ -23,6 +23,7 @@ const (
 
 	FilenameReplaceSfx string = "filename-replace-suffix"
 	FilenameReplacePfx string = "filename-replace-prefix"
+	FilenameReplaceStr string = "filename-replace-strings"
 	InputFileDatePfx   string = "filename-date-tag"
 	DeleteDateTagPfx   string = "filename-date-tag-delete"
 	RenameStyle        string = "rename-style"

@@ -127,6 +127,12 @@ type FilenameReplacePrefix struct {
 	Replacement string
 }
 
+// FilenameReplaceStrings replaces strings in a filename with user input.
+type FilenameReplaceStrings struct {
+	FindString  string
+	ReplaceWith string
+}
+
 // MetadataCredits contains credits metadata.
 type MetadataCredits struct {
 	Override  string `json:"-"`

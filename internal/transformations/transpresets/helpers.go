@@ -10,7 +10,7 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FilenameRepl
 	// Add suffixes
 	for _, newSuffix := range suffixes {
 		exists := false
-		for _, existing := range fd.ModelFileSfxReplace {
+		for _, existing := range fd.FilenameReplaceSuffix {
 			if existing.Suffix == newSuffix.Suffix && existing.Replacement == newSuffix.Replacement {
 				exists = true
 				logging.D(3, "Suffix replacement %q -> %q already exists, skipping", newSuffix.Suffix, newSuffix.Replacement)
@@ -18,7 +18,7 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FilenameRepl
 			}
 		}
 		if !exists {
-			fd.ModelFileSfxReplace = append(fd.ModelFileSfxReplace, newSuffix)
+			fd.FilenameReplaceSuffix = append(fd.FilenameReplaceSuffix, newSuffix)
 			logging.D(2, "Added suffix replacement: %q -> %q", newSuffix.Suffix, newSuffix.Replacement)
 		}
 	}
@@ -26,7 +26,7 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FilenameRepl
 	// Add prefixes
 	for _, newPrefix := range prefixes {
 		exists := false
-		for _, existing := range fd.ModelFilePfxReplace {
+		for _, existing := range fd.FilenameReplacePrefix {
 			if existing.Prefix == newPrefix.Prefix && existing.Replacement == newPrefix.Replacement {
 				exists = true
 				logging.D(3, "Prefix replacement %q -> %q already exists, skipping", newPrefix.Prefix, newPrefix.Replacement)
@@ -34,7 +34,7 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FilenameRepl
 			}
 		}
 		if !exists {
-			fd.ModelFilePfxReplace = append(fd.ModelFilePfxReplace, newPrefix)
+			fd.FilenameReplacePrefix = append(fd.FilenameReplacePrefix, newPrefix)
 			logging.D(2, "Added prefix replacement: %q -> %q", newPrefix.Prefix, newPrefix.Replacement)
 		}
 	}

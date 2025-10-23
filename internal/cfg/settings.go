@@ -131,13 +131,18 @@ func initTransformations() error {
 	// Set rename flag
 	validation.ValidateRenameFlag(viper.GetString(keys.RenameStyle))
 
+	// Filename string replacements
+	if err := validation.ValidateSetFilenameStringReplace(viper.GetStringSlice(keys.FilenameReplaceStr)); err != nil {
+		return err
+	}
+
 	// Filename suffix replacements
-	if err := validation.ValidateFilenameSuffixReplace(viper.GetStringSlice(keys.FilenameReplaceSfx)); err != nil {
+	if err := validation.ValidateSetFilenameSuffixReplace(viper.GetStringSlice(keys.FilenameReplaceSfx)); err != nil {
 		return err
 	}
 
 	// Filename prefix replacements
-	if err := validation.ValidateFilenamePrefixReplace(viper.GetStringSlice(keys.FilenameReplacePfx)); err != nil {
+	if err := validation.ValidateSetFilenamePrefixReplace(viper.GetStringSlice(keys.FilenameReplacePfx)); err != nil {
 		return err
 	}
 

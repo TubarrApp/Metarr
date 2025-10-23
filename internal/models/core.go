@@ -23,29 +23,35 @@ func NewFileData() *FileData {
 		MOther:     &MetadataOtherData{},
 	}
 
-	suffixes := []FilenameReplaceSuffix{}
-	if viper.IsSet(keys.FilenameReplaceSfx) {
-		result, ok := viper.Get(keys.FilenameReplaceSfx).([]FilenameReplaceSuffix)
-		if !ok {
-			fmt.Printf("Got wrong type %T for filename replace suffixes", result)
-		} else {
-			suffixes = append(suffixes, result...)
-		}
-	}
-	fd.ModelFileSfxReplace = suffixes
-
-	prefixes := []FilenameReplacePrefix{}
-	if viper.IsSet(keys.FilenameReplacePfx) {
-		result, ok := viper.Get(keys.FilenameReplacePfx).([]FilenameReplacePrefix)
-		if !ok {
-			fmt.Printf("Got wrong type %T for filename replace prefixes", result)
-		} else {
-			prefixes = append(prefixes, result...)
-		}
-	}
-	fd.ModelFilePfxReplace = prefixes
-
+	fd.LoadFilenameReplacements()
 	return fd
+}
+
+// LoadFilenameReplacements loads filename replacement config into FileData.
+func (fd *FileData) LoadFilenameReplacements() {
+	if viper.IsSet(keys.FilenameReplaceSfx) {
+		if result, ok := viper.Get(keys.FilenameReplaceSfx).([]FilenameReplaceSuffix); ok {
+			fd.FilenameReplaceSuffix = result
+		} else {
+			fmt.Printf("Invalid type for filename replace suffixes: got %T, expected []FilenameReplaceSuffix", viper.Get(keys.FilenameReplaceSfx))
+		}
+	}
+
+	if viper.IsSet(keys.FilenameReplacePfx) {
+		if result, ok := viper.Get(keys.FilenameReplacePfx).([]FilenameReplacePrefix); ok {
+			fd.FilenameReplacePrefix = result
+		} else {
+			fmt.Printf("Invalid type for filename replace prefixes: got %T, expected []FilenameReplacePrefix", viper.Get(keys.FilenameReplacePfx))
+		}
+	}
+
+	if viper.IsSet(keys.FilenameReplaceStr) {
+		if result, ok := viper.Get(keys.FilenameReplaceStr).([]FilenameReplaceStrings); ok {
+			fd.FilenameReplaceStrings = result
+		} else {
+			fmt.Printf("Invalid type for filename replace strings: got %T, expected []FilenameReplaceStrings", viper.Get(keys.FilenameReplaceStr))
+		}
+	}
 }
 
 // FileData contains information about the file and how it should be handled.
@@ -91,8 +97,9 @@ type FileData struct {
 	MetaOps *MetaOps
 
 	// File transformations
-	ModelFileSfxReplace []FilenameReplaceSuffix
-	ModelFilePfxReplace []FilenameReplacePrefix
+	FilenameReplaceSuffix  []FilenameReplaceSuffix
+	FilenameReplacePrefix  []FilenameReplacePrefix
+	FilenameReplaceStrings []FilenameReplaceStrings
 
 	// Misc
 	MetaFileType      enums.MetaFiletype `json:"-" xml:"-"`

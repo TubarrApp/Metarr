@@ -247,14 +247,14 @@ func metaOpsMapLength(MetaOpsInput []string, m metaOpsLen) metaOpsLen {
 	return m
 }
 
-// ValidateFilenameSuffixReplace checks if the input format for filename suffix replacement is valid
-func ValidateFilenameSuffixReplace(filenameReplaceSuffixInput []string) error {
+// ValidateSetFilenameSuffixReplace checks if the input format for filename suffix replacement is valid.
+func ValidateSetFilenameSuffixReplace(filenameReplaceSuffixInput []string) error {
 	filenameReplaceSuffix := make([]models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
 
 	for _, pair := range filenameReplaceSuffixInput {
 		parts := strings.SplitN(pair, ":", 2)
 		if len(parts) < 2 {
-			return errors.New("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
+			return errors.New("invalid use of filename-replace-suffix, values must be written as 'suffix:replacement'")
 		}
 		filenameReplaceSuffix = append(filenameReplaceSuffix, models.FilenameReplaceSuffix{
 			Suffix:      parts[0],
@@ -262,20 +262,20 @@ func ValidateFilenameSuffixReplace(filenameReplaceSuffixInput []string) error {
 		})
 	}
 	if len(filenameReplaceSuffix) > 0 {
-		logging.I("Meta replace suffixes: %v", filenameReplaceSuffix)
+		logging.I("Filename replace suffixes: %v", filenameReplaceSuffix)
 		viper.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
 	}
 	return nil
 }
 
-// ValidateFilenamePrefixReplace checks if the input format for filename prefix replacement is valid
-func ValidateFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
+// ValidateSetFilenamePrefixReplace checks if the input format for filename prefix replacement is valid.
+func ValidateSetFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
 	filenameReplacePrefix := make([]models.FilenameReplacePrefix, 0, len(filenameReplacePrefixInput))
 
 	for _, pair := range filenameReplacePrefixInput {
 		parts := strings.SplitN(pair, ":", 2)
 		if len(parts) < 2 {
-			return errors.New("invalid use of filename-replace-prefix, values must be written as (prefix:replacement)")
+			return errors.New("invalid use of filename-replace-prefix, values must be written as 'prefix:replacement'")
 		}
 		filenameReplacePrefix = append(filenameReplacePrefix, models.FilenameReplacePrefix{
 			Prefix:      parts[0],
@@ -283,13 +283,34 @@ func ValidateFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
 		})
 	}
 	if len(filenameReplacePrefix) > 0 {
-		logging.I("Meta replace prefixes: %v", filenameReplacePrefix)
+		logging.I("Filename replace prefixes: %v", filenameReplacePrefix)
 		viper.Set(keys.FilenameReplacePfx, filenameReplacePrefix)
 	}
 	return nil
 }
 
-// ValidateDateReplaceFormat initializes the user's preferred format for dates
+// ValidateSetFilenameStringReplace checks if the input format for filename string replacements is valid.
+func ValidateSetFilenameStringReplace(replaceStrings []string) error {
+	filenameReplaceStrings := make([]models.FilenameReplaceStrings, 0, len(replaceStrings))
+
+	for _, pair := range replaceStrings {
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) < 2 {
+			return errors.New("invalid use of filename-replace-strings, values must be written as 'find:replacement'")
+		}
+		filenameReplaceStrings = append(filenameReplaceStrings, models.FilenameReplaceStrings{
+			FindString:  parts[0],
+			ReplaceWith: parts[1],
+		})
+	}
+	if len(filenameReplaceStrings) > 0 {
+		logging.I("Filename replace strings: %v", filenameReplaceStrings)
+		viper.Set(keys.FilenameReplaceStr, filenameReplaceStrings)
+	}
+	return nil
+}
+
+// ValidateDateReplaceFormat initializes the user's preferred format for dates.
 func ValidateDateReplaceFormat(dateFmt string) error {
 	dateFmt = strings.TrimSpace(dateFmt)
 
