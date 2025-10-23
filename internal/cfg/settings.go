@@ -135,5 +135,11 @@ func initTransformations() error {
 	if err := validation.ValidateFilenameSuffixReplace(viper.GetStringSlice(keys.FilenameReplaceSfx)); err != nil {
 		return err
 	}
+
+	// Filename prefix replacements
+	if err := validation.ValidateFilenamePrefixReplace(viper.GetStringSlice(keys.FilenameReplacePfx)); err != nil {
+		return err
+	}
+
 	return nil
 }

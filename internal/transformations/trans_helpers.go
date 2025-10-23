@@ -248,7 +248,7 @@ func replacePrefix(filename string, prefixes []models.FilenameReplacePrefix) str
 	}
 
 	if result != "" {
-		logging.D(2, "Suffix replacement complete: %s -> %s", filename, result)
+		logging.D(2, "Prefix replacement complete: %s -> %s", filename, result)
 		return result
 	}
 

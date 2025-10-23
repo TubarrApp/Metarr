@@ -338,27 +338,9 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 		suffixes = fd.ModelFileSfxReplace
 	}
 
-	if cfg.IsSet(keys.FilenameReplaceSfx) {
-		result, ok := cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
-		if !ok {
-			logging.E("Got wrong type %T for filename replace suffixes", result)
-		} else {
-			suffixes = append(suffixes, result...)
-		}
-	}
-
 	// Get filename prefix replacements
 	if len(fd.ModelFilePfxReplace) > 0 {
 		prefixes = fd.ModelFilePfxReplace
-	}
-
-	if cfg.IsSet(keys.FilenameReplacePfx) {
-		result, ok := cfg.Get(keys.FilenameReplacePfx).([]models.FilenameReplacePrefix)
-		if !ok {
-			logging.E("Got wrong type %T for filename replace prefixes", result)
-		} else {
-			prefixes = append(prefixes, result...)
-		}
 	}
 
 	if len(suffixes) == 0 && len(prefixes) == 0 && style == enums.RenamingSkip {

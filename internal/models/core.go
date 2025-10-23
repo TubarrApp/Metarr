@@ -3,9 +3,13 @@ package models
 
 import (
 	"context"
+	"fmt"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/keys"
 	"os"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 // NewFileData generates a new FileData model.
@@ -18,6 +22,29 @@ func NewFileData() *FileData {
 		MWebData:   &MetadataWebData{},
 		MOther:     &MetadataOtherData{},
 	}
+
+	suffixes := []FilenameReplaceSuffix{}
+	if viper.IsSet(keys.FilenameReplaceSfx) {
+		result, ok := viper.Get(keys.FilenameReplaceSfx).([]FilenameReplaceSuffix)
+		if !ok {
+			fmt.Printf("Got wrong type %T for filename replace suffixes", result)
+		} else {
+			suffixes = append(suffixes, result...)
+		}
+	}
+	fd.ModelFileSfxReplace = suffixes
+
+	prefixes := []FilenameReplacePrefix{}
+	if viper.IsSet(keys.FilenameReplacePfx) {
+		result, ok := viper.Get(keys.FilenameReplacePfx).([]FilenameReplacePrefix)
+		if !ok {
+			fmt.Printf("Got wrong type %T for filename replace prefixes", result)
+		} else {
+			prefixes = append(prefixes, result...)
+		}
+	}
+	fd.ModelFilePfxReplace = prefixes
+
 	return fd
 }
 

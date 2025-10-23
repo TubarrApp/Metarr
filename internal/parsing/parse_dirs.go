@@ -67,13 +67,13 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 	b.Grow(len(dir) - (opens * templateLen) + (opens * avgReplaceLen)) // Approximate size
 	remaining := dir
 
-	for i := 0; i < opens; i++ {
+	for range opens {
 		startIdx := strings.Index(remaining, openTag)
 		if startIdx == -1 {
 			return "", fmt.Errorf("%q is missing opening delimiter", remaining)
 		}
 
-		endIdx := strings.Index(remaining, openTag)
+		endIdx := strings.Index(remaining, closeTag)
 		if endIdx == -1 {
 			return "", fmt.Errorf("%q is missing closing delimiter", remaining)
 		}

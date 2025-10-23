@@ -275,7 +275,7 @@ func ValidateFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
 	for _, pair := range filenameReplacePrefixInput {
 		parts := strings.SplitN(pair, ":", 2)
 		if len(parts) < 2 {
-			return errors.New("invalid use of filename-replace-suffix, values must be written as (suffix:replacement)")
+			return errors.New("invalid use of filename-replace-prefix, values must be written as (prefix:replacement)")
 		}
 		filenameReplacePrefix = append(filenameReplacePrefix, models.FilenameReplacePrefix{
 			Prefix:      parts[0],
@@ -284,7 +284,7 @@ func ValidateFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
 	}
 	if len(filenameReplacePrefix) > 0 {
 		logging.I("Meta replace prefixes: %v", filenameReplacePrefix)
-		viper.Set(keys.FilenameReplacePfx, filenameReplacePrefixInput)
+		viper.Set(keys.FilenameReplacePfx, filenameReplacePrefix)
 	}
 	return nil
 }
