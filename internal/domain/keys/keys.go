@@ -35,10 +35,9 @@ const (
 	SkipVideos      string = "skip-videos"
 	NoFileOverwrite string = "no-file-overwrite"
 
-	Benchmarking        string = "benchmark"
-	OutputFiletypeInput string = "output-ext"
-	OutputDirectory     string = "output-directory"
-	InputPreset         string = "preset"
+	Benchmarking    string = "benchmark"
+	OutputDirectory string = "output-directory"
+	InputPreset     string = "preset"
 
 	UseGPU               string = "hwaccel"
 	TranscodeDeviceDir   string = "transcode-gpu-directory"

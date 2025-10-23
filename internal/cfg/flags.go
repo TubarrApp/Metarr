@@ -155,8 +155,8 @@ func initMetaTransformers() error {
 // initVideoTransformers initializes user flag settings for transformation of video files.
 func initVideoTransformers() error {
 	// Output extension type
-	rootCmd.PersistentFlags().String(keys.OutputFiletypeInput, "", "File extension to output files as (mp4 works best for most media servers)")
-	if err := viper.BindPFlag(keys.OutputFiletypeInput, rootCmd.PersistentFlags().Lookup(keys.OutputFiletypeInput)); err != nil {
+	rootCmd.PersistentFlags().String(keys.OutputDirectory, "", "File extension to output files as (mp4 works best for most media servers)")
+	if err := viper.BindPFlag(keys.OutputDirectory, rootCmd.PersistentFlags().Lookup(keys.OutputDirectory)); err != nil {
 		return err
 	}
 

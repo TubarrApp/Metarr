@@ -77,8 +77,8 @@ func execute() error {
 	validation.ValidateDebugLevel(viper.GetInt(keys.DebugLevel))
 
 	// Filetype to output as
-	if viper.IsSet(keys.OutputFiletypeInput) {
-		validation.ValidateOutputFiletype(viper.GetString(keys.OutputFiletypeInput))
+	if viper.IsSet(keys.OutputDirectory) {
+		validation.ValidateOutputFiletype(viper.GetString(keys.OutputDirectory))
 	}
 
 	// Meta overwrite and preserve flags
