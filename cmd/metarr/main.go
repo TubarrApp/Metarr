@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
 
 	"metarr/internal/cfg"
-	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/processing"
 	"metarr/internal/utils/benchmark"
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
+
+	"github.com/spf13/viper"
 )
 
 // String constants
@@ -33,48 +33,43 @@ var (
 	startTime time.Time
 	sigInt    = syscall.SIGINT
 	sigTerm   = syscall.SIGTERM
-	benchErr  error
 )
 
 func init() {
 	startTime = time.Now()
 	logging.I(startLogFormat, startTime.Format(timeFormat))
-
-	_, mainGoPath, _, ok := runtime.Caller(0)
-	if !ok {
-		fmt.Fprintf(os.Stderr, "Error getting current working directory. Got: %v\n", mainGoPath)
-		os.Exit(1)
-	}
-	benchmark.InjectMainWorkDir(mainGoPath)
 }
 
 func main() {
-	if err := cfg.Execute(); err != nil {
+	defer func() {
+		if r := recover(); r != nil {
+			logging.E("Panic recovered: %v", r)
+			benchmark.CloseBenchmarking()
+			panic(r) // Re-panic after cleanup
+		}
+	}()
+
+	metaOps, err := cfg.Execute()
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Println()
 		os.Exit(1)
 	}
 
-	if !cfg.GetBool("execute") {
+	if !viper.GetBool("execute") {
 		fmt.Println()
 		logging.I("(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
 		return // Exit early if not meant to execute
 	}
 
-	defer func() {
-		if cfg.IsSet(keys.BenchFiles) {
-			benchFiles, ok := cfg.Get(keys.BenchFiles).(*benchmark.BenchFiles)
-			if !ok || benchFiles == nil {
-				logging.E("Null benchFiles or wrong type. Got type: %T", benchFiles)
-				return
-			}
-			if benchErr != nil {
-				benchmark.CloseBenchFiles(benchFiles, "", benchErr)
-			} else {
-				benchmark.CloseBenchFiles(benchFiles, fmt.Sprintf("Benchmark ended at %v", time.Now().Format(time.RFC1123Z)), nil)
-			}
-		}
-	}()
+	// Initialize meta ops (outside of Execute command to return MetaOps)
+
+	if err := initializeApplication(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		fmt.Println()
+		os.Exit(1)
+	}
+	defer benchmark.CloseBenchmarking()
 
 	// Program elements
 	ctx, cancel := context.WithCancel(context.Background())
@@ -91,17 +86,22 @@ func main() {
 
 	if err := fsread.InitFetchFilesVars(); err != nil {
 		logging.E("Failed to initialize variables to fetch files. Exiting...")
-		benchErr = err
-		cancel() // Do not remove call before exit
+		cancel()
 		os.Exit(1)
 	}
 
 	prompt.InitUserInputReader()
 
-	if cfg.IsSet(keys.BatchPairs) {
-		if err := processing.StartBatchLoop(core); err != nil {
+	batches, err := initializeBatchConfigs(metaOps)
+	if err != nil {
+		logging.E("Failed to initialize batch configs. Exiting...")
+		cancel()
+		os.Exit(1)
+	}
+
+	if len(batches) > 0 {
+		if err := processing.StartBatchLoop(core, batches); err != nil {
 			logging.E("error during batch loop: %v", err)
-			benchErr = err
 			cancel()
 			os.Exit(1)
 		}

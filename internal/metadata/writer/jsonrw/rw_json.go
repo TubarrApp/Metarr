@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -15,6 +14,8 @@ import (
 	"metarr/internal/utils/logging"
 	"os"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 type JSONFileRW struct {
@@ -111,7 +112,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 				currentMeta[k] = *ptr
 				updated = true
 
-			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || cfg.GetBool(keys.MOverwrite) {
+			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || viper.GetBool(keys.MOverwrite) {
 				logging.D(3, "Updating field %q from '%v' to %q", k, currentVal, *ptr)
 				currentMeta[k] = *ptr
 				updated = true
@@ -129,7 +130,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 	}
 
 	// Backup if option set
-	if cfg.GetBool(keys.NoFileOverwrite) {
+	if viper.GetBool(keys.NoFileOverwrite) {
 		if err := backup.BackupFile(rw.File); err != nil {
 			return currentMeta, fmt.Errorf("failed to create backup: %w", err)
 		}
@@ -156,90 +157,62 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	logging.D(5, "Entering MakeJSONEdits.\nData: %v", currentMeta)
 
-	// SHOULD MOVE THESE INTO THE RESPECTIVE FUNCTIONS
-	// THESE PRESENTLY ESCAPE TO HEAP FOR NO GOOD REASON
 	var (
-		edited, ok bool
-		trimPfx    []models.MetaTrimPrefix
-		trimSfx    []models.MetaTrimSuffix
-		apnd       []models.MetaAppend
-		pfx        []models.MetaPrefix
-		newField   []models.MetaNewField
-		replace    []models.MetaReplace
-		copyTo     []models.CopyToField
-		pasteFrom  []models.PasteFromField
+		edited    bool
+		trimPfx   []models.MetaTrimPrefix
+		trimSfx   []models.MetaTrimSuffix
+		apnd      []models.MetaAppend
+		pfx       []models.MetaPrefix
+		newField  []models.MetaNewField
+		replace   []models.MetaReplace
+		copyTo    []models.CopyToField
+		pasteFrom []models.PasteFromField
 	)
 
 	// Initialize:
 	// Replacements
-	if len(fd.ModelMReplace) > 0 {
+	if len(fd.MetaOps.Replaces) > 0 {
 		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
-		replace = fd.ModelMReplace
-	} else if cfg.IsSet(keys.MReplaceText) {
-		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
-			logging.E("Could not retrieve prefix trim, wrong type: '%T'", replace)
-		}
+		replace = fd.MetaOps.Replaces
 	}
 
 	// Field trim
-	if len(fd.ModelMTrimPrefix) > 0 {
+	if len(fd.MetaOps.TrimPrefixes) > 0 {
 		logging.I("Model for file %q trimming prefixes", fd.OriginalVideoBaseName)
-		trimPfx = fd.ModelMTrimPrefix
-	} else if cfg.IsSet(keys.MTrimPrefix) {
-		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
-			logging.E("Could not retrieve prefix trim, wrong type: '%T'", trimPfx)
-		}
+		trimPfx = fd.MetaOps.TrimPrefixes
 	}
 
-	if len(fd.ModelMTrimSuffix) > 0 {
+	if len(fd.MetaOps.TrimSuffixes) > 0 {
 		logging.I("Model for file %q trimming suffixes", fd.OriginalVideoBaseName)
-		trimSfx = fd.ModelMTrimSuffix
-	} else if cfg.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
-			logging.E("Could not retrieve suffix trim, wrong type: '%T'", trimSfx)
-		}
+		trimSfx = fd.MetaOps.TrimSuffixes
 	}
 
 	// Append and prefix
-	if len(fd.ModelMAppend) > 0 {
+	if len(fd.MetaOps.Appends) > 0 {
 		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
-		apnd = fd.ModelMAppend
-	} else if cfg.IsSet(keys.MAppend) {
-		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
-			logging.E("Could not retrieve appends, wrong type: '%T'", apnd)
-		}
+		apnd = fd.MetaOps.Appends
 	}
 
-	if len(fd.ModelMPrefix) > 0 {
+	if len(fd.MetaOps.Prefixes) > 0 {
 		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
-		pfx = fd.ModelMPrefix
-	} else if cfg.IsSet(keys.MPrefix) {
-		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
-			logging.E("Could not retrieve prefix, wrong type: '%T'", pfx)
-		}
+		pfx = fd.MetaOps.Prefixes
 	}
 
 	// New fields
-	if len(fd.ModelMNewField) > 0 {
+	if len(fd.MetaOps.NewFields) > 0 {
 		logging.I("Model for file %q applying preset new field additions", fd.OriginalVideoBaseName)
-		newField = fd.ModelMNewField
-	} else if cfg.IsSet(keys.MNewField) {
-		if newField, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
-			logging.E("Could not retrieve new fields, wrong type: '%T'", newField)
-		}
+		newField = fd.MetaOps.NewFields
 	}
 
 	// Copy/paste
-	if cfg.IsSet(keys.MCopyToField) {
-		if copyTo, ok = cfg.Get(keys.MCopyToField).([]models.CopyToField); !ok {
-			logging.E("Could not retrieve copy operations, wrong type: '%T'", copyTo)
-		}
+	if len(fd.MetaOps.CopyToFields) > 0 {
+		logging.I("Model for file %q copying to fields", fd.MetaOps.CopyToFields)
+		copyTo = fd.MetaOps.CopyToFields
 	}
 
-	if cfg.IsSet(keys.MPasteFromField) {
-		if pasteFrom, ok = cfg.Get(keys.MPasteFromField).([]models.PasteFromField); !ok {
-			logging.E("Could not retrieve paste operations, wrong type: '%T'", pasteFrom)
-		}
+	if len(fd.MetaOps.PasteFromFields) > 0 {
+		logging.I("Model for file %q copying to fields", fd.MetaOps.PasteFromFields)
+		pasteFrom = fd.MetaOps.PasteFromFields
 	}
 
 	filename := rw.File.Name()
@@ -345,9 +318,9 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	logging.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
 
 	// Delete date tag first, user's may want to delete and re-build
-	if cfg.IsSet(keys.MDelDateTagMap) {
+	if viper.IsSet(keys.MDelDateTagMap) {
 		logging.D(1, "Stripping metafield date tag...")
-		if delDateTagMap, ok := cfg.Get(keys.MDelDateTagMap).(map[string]models.MetaDateTag); ok {
+		if delDateTagMap, ok := viper.Get(keys.MDelDateTagMap).(map[string]models.MetaDateTag); ok {
 
 			if len(delDateTagMap) > 0 {
 
@@ -365,9 +338,9 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	}
 
 	// Add date tag
-	if cfg.IsSet(keys.MDateTagMap) {
+	if viper.IsSet(keys.MDateTagMap) {
 		logging.D(1, "Adding metafield date tag...")
-		if dateTagMap, ok := cfg.Get(keys.MDateTagMap).(map[string]models.MetaDateTag); ok {
+		if dateTagMap, ok := viper.Get(keys.MDateTagMap).(map[string]models.MetaDateTag); ok {
 
 			if len(dateTagMap) > 0 {
 

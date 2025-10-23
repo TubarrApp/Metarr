@@ -2,7 +2,6 @@ package jsonfields
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -11,6 +10,8 @@ import (
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // fillDescriptions grabs description data from JSON
@@ -30,8 +31,8 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 	}
 	filled := unpackJSON(fieldMap, data)
 
-	datePfx := cfg.GetBool(keys.MDescDatePfx)
-	dateSfx := cfg.GetBool(keys.MDescDateSfx)
+	datePfx := viper.GetBool(keys.MDescDatePfx)
+	dateSfx := viper.GetBool(keys.MDescDateSfx)
 
 	if (datePfx || dateSfx) && t.StringDate != "" {
 		for _, ptr := range fieldMap {
@@ -55,9 +56,8 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 		}
 	}
 
-	var printMap map[string]string
+	printMap := make(map[string]string, len(fieldMap))
 	if logging.Level > 1 {
-		printMap = make(map[string]string, len(fieldMap))
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("descriptions", printMap)

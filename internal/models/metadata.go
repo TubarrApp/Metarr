@@ -1,13 +1,50 @@
 package models
 
 import (
-	enums "metarr/internal/domain/enums"
+	"metarr/internal/domain/enums"
 	"net/http"
 )
 
-var AppendOverrideMap map[enums.OverrideMetaType]string
-var ReplaceOverrideMap map[enums.OverrideMetaType]MOverrideReplacePair
-var SetOverrideMap map[enums.OverrideMetaType]string
+// NewMetaOps creates a new MetaOps with initialized maps.
+//
+// This ensures all map fields are non-nil and ready to use.
+func NewMetaOps() *MetaOps {
+	return &MetaOps{
+		SetOverrides:     make(map[enums.OverrideMetaType]string),
+		AppendOverrides:  make(map[enums.OverrideMetaType]string),
+		ReplaceOverrides: make(map[enums.OverrideMetaType]MOverrideReplacePair),
+		DateTags:         make(map[string]MetaDateTag),
+		DeleteDateTags:   make(map[string]MetaDateTag),
+		NewFields:        make([]MetaNewField, 0),
+		Appends:          make([]MetaAppend, 0),
+		Prefixes:         make([]MetaPrefix, 0),
+		Replaces:         make([]MetaReplace, 0),
+		TrimSuffixes:     make([]MetaTrimSuffix, 0),
+		TrimPrefixes:     make([]MetaTrimPrefix, 0),
+		CopyToFields:     make([]CopyToField, 0),
+		PasteFromFields:  make([]PasteFromField, 0),
+	}
+}
+
+// EnsureMetaOps returns the provided MetaOps or creates a new one if nil.
+//
+// This is useful for defensive programming to avoid nil pointer dereferences.
+func EnsureMetaOps(maps *MetaOps) *MetaOps {
+	if maps == nil {
+		return NewMetaOps()
+	}
+	return maps
+}
+
+// BatchConfig holds data for the current batch's configuration options.
+type BatchConfig struct {
+	ID         int64
+	Video      string
+	JSON       string
+	IsDirs     bool
+	MetaOps    *MetaOps
+	SkipVideos bool
+}
 
 type MOverrideReplacePair struct {
 	Value       string

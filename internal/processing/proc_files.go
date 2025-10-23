@@ -3,7 +3,6 @@ package processing
 import (
 	"context"
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
@@ -16,6 +15,8 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/spf13/viper"
 )
 
 const (
@@ -42,8 +43,8 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		err        error
 	)
 
-	if cfg.IsSet(keys.SkipVideos) {
-		skipVideos = cfg.GetBool(keys.SkipVideos)
+	if viper.IsSet(keys.SkipVideos) {
+		skipVideos = viper.GetBool(keys.SkipVideos)
 	} else {
 		skipVideos = batch.SkipVideos
 	}
@@ -75,7 +76,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
 
-	numWorkers := cfg.GetInt(keys.Concurrency)
+	numWorkers := viper.GetInt(keys.Concurrency)
 	if numWorkers < 1 {
 		numWorkers = 1
 	}
@@ -187,16 +188,13 @@ func processMetadataFiles(bp *batchProcessor, ctx context.Context, matchedFiles 
 }
 
 // getFiles returns a map of matched video/metadata files.
-func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error {
-	var (
-		videoMap,
-		metaMap map[string]*models.FileData
-		err error
-	)
+func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err error) {
+	videoMap := make(map[string]*models.FileData)
+	metaMap := make(map[string]*models.FileData)
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = fsread.GetMetadataFiles(openMeta)
+		metaMap, err = fsread.GetMetadataFiles(openMeta, batch.MetaOps)
 		if err != nil {
 			logging.E("Failed to retrieve metadata files in %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
@@ -206,7 +204,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		}
 
 		if !skipVideos {
-			videoMap, err = fsread.GetVideoFiles(openVideo)
+			videoMap, err = fsread.GetVideoFiles(openVideo, batch.MetaOps)
 			if err != nil {
 				logging.E("Failed to retrieve video files in %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
@@ -217,7 +215,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		}
 		// Batch is a file request...
 	} else if !batch.IsDirs {
-		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
+		metaMap, err = fsread.GetSingleMetadataFile(openMeta, batch.MetaOps)
 		if err != nil {
 			logging.E("Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
@@ -227,7 +225,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 		}
 
 		if !skipVideos {
-			videoMap, err = fsread.GetSingleVideoFile(openVideo)
+			videoMap, err = fsread.GetSingleVideoFile(openVideo, batch.MetaOps)
 			if err != nil {
 				logging.E("Failed to retrieve video file %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
@@ -250,7 +248,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) error
 	}
 
 	// Strip existing date tag
-	if cfg.GetBool(keys.DeleteDateTagPfx) {
+	if viper.GetBool(keys.DeleteDateTagPfx) {
 		logging.I("Stripping date tags from files...")
 		err := transformations.StripDateTagFromFilename(matchedFiles, videoMap, metaMap)
 		if err != nil {

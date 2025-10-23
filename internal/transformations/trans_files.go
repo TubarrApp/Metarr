@@ -3,7 +3,6 @@ package transformations
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -15,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // fileProcessor handles the renaming and moving of files.
@@ -89,13 +90,13 @@ func (fp *fileProcessor) writeResult() error {
 		return err
 	}
 
-	if cfg.IsSet(keys.MetaPurge) {
+	if viper.IsSet(keys.MetaPurge) {
 		if err, deletedMeta = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
 			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
 
-	if cfg.IsSet(keys.MoveOnComplete) {
+	if viper.IsSet(keys.OutputDirectory) {
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
@@ -138,11 +139,11 @@ func (fp *fileProcessor) handleRenaming() error {
 
 // determineVideoExtension gets the appropriate video extension.
 func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
-	if !cfg.IsSet(keys.OutputFiletype) {
+	if !viper.IsSet(keys.OutputFiletype) {
 		return filepath.Ext(originalPath)
 	}
 
-	vidExt := validation.ValidateExtension(cfg.GetString(keys.OutputFiletype))
+	vidExt := validation.ValidateExtension(viper.GetString(keys.OutputFiletype))
 	if vidExt == "" {
 		vidExt = filepath.Ext(originalPath)
 	}
@@ -218,8 +219,24 @@ func StripDateTagFromFilename(
 	videoMap map[string]*models.FileData,
 	metaMap map[string]*models.FileData,
 ) error {
+	// Guard against nil maps
+	if matchedFiles == nil {
+		return fmt.Errorf("matchedFiles map is nil")
+	}
+	if videoMap == nil {
+		return fmt.Errorf("videoMap is nil")
+	}
+	if metaMap == nil {
+		return fmt.Errorf("metaMap is nil")
+	}
+
 	for oldPath, fdata := range matchedFiles {
-		// --- Handle video file ---
+		if fdata == nil {
+			logging.W("Skipping nil FileData for path: %s", oldPath)
+			continue
+		}
+
+		// Handle video file
 		if fdata.OriginalVideoPath != "" {
 			dir := filepath.Dir(fdata.OriginalVideoPath)
 			videoBase := filepath.Base(fdata.OriginalVideoPath)
@@ -257,7 +274,7 @@ func StripDateTagFromFilename(
 		}
 
 	metadata:
-		// --- Handle metadata file ---
+		// Handle metadata file
 		var metaPath string
 		var metaBase string
 		if fdata.JSONFilePath != "" {
@@ -319,8 +336,8 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 
 	if len(fd.ModelFileSfxReplace) > 0 {
 		suffixes = fd.ModelFileSfxReplace
-	} else if cfg.IsSet(keys.FilenameReplaceSfx) {
-		suffixes, ok = cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
+	} else if viper.IsSet(keys.FilenameReplaceSfx) {
+		suffixes, ok = viper.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
 		if !ok && len(fd.ModelFileSfxReplace) == 0 {
 			logging.E("Got wrong type %T for filename replace suffixes", suffixes)
 			return fileBase

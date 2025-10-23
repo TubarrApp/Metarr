@@ -23,9 +23,8 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		w.TryURLs = make([]string, 0, len(priorityMap))
 	}
 
-	var printMap map[string]string
+	printMap := make(map[string]string, len(priorityMap))
 	if logging.Level > 1 {
-		printMap = make(map[string]string, len(priorityMap))
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("web info", printMap)

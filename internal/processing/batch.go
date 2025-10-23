@@ -3,7 +3,6 @@ package processing
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
 	keys "metarr/internal/domain/keys"
 	"metarr/internal/models"
 	logging "metarr/internal/utils/logging"
@@ -11,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+
+	"github.com/spf13/viper"
 )
 
 var (
@@ -26,6 +27,7 @@ type batch struct {
 	JSON       string
 	IsDirs     bool
 	SkipVideos bool
+	MetaOps    *models.MetaOps
 	bp         *batchProcessor
 }
 
@@ -61,20 +63,14 @@ type batchProcessor struct {
 }
 
 // StartBatchLoop begins processing the batch.
-func StartBatchLoop(core *models.Core) error {
-	if !cfg.IsSet(keys.BatchPairs) {
+func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
+	if len(batches) == 0 {
 		logging.I("No batches sent in?")
 		return nil
 	}
 
-	batches, ok := cfg.Get(keys.BatchPairs).([]cfg.BatchConfig)
-	if !ok {
-		logging.E("Wrong type or null batch pair. Type: %T", batches)
-		return nil
-	}
-
 	job := 1
-	skipVideos := cfg.GetBool(keys.SkipVideos)
+	skipVideos := viper.GetBool(keys.SkipVideos)
 
 	// Begin iteration...
 	for _, b := range batches {
@@ -150,18 +146,22 @@ func StartBatchLoop(core *models.Core) error {
 }
 
 // convertCfgToBatch converts a config batch to a local batch.
-func convertCfgToBatch(config cfg.BatchConfig) *batch {
+func convertCfgToBatch(config models.BatchConfig) *batch {
 
 	muBatchID.Lock()
 	atomic.AddInt64(&atomID, 1)
 	id := atomic.LoadInt64(&atomID)
 	muBatchID.Unlock()
 
-	return &batch{
+	newBatch := &batch{
 		ID:         id,
 		Video:      config.Video,
 		JSON:       config.JSON,
 		IsDirs:     config.IsDirs,
+		MetaOps:    config.MetaOps,
 		SkipVideos: config.SkipVideos,
 	}
+
+	newBatch.MetaOps = models.EnsureMetaOps(newBatch.MetaOps)
+	return newBatch
 }

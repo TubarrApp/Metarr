@@ -2,7 +2,6 @@ package transformations
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
@@ -12,16 +11,18 @@ import (
 	"metarr/internal/utils/logging"
 	"strings"
 	"unicode"
+
+	"github.com/spf13/viper"
 )
 
 // shouldRename determines if file rename operations are needed for this file
 func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
-	dateFmt := cfg.GetString(keys.FileDateFmt)
+	dateFmt := viper.GetString(keys.FileDateFmt)
 	rName := enums.RenamingSkip
 
 	var ok bool
-	if cfg.IsSet(keys.Rename) {
-		rName, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle)
+	if viper.IsSet(keys.Rename) {
+		rName, ok = viper.Get(keys.Rename).(enums.ReplaceToStyle)
 		if !ok {
 			logging.E("Got wrong type or null rename. Got %T, want %q", rName, "enums.ReplaceToStyle")
 		}
@@ -44,11 +45,11 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		rename = true
 	}
 
-	if cfg.IsSet(keys.MoveOnComplete) {
+	if viper.IsSet(keys.OutputDirectory) {
 		move = true
 	}
 
-	if cfg.IsSet(keys.InputFileDatePfx) {
+	if viper.IsSet(keys.InputFileDatePfx) {
 		rename = true
 	}
 

@@ -1,12 +1,13 @@
 package consts
 
-// Recommended permissions for different types of files and directories Tubarr might create.
+// Recommended permissions for different types of files and directories Metarr might create.
 const (
 	// ** World Readable **
 	// Media directories - world readable
-	PermsGenericDir = 0o755
-	PermsJSONDir    = 0o755
-	PermsVideoDir   = 0o755
+	PermsGenericDir    = 0o755
+	PermsJSONDir       = 0o755
+	PermsVideoDir      = 0o755
+	PermsHomeMetarrDir = 0o700
 
 	// Media files - world readable
 	PermsVideoFile = 0o644

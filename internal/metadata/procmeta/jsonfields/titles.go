@@ -21,9 +21,8 @@ func fillTitles(fd *models.FileData, json map[string]any) (map[string]any, bool)
 		consts.JSubtitle:  &t.Subtitle,
 	}
 
-	var printMap map[string]string
+	printMap := make(map[string]string, len(fieldMap))
 	if logging.Level > 1 {
-		printMap = make(map[string]string, len(fieldMap))
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("titles", printMap)

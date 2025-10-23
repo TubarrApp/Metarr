@@ -4,7 +4,6 @@ package ffmpeg
 import (
 	"context"
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -15,6 +14,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // ExecuteVideo writes metadata to a single video file.
@@ -27,8 +28,8 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	origExt := filepath.Ext(origPath)
 
 	// Extension validation - now checks length and format immediately
-	if cfg.IsSet(keys.OutputFiletype) {
-		if outExt = validation.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
+	if viper.IsSet(keys.OutputFiletype) {
+		if outExt = validation.ValidateExtension(viper.GetString(keys.OutputFiletype)); outExt == "" {
 			logging.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
@@ -95,7 +96,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
 		logging.I("Original file not type %s, removing %q", outExt, origPath)
 
-	} else if cfg.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+	} else if viper.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
@@ -142,11 +143,11 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	logging.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
 
 	// Check codec mismatches
-	if cfg.IsSet(keys.TranscodeCodec) {
-		desiredVCodec = cfg.GetString(keys.TranscodeCodec)
+	if viper.IsSet(keys.TranscodeCodec) {
+		desiredVCodec = viper.GetString(keys.TranscodeCodec)
 	}
-	if cfg.IsSet(keys.TranscodeAudioCodec) {
-		desiredACodec = cfg.GetString(keys.TranscodeAudioCodec)
+	if viper.IsSet(keys.TranscodeAudioCodec) {
+		desiredACodec = viper.GetString(keys.TranscodeAudioCodec)
 	}
 
 	if desiredVCodec != "" || desiredACodec != "" {
@@ -185,7 +186,6 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 
 // makeBackup performs the backup.
 func makeBackup(origPath string) error {
-
 	origInfo, err := os.Stat(origPath)
 	if os.IsNotExist(err) {
 		logging.I("File does not exist, safe to proceed overwriting: %s", origPath)
@@ -202,7 +202,7 @@ func makeBackup(origPath string) error {
 		return fmt.Errorf("backup file %q was not created, aborting", backupPath)
 	}
 
-	if origInfo.Size() != backInfo.Size() {
+	if (origInfo != nil && backInfo != nil) && (origInfo.Size() != backInfo.Size()) {
 		return fmt.Errorf("backup file size %d does not match original %d, aborting", origInfo.Size(), backInfo.Size())
 	}
 
@@ -211,14 +211,13 @@ func makeBackup(origPath string) error {
 
 // checkCodecs checks the input codec to determine if a straight remux is possible.
 func checkCodecs(inputFile string) (videoCodec, audioCodec string, err error) {
-
 	if inputFile == "" {
 		return "", "", fmt.Errorf("input file is empty, cannot check codecs")
 	}
 
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
-		"-select_streams", "v:0",
+		"-select_streams", "v:0", // first video stream index is 0
 		"-show_entries", "stream=codec_name",
 		"-of", "default=noprint_wrappers=1:nokey=1",
 		inputFile,
@@ -232,7 +231,7 @@ func checkCodecs(inputFile string) (videoCodec, audioCodec string, err error) {
 
 	cmd = exec.Command("ffprobe",
 		"-v", "error",
-		"-select_streams", "a:0", // first audio stream
+		"-select_streams", "a:0", // first audio stream index is 0
 		"-show_entries", "stream=codec_name",
 		"-of", "default=noprint_wrappers=1:nokey=1",
 		inputFile,

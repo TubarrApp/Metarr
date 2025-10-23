@@ -19,6 +19,7 @@ func NewFileData() *FileData {
 	}
 }
 
+// FileDate contains information about the file and how it should be handled.
 type FileData struct {
 	// Files & dirs
 	VideoDirectory        string `json:"-" xml:"-"`
@@ -57,14 +58,10 @@ type FileData struct {
 	JSONFileRW JSONFileRW
 	NFOFileRW  NFOFileRW
 
-	// Own transformations
-	ModelMAppend     []MetaAppend
-	ModelMNewField   []MetaNewField
-	ModelMPrefix     []MetaPrefix
-	ModelMReplace    []MetaReplace
-	ModelMTrimPrefix []MetaTrimPrefix
-	ModelMTrimSuffix []MetaTrimSuffix
+	// Meta transformations
+	MetaOps *MetaOps
 
+	// File transformations
 	ModelFileSfxReplace []FilenameReplaceSuffix
 
 	// Misc
@@ -73,9 +70,27 @@ type FileData struct {
 	ModelMOverwrite   bool
 }
 
+// Core contains variables important to the program core.
 type Core struct {
 	Cleanup chan os.Signal
 	Cancel  context.CancelFunc
 	Ctx     context.Context
 	Wg      *sync.WaitGroup
+}
+
+// MetaOps contains maps related to the operations to be carried out during the program's run.
+type MetaOps struct {
+	SetOverrides     map[enums.OverrideMetaType]string
+	AppendOverrides  map[enums.OverrideMetaType]string
+	ReplaceOverrides map[enums.OverrideMetaType]MOverrideReplacePair
+	DateTags         map[string]MetaDateTag
+	DeleteDateTags   map[string]MetaDateTag
+	NewFields        []MetaNewField
+	Appends          []MetaAppend
+	Prefixes         []MetaPrefix
+	Replaces         []MetaReplace
+	TrimSuffixes     []MetaTrimSuffix
+	TrimPrefixes     []MetaTrimPrefix
+	CopyToFields     []CopyToField
+	PasteFromFields  []PasteFromField
 }

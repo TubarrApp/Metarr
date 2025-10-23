@@ -31,9 +31,8 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 		logging.E("Failed to unpack date JSON, no dates currently exist in file?")
 	}
 
-	var printMap map[string]string
+	printMap := make(map[string]string, len(fieldMap))
 	if logging.Level > 1 {
-		printMap = make(map[string]string, len(fieldMap))
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("dates", printMap)

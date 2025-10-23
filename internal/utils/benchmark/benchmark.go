@@ -5,46 +5,39 @@ package benchmark
 
 import (
 	"fmt"
+	"metarr/internal/domain/consts"
+	"metarr/internal/domain/paths"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 	"runtime/trace"
-	"strings"
 	"time"
 )
 
+// BenchmarkFiles contain the main benchmarking *os.Files.
+var BenchmarkFiles *BenchFiles
+
+// BenchFiles contain benchmarking files written on a benchmark-enabled run.
 type BenchFiles struct {
 	cpuFile   *os.File
 	memFile   *os.File
 	traceFile *os.File
 }
 
-const (
-	cpuProf    = "cpu_"
-	memProf    = "mem_"
-	traceOut   = "trace_"
-	profExt    = ".prof"
-	outExt     = ".out"
-	timeFormat = "2006-01-02 15:04:05.00"
-	timeTag    = "2006-01-02_15:04:05"
-
-	cpuProfBaseLen  = len(cpuProf) + len(profExt)
-	memProfBaseLen  = len(memProf) + len(profExt)
-	traceOutBaseLen = len(traceOut) + len(outExt)
-)
-
 var (
 	cpuProfPath,
 	memProfPath,
-	traceOutPath,
-	mainWd string
+	traceOutPath string
 )
 
-// InjectMainWorkDir injects the main.go path variable into this package.
-func InjectMainWorkDir(mainGoPath string) {
-	mainWd = filepath.Dir(mainGoPath)
+// CloseBenchmarking closes benchmark files if they exist
+func CloseBenchmarking() {
+	if BenchmarkFiles != nil {
+		CloseBenchFiles(BenchmarkFiles, fmt.Sprintf("Benchmark ended at %v", time.Now().Format(time.RFC1123Z)), nil)
+		BenchmarkFiles = nil
+	}
 }
 
 // SetupBenchmarking sets up and initiates benchmarking for a program run.
@@ -52,11 +45,10 @@ func SetupBenchmarking() (*BenchFiles, error) {
 	var err error
 	b := new(BenchFiles)
 
-	benchStartTime := time.Now().Format(timeFormat)
+	startTime := time.Now().Format("2006-01-02_15-04-05")
+	makeBenchFilepaths(paths.BenchmarkDir, startTime)
 
-	makeBenchFilepaths(mainWd)
-
-	logging.I("(Benchmarking this run. Start time: %s)", benchStartTime)
+	logging.I("(Benchmarking this run. Start time: %s)", startTime)
 
 	// CPU profile
 	b.cpuFile, err = os.Create(cpuProfPath)
@@ -93,21 +85,30 @@ func SetupBenchmarking() (*BenchFiles, error) {
 
 // CloseBenchFiles closes bench files on program termination.
 func CloseBenchFiles(b *BenchFiles, noErrExit string, setupErr error) {
+	if b == nil {
+		return
+	}
 
 	if b.cpuFile != nil {
+		logging.I("Stopping CPU profile...")
 		pprof.StopCPUProfile()
 		if err := b.cpuFile.Close(); err != nil {
 			logging.E("Failed to close file %q: %v", b.cpuFile.Name(), err)
 		}
+		b.cpuFile = nil // Prevent double-close
 	}
 
 	if b.traceFile != nil {
+		logging.I("Stopping trace...")
+		trace.Stop()
 		if err := b.traceFile.Close(); err != nil {
 			logging.E("Failed to close file %q: %v", b.traceFile.Name(), err)
 		}
+		b.traceFile = nil // Prevent double-close
 	}
 
 	if b.memFile != nil {
+		logging.I("Writing memory profile...")
 		runtime.GC()
 		if err := pprof.WriteHeapProfile(b.memFile); err != nil {
 			logging.E("Could not write memory profile: %v", err)
@@ -115,44 +116,29 @@ func CloseBenchFiles(b *BenchFiles, noErrExit string, setupErr error) {
 		if err := b.memFile.Close(); err != nil {
 			logging.E("Failed to close file %q: %v", b.memFile.Name(), err)
 		}
+		b.memFile = nil // Prevent double-close
 	}
 
 	if setupErr != nil {
 		logging.E("Benchmarking failure: %v", setupErr)
 	}
-
 	logging.I("%s", noErrExit)
 }
 
-// makeBenchFilepaths makes paths for benchmarking files.
-func makeBenchFilepaths(cwd string) {
-	time := time.Now().Format(timeTag)
-	var b strings.Builder
+// makeBenchFilepaths makes paths for benchmarking files in a timestamped subdirectory.
+func makeBenchFilepaths(baseDir, timestamp string) {
+	// Create timestamped subdirectory for this run
+	runDir := filepath.Join(baseDir, timestamp)
 
-	b.Grow(cpuProfBaseLen + len(time))
-	b.WriteString(cpuProf)
-	b.WriteString(time)
-	b.WriteString(profExt)
+	if err := os.MkdirAll(runDir, consts.PermsGenericDir); err != nil {
+		logging.E("Failed to create benchmark run directory: %v", err)
+		return
+	}
 
-	// Benchmarking files
-	cpuProfPath = filepath.Join(cwd, b.String())
-	logging.I("Made CPU profiling file: %q", cpuProfPath)
-	b.Reset()
+	// Simple filenames (no timestamp needed since they're in timestamped folder)
+	cpuProfPath = filepath.Join(runDir, "cpu.prof")
+	memProfPath = filepath.Join(runDir, "mem.prof")
+	traceOutPath = filepath.Join(runDir, "trace.out")
 
-	b.Grow(memProfBaseLen + len(time))
-	b.WriteString(memProf)
-	b.WriteString(time)
-	b.WriteString(profExt)
-
-	memProfPath = filepath.Join(cwd, b.String())
-	logging.I("Made mem profiling file: %q", memProfPath)
-	b.Reset()
-
-	b.Grow(traceOutBaseLen + len(time))
-	b.WriteString(traceOut)
-	b.WriteString(time)
-	b.WriteString(outExt)
-
-	traceOutPath = filepath.Join(cwd, b.String())
-	logging.I("Made trace file: %q", traceOutPath)
+	logging.I("Created benchmark directory: %q", runDir)
 }

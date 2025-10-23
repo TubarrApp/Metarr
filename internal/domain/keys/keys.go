@@ -36,8 +36,8 @@ const (
 	NoFileOverwrite string = "no-file-overwrite"
 
 	Benchmarking        string = "benchmark"
-	OutputFiletypeInput string = "ext"
-	MoveOnComplete      string = "output-directory"
+	OutputFiletypeInput string = "output-ext"
+	OutputDirectory     string = "output-directory"
 	InputPreset         string = "preset"
 
 	UseGPU               string = "hwaccel"

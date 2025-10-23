@@ -41,7 +41,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	b.WriteString(" =================\n")
 
 	if taskName != "" {
-		str := fmt.Sprintf("'"+taskName+"'", args...)
+		str := fmt.Sprintf("'%s'", fmt.Sprintf(taskName, args...))
 		b.WriteString("\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n")
 	}
 

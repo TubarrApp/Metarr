@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
@@ -16,6 +15,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 type NFOFileRW struct {
@@ -104,74 +105,63 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		newContent string
 		err        error
 
-		trimPfx []models.MetaTrimPrefix
-		trimSfx []models.MetaTrimSuffix
-
-		apnd []models.MetaAppend
-		pfx  []models.MetaPrefix
-
-		newField []models.MetaNewField
-
-		replace []models.MetaReplace
+		trimPfx   []models.MetaTrimPrefix
+		trimSfx   []models.MetaTrimSuffix
+		apnd      []models.MetaAppend
+		pfx       []models.MetaPrefix
+		newField  []models.MetaNewField
+		replace   []models.MetaReplace
+		copyTo    []models.CopyToField
+		pasteFrom []models.PasteFromField
 	)
 
+	// Initialize:
 	// Replacements
-	if len(fd.ModelMReplace) > 0 {
+	if len(fd.MetaOps.Replaces) > 0 {
 		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
-		replace = fd.ModelMReplace
-	} else if cfg.IsSet(keys.MReplaceText) {
-		if replace, ok = cfg.Get(keys.MReplaceText).([]models.MetaReplace); !ok {
-			logging.E("Count not retrieve prefix trim, wrong type: '%T'", replace)
-		}
+		replace = fd.MetaOps.Replaces
 	}
 
 	// Field trim
-	if len(fd.ModelMTrimPrefix) > 0 {
+	if len(fd.MetaOps.TrimPrefixes) > 0 {
 		logging.I("Model for file %q trimming prefixes", fd.OriginalVideoBaseName)
-		trimPfx = fd.ModelMTrimPrefix
-	} else if cfg.IsSet(keys.MTrimPrefix) {
-		if trimPfx, ok = cfg.Get(keys.MTrimPrefix).([]models.MetaTrimPrefix); !ok {
-			logging.E("Count not retrieve prefix trim, wrong type: '%T'", trimPfx)
-		}
+		trimPfx = fd.MetaOps.TrimPrefixes
 	}
 
-	if len(fd.ModelMTrimSuffix) > 0 {
+	if len(fd.MetaOps.TrimSuffixes) > 0 {
 		logging.I("Model for file %q trimming suffixes", fd.OriginalVideoBaseName)
-		trimSfx = fd.ModelMTrimSuffix
-	} else if cfg.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
-			logging.E("Count not retrieve suffix trim, wrong type: '%T'", trimSfx)
-		}
+		trimSfx = fd.MetaOps.TrimSuffixes
 	}
 
 	// Append and prefix
-	if len(fd.ModelMAppend) > 0 {
+	if len(fd.MetaOps.Appends) > 0 {
 		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
-		apnd = fd.ModelMAppend
-	} else if cfg.IsSet(keys.MAppend) {
-		if apnd, ok = cfg.Get(keys.MAppend).([]models.MetaAppend); !ok {
-			logging.E("Count not retrieve appends, wrong type: '%T'", apnd)
-		}
+		apnd = fd.MetaOps.Appends
 	}
 
-	if len(fd.ModelMPrefix) > 0 {
+	if len(fd.MetaOps.Prefixes) > 0 {
 		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
-		pfx = fd.ModelMPrefix
-	} else if cfg.IsSet(keys.MPrefix) {
-		if pfx, ok = cfg.Get(keys.MPrefix).([]models.MetaPrefix); !ok {
-			logging.E("Count not retrieve prefix, wrong type: '%T'", pfx)
-		}
+		pfx = fd.MetaOps.Prefixes
 	}
 
 	// New fields
-	if len(fd.ModelMNewField) > 0 {
+	if len(fd.MetaOps.NewFields) > 0 {
 		logging.I("Model for file %q applying preset new field additions", fd.OriginalVideoBaseName)
-		newField = fd.ModelMNewField
-	} else if cfg.IsSet(keys.MNewField) {
-		if newField, ok = cfg.Get(keys.MNewField).([]models.MetaNewField); !ok {
-			logging.E("Could not retrieve new fields, wrong type: '%T'", pfx)
-		}
+		newField = fd.MetaOps.NewFields
 	}
+
+	// Copy/paste
+	if len(fd.MetaOps.CopyToFields) > 0 {
+		logging.I("Model for file %q copying to fields", fd.MetaOps.CopyToFields)
+		copyTo = fd.MetaOps.CopyToFields
+	}
+
+	if len(fd.MetaOps.PasteFromFields) > 0 {
+		logging.I("Model for file %q copying to fields", fd.MetaOps.PasteFromFields)
+		pasteFrom = fd.MetaOps.PasteFromFields
+	}
+
+	logging.W("Copy to %q and paste from %q not currently implemented.", copyTo, pasteFrom)
 
 	// Make edits:
 	// Replace
@@ -492,8 +482,8 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 	if ow {
 		metaOW = true
 	} else {
-		metaOW = cfg.GetBool(keys.MOverwrite)
-		metaPS = cfg.GetBool(keys.MPreserve)
+		metaOW = viper.GetBool(keys.MOverwrite)
+		metaPS = viper.GetBool(keys.MPreserve)
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", newField)
@@ -561,14 +551,14 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 
 				switch reply {
 				case "Y":
-					cfg.Set(keys.MOverwrite, true)
+					viper.Set(keys.MOverwrite, true)
 					metaOW = true
 					fallthrough
 				case "y":
 					data = data[:startContent] + addition.Value + data[endIdx:]
 					newAddition = true
 				case "N":
-					cfg.Set(keys.MPreserve, true)
+					viper.Set(keys.MPreserve, true)
 					metaPS = true
 					fallthrough
 				case "n":

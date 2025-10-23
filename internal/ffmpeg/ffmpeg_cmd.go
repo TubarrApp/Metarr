@@ -2,13 +2,14 @@ package ffmpeg
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"path/filepath"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
 // ffCommandBuilder handles FFmpeg command construction
@@ -36,7 +37,6 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 
 // buildCommand constructs the complete FFmpeg command.
 func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
-
 	if b.inputFile == "" || b.outputFile == "" {
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
@@ -70,11 +70,11 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 
 // setAudioCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
-	if !cfg.IsSet(keys.TranscodeAudioCodec) {
+	if !viper.IsSet(keys.TranscodeAudioCodec) {
 		return
 	}
 
-	codec := cfg.GetString(keys.TranscodeAudioCodec)
+	codec := viper.GetString(keys.TranscodeAudioCodec)
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
@@ -89,17 +89,17 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setVideoSoftwareCodec() {
-	if !cfg.IsSet(keys.TranscodeCodec) {
+	if !viper.IsSet(keys.TranscodeCodec) {
 		return
 	}
 
-	codec := cfg.GetString(keys.TranscodeCodec)
+	codec := viper.GetString(keys.TranscodeCodec)
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
 
 	switch codec {
-	case "h264", "x264":
+	case "h264", "x264", "avc":
 		b.videoCodecSoftware = consts.VideoToH264[:]
 	case "hevc", "h265":
 		b.videoCodecSoftware = consts.VideoToH265[:]
@@ -127,7 +127,6 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec string) {
-
 	if gpuFlag == "auto" {
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
 		return
@@ -147,14 +146,13 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
 func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCodec string, useHWAccel bool) {
-
 	// Should use GPU?
-	if !cfg.IsSet(keys.UseGPU) {
+	if !viper.IsSet(keys.UseGPU) {
 		return "", "", false
 	}
 
 	// Check GPU flag
-	gpuFlag = cfg.GetString(keys.UseGPU)
+	gpuFlag = viper.GetString(keys.UseGPU)
 	gpuFlag = strings.ToLower(gpuFlag)
 
 	if gpuFlag == "" {
@@ -163,8 +161,8 @@ func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCod
 	}
 
 	// Fetch transcode codec
-	if cfg.IsSet(keys.TranscodeCodec) {
-		transcodeCodec = cfg.GetString(keys.TranscodeCodec)
+	if viper.IsSet(keys.TranscodeCodec) {
+		transcodeCodec = viper.GetString(keys.TranscodeCodec)
 	}
 
 	// GPU flag but no codec
@@ -219,9 +217,7 @@ func (b *ffCommandBuilder) setDefaultFormatFlags(outExt string) {
 func (b *ffCommandBuilder) setUserFormatFlags() {
 	for i, entry := range b.formatFlags {
 		switch entry {
-
 		case "-c:v":
-
 			// HW Accel Case
 			if len(b.gpuAccelCodec) == 2 {
 				if len(b.formatFlags) >= i {
@@ -230,20 +226,19 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 
 					// VAAPI
 					if strings.Contains(b.gpuAccelCodec[1], "vaapi") {
-						devDir := []string{"-vaapi_device", cfg.GetString(keys.TranscodeDeviceDir)}
+						devDir := []string{"-vaapi_device", viper.GetString(keys.TranscodeDeviceDir)}
 						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 
 					// QSV
 					if strings.Contains(b.gpuAccelCodec[1], "qsv") {
-						devDir := []string{"-qsv_device", cfg.GetString(keys.TranscodeDeviceDir)}
+						devDir := []string{"-qsv_device", viper.GetString(keys.TranscodeDeviceDir)}
 						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 				} else {
-					logging.E("Unexpected end of format flags")
+					logging.E("Unexpected end of format flags, %s needs an argument", entry)
 				}
 			}
-
 			// Software codec case
 			if len(b.videoCodecSoftware) == 2 {
 				if len(b.formatFlags) > i {
@@ -253,13 +248,12 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 					logging.E("Unexpected end of format flags")
 				}
 			}
-
 		case "-c:a":
 			if len(b.audioCodec) == 2 {
 				if len(b.formatFlags) >= i {
 					b.formatFlags[i+1] = b.audioCodec[1]
 				} else {
-					logging.E("Unexpected end of format flags")
+					logging.E("Unexpected end of format flags, %s needs an argument", entry)
 				}
 			}
 		}
@@ -281,8 +275,8 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 		args = append(args, b.formatFlags...)
 
 		switch {
-		case cfg.IsSet(keys.TranscodeVideoFilter):
-			args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
+		case viper.IsSet(keys.TranscodeVideoFilter):
+			args = append(args, "-vf", viper.GetString(keys.TranscodeVideoFilter))
 		case gpuFlag == "vaapi":
 			args = append(args, consts.VaapiCompatibility...)
 		}
@@ -303,9 +297,8 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 	}
 
 	// Extra FFmpeg arguments
-	if cfg.IsSet(keys.ExtraFFmpegArgs) {
-		extraFFmpegArgs := strings.Fields(cfg.GetString(keys.ExtraFFmpegArgs))
-		args = append(args, extraFFmpegArgs...)
+	if viper.IsSet(keys.ExtraFFmpegArgs) {
+		args = append(args, strings.Fields(viper.GetString(keys.ExtraFFmpegArgs))...)
 	}
 
 	// Add output file
@@ -338,8 +331,8 @@ func (b *ffCommandBuilder) calculateCommandCapacity(gpuFlag string) int {
 		totalCapacity += len(consts.VaapiCompatibility)
 	}
 
-	if cfg.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 1 + len(cfg.GetString(keys.TranscodeVideoFilter)) // "-vf" and flag
+	if viper.IsSet(keys.TranscodeVideoFilter) {
+		totalCapacity += 1 + len(viper.GetString(keys.TranscodeVideoFilter)) // "-vf" and flag
 	}
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)

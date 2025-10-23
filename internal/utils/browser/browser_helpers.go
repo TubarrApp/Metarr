@@ -33,7 +33,10 @@ func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort,
 	// Extract port if present and remove from main URL
 	if colIdx := strings.Index(u, ":"); colIdx != -1 {
 		portPart := u[colIdx:]
-		port = strings.SplitN(portPart, "/", 2)[0]
+		parts := strings.SplitN(portPart, "/", 2)
+		if len(parts) > 0 && parts[0] != "" {
+			port = parts[0]
+		}
 		u = u[:colIdx]
 	}
 

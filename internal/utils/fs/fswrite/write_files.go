@@ -4,7 +4,6 @@ package fswrite
 import (
 	"errors"
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -15,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/spf13/viper"
 )
 
 type FSFileWriter struct {
@@ -96,7 +97,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	if !cfg.IsSet(keys.MoveOnComplete) {
+	if !viper.IsSet(keys.OutputDirectory) {
 		return nil
 	}
 
@@ -105,7 +106,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return nil
 	}
 
-	dstIn := cfg.GetString(keys.MoveOnComplete)
+	dstIn := viper.GetString(keys.OutputDirectory)
 
 	prs := parsing.NewDirectoryParser(fs.Fd)
 	dst, err := prs.ParseDirectory(dstIn)
@@ -143,11 +144,11 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 // DeleteMetafile safely removes metadata files once file operations are complete
 func (fs *FSFileWriter) DeleteMetafile(file string) (error, bool) {
 
-	if !cfg.IsSet(keys.MetaPurgeEnum) {
+	if !viper.IsSet(keys.MetaPurgeEnum) {
 		return errors.New("meta purge enum not set"), false
 	}
 
-	e, ok := cfg.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
+	e, ok := viper.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
 	if !ok {
 		return fmt.Errorf("wrong type for purge metafile enum. Got %T", e), false
 	}

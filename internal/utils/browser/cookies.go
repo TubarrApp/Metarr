@@ -2,7 +2,6 @@ package browser
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
 	"metarr/internal/domain/keys"
 	"metarr/internal/utils/logging"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	"github.com/browserutils/kooky/browser/chrome"
 	"github.com/browserutils/kooky/browser/firefox"
 	"github.com/browserutils/kooky/browser/safari"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -34,7 +34,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 		return nil, fmt.Errorf("failed to extract base domain: %w", err)
 	}
 
-	cookieFilePath := cfg.GetString(keys.CookiePath)
+	cookieFilePath := viper.GetString(keys.CookiePath)
 
 	// If a cookie file path is provided, use it
 	if cookieFilePath != "" {
