@@ -11,7 +11,6 @@ import (
 // CensoredTvTransformations adds preset transformations to
 // files for censored.tv videos.
 func CensoredTvTransformations(fd *models.FileData) {
-
 	logging.I("Making preset censored.tv meta replacements")
 
 	censoredTvTrimSuffixes(fd)
@@ -20,7 +19,6 @@ func CensoredTvTransformations(fd *models.FileData) {
 
 // censoredTvMSuffixes adds meta suffix replacements.
 func censoredTvTrimSuffixes(fd *models.FileData) {
-
 	var (
 		trimSfx []models.MetaTrimSuffix
 		ok      bool
@@ -62,58 +60,25 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		}
 		logging.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoBaseName, entries)
 	}
-
 	fd.MetaOps.TrimSuffixes = trimSfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements.
 func censoredTvFSuffixes(fd *models.FileData) {
-
-	var sfx []models.FilenameReplaceSuffix
-
 	v := fd.OriginalVideoBaseName
-
-	if cfg.IsSet(keys.FilenameReplaceSfx) {
-		existingSfx, ok := cfg.Get(keys.FilenameReplaceSfx).([]models.FilenameReplaceSuffix)
-		if !ok {
-			logging.E("Unexpected type %T, initializing new suffix list.", existingSfx)
-		} else {
-			sfx = existingSfx
-		}
-	}
-
 	logging.D(3, "Retrieved file name: %s", v)
-	vExt := ""
+
 	if len(v) > 1 {
 		check := v[len(v)-2:]
 		logging.D(3, "Got last element of file name: %s", check)
+
 		switch check {
 		case " 1", "_1":
-			vExt = check
-			logging.D(2, "Found file name suffix: %s", vExt)
+			addSuffix(fd, check, "")
+			logging.I("Added filename suffix replacement %q -> (empty)", check)
 		}
 	}
-
-	// Check if suffix is already present
-	alreadyExists := false
-	for _, existingSuffix := range sfx {
-		if existingSuffix.Suffix == vExt && existingSuffix.Replacement == "" {
-			alreadyExists = true
-			break
-		}
-	}
-
-	// Add suffix if it does not already exist
-	if !alreadyExists {
-		sfx = append(sfx, models.FilenameReplaceSuffix{
-			Suffix:      "_1",
-			Replacement: "",
-		})
-		logging.I("Added filename suffix replacement %q", vExt)
-	}
-
-	fd.ModelFileSfxReplace = sfx
-	logging.I("Total filename suffix replacements: %d", len(sfx))
+	logging.I("Total filename suffix replacements: %d", len(fd.ModelFileSfxReplace))
 }
 
 // censoredSuffixExists checks if the suffix exists.
