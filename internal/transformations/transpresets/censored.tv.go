@@ -2,7 +2,7 @@
 package transpresets
 
 import (
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
@@ -24,8 +24,8 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		ok      bool
 	)
 
-	if cfg.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = cfg.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
+	if abstractions.IsSet(keys.MTrimSuffix) {
+		if trimSfx, ok = abstractions.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
 			logging.E("Got type %T, may be null", trimSfx)
 		}
 	}

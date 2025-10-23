@@ -8,7 +8,6 @@ import (
 
 // addAllMetadata combines all metadata into a single map
 func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
-
 	b.addTitlesDescs(fd.MTitleDesc)
 	b.addCredits(fd.MCredits)
 	b.addDates(fd.MDates)
@@ -18,7 +17,6 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 
 // addTitlesDescs adds all title/description-related metadata
 func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
-
 	// Prefer fulltitle if possible (also exists in the JSON processing func)
 	if t.Title == "" && t.Fulltitle != "" {
 		t.Title = t.Fulltitle
@@ -46,7 +44,6 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
 // addCredits adds all credit-related metadata
 func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
-
 	// Single value credits
 	fields := map[string]string{
 		consts.JActor:     c.Actor,
@@ -82,7 +79,6 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 
 // addDates adds all date-related metadata
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
-
 	fields := map[string]string{
 		consts.JCreationTime:        d.CreationTime,
 		consts.JDate:                d.Date,
@@ -101,7 +97,6 @@ func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 
 // addShowInfo adds all show info related metadata
 func (b *ffCommandBuilder) addShowInfo(s *models.MetadataShowData) {
-
 	fields := map[string]string{
 		"episode_id":    s.EpisodeID,
 		"episode_sort":  s.EpisodeSort,
@@ -119,7 +114,6 @@ func (b *ffCommandBuilder) addShowInfo(s *models.MetadataShowData) {
 
 // addOtherMetadata adds other related metadata
 func (b *ffCommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
-
 	fields := map[string]string{
 		"genre":    o.Genre,
 		"hd_video": o.HDVideo,

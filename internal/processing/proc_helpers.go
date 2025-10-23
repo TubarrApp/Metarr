@@ -2,7 +2,7 @@ package processing
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -31,8 +31,8 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 		inputVideoDir, inputJSONDir, directory string
 	)
 
-	if cfg.IsSet(keys.Rename) {
-		if replaceStyle, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
+	if abstractions.IsSet(keys.Rename) {
+		if replaceStyle, ok = abstractions.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
 			logging.E("Received wrong type for rename style. Got %T", replaceStyle)
 		} else {
 			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
@@ -112,8 +112,8 @@ func sysResourceLoop(fileStr string) {
 // checkAvailableMemory checks if enough memory is available (at least the threshold).
 func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
 
-	requiredMemory := cfg.GetUint64(keys.MinFreeMem) // Default 0
-	maxCPUUsage := cfg.GetFloat64(keys.MaxCPU)       // Default 101.0
+	requiredMemory := abstractions.GetUint64(keys.MinFreeMem) // Default 0
+	maxCPUUsage := abstractions.GetFloat64(keys.MaxCPU)       // Default 101.0
 
 	vMem, err := mem.VirtualMemory()
 	if err != nil {

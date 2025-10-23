@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -176,12 +176,12 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 		metaPS bool
 	)
 
-	if !cfg.IsSet(keys.MOverwrite) && !cfg.IsSet(keys.MPreserve) {
+	if !abstractions.IsSet(keys.MOverwrite) && !abstractions.IsSet(keys.MPreserve) {
 		logging.I("Model is set to overwrite")
 		metaOW = ow
 	} else {
-		metaOW = cfg.GetBool(keys.MOverwrite)
-		metaPS = cfg.GetBool(keys.MPreserve)
+		metaOW = abstractions.GetBool(keys.MOverwrite)
+		metaPS = abstractions.GetBool(keys.MPreserve)
 		logging.I("Meta OW: %v Meta Preserve: %v", metaOW, metaPS)
 	}
 
@@ -233,7 +233,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 					switch reply {
 					case "Y":
 						logging.D(2, "Received meta overwrite reply as 'Y' for %s in %s, falling through to 'y'", existingValue, file)
-						cfg.Set(keys.MOverwrite, true)
+						abstractions.Set(keys.MOverwrite, true)
 						metaOW = true
 						fallthrough
 
@@ -248,7 +248,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 
 					case "N":
 						logging.D(2, "Received meta overwrite reply as 'N' for %s in %s, falling through to 'n'", existingValue, file)
-						cfg.Set(keys.MPreserve, true)
+						abstractions.Set(keys.MPreserve, true)
 						metaPS = true
 						fallthrough
 

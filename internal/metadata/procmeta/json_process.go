@@ -5,7 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/dates"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
@@ -131,14 +131,14 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 
 	// Add new filename tag for files
-	if cfg.IsSet(keys.MFilenamePfx) {
+	if abstractions.IsSet(keys.MFilenamePfx) {
 		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = metatags.MakeFilenameTag(data, file)
 	}
 
 	logging.D(3, "About to make date tag for: %v", file.Name())
-	if cfg.IsSet(keys.FileDateFmt) {
-		dateFmt, ok := cfg.Get(keys.FileDateFmt).(enums.DateFormat)
+	if abstractions.IsSet(keys.FileDateFmt) {
+		dateFmt, ok := abstractions.Get(keys.FileDateFmt).(enums.DateFormat)
 		switch {
 		case !ok:
 			logging.E("Got null or wrong type for file date format. Got type %T", dateFmt)
@@ -170,10 +170,10 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	logging.D(4, "Entering filetypeMetaCheckSwitch with %q", fd.OriginalVideoPath)
 
 	var outExt string
-	outFlagSet := cfg.IsSet(keys.OutputFiletype)
+	outFlagSet := abstractions.IsSet(keys.OutputFiletype)
 
 	if outFlagSet {
-		outExt = cfg.GetString(keys.OutputFiletype)
+		outExt = abstractions.GetString(keys.OutputFiletype)
 	} else {
 		outExt = filepath.Ext(fd.OriginalVideoPath)
 		logging.D(2, "Got output extension as %s", outExt)

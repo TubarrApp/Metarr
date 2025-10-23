@@ -3,7 +3,7 @@ package processing
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
@@ -69,7 +69,7 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 	}
 
 	job := 1
-	skipVideos := cfg.GetBool(keys.SkipVideos)
+	skipVideos := abstractions.GetBool(keys.SkipVideos)
 
 	// Begin iteration...
 	for _, b := range batches {

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -112,7 +112,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 				currentMeta[k] = *ptr
 				updated = true
 
-			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || cfg.GetBool(keys.MOverwrite) {
+			} else if currentStrVal, ok := currentVal.(string); !ok || currentStrVal != *ptr || abstractions.GetBool(keys.MOverwrite) {
 				logging.D(3, "Updating field %q from '%v' to %q", k, currentVal, *ptr)
 				currentMeta[k] = *ptr
 				updated = true
@@ -130,7 +130,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 	}
 
 	// Backup if option set
-	if cfg.GetBool(keys.NoFileOverwrite) {
+	if abstractions.GetBool(keys.NoFileOverwrite) {
 		if err := backup.File(rw.File); err != nil {
 			return currentMeta, fmt.Errorf("failed to create backup: %w", err)
 		}

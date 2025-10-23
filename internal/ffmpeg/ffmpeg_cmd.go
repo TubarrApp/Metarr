@@ -2,7 +2,7 @@ package ffmpeg
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -69,11 +69,11 @@ func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]s
 
 // setAudioCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
-	if !cfg.IsSet(keys.TranscodeAudioCodec) {
+	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
 		return
 	}
 
-	codec := cfg.GetString(keys.TranscodeAudioCodec)
+	codec := abstractions.GetString(keys.TranscodeAudioCodec)
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
@@ -88,11 +88,11 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setVideoSoftwareCodec() {
-	if !cfg.IsSet(keys.TranscodeCodec) {
+	if !abstractions.IsSet(keys.TranscodeCodec) {
 		return
 	}
 
-	codec := cfg.GetString(keys.TranscodeCodec)
+	codec := abstractions.GetString(keys.TranscodeCodec)
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
@@ -146,12 +146,12 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 // getHWAccelFlags checks and returns the flags for HW acceleration.
 func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCodec string, useHWAccel bool) {
 	// Should use GPU?
-	if !cfg.IsSet(keys.UseGPU) {
+	if !abstractions.IsSet(keys.UseGPU) {
 		return "", "", false
 	}
 
 	// Check GPU flag
-	gpuFlag = cfg.GetString(keys.UseGPU)
+	gpuFlag = abstractions.GetString(keys.UseGPU)
 	gpuFlag = strings.ToLower(gpuFlag)
 
 	if gpuFlag == "" {
@@ -160,8 +160,8 @@ func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCod
 	}
 
 	// Fetch transcode codec
-	if cfg.IsSet(keys.TranscodeCodec) {
-		transcodeCodec = cfg.GetString(keys.TranscodeCodec)
+	if abstractions.IsSet(keys.TranscodeCodec) {
+		transcodeCodec = abstractions.GetString(keys.TranscodeCodec)
 	}
 
 	// GPU flag but no codec
@@ -225,13 +225,13 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 
 					// VAAPI
 					if strings.Contains(b.gpuAccelCodec[1], "vaapi") {
-						devDir := []string{"-vaapi_device", cfg.GetString(keys.TranscodeDeviceDir)}
+						devDir := []string{"-vaapi_device", abstractions.GetString(keys.TranscodeDeviceDir)}
 						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 
 					// QSV
 					if strings.Contains(b.gpuAccelCodec[1], "qsv") {
-						devDir := []string{"-qsv_device", cfg.GetString(keys.TranscodeDeviceDir)}
+						devDir := []string{"-qsv_device", abstractions.GetString(keys.TranscodeDeviceDir)}
 						b.gpuAccel = append(b.gpuAccel, devDir...)
 					}
 				} else {
@@ -274,8 +274,8 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 		args = append(args, b.formatFlags...)
 
 		switch {
-		case cfg.IsSet(keys.TranscodeVideoFilter):
-			args = append(args, "-vf", cfg.GetString(keys.TranscodeVideoFilter))
+		case abstractions.IsSet(keys.TranscodeVideoFilter):
+			args = append(args, "-vf", abstractions.GetString(keys.TranscodeVideoFilter))
 		case gpuFlag == "vaapi":
 			args = append(args, consts.VaapiCompatibility...)
 		}
@@ -296,8 +296,8 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 	}
 
 	// Extra FFmpeg arguments
-	if cfg.IsSet(keys.ExtraFFmpegArgs) {
-		args = append(args, strings.Fields(cfg.GetString(keys.ExtraFFmpegArgs))...)
+	if abstractions.IsSet(keys.ExtraFFmpegArgs) {
+		args = append(args, strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs))...)
 	}
 
 	// Add output file
@@ -330,8 +330,8 @@ func (b *ffCommandBuilder) calculateCommandCapacity(gpuFlag string) int {
 		totalCapacity += len(consts.VaapiCompatibility)
 	}
 
-	if cfg.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 1 + len(cfg.GetString(keys.TranscodeVideoFilter)) // "-vf" and flag
+	if abstractions.IsSet(keys.TranscodeVideoFilter) {
+		totalCapacity += 1 + len(abstractions.GetString(keys.TranscodeVideoFilter)) // "-vf" and flag
 	}
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)

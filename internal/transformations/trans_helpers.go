@@ -2,7 +2,7 @@ package transformations
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
@@ -16,12 +16,12 @@ import (
 
 // shouldRename determines if file rename operations are needed for this file
 func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
-	dateFmt := cfg.GetString(keys.FileDateFmt)
+	dateFmt := abstractions.GetString(keys.FileDateFmt)
 	rName := enums.RenamingSkip
 
 	var ok bool
-	if cfg.IsSet(keys.Rename) {
-		rName, ok = cfg.Get(keys.Rename).(enums.ReplaceToStyle)
+	if abstractions.IsSet(keys.Rename) {
+		rName, ok = abstractions.Get(keys.Rename).(enums.ReplaceToStyle)
 		if !ok {
 			logging.E("Got wrong type or null rename. Got %T, want %q", rName, "enums.ReplaceToStyle")
 		}
@@ -47,11 +47,11 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		rename = true
 	}
 
-	if cfg.IsSet(keys.OutputDirectory) {
+	if abstractions.IsSet(keys.OutputDirectory) {
 		move = true
 	}
 
-	if cfg.IsSet(keys.InputFileDatePfx) {
+	if abstractions.IsSet(keys.InputFileDatePfx) {
 		rename = true
 	}
 
@@ -188,9 +188,10 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 		return filename
 	}
 
-	// Replace contractions in both filenames
+	// Trim whitespace and fix contractions in both filenames
 	videoBase = strings.TrimSpace(videoBase)
 	metaBase = strings.TrimSpace(metaBase)
+
 	return replaceContractions(videoBase),
 		replaceContractions(metaBase),
 		nil
@@ -217,9 +218,7 @@ func replaceStrings(filename string, replaceStrings []models.FilenameReplaceStri
 			if strings.Contains(filename, lowerFindString) ||
 				strings.Contains(filename, upperFindString) ||
 				strings.Contains(filename, titleFindString) {
-
-				fmt.Println()
-				logging.W("String replacements are case-sensitive. Found %q in string %q, but not user-specified %q.", lowerFindString, filename, rep.FindString)
+				logging.W("String replacements are case-sensitive!\nFound %q in string %q, but not user-specified %q.", lowerFindString, filename, rep.FindString)
 			}
 		} else {
 			logging.D(2, "Replacement made: %s -> %s (replaced %q with %q)", prevFilename, filename, rep.FindString, rep.ReplaceWith)

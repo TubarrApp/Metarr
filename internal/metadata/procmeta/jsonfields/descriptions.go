@@ -2,7 +2,7 @@ package jsonfields
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -30,8 +30,8 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 	}
 	filled := unpackJSON(fieldMap, data)
 
-	datePfx := cfg.GetBool(keys.MDescDatePfx)
-	dateSfx := cfg.GetBool(keys.MDescDateSfx)
+	datePfx := abstractions.GetBool(keys.MDescDatePfx)
+	dateSfx := abstractions.GetBool(keys.MDescDateSfx)
 
 	if (datePfx || dateSfx) && t.StringDate != "" {
 		for _, ptr := range fieldMap {

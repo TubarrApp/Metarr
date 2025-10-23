@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"metarr/internal/abstractions"
 	"metarr/internal/cfg"
 	"metarr/internal/models"
 	"metarr/internal/processing"
@@ -55,7 +56,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if !cfg.GetBool("execute") {
+	if !abstractions.GetBool("execute") {
 		fmt.Println()
 		logging.I("(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
 		return // Exit early if not meant to execute

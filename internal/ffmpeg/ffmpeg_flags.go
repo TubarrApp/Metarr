@@ -16,6 +16,7 @@ var unsafeHardwareEncode = map[string]map[string]bool{
 	"qsv":   {"vp8": true, "vp9": true, "av1": true},
 }
 
+// Presets for transcoding.
 var (
 	// Direct copy preset
 	copyPreset = formatPreset{

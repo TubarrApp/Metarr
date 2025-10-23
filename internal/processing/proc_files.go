@@ -3,7 +3,7 @@ package processing
 import (
 	"context"
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
@@ -42,8 +42,8 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		err        error
 	)
 
-	if cfg.IsSet(keys.SkipVideos) {
-		skipVideos = cfg.GetBool(keys.SkipVideos)
+	if abstractions.IsSet(keys.SkipVideos) {
+		skipVideos = abstractions.GetBool(keys.SkipVideos)
 	} else {
 		skipVideos = batch.SkipVideos
 	}
@@ -72,7 +72,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
 
-	numWorkers := cfg.GetInt(keys.Concurrency)
+	numWorkers := abstractions.GetInt(keys.Concurrency)
 	if numWorkers < 1 {
 		numWorkers = 1
 	}
@@ -243,7 +243,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 	}
 
 	// Strip existing date tag
-	if cfg.GetBool(keys.DeleteDateTagPfx) {
+	if abstractions.GetBool(keys.DeleteDateTagPfx) {
 		logging.I("Stripping date tags from files...")
 		err := transformations.StripDateTagFromFilename(matchedFiles, videoMap, metaMap)
 		if err != nil {

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// init sets the initial Viper settings
+// init sets the initial Viper settings.
 func init() {
 	// Env vars
 	viper.AutomaticEnv()
@@ -145,6 +145,5 @@ func initTransformations() error {
 	if err := validation.ValidateSetFilenamePrefixReplace(viper.GetStringSlice(keys.FilenameReplacePfx)); err != nil {
 		return err
 	}
-
 	return nil
 }

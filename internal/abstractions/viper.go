@@ -1,4 +1,7 @@
-package cfg
+// Package abstractions provides a layer to interact with functions without importing unnecessary fluff.
+//
+// Used for preventing avoidable import cycles.
+package abstractions
 
 import "github.com/spf13/viper"
 

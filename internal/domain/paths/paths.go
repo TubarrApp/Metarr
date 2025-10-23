@@ -4,12 +4,11 @@ package paths
 import (
 	"errors"
 	"fmt"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"os"
 	"path/filepath"
-
-	"github.com/spf13/viper"
 )
 
 const (
@@ -40,8 +39,8 @@ func InitProgFilesDirs() error {
 
 	// Main files
 	logOutputDir := HomeMetarrDir
-	if viper.IsSet(keys.OutputDirectory) {
-		logOutputDir = viper.GetString(keys.OutputDirectory)
+	if abstractions.IsSet(keys.OutputDirectory) {
+		logOutputDir = abstractions.GetString(keys.OutputDirectory)
 	}
 	LogFilePath = filepath.Join(logOutputDir, logFile)
 

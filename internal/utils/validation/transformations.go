@@ -3,13 +3,12 @@ package validation
 import (
 	"errors"
 	"fmt"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"strings"
-
-	"github.com/spf13/viper"
 )
 
 // metaOpsLen holds lengths for meta ops to calculate allocation sizes.
@@ -263,7 +262,7 @@ func ValidateSetFilenameSuffixReplace(filenameReplaceSuffixInput []string) error
 	}
 	if len(filenameReplaceSuffix) > 0 {
 		logging.I("Filename replace suffixes: %v", filenameReplaceSuffix)
-		viper.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
+		abstractions.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
 	}
 	return nil
 }
@@ -284,7 +283,7 @@ func ValidateSetFilenamePrefixReplace(filenameReplacePrefixInput []string) error
 	}
 	if len(filenameReplacePrefix) > 0 {
 		logging.I("Filename replace prefixes: %v", filenameReplacePrefix)
-		viper.Set(keys.FilenameReplacePfx, filenameReplacePrefix)
+		abstractions.Set(keys.FilenameReplacePfx, filenameReplacePrefix)
 	}
 	return nil
 }
@@ -305,7 +304,7 @@ func ValidateSetFilenameStringReplace(replaceStrings []string) error {
 	}
 	if len(filenameReplaceStrings) > 0 {
 		logging.I("Filename replace strings: %v", filenameReplaceStrings)
-		viper.Set(keys.FilenameReplaceStr, filenameReplaceStrings)
+		abstractions.Set(keys.FilenameReplaceStr, filenameReplaceStrings)
 	}
 	return nil
 }
@@ -319,7 +318,7 @@ func ValidateDateReplaceFormat(dateFmt string) error {
 		return err
 	}
 
-	viper.Set(keys.FileDateFmt, formatEnum)
+	abstractions.Set(keys.FileDateFmt, formatEnum)
 	logging.D(1, "Set file date format to %v", formatEnum)
 
 	return nil

@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/paths"
 	"metarr/internal/models"
@@ -33,20 +33,20 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 	metaOps = models.EnsureMetaOps(metaOps)
 
 	var videoDirs, videoFiles, jsonDirs, jsonFiles []string
-	if cfg.IsSet(keys.VideoFiles) {
-		videoFiles = cfg.GetStringSlice(keys.VideoFiles)
+	if abstractions.IsSet(keys.VideoFiles) {
+		videoFiles = abstractions.GetStringSlice(keys.VideoFiles)
 	}
 
-	if cfg.IsSet(keys.VideoDirs) {
-		videoDirs = cfg.GetStringSlice(keys.VideoDirs)
+	if abstractions.IsSet(keys.VideoDirs) {
+		videoDirs = abstractions.GetStringSlice(keys.VideoDirs)
 	}
 
-	if cfg.IsSet(keys.JSONFiles) {
-		jsonFiles = cfg.GetStringSlice(keys.JSONFiles)
+	if abstractions.IsSet(keys.JSONFiles) {
+		jsonFiles = abstractions.GetStringSlice(keys.JSONFiles)
 	}
 
-	if cfg.IsSet(keys.JSONDirs) {
-		jsonDirs = cfg.GetStringSlice(keys.JSONDirs)
+	if abstractions.IsSet(keys.JSONDirs) {
+		jsonDirs = abstractions.GetStringSlice(keys.JSONDirs)
 	}
 
 	videoDirs, videoFiles, jsonDirs, jsonFiles = getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles)

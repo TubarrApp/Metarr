@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
@@ -471,8 +471,8 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 	if ow {
 		metaOW = true
 	} else {
-		metaOW = cfg.GetBool(keys.MOverwrite)
-		metaPS = cfg.GetBool(keys.MPreserve)
+		metaOW = abstractions.GetBool(keys.MOverwrite)
+		metaPS = abstractions.GetBool(keys.MPreserve)
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", newField)
@@ -540,14 +540,14 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 
 				switch reply {
 				case "Y":
-					cfg.Set(keys.MOverwrite, true)
+					abstractions.Set(keys.MOverwrite, true)
 					metaOW = true
 					fallthrough
 				case "y":
 					data = data[:startContent] + addition.Value + data[endIdx:]
 					newAddition = true
 				case "N":
-					cfg.Set(keys.MPreserve, true)
+					abstractions.Set(keys.MPreserve, true)
 					metaPS = true
 					fallthrough
 				case "n":

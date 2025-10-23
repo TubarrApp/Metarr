@@ -4,7 +4,7 @@ package ffmpeg
 import (
 	"context"
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -27,8 +27,8 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	origExt := filepath.Ext(origPath)
 
 	// Extension validation - now checks length and format immediately
-	if cfg.IsSet(keys.OutputFiletype) {
-		if outExt = validation.ValidateExtension(cfg.GetString(keys.OutputFiletype)); outExt == "" {
+	if abstractions.IsSet(keys.OutputFiletype) {
+		if outExt = validation.ValidateExtension(abstractions.GetString(keys.OutputFiletype)); outExt == "" {
 			logging.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}
@@ -95,7 +95,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
 		logging.I("Original file not type %s, removing %q", outExt, origPath)
 
-	} else if cfg.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+	} else if abstractions.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
@@ -124,7 +124,6 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
 func skipProcessing(fd *models.FileData, outExt string) bool {
-
 	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	var (
@@ -142,11 +141,11 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	logging.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
 
 	// Check codec mismatches
-	if cfg.IsSet(keys.TranscodeCodec) {
-		desiredVCodec = cfg.GetString(keys.TranscodeCodec)
+	if abstractions.IsSet(keys.TranscodeCodec) {
+		desiredVCodec = abstractions.GetString(keys.TranscodeCodec)
 	}
-	if cfg.IsSet(keys.TranscodeAudioCodec) {
-		desiredACodec = cfg.GetString(keys.TranscodeAudioCodec)
+	if abstractions.IsSet(keys.TranscodeAudioCodec) {
+		desiredACodec = abstractions.GetString(keys.TranscodeAudioCodec)
 	}
 
 	if desiredVCodec != "" || desiredACodec != "" {

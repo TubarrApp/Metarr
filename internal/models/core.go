@@ -4,12 +4,11 @@ package models
 import (
 	"context"
 	"fmt"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"os"
 	"sync"
-
-	"github.com/spf13/viper"
 )
 
 // NewFileData generates a new FileData model.
@@ -29,27 +28,27 @@ func NewFileData() *FileData {
 
 // LoadFilenameReplacements loads filename replacement config into FileData.
 func (fd *FileData) LoadFilenameReplacements() {
-	if viper.IsSet(keys.FilenameReplaceSfx) {
-		if result, ok := viper.Get(keys.FilenameReplaceSfx).([]FilenameReplaceSuffix); ok {
+	if abstractions.IsSet(keys.FilenameReplaceSfx) {
+		if result, ok := abstractions.Get(keys.FilenameReplaceSfx).([]FilenameReplaceSuffix); ok {
 			fd.FilenameReplaceSuffix = result
 		} else {
-			fmt.Printf("Invalid type for filename replace suffixes: got %T, expected []FilenameReplaceSuffix", viper.Get(keys.FilenameReplaceSfx))
+			fmt.Printf("Invalid type for filename replace suffixes: got %T, expected []FilenameReplaceSuffix", abstractions.Get(keys.FilenameReplaceSfx))
 		}
 	}
 
-	if viper.IsSet(keys.FilenameReplacePfx) {
-		if result, ok := viper.Get(keys.FilenameReplacePfx).([]FilenameReplacePrefix); ok {
+	if abstractions.IsSet(keys.FilenameReplacePfx) {
+		if result, ok := abstractions.Get(keys.FilenameReplacePfx).([]FilenameReplacePrefix); ok {
 			fd.FilenameReplacePrefix = result
 		} else {
-			fmt.Printf("Invalid type for filename replace prefixes: got %T, expected []FilenameReplacePrefix", viper.Get(keys.FilenameReplacePfx))
+			fmt.Printf("Invalid type for filename replace prefixes: got %T, expected []FilenameReplacePrefix", abstractions.Get(keys.FilenameReplacePfx))
 		}
 	}
 
-	if viper.IsSet(keys.FilenameReplaceStr) {
-		if result, ok := viper.Get(keys.FilenameReplaceStr).([]FilenameReplaceStrings); ok {
+	if abstractions.IsSet(keys.FilenameReplaceStr) {
+		if result, ok := abstractions.Get(keys.FilenameReplaceStr).([]FilenameReplaceStrings); ok {
 			fd.FilenameReplaceStrings = result
 		} else {
-			fmt.Printf("Invalid type for filename replace strings: got %T, expected []FilenameReplaceStrings", viper.Get(keys.FilenameReplaceStr))
+			fmt.Printf("Invalid type for filename replace strings: got %T, expected []FilenameReplaceStrings", abstractions.Get(keys.FilenameReplaceStr))
 		}
 	}
 }

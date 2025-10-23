@@ -3,6 +3,7 @@ package validation
 
 import (
 	"fmt"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -101,7 +102,7 @@ func ValidateFile(f string, createIfNotFound bool) (os.FileInfo, error) {
 // ValidateConcurrencyLimit checks and ensures correct concurrency limit input.
 func ValidateConcurrencyLimit(c int) int {
 	c = max(c, 1)
-	viper.Set(keys.Concurrency, c)
+	abstractions.Set(keys.Concurrency, c)
 	return c
 }
 
@@ -151,7 +152,7 @@ func ValidateMinFreeMem(minFreeMem string) {
 	if parsedMinFree > 0 {
 		logging.I("Min RAM to spawn process: %v", parsedMinFree)
 	}
-	viper.Set(keys.MinFreeMem, parsedMinFree)
+	abstractions.Set(keys.MinFreeMem, parsedMinFree)
 }
 
 // ValidateMaxCPU validates and sets the maximum CPU limit.
@@ -172,7 +173,7 @@ func ValidateMaxCPU(maxCPU float64) {
 	if maxCPU != 100.0 {
 		logging.I("Max CPU usage: %.2f%%", maxCPU)
 	}
-	viper.Set(keys.MaxCPU, maxCPU)
+	abstractions.Set(keys.MaxCPU, maxCPU)
 }
 
 // ValidateOutputFiletype verifies the output filetype is valid for FFmpeg.
@@ -192,7 +193,7 @@ func ValidateOutputFiletype(o string) {
 	}
 
 	if valid {
-		viper.Set(keys.OutputFiletype, o)
+		abstractions.Set(keys.OutputFiletype, o)
 		logging.I("Outputting files as %s", o)
 	}
 }
@@ -200,8 +201,8 @@ func ValidateOutputFiletype(o string) {
 // ValidateMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
 func ValidateMetaOverwritePreserve(mOverwrite, mPreserve bool) {
 	if mOverwrite && mPreserve {
-		viper.Set(keys.MOverwrite, false)
-		viper.Set(keys.MPreserve, false)
+		abstractions.Set(keys.MOverwrite, false)
+		abstractions.Set(keys.MPreserve, false)
 	}
 }
 
@@ -223,19 +224,19 @@ func ValidatePurgeMetafiles(purgeType string) {
 	default:
 		e = enums.PurgeMetaNone
 	}
-	viper.Set(keys.MetaPurgeEnum, e)
+	abstractions.Set(keys.MetaPurgeEnum, e)
 }
 
 // ValidateAudioCodec verifies the audio codec to use for transcode/encode operations.
 func ValidateAudioCodec(codec string) error {
-	if !viper.IsSet(keys.TranscodeAudioCodec) {
+	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
 		return nil
 	}
 	codec = strings.ToLower(codec)
 
 	switch codec {
 	case "aac", "copy":
-		viper.Set(keys.TranscodeAudioCodec, codec)
+		abstractions.Set(keys.TranscodeAudioCodec, codec)
 	default:
 		return fmt.Errorf("audio codec flag %q is not currently implemented in this program, aborting", codec)
 	}
@@ -271,7 +272,7 @@ func ValidateInputFiletypes(argsVInputExts, argsMInputExts []string) {
 		inputVExts = append(inputVExts, enums.VidExtsAll)
 	}
 	logging.D(2, "Received video input extension filter: %v", inputVExts)
-	viper.Set(keys.InputVExtsEnum, inputVExts)
+	abstractions.Set(keys.InputVExtsEnum, inputVExts)
 
 	// Metadata extensions
 	inputMExts := make([]enums.MetaFiletypeFilter, 0, len(argsMInputExts))
@@ -289,12 +290,12 @@ func ValidateInputFiletypes(argsVInputExts, argsMInputExts []string) {
 		inputMExts = append(inputMExts, enums.MetaExtsAll)
 	}
 	logging.D(2, "Received meta input extension filter: %v", inputMExts)
-	viper.Set(keys.InputMExtsEnum, inputMExts)
+	abstractions.Set(keys.InputMExtsEnum, inputMExts)
 }
 
 // ValidateFilePrefixes checks and sets the file prefix filters
 func ValidateFilePrefixes(argsInputPrefixes []string) {
-	if !viper.IsSet(keys.FilePrefixes) {
+	if !abstractions.IsSet(keys.FilePrefixes) {
 		return
 	}
 	filePrefixes := make([]string, 0, len(argsInputPrefixes))
@@ -305,7 +306,7 @@ func ValidateFilePrefixes(argsInputPrefixes []string) {
 		}
 	}
 	if len(filePrefixes) > 0 {
-		viper.Set(keys.FilePrefixes, filePrefixes)
+		abstractions.Set(keys.FilePrefixes, filePrefixes)
 	}
 }
 
@@ -329,25 +330,25 @@ func ValidateGPU(g string) error {
 
 	switch g {
 	case "qsv", "intel":
-		viper.Set(keys.UseGPU, "qsv")
+		abstractions.Set(keys.UseGPU, "qsv")
 		if err := checkDriverDirExists(g); err != nil {
 			return err
 		}
 
 	case "amd", "radeon", "vaapi":
-		viper.Set(keys.UseGPU, "vaapi")
+		abstractions.Set(keys.UseGPU, "vaapi")
 		if err := checkDriverDirExists(g); err != nil {
 			return err
 		}
 
 	case "nvidia", "cuda":
-		viper.Set(keys.UseGPU, "cuda")
+		abstractions.Set(keys.UseGPU, "cuda")
 		if err := checkDriverDirExists(g); err != nil {
 			return err
 		}
 
 	case "auto", "automatic", "automate", "automated":
-		viper.Set(keys.UseGPU, "auto")
+		abstractions.Set(keys.UseGPU, "auto")
 	default:
 		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
 	}
@@ -357,11 +358,11 @@ func ValidateGPU(g string) error {
 
 // checkDriverDirExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
 func checkDriverDirExists(g string) error {
-	if !viper.IsSet(keys.TranscodeDeviceDir) {
+	if !abstractions.IsSet(keys.TranscodeDeviceDir) {
 		return fmt.Errorf("must specify the GPU directory for transcoding of type %q, e.g. '/dev/dri/renderD128'", g)
 	}
 
-	gpuDir := viper.GetString(keys.TranscodeDeviceDir)
+	gpuDir := abstractions.GetString(keys.TranscodeDeviceDir)
 
 	_, err := os.Stat(gpuDir)
 	if os.IsNotExist(err) {
@@ -377,11 +378,11 @@ func ValidateTranscodeCodec(c string) error {
 
 	switch c {
 	case "h264", "hevc":
-		viper.Set(keys.TranscodeCodec, c)
+		abstractions.Set(keys.TranscodeCodec, c)
 	case "x265", "h265":
-		viper.Set(keys.TranscodeCodec, "hevc")
+		abstractions.Set(keys.TranscodeCodec, "hevc")
 	case "x264", "avc":
-		viper.Set(keys.TranscodeCodec, "h264")
+		abstractions.Set(keys.TranscodeCodec, "h264")
 	default:
 		return fmt.Errorf("entered codec %q not supported. Metarr supports h264 and HEVC (h265)", c)
 	}
@@ -396,7 +397,7 @@ func ValidateTranscodeQuality(q string) error {
 	switch q {
 	case "p1", "p2", "p3", "p4", "p5", "p6", "p7":
 		logging.I("Got transcode quality profile %q", q)
-		viper.Set(keys.TranscodeQuality, q)
+		abstractions.Set(keys.TranscodeQuality, q)
 		return nil
 	}
 
@@ -416,7 +417,7 @@ func ValidateTranscodeQuality(q string) error {
 	}
 	logging.I("Got transcode quality profile %q", qualProf)
 
-	viper.Set(keys.TranscodeQuality, qualProf)
+	abstractions.Set(keys.TranscodeQuality, qualProf)
 	return nil
 }
 
@@ -443,5 +444,5 @@ func ValidateRenameFlag(argRenameFlag string) {
 		logging.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RenamingSkip
 	}
-	viper.Set(keys.Rename, renameFlag)
+	abstractions.Set(keys.Rename, renameFlag)
 }

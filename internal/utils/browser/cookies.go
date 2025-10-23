@@ -2,7 +2,7 @@ package browser
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/utils/logging"
 	"net/http"
@@ -35,7 +35,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 		return nil, fmt.Errorf("failed to extract base domain: %w", err)
 	}
 
-	cookieFilePath := cfg.GetString(keys.CookiePath)
+	cookieFilePath := abstractions.GetString(keys.CookiePath)
 
 	// If a cookie file path is provided, use it
 	if cookieFilePath != "" {

@@ -3,7 +3,7 @@ package transformations
 
 import (
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -86,13 +86,13 @@ func (fp *fileProcessor) writeResult() error {
 		return err
 	}
 
-	if cfg.IsSet(keys.MetaPurge) {
+	if abstractions.IsSet(keys.MetaPurge) {
 		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
 			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
 
-	if cfg.IsSet(keys.OutputDirectory) {
+	if abstractions.IsSet(keys.OutputDirectory) {
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
@@ -135,11 +135,11 @@ func (fp *fileProcessor) handleRenaming() error {
 
 // determineVideoExtension gets the appropriate video extension.
 func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
-	if !cfg.IsSet(keys.OutputFiletype) {
+	if !abstractions.IsSet(keys.OutputFiletype) {
 		return filepath.Ext(originalPath)
 	}
 
-	vidExt := validation.ValidateExtension(cfg.GetString(keys.OutputFiletype))
+	vidExt := validation.ValidateExtension(abstractions.GetString(keys.OutputFiletype))
 	if vidExt == "" {
 		vidExt = filepath.Ext(originalPath)
 	}

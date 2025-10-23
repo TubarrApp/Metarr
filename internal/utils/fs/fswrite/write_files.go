@@ -4,7 +4,7 @@ package fswrite
 import (
 	"errors"
 	"fmt"
-	"metarr/internal/cfg"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
@@ -98,7 +98,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	if !cfg.IsSet(keys.OutputDirectory) {
+	if !abstractions.IsSet(keys.OutputDirectory) {
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return nil
 	}
 
-	dstIn := cfg.GetString(keys.OutputDirectory)
+	dstIn := abstractions.GetString(keys.OutputDirectory)
 
 	prs := parsing.NewDirectoryParser(fs.Fd)
 	dst, err := prs.ParseDirectory(dstIn)
@@ -145,11 +145,11 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 // DeleteMetafile safely removes metadata files once file operations are complete
 func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 
-	if !cfg.IsSet(keys.MetaPurgeEnum) {
+	if !abstractions.IsSet(keys.MetaPurgeEnum) {
 		return false, errors.New("meta purge enum not set")
 	}
 
-	e, ok := cfg.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
+	e, ok := abstractions.Get(keys.MetaPurgeEnum).(enums.PurgeMetafiles)
 	if !ok {
 		return false, fmt.Errorf("wrong type for purge metafile enum. Got %T", e)
 	}
