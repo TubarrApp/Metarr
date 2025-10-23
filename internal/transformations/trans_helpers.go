@@ -242,7 +242,7 @@ func replacePrefix(filename string, prefixes []models.FilenameReplacePrefix) str
 		logging.D(2, "Checking prefix %q against filename %q", prefix.Prefix, filename)
 
 		if strings.HasPrefix(filename, prefix.Prefix) {
-			result = strings.TrimPrefix(filename, prefix.Prefix) + prefix.Replacement
+			result = prefix.Replacement + strings.TrimPrefix(filename, prefix.Prefix)
 			logging.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, prefix.Replacement)
 		}
 	}
