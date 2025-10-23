@@ -17,7 +17,6 @@ import (
 
 // replaceJSON makes user defined JSON replacements
 func replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
-
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
 	if len(rplce) == 0 {
@@ -32,7 +31,6 @@ func replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
 		}
 
 		if val, exists := j[r.Field]; exists {
-
 			if strVal, ok := val.(string); ok {
 				logging.D(3, "Identified field %q, replacing %q with %q", r.Field, r.Value, r.Replacement)
 				j[r.Field] = strings.ReplaceAll(strVal, r.Value, r.Replacement)
@@ -46,7 +44,6 @@ func replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
 
 // trimJSONPrefix trims defined prefixes from specified fields
 func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
-
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
@@ -75,7 +72,6 @@ func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
 
 // trimJSONSuffix trims defined suffixes from specified fields
 func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
-
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
@@ -104,7 +100,6 @@ func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
 
 // jsonAppend appends to the fields in the JSON data
 func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
-
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
 	if len(apnd) == 0 {
@@ -135,7 +130,6 @@ func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
 
 // jsonPrefix applies prefixes to the fields in the JSON data
 func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) bool {
-
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(pfx) == 0 {

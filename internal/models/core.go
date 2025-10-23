@@ -21,7 +21,6 @@ func NewFileData() *FileData {
 		MWebData:   &MetadataWebData{},
 		MOther:     &MetadataOtherData{},
 	}
-
 	fd.LoadFilenameReplacements()
 	return fd
 }
