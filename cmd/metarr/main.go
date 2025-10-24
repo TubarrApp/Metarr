@@ -28,21 +28,11 @@ const (
 	elapsedFormat  = "Time elapsed: %.2f seconds\n"
 )
 
-// Sigs here prevents heap escape
-var (
-	startTime time.Time
-	sigInt    = syscall.SIGINT
-	sigTerm   = syscall.SIGTERM
-)
-
-// init runs before main.
-func init() {
-	startTime = time.Now()
-	logging.I(startLogFormat, startTime.Format(timeFormat))
-}
-
 // main is the program entrypoint.
 func main() {
+	startTime := time.Now()
+	logging.I(startLogFormat, startTime.Format(timeFormat))
+
 	// Panic recovery with proper cleanup
 	defer func() {
 		if r := recover(); r != nil {
@@ -74,24 +64,16 @@ func main() {
 	initializeApplication()
 
 	// Setup context for cancellation
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
-
-	// Setup signal handling
-	cleanupChan := make(chan os.Signal, 1)
-	signal.Notify(cleanupChan, sigInt, sigTerm)
 
 	// Setup waitgroup for goroutine coordination
 	wg := new(sync.WaitGroup)
 	core := &models.Core{
-		Cleanup: cleanupChan,
-		Cancel:  cancel,
-		Ctx:     ctx,
-		Wg:      wg,
+		Cancel: cancel,
+		Ctx:    ctx,
+		Wg:     wg,
 	}
-
-	// Handle signals in a goroutine
-	go handleSignals(cleanupChan, cancel)
 
 	// Initialize cached variables
 	if err := fsread.InitFetchFilesVars(); err != nil {
@@ -138,13 +120,4 @@ func main() {
 	endTime := time.Now()
 	logging.I(endLogFormat, endTime.Format(timeFormat))
 	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
-}
-
-// handleSignals handles cleanup signals for Metarr.
-func handleSignals(cleanupChan chan os.Signal, cancel context.CancelFunc) {
-	sig := <-cleanupChan
-	signal.Stop(cleanupChan)
-	logging.I("Received signal: %v. Initiating graceful shutdown...", sig)
-	logging.I("Waiting for ongoing operations to complete...")
-	cancel() // Signal all goroutines to stop
 }

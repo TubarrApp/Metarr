@@ -7,7 +7,6 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
-	"os"
 	"sync"
 )
 
@@ -107,8 +106,7 @@ type FileData struct {
 
 // Core contains variables important to the program core.
 type Core struct {
-	Cleanup chan os.Signal
-	Cancel  context.CancelFunc
-	Ctx     context.Context
-	Wg      *sync.WaitGroup
+	Cancel context.CancelFunc
+	Ctx    context.Context
+	Wg     *sync.WaitGroup
 }

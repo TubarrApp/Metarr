@@ -62,12 +62,11 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	)
 
 	cancel := core.Cancel
-	cleanupChan := core.Cleanup
 	ctx := core.Ctx
 	wg := core.Wg
 
 	processMetadataFiles(ctx, batch.bp, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
-	setupCleanup(ctx, cancel, wg, batch, cleanupChan, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
+	setupCleanup(ctx, cancel, wg, batch, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
@@ -345,22 +344,21 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 }
 
 // setupCleanup creates a cleanup routine for file processing.
-func setupCleanup(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, batch *batch, cleanupChan chan os.Signal, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
+func setupCleanup(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, batch *batch, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
 	go func() {
-		select {
-		case <-cleanupChan:
-			fmt.Println("\nSignal received, cleaning up temporary files...")
-			cancel()
-		case <-ctx.Done():
-			fmt.Println("\nContext cancelled, cleaning up temporary files...")
-		}
+		<-ctx.Done()
 
+		logging.I("Shutdown signal received, cleaning up temporary files...")
+
+		// Wait for workers to finish
 		wg.Wait()
 
+		// Cleanup temp files
 		if err := cleanupTempFiles(videoMap); err != nil {
 			logging.E("Failed to cleanup temp files: %v", err)
 		}
 
+		// Log failed videos
 		muFailed.Lock()
 		batch.bp.logFailedVideos()
 		muFailed.Unlock()
