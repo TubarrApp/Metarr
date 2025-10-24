@@ -106,7 +106,6 @@ type FileData struct {
 
 // Core contains variables important to the program core.
 type Core struct {
-	Cancel context.CancelFunc
-	Ctx    context.Context
-	Wg     *sync.WaitGroup
+	Ctx context.Context
+	Wg  *sync.WaitGroup
 }

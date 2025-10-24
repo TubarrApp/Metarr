@@ -61,12 +61,11 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		muFailed    sync.Mutex
 	)
 
-	cancel := core.Cancel
 	ctx := core.Ctx
 	wg := core.Wg
 
 	processMetadataFiles(ctx, batch.bp, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
-	setupCleanup(ctx, cancel, wg, batch, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
+	setupCleanup(ctx, wg, batch, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
@@ -344,7 +343,7 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 }
 
 // setupCleanup creates a cleanup routine for file processing.
-func setupCleanup(ctx context.Context, cancel context.CancelFunc, wg *sync.WaitGroup, batch *batch, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
+func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
 	go func() {
 		<-ctx.Done()
 

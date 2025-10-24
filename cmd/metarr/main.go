@@ -70,9 +70,8 @@ func main() {
 	// Setup waitgroup for goroutine coordination
 	wg := new(sync.WaitGroup)
 	core := &models.Core{
-		Cancel: cancel,
-		Ctx:    ctx,
-		Wg:     wg,
+		Ctx: ctx,
+		Wg:  wg,
 	}
 
 	// Initialize cached variables
