@@ -1,6 +1,7 @@
 package procmeta
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"metarr/internal/metadata/procmeta/nfofields"
@@ -11,7 +12,7 @@ import (
 )
 
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
-func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
+func ProcessNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
 	if fd == nil {
 		return nil, errors.New("model passed in null")
 	}
@@ -30,7 +31,7 @@ func ProcessNFOFiles(fd *models.FileData) (*models.FileData, error) {
 		}
 	}()
 
-	nfoRW := nforw.NewNFOFileRW(file)
+	nfoRW := nforw.NewNFOFileRW(ctx, file)
 	if nfoRW != nil {
 		// Store NFO RW in model
 		fd.NFOFileRW = nfoRW

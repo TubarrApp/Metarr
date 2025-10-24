@@ -3,6 +3,7 @@ package jsonrw
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 
 // JSONFileRW is used to access JSON reading/writing utilities.
 type JSONFileRW struct {
+	ctx         context.Context
 	mu          sync.RWMutex
 	muFileWrite sync.Mutex
 	Meta        map[string]any
@@ -28,9 +30,10 @@ type JSONFileRW struct {
 }
 
 // NewJSONFileRW creates a new instance of the JSON file reader/writer
-func NewJSONFileRW(file *os.File) *JSONFileRW {
+func NewJSONFileRW(ctx context.Context, file *os.File) *JSONFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &JSONFileRW{
+		ctx:  ctx,
 		File: file,
 		Meta: metaMapPool.Get().(map[string]any),
 	}
@@ -220,53 +223,53 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// Make edits:
 	// Replace
 	if len(replace) > 0 {
-		if changesMade := replaceJSON(currentMeta, replace); changesMade {
+		if changesMade := rw.replaceJSON(currentMeta, replace); changesMade {
 			edited = true
 		}
 	}
 
 	// Trim
 	if len(trimPfx) > 0 {
-		if changesMade := trimJSONPrefix(currentMeta, trimPfx); changesMade {
+		if changesMade := rw.trimJSONPrefix(currentMeta, trimPfx); changesMade {
 			edited = true
 		}
 	}
 
 	if len(trimSfx) > 0 {
-		if changesMade := trimJSONSuffix(currentMeta, trimSfx); changesMade {
+		if changesMade := rw.trimJSONSuffix(currentMeta, trimSfx); changesMade {
 			edited = true
 		}
 	}
 
 	// Append and prefix
 	if len(apnd) > 0 {
-		if changesMade := jsonAppend(currentMeta, filename, apnd); changesMade {
+		if changesMade := rw.jsonAppend(currentMeta, filename, apnd); changesMade {
 			edited = true
 		}
 	}
 
 	if len(pfx) > 0 {
-		if changesMade := jsonPrefix(currentMeta, filename, pfx); changesMade {
+		if changesMade := rw.jsonPrefix(currentMeta, filename, pfx); changesMade {
 			edited = true
 		}
 	}
 
 	// Copy/paste
 	if len(copyTo) > 0 {
-		if ok := copyToField(currentMeta, copyTo); ok {
+		if ok := rw.copyToField(currentMeta, copyTo); ok {
 			edited = true
 		}
 	}
 
 	if len(pasteFrom) > 0 {
-		if ok := pasteFromField(currentMeta, pasteFrom); ok {
+		if ok := rw.pasteFromField(currentMeta, pasteFrom); ok {
 			edited = true
 		}
 	}
 
 	// Add new
 	if len(newField) > 0 {
-		if ok, err := setJSONField(currentMeta, filename, fd.ModelMOverwrite, newField); err != nil {
+		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, newField); err != nil {
 			logging.E("Failed to set fields with %+v: %v", newField, err)
 		} else if ok {
 			edited = true
@@ -308,7 +311,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	if len(fd.MetaOps.DeleteDateTags) > 0 {
 		logging.I("Stripping metafield date tags (User entered: %v)", fd.MetaOps.DeleteDateTags)
 
-		if ok, err := jsonFieldDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd, enums.DatetagDelOp); err != nil {
+		if ok, err := rw.jsonFieldDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd, enums.DatetagDelOp); err != nil {
 			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
 		} else if ok {
 			edited = true
@@ -319,7 +322,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	if len(fd.MetaOps.DateTags) > 0 {
 		logging.I("StrippAddinging metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
 
-		if ok, err := jsonFieldDateTag(currentMeta, fd.MetaOps.DateTags, fd, enums.DatetagAddOp); err != nil {
+		if ok, err := rw.jsonFieldDateTag(currentMeta, fd.MetaOps.DateTags, fd, enums.DatetagAddOp); err != nil {
 			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
 		} else if ok {
 			edited = true

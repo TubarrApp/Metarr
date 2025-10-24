@@ -128,7 +128,7 @@ func (rw *JSONFileRW) updateMeta(newMeta map[string]any) {
 }
 
 // cleanFieldValue trims leading/trailing whitespaces after deletions
-func cleanFieldValue(value string) string {
+func (rw *JSONFileRW) cleanFieldValue(value string) string {
 	cleaned := strings.TrimSpace(value)
 	cleaned = strings.Join(strings.Fields(cleaned), " ")
 	return cleaned

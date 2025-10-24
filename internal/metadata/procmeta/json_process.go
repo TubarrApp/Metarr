@@ -55,7 +55,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}()
 
 	// Grab and store metadata reader/writer
-	jsonRW := jsonrw.NewJSONFileRW(file)
+	jsonRW := jsonrw.NewJSONFileRW(ctx, file)
 	if jsonRW != nil {
 		fd.JSONFileRW = jsonRW
 	}

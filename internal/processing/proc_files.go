@@ -168,7 +168,7 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles 
 			_, err = procmeta.ProcessJSONFile(ctx, fd)
 		case enums.MetaFiletypeNFO:
 			logging.D(3, "File: %s: Meta file type in model as %v", fd.NFOFilePath, fd.MetaFileType)
-			_, err = procmeta.ProcessNFOFiles(fd)
+			_, err = procmeta.ProcessNFOFiles(ctx, fd)
 		}
 
 		if err != nil {

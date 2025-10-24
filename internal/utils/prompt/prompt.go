@@ -30,10 +30,9 @@ func InitUserInputReader() {
 //
 // The option can be used to tell the program to overwrite all in the queue,
 // preserve all in the queue, or move through value by value.
-func MetaReplace(promptMsg string, ow, ps bool) (string, error) {
+func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, error) {
 
 	logging.D(3, "Entering PromptUser dialogue...")
-	ctx := context.Background()
 
 	if decisionMade {
 		// If overwriteAll, return "Y" without waiting

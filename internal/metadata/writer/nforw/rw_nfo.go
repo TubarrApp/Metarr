@@ -20,6 +20,7 @@ import (
 
 // NFOFileRW is used to write NFO files.
 type NFOFileRW struct {
+	ctx   context.Context
 	mu    sync.RWMutex
 	Model *models.NFOData
 	Meta  string
@@ -27,9 +28,10 @@ type NFOFileRW struct {
 }
 
 // NewNFOFileRW creates a new instance of the NFO file reader/writer
-func NewNFOFileRW(file *os.File) *NFOFileRW {
+func NewNFOFileRW(ctx context.Context, file *os.File) *NFOFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &NFOFileRW{
+		ctx:  ctx,
 		File: file,
 	}
 }
@@ -454,7 +456,7 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 	return data, edited
 }
 
-// addNewXMLFields can insert new fields which do not yet exist into the metadata file.
+// addNewXMLFields can insert new fields into the NFO metadata file.
 func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.MetaNewField) (dataRtn string, newAddition bool, err error) {
 
 	var (
@@ -476,8 +478,6 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 	}
 
 	logging.D(3, "Retrieved additions for new field data: %v", newField)
-
-	ctx := context.Background()
 
 	for _, addition := range newField {
 		if addition.Field == "" || addition.Value == "" {
@@ -523,7 +523,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 
 			// Check for context cancellation
 			select {
-			case <-ctx.Done():
+			case <-rw.ctx.Done():
 				return data, false, fmt.Errorf("operation canceled for field: %s", addition.Field)
 			default:
 				// Proceed
@@ -533,7 +533,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 				promptMsg := fmt.Sprintf("Field %q already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
 					addition.Field, content, rw.File.Name())
 
-				reply, err := prompt.MetaReplace(promptMsg, metaOW, metaPS)
+				reply, err := prompt.MetaReplace(rw.ctx, promptMsg, metaOW, metaPS)
 				if err != nil {
 					logging.E("Failed to retrieve reply from user prompt: %v", err)
 				}

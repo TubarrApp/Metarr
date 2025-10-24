@@ -1,7 +1,6 @@
 package jsonrw
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
@@ -16,7 +15,7 @@ import (
 )
 
 // replaceJSON makes user defined JSON replacements
-func replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
+func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
 	if len(rplce) == 0 {
@@ -43,7 +42,7 @@ func replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
 }
 
 // trimJSONPrefix trims defined prefixes from specified fields
-func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
+func (rw *JSONFileRW) trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
@@ -71,7 +70,7 @@ func trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
 }
 
 // trimJSONSuffix trims defined suffixes from specified fields
-func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
+func (rw *JSONFileRW) trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
@@ -99,7 +98,7 @@ func trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
 }
 
 // jsonAppend appends to the fields in the JSON data
-func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
+func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
 	if len(apnd) == 0 {
@@ -129,7 +128,7 @@ func jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
 }
 
 // jsonPrefix applies prefixes to the fields in the JSON data
-func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) bool {
+func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) bool {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(pfx) == 0 {
@@ -159,7 +158,7 @@ func jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) bool {
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file
-func setJSONField(j map[string]any, file string, ow bool, newField []models.MetaNewField) (bool, error) {
+func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaNewField) (bool, error) {
 	if len(newField) == 0 {
 		logging.E("No new field additions found for file %q", file)
 		return false, nil
@@ -183,7 +182,6 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 	processedFields := make(map[string]bool, len(newField))
 
 	newAddition := false
-	ctx := context.Background()
 	for _, n := range newField {
 		if n.Field == "" || n.Value == "" {
 			continue
@@ -202,7 +200,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 
 			// Check for cancellation
 			select {
-			case <-ctx.Done():
+			case <-rw.ctx.Done():
 				logging.I("Operation canceled for field: %s", n.Field)
 				return false, errors.New("operation canceled")
 			default:
@@ -219,7 +217,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 						n.Field, existingValue, file,
 					)
 
-					reply, err := prompt.MetaReplace(promptMsg, metaOW, metaPS)
+					reply, err := prompt.MetaReplace(rw.ctx, promptMsg, metaOW, metaPS)
 					if err != nil {
 						logging.E("Failed to retrieve reply from user prompt: %v", err)
 					}
@@ -274,7 +272,7 @@ func setJSONField(j map[string]any, file string, ow bool, newField []models.Meta
 }
 
 // jsonFieldDateTag sets date tags in designated meta fields.
-func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
+func (rw *JSONFileRW) jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
 
 	logging.D(2, "Making metadata date tag for %q...", fd.OriginalVideoBaseName)
 
@@ -318,7 +316,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 			case enums.DatetagDelOp:
 				before := strVal
 				result := dates.StripDateTag(strVal, d.Loc)
-				result = cleanFieldValue(result)
+				result = rw.cleanFieldValue(result)
 
 				j[fld] = result
 
@@ -339,7 +337,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 			case enums.DatetagDelOp:
 				before := strVal
 				result := dates.StripDateTag(strVal, d.Loc)
-				result = cleanFieldValue(result)
+				result = rw.cleanFieldValue(result)
 
 				j[fld] = result
 
@@ -364,7 +362,7 @@ func jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *m
 }
 
 // copyToField copies values from one meta field to another
-func copyToField(j map[string]any, copyTo []models.CopyToField) bool {
+func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField) bool {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
@@ -394,7 +392,7 @@ func copyToField(j map[string]any, copyTo []models.CopyToField) bool {
 }
 
 // pasteFromField copies values from one meta field to another
-func pasteFromField(j map[string]any, paste []models.PasteFromField) bool {
+func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromField) bool {
 
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
