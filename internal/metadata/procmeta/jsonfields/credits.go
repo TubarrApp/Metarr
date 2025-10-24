@@ -145,7 +145,6 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 	}
 
 	filled := false
-
 	// Note order of operations
 	if len(fd.MetaOps.ReplaceOverrides) > 0 {
 		logging.I("Overriding credits with text replacements...")

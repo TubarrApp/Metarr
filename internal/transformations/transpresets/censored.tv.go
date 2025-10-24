@@ -65,17 +65,17 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 
 // censoredTvFSuffixes adds filename suffix replacements.
 func censoredTvFSuffixes(fd *models.FileData) {
-	v := fd.OriginalVideoBaseName
-	logging.D(3, "Retrieved file name: %s", v)
+	vBaseName := fd.OriginalVideoBaseName
+	logging.D(3, "Retrieved file name: %s", vBaseName)
 
-	if len(v) > 1 {
-		check := v[len(v)-2:]
-		logging.D(3, "Got last element of file name: %s", check)
+	if len(vBaseName) > 1 {
+		checkForSuffix := vBaseName[len(vBaseName)-2:]
+		logging.D(3, "Got last element of file name: %s", checkForSuffix)
 
-		switch check {
+		switch checkForSuffix {
 		case " 1", "_1":
-			addSuffix(fd, check, "")
-			logging.I("Added filename suffix replacement %q -> (empty)", check)
+			addSuffix(fd, checkForSuffix, "")
+			logging.I(`Added filename suffix replacement %q -> ""`, checkForSuffix)
 		}
 	}
 	logging.I("Total filename suffix replacements: %d", len(fd.FilenameReplaceSuffix))

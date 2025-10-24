@@ -170,13 +170,11 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 			}
 		}
 	}
-
 	return "", "", "", fmt.Errorf("failed to parse year, month, and day from %q", d)
 }
 
 // validateDateComponents attempts to fix faulty date arrangements
 func validateDateComponents(year, month, day string) (y, m, d string, err error) {
-
 	if isValidMonth(month) && isValidDay(day, month, year) {
 		return year, month, day, nil
 	}

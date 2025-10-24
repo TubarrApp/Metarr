@@ -4,12 +4,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"sync"
-	"syscall"
-	"time"
-
 	"metarr/internal/abstractions"
 	"metarr/internal/cfg"
 	"metarr/internal/models"
@@ -18,6 +12,12 @@ import (
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
+	"os"
+	"os/signal"
+	"runtime/debug"
+	"sync"
+	"syscall"
+	"time"
 )
 
 // String constants
@@ -35,20 +35,27 @@ var (
 	sigTerm   = syscall.SIGTERM
 )
 
+// init runs before main.
 func init() {
 	startTime = time.Now()
 	logging.I(startLogFormat, startTime.Format(timeFormat))
 }
 
+// main is the program entrypoint.
 func main() {
+	// Panic recovery with proper cleanup
 	defer func() {
 		if r := recover(); r != nil {
 			logging.E("Panic recovered: %v", r)
-			benchmark.CloseBenchmarking()
-			panic(r) // Re-panic after cleanup
+			logging.E("Stack trace:\n\n%s", debug.Stack())
+			os.Exit(1)
 		}
 	}()
 
+	// Ensure benchmarking is closed on all exit paths
+	defer benchmark.CloseBenchmarking()
+
+	// Parse configuration
 	metaOps, err := cfg.Execute()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -56,22 +63,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Early exit if not executing
 	if !abstractions.GetBool("execute") {
 		fmt.Println()
 		logging.I("(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
-		return // Exit early if not meant to execute
+		return
 	}
 
-	// Initialize meta ops (outside of Execute command to return MetaOps)
+	// Initialize application
 	initializeApplication()
-	defer benchmark.CloseBenchmarking()
 
-	// Program elements
+	// Setup context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Setup signal handling
 	cleanupChan := make(chan os.Signal, 1)
 	signal.Notify(cleanupChan, sigInt, sigTerm)
-	wg := new(sync.WaitGroup)
 
+	// Setup waitgroup for goroutine coordination
+	wg := new(sync.WaitGroup)
 	core := &models.Core{
 		Cleanup: cleanupChan,
 		Cancel:  cancel,
@@ -79,14 +90,20 @@ func main() {
 		Wg:      wg,
 	}
 
+	// Handle signals in a goroutine
+	go handleSignals(cleanupChan, cancel)
+
+	// Initialize cached variables
 	if err := fsread.InitFetchFilesVars(); err != nil {
 		logging.E("Failed to initialize variables to fetch files. Exiting...")
 		cancel()
 		os.Exit(1)
 	}
 
+	// Initialize user input reader (used for prompting the user during program run)
 	prompt.InitUserInputReader()
 
+	// Initialize batch configurations
 	batches, err := initializeBatchConfigs(metaOps)
 	if err != nil {
 		logging.E("Failed to initialize batch configs. Exiting...")
@@ -94,17 +111,40 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Process batches
 	if len(batches) > 0 {
 		if err := processing.StartBatchLoop(core, batches); err != nil {
 			logging.E("error during batch loop: %v", err)
 			cancel()
+			wg.Wait()
 			os.Exit(1)
 		}
 	} else {
 		logging.I("No files or directories to process. Exiting.")
 	}
 
+	// Wait for all goroutines to finish before final logging
+	wg.Wait()
+
+	// Check if shutdown was triggered by signal
+	select {
+	case <-ctx.Done():
+		logging.I("Shutdown was triggered by signal")
+	default:
+		// Normal completion
+	}
+
+	// End program run
 	endTime := time.Now()
 	logging.I(endLogFormat, endTime.Format(timeFormat))
 	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
+}
+
+// handleSignals handles cleanup signals for Metarr.
+func handleSignals(cleanupChan chan os.Signal, cancel context.CancelFunc) {
+	sig := <-cleanupChan
+	signal.Stop(cleanupChan)
+	logging.I("Received signal: %v. Initiating graceful shutdown...", sig)
+	logging.I("Waiting for ongoing operations to complete...")
+	cancel() // Signal all goroutines to stop
 }

@@ -44,7 +44,6 @@ var BitchuteComRules = map[enums.WebClassTags][]models.SelectorRule{
 // BitchuteComParseDate attempts to parse dates like "9 hours ago" (etc.)
 func BitchuteComParseDate(date string) string {
 	date = strings.TrimSpace(date)
-
 	dateSplit := strings.Split(date, " ")
 
 	var (

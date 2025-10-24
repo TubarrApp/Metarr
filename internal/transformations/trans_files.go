@@ -232,7 +232,7 @@ func StripDateTagFromFilename(
 			continue
 		}
 
-		// Handle video file
+		// --- Handle video file ---
 		if fdata.OriginalVideoPath != "" {
 			dir := filepath.Dir(fdata.OriginalVideoPath)
 			videoBase := filepath.Base(fdata.OriginalVideoPath)
@@ -240,14 +240,17 @@ func StripDateTagFromFilename(
 			openTag := strings.IndexRune(videoBase, '[')
 			closeTag := strings.IndexRune(videoBase, ']')
 
+			validDateTag := false
 			if openTag == 0 && closeTag > openTag {
 				dateStr := videoBase[openTag+1 : closeTag]
-
-				if !regex.DateTagCompile().MatchString(dateStr) {
+				if regex.DateTagCompile().MatchString(dateStr) {
+					validDateTag = true
+				} else {
 					logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
-					goto metadata // skip video rename if invalid
 				}
+			}
 
+			if validDateTag {
 				newBase := dates.StripDateTag(videoBase, enums.DateTagLogPrefix)
 				newVideoPath := filepath.Join(dir, newBase)
 
@@ -269,10 +272,8 @@ func StripDateTagFromFilename(
 			}
 		}
 
-	metadata:
-		// Handle metadata file
-		var metaPath string
-		var metaBase string
+		// --- Handle metadata file ---
+		var metaPath, metaBase string
 		if fdata.JSONFilePath != "" {
 			metaPath = fdata.JSONFilePath
 			metaBase = filepath.Base(metaPath)
@@ -288,7 +289,6 @@ func StripDateTagFromFilename(
 
 		if openTag == 0 && closeTag > openTag {
 			dateStr := metaBase[openTag+1 : closeTag]
-
 			if !regex.DateTagCompile().MatchString(dateStr) {
 				logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
 				continue

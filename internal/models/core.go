@@ -112,20 +112,3 @@ type Core struct {
 	Ctx     context.Context
 	Wg      *sync.WaitGroup
 }
-
-// MetaOps contains maps related to the operations to be carried out during the program's run.
-type MetaOps struct {
-	SetOverrides     map[enums.OverrideMetaType]string
-	AppendOverrides  map[enums.OverrideMetaType]string
-	ReplaceOverrides map[enums.OverrideMetaType]MOverrideReplacePair
-	DateTags         map[string]MetaDateTag
-	DeleteDateTags   map[string]MetaDateTag
-	NewFields        []MetaNewField
-	Appends          []MetaAppend
-	Prefixes         []MetaPrefix
-	Replaces         []MetaReplace
-	TrimSuffixes     []MetaTrimSuffix
-	TrimPrefixes     []MetaTrimPrefix
-	CopyToFields     []CopyToField
-	PasteFromFields  []PasteFromField
-}

@@ -5,35 +5,55 @@ import (
 	"net/http"
 )
 
+// MetaOps contains maps related to the operations to be carried out during the program's run.
+type MetaOps struct {
+	SetOverrides     map[enums.OverrideMetaType]string
+	AppendOverrides  map[enums.OverrideMetaType]string
+	ReplaceOverrides map[enums.OverrideMetaType]MOverrideReplacePair
+	DateTags         map[string]MetaDateTag
+	DeleteDateTags   map[string]MetaDateTag
+	NewFields        []MetaNewField
+	Appends          []MetaAppend
+	Prefixes         []MetaPrefix
+	Replaces         []MetaReplace
+	TrimSuffixes     []MetaTrimSuffix
+	TrimPrefixes     []MetaTrimPrefix
+	CopyToFields     []CopyToField
+	PasteFromFields  []PasteFromField
+}
+
 // NewMetaOps creates a new MetaOps with initialized maps.
 //
 // This ensures all map fields are non-nil and ready to use.
 func NewMetaOps() *MetaOps {
 	return &MetaOps{
+		// Initialize all maps to prevent nil map panics
 		SetOverrides:     make(map[enums.OverrideMetaType]string),
-		AppendOverrides:  make(map[enums.OverrideMetaType]string),
 		ReplaceOverrides: make(map[enums.OverrideMetaType]MOverrideReplacePair),
+		AppendOverrides:  make(map[enums.OverrideMetaType]string),
 		DateTags:         make(map[string]MetaDateTag),
 		DeleteDateTags:   make(map[string]MetaDateTag),
-		NewFields:        make([]MetaNewField, 0),
-		Appends:          make([]MetaAppend, 0),
-		Prefixes:         make([]MetaPrefix, 0),
-		Replaces:         make([]MetaReplace, 0),
-		TrimSuffixes:     make([]MetaTrimSuffix, 0),
-		TrimPrefixes:     make([]MetaTrimPrefix, 0),
-		CopyToFields:     make([]CopyToField, 0),
-		PasteFromFields:  make([]PasteFromField, 0),
+
+		// Initialize slices (optional but good practice for clarity)
+		NewFields:       make([]MetaNewField, 0),
+		Appends:         make([]MetaAppend, 0),
+		Prefixes:        make([]MetaPrefix, 0),
+		TrimSuffixes:    make([]MetaTrimSuffix, 0),
+		TrimPrefixes:    make([]MetaTrimPrefix, 0),
+		Replaces:        make([]MetaReplace, 0),
+		CopyToFields:    make([]CopyToField, 0),
+		PasteFromFields: make([]PasteFromField, 0),
 	}
 }
 
 // EnsureMetaOps returns the provided MetaOps or creates a new one if nil.
 //
 // This is useful for defensive programming to avoid nil pointer dereferences.
-func EnsureMetaOps(maps *MetaOps) *MetaOps {
-	if maps == nil {
+func EnsureMetaOps(mOps *MetaOps) *MetaOps {
+	if mOps == nil {
 		return NewMetaOps()
 	}
-	return maps
+	return mOps
 }
 
 // BatchConfig holds data for the current batch's configuration options.

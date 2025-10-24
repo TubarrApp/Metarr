@@ -192,71 +192,49 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 	return tasks, nil
 }
 
-// getValidFileDirs checks for validity of files and directories.
+// getValidFileDirs checks for validity of files and directories, with fallback handling.
 func getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles []string) (vDirs, vFiles, jDirs, jFiles []string) {
-	validVDirs := make([]string, 0, len(videoDirs))
-	validVFiles := make([]string, 0, len(videoFiles))
-	validJDirs := make([]string, 0, len(jsonDirs))
-	validJFiles := make([]string, 0, len(jsonFiles))
+	vDirs, misplacedVFiles := validatePaths("video directory", videoDirs)
+	misplacedVDirs, vFiles := validatePaths("video file", videoFiles)
+	jDirs, misplacedJFiles := validatePaths("JSON directory", jsonDirs)
+	misplacedJDirs, jFiles := validatePaths("JSON file", jsonFiles)
 
-	// Check video directories
-	for _, vDir := range videoDirs {
-		vInfo, err := os.Stat(vDir)
-		if err != nil {
-			logging.E("Failed to stat video directory %q: %v", vDir, err)
-			continue
-		}
-		if !vInfo.IsDir() {
-			logging.W("User entered file %q as directory, appending to video files", vDir)
-			validVFiles = append(validVFiles, vDir)
-			continue
-		}
-		validVDirs = append(validVDirs, vDir)
+	// Log and reassign misplaced entries
+	for _, f := range misplacedVFiles {
+		logging.W("User entered file %q as directory, appending to video files", f)
+		vFiles = append(vFiles, f)
+	}
+	for _, d := range misplacedVDirs {
+		logging.W("User entered directory %q as file, appending to video directories", d)
+		vDirs = append(vDirs, d)
+	}
+	for _, f := range misplacedJFiles {
+		logging.W("User entered file %q as directory, appending to valid JSON files", f)
+		jFiles = append(jFiles, f)
+	}
+	for _, d := range misplacedJDirs {
+		logging.W("User entered directory %q as file, appending to valid JSON directories", d)
+		jDirs = append(jDirs, d)
 	}
 
-	// Check video files
-	for _, vFile := range videoFiles {
-		vInfo, err := os.Stat(vFile)
-		if err != nil {
-			logging.E("Failed to stat video file %q: %v", vFile, err)
-			continue
-		}
-		if vInfo.IsDir() {
-			logging.W("User entered directory %q as file, appending to valid video directories", vFile)
-			validVDirs = append(validVFiles, vFile)
-			continue
-		}
-		validVFiles = append(validVDirs, vFile)
-	}
+	return vDirs, vFiles, jDirs, jFiles
+}
 
-	// Check JSON directories
-	for _, jDir := range jsonDirs {
-		vInfo, err := os.Stat(jDir)
+// validatePaths checks whether each path in 'paths' is a directory or file.
+//
+// It classifies them into dirs and files while logging consistent warnings.
+func validatePaths(kind string, paths []string) (dirs, files []string) {
+	for _, p := range paths {
+		info, err := os.Stat(p)
 		if err != nil {
-			logging.E("Failed to stat JSON directory %q: %v", jDir, err)
+			logging.E("Failed to stat %s path %q: %v", kind, p, err)
 			continue
 		}
-		if !vInfo.IsDir() {
-			logging.W("User entered file %q as directory, appending to valid JSON files", jDir)
-			validVFiles = append(validVFiles, jDir)
-			continue
+		if info.IsDir() {
+			dirs = append(dirs, p)
+		} else {
+			files = append(files, p)
 		}
-		validJDirs = append(validJDirs, jDir)
 	}
-
-	// Check JSON files
-	for _, jFile := range jsonFiles {
-		vInfo, err := os.Stat(jFile)
-		if err != nil {
-			logging.E("Failed to stat video file %q: %v", jFile, err)
-			continue
-		}
-		if vInfo.IsDir() {
-			logging.W("User ntered directory %q as file, appending to valid JSON directories", jFile)
-			validVDirs = append(validVFiles, jFile)
-			continue
-		}
-		validJFiles = append(validJFiles, jFile)
-	}
-	return validVDirs, validVFiles, validJDirs, validJFiles
+	return dirs, files
 }

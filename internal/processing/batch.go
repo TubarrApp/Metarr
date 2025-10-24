@@ -144,9 +144,8 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 			}
 		}
 		if err := openJSON.Close(); err != nil {
-			logging.E("Failed to close JSON file %q after successful iteration: %v", openVideo.Name(), err)
+			logging.E("Failed to close JSON file %q after successful iteration: %v", openJSON.Name(), err)
 		}
-
 		job++
 	}
 	logging.I("All batch tasks finished!")

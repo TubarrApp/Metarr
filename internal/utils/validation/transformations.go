@@ -11,20 +11,6 @@ import (
 	"strings"
 )
 
-// metaOpsLen holds lengths for meta ops to calculate allocation sizes.
-type metaOpsLen struct {
-	newLen,
-	apndLen,
-	pfxLen,
-	trimSfxLen,
-	trimPfxLen,
-	replaceLen,
-	dTagLen,
-	delDTagLen,
-	copyToFieldLen,
-	pasteFromFieldLen int
-}
-
 // ValidateMetaOps parses the meta transformation operations
 func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 	logging.D(2, "Validating meta operations...")
@@ -34,30 +20,13 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 		return models.NewMetaOps(), nil // Return empty initialized struct
 	}
 
-	m := metaOpsMapLength(MetaOpsInput, metaOpsLen{})
-
-	ops := &models.MetaOps{
-		SetOverrides:     make(map[enums.OverrideMetaType]string, m.newLen),
-		AppendOverrides:  make(map[enums.OverrideMetaType]string, m.apndLen),
-		ReplaceOverrides: make(map[enums.OverrideMetaType]models.MOverrideReplacePair, m.replaceLen),
-		DateTags:         make(map[string]models.MetaDateTag, m.dTagLen),
-		DeleteDateTags:   make(map[string]models.MetaDateTag, m.delDTagLen),
-		NewFields:        make([]models.MetaNewField, 0, m.newLen),
-		Appends:          make([]models.MetaAppend, 0, m.apndLen),
-		Prefixes:         make([]models.MetaPrefix, 0, m.pfxLen),
-		Replaces:         make([]models.MetaReplace, 0, m.replaceLen),
-		TrimSuffixes:     make([]models.MetaTrimSuffix, 0, m.trimSfxLen),
-		TrimPrefixes:     make([]models.MetaTrimPrefix, 0, m.trimPfxLen),
-		CopyToFields:     make([]models.CopyToField, 0, m.copyToFieldLen),
-		PasteFromFields:  make([]models.PasteFromField, 0, m.pasteFromFieldLen),
-	}
-
+	ops := models.NewMetaOps()
 	for _, op := range MetaOpsInput {
 		// Check validity
 		parts := strings.Split(op, ":")
 
 		if len(parts) < 3 || len(parts) > 4 {
-			return nil, errors.New("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:add:Video Title')")
+			return nil, errors.New("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:set:Video Title')")
 		}
 
 		field := parts[0]
@@ -203,47 +172,10 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
 
 		default:
-			return nil, fmt.Errorf("unrecognized meta operation %q (valid operations: add, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, copy-from)", parts[1])
+			return nil, fmt.Errorf("unrecognized meta operation %q (valid operations: set, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, paste-from)", parts[1])
 		}
 	}
 	return ops, nil
-}
-
-// metaOpsMapLength quickly grabs the lengths needed for each map
-func metaOpsMapLength(MetaOpsInput []string, m metaOpsLen) metaOpsLen {
-
-	for _, op := range MetaOpsInput {
-		if i := strings.IndexByte(op, ':'); i >= 0 {
-			if j := strings.IndexByte(op[i+1:], ':'); j >= 0 {
-				op = op[i+1 : i+1+j]
-
-				switch op {
-				case "set":
-					m.newLen++
-				case "append":
-					m.apndLen++
-				case "prefix":
-					m.pfxLen++
-				case "trim-suffix":
-					m.trimSfxLen++
-				case "trim-prefix":
-					m.trimPfxLen++
-				case "replace":
-					m.replaceLen++
-				case "date-tag":
-					m.dTagLen++
-				case "delete-date-tag":
-					m.delDTagLen++
-				case "copy-to":
-					m.copyToFieldLen++
-				case "paste-from":
-					m.pasteFromFieldLen++
-				}
-			}
-		}
-	}
-	logging.D(2, "Meta additions: %d\nMeta appends: %d\nMeta prefix: %d\nMeta suffix trim: %d\nMeta prefix trim: %d\nMeta replacements: %d\nDate tags: %d\nDelete date tags: %d\nCopy operations: %d\nPaste operations: %d", m.newLen, m.apndLen, m.pfxLen, m.trimSfxLen, m.trimPfxLen, m.replaceLen, m.dTagLen, m.delDTagLen, m.copyToFieldLen, m.pasteFromFieldLen)
-	return m
 }
 
 // ValidateSetFilenameSuffixReplace checks if the input format for filename suffix replacement is valid.
@@ -326,7 +258,7 @@ func ValidateDateReplaceFormat(dateFmt string) error {
 
 // dateEnum returns the date format enum type
 func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
-	if len(dateFmt) < 2 {
+	if len(dateFmt) < 2 || len(dateFmt) > 3 {
 		return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
 	}
 
