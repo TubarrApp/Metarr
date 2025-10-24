@@ -104,7 +104,7 @@ func main() {
 		logging.I("No files or directories to process. Exiting.")
 	}
 
-	// Wait for all goroutines to finish before final logging
+	// Wait for all goroutines to finish
 	wg.Wait()
 
 	// Check if shutdown was triggered by signal
