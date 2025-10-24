@@ -4,15 +4,12 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
-	"metarr/internal/domain/regex"
 	"metarr/internal/models"
 	"metarr/internal/utils/fs/fswrite"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/validation"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -209,146 +206,72 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	return nil
 }
 
-// StripDateTagFromFilename strips [date] prefixes from video and metadata files.
-func StripDateTagFromFilename(
-	matchedFiles map[string]*models.FileData,
-	videoMap map[string]*models.FileData,
-	metaMap map[string]*models.FileData,
-) error {
-	// Guard against nil maps
-	if matchedFiles == nil {
-		return fmt.Errorf("matchedFiles map is nil")
-	}
-	if videoMap == nil {
-		return fmt.Errorf("videoMap is nil")
-	}
-	if metaMap == nil {
-		return fmt.Errorf("metaMap is nil")
-	}
-
-	for oldPath, fdata := range matchedFiles {
-		if fdata == nil {
-			logging.W("Skipping nil FileData for path: %s", oldPath)
-			continue
-		}
-
-		// --- Handle video file ---
-		if fdata.OriginalVideoPath != "" {
-			dir := filepath.Dir(fdata.OriginalVideoPath)
-			videoBase := filepath.Base(fdata.OriginalVideoPath)
-
-			openTag := strings.IndexRune(videoBase, '[')
-			closeTag := strings.IndexRune(videoBase, ']')
-
-			validDateTag := false
-			if openTag == 0 && closeTag > openTag {
-				dateStr := videoBase[openTag+1 : closeTag]
-				if regex.DateTagCompile().MatchString(dateStr) {
-					validDateTag = true
-				} else {
-					logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
-				}
-			}
-
-			if validDateTag {
-				newBase := dates.StripDateTag(videoBase, enums.DateTagLogPrefix)
-				newVideoPath := filepath.Join(dir, newBase)
-
-				if err := os.Rename(fdata.OriginalVideoPath, newVideoPath); err != nil {
-					return fmt.Errorf("failed to rename video %q -> %q: %w", fdata.OriginalVideoPath, newVideoPath, err)
-				}
-
-				// Update FileData fields
-				fdata.OriginalVideoPath = newVideoPath
-				fdata.OriginalVideoBaseName = newBase
-
-				// Update map keys
-				delete(videoMap, oldPath)
-				videoMap[newVideoPath] = fdata
-
-				delete(matchedFiles, oldPath)
-				matchedFiles[newVideoPath] = fdata
-				oldPath = newVideoPath
-			}
-		}
-
-		// --- Handle metadata file ---
-		var metaPath, metaBase string
-		if fdata.JSONFilePath != "" {
-			metaPath = fdata.JSONFilePath
-			metaBase = filepath.Base(metaPath)
-		} else if fdata.NFOFilePath != "" {
-			metaPath = fdata.NFOFilePath
-			metaBase = filepath.Base(metaPath)
-		} else {
-			continue
-		}
-
-		openTag := strings.IndexRune(metaBase, '[')
-		closeTag := strings.IndexRune(metaBase, ']')
-
-		if openTag == 0 && closeTag > openTag {
-			dateStr := metaBase[openTag+1 : closeTag]
-			if !regex.DateTagCompile().MatchString(dateStr) {
-				logging.I("%v in file %v is not a valid date", dateStr, fdata.OriginalVideoPath)
-				continue
-			}
-
-			newBase := dates.StripDateTag(metaBase, enums.DateTagLogPrefix)
-			newMetaPath := filepath.Join(filepath.Dir(metaPath), newBase)
-
-			if err := os.Rename(metaPath, newMetaPath); err != nil {
-				return fmt.Errorf("failed to rename metadata %q -> %q: %w", metaPath, newMetaPath, err)
-			}
-
-			// Update FileData fields
-			if fdata.JSONFilePath != "" {
-				fdata.JSONFilePath = newMetaPath
-				fdata.JSONBaseName = newBase
-			} else if fdata.NFOFilePath != "" {
-				fdata.NFOFilePath = newMetaPath
-				fdata.NFOBaseName = newBase
-			}
-
-			// Update map keys
-			delete(metaMap, oldPath)
-			metaMap[newMetaPath] = fdata
-
-			delete(matchedFiles, oldPath)
-			matchedFiles[newMetaPath] = fdata
-		}
-	}
-	return nil
-}
-
 // constructNewNames constructs the new file names.
 func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.D(2, "Processing metafile base name: %q", fileBase)
+	fOps := fd.FilenameOps
 
-	replacements := fd.FilenameReplaceStrings
-	suffixes := fd.FilenameReplaceSuffix
-	prefixes := fd.FilenameReplacePrefix
+	replacements := fOps.Replaces
+	suffixes := fOps.ReplaceSuffixes
+	prefixes := fOps.ReplacePrefixes
+	appends := fOps.Appends
+	prefixOps := fOps.Prefixes
+	dateTag := fOps.DateTag
+	deleteDateTags := fOps.DeleteDateTags
 
-	// Renaming to do?
-	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 && style == enums.RenamingSkip {
+	// Check if any renaming to do
+	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 &&
+		len(appends) == 0 && len(prefixOps) == 0 && dateTag == nil &&
+		deleteDateTags == nil && style == enums.RenamingSkip {
+		logging.D(1, "No filename operations or naming style to apply")
 		return fileBase
 	}
 
-	// Make replacements
+	// Delete date tags first (if configured)
+	if deleteDateTags != nil {
+		fileBase = deleteDateTag(fileBase, deleteDateTags)
+	}
+
+	// Make string replacements
 	if len(replacements) > 0 {
 		fileBase = replaceStrings(fileBase, replacements)
 	}
+
+	// Replace/trim prefixes
 	if len(prefixes) > 0 {
 		fileBase = replacePrefix(fileBase, prefixes)
 	}
+
+	// Replace/trim suffixes
 	if len(suffixes) > 0 {
 		fileBase = replaceSuffix(fileBase, suffixes)
 	}
 
+	// Add prefixes
+	if len(prefixOps) > 0 {
+		fileBase = prefixStrings(fileBase, prefixOps)
+	}
+
+	// Add appends
+	if len(appends) > 0 {
+		fileBase = appendStrings(fileBase, appends)
+	}
+
+	// Add date tag
+	if dateTag != nil && fd.FilenameDateTag != "" {
+		if !strings.Contains(fileBase, fd.FilenameDateTag) {
+			fileBase = addDateTag(fileBase, dateTag, fd.FilenameDateTag)
+		} else {
+			logging.D(2, "Date tag already present in filename, skipping addition")
+		}
+	}
+
+	// Apply naming style
 	if style != enums.RenamingSkip {
 		fileBase = applyNamingStyle(style, fileBase)
 	} else {
 		logging.D(1, "No naming style selected, skipping rename style")
 	}
+
 	return fileBase
 }

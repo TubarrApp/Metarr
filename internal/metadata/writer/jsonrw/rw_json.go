@@ -320,7 +320,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	// Add date tag
 	if len(fd.MetaOps.DateTags) > 0 {
-		logging.I("StrippAddinging metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
+		logging.I("Adding metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
 
 		if ok, err := rw.jsonFieldDateTag(currentMeta, fd.MetaOps.DateTags, fd, enums.DatetagAddOp); err != nil {
 			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)

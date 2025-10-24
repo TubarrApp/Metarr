@@ -117,12 +117,6 @@ func execute() error {
 	if err := initTransformations(); err != nil {
 		return err
 	}
-
-	if viper.IsSet(keys.InputFileDatePfx) {
-		if err := validation.ValidateDateReplaceFormat(viper.GetString(keys.InputFileDatePfx)); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -131,19 +125,11 @@ func initTransformations() error {
 	// Set rename flag
 	validation.ValidateRenameFlag(viper.GetString(keys.RenameStyle))
 
-	// Filename string replacements
-	if err := validation.ValidateSetFilenameStringReplace(viper.GetStringSlice(keys.FilenameReplaceStr)); err != nil {
-		return err
-	}
-
-	// Filename suffix replacements
-	if err := validation.ValidateSetFilenameSuffixReplace(viper.GetStringSlice(keys.FilenameReplaceSfx)); err != nil {
-		return err
-	}
-
-	// Filename prefix replacements
-	if err := validation.ValidateSetFilenamePrefixReplace(viper.GetStringSlice(keys.FilenameReplacePfx)); err != nil {
-		return err
+	// Validate filename operations
+	if viper.IsSet(keys.FilenameOpsInput) {
+		if err := validation.ValidateSetFilenameOps(viper.GetStringSlice(keys.FilenameOpsInput)); err != nil {
+			return err
+		}
 	}
 	return nil
 }

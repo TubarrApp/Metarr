@@ -311,7 +311,7 @@ func (rw *JSONFileRW) jsonFieldDateTag(j map[string]any, dtm map[string]models.M
 
 		// Apply the tag based on location
 		switch d.Loc {
-		case enums.DateTagLogPrefix:
+		case enums.DateTagLocPrefix:
 			switch op {
 			case enums.DatetagDelOp:
 				before := strVal
@@ -332,7 +332,7 @@ func (rw *JSONFileRW) jsonFieldDateTag(j map[string]any, dtm map[string]models.M
 				edited = true
 			}
 
-		case enums.DateTagLogSuffix:
+		case enums.DateTagLocSuffix:
 			switch op {
 			case enums.DatetagDelOp:
 				before := strVal

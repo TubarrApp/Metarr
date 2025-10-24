@@ -253,11 +253,11 @@ func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
 }
 
 // StripDateTag removes [yy-mm-dd] or [yyyy-mm-dd] tags from a field string.
-func StripDateTag(val string, loc enums.MetaDateTagLocation) string {
+func StripDateTag(val string, loc enums.DateTagLocation) string {
 	val = strings.TrimSpace(val)
 
 	switch loc {
-	case enums.DateTagLogPrefix:
+	case enums.DateTagLocPrefix:
 		openTag := strings.IndexRune(val, '[')
 		closeTag := strings.IndexRune(val, ']')
 
@@ -268,7 +268,7 @@ func StripDateTag(val string, loc enums.MetaDateTagLocation) string {
 			}
 		}
 
-	case enums.DateTagLogSuffix:
+	case enums.DateTagLocSuffix:
 		openTag := strings.LastIndex(val, "[")
 		closeTag := strings.LastIndex(val, "]")
 

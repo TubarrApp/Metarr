@@ -20,34 +20,83 @@ func NewFileData() *FileData {
 		MWebData:   &MetadataWebData{},
 		MOther:     &MetadataOtherData{},
 	}
-	fd.LoadFilenameReplacements()
+	if abstractions.IsSet(keys.FilenameOpsModels) {
+		if fOps, ok := abstractions.Get(keys.FilenameOpsModels).(*FilenameOps); ok {
+			fd.FilenameOps = fOps
+		} else {
+			fmt.Printf("Failed to retrieve FilenameOps from abstractions, got type %T", abstractions.Get(keys.FilenameOpsModels))
+		}
+	}
+	fd.EnsureFilenameOps()
+	fd.EnsureMetaOps()
 	return fd
 }
 
-// LoadFilenameReplacements loads filename replacement config into FileData.
-func (fd *FileData) LoadFilenameReplacements() {
-	if abstractions.IsSet(keys.FilenameReplaceSfx) {
-		if result, ok := abstractions.Get(keys.FilenameReplaceSfx).([]FilenameReplaceSuffix); ok {
-			fd.FilenameReplaceSuffix = result
-		} else {
-			fmt.Printf("Invalid type for filename replace suffixes: got %T, expected []FilenameReplaceSuffix", abstractions.Get(keys.FilenameReplaceSfx))
-		}
+// EnsureFilenameOps initializes nil filename operation structure values.
+func (fd *FileData) EnsureFilenameOps() {
+	if fd.FilenameOps == nil {
+		fd.FilenameOps = &FilenameOps{}
 	}
-
-	if abstractions.IsSet(keys.FilenameReplacePfx) {
-		if result, ok := abstractions.Get(keys.FilenameReplacePfx).([]FilenameReplacePrefix); ok {
-			fd.FilenameReplacePrefix = result
-		} else {
-			fmt.Printf("Invalid type for filename replace prefixes: got %T, expected []FilenameReplacePrefix", abstractions.Get(keys.FilenameReplacePfx))
-		}
+	if fd.FilenameOps.Appends == nil {
+		fd.FilenameOps.Appends = []FOpAppend{}
 	}
+	if fd.FilenameOps.Prefixes == nil {
+		fd.FilenameOps.Prefixes = []FOpPrefix{}
+	}
+	if fd.FilenameOps.Replaces == nil {
+		fd.FilenameOps.Replaces = []FOpReplace{}
+	}
+	if fd.FilenameOps.ReplacePrefixes == nil {
+		fd.FilenameOps.ReplacePrefixes = []FOpReplacePrefix{}
+	}
+	if fd.FilenameOps.ReplaceSuffixes == nil {
+		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
+	}
+}
 
-	if abstractions.IsSet(keys.FilenameReplaceStr) {
-		if result, ok := abstractions.Get(keys.FilenameReplaceStr).([]FilenameReplaceStrings); ok {
-			fd.FilenameReplaceStrings = result
-		} else {
-			fmt.Printf("Invalid type for filename replace strings: got %T, expected []FilenameReplaceStrings", abstractions.Get(keys.FilenameReplaceStr))
-		}
+// EnsureMetaOps initializes nil metadata operation structure values.
+func (fd *FileData) EnsureMetaOps() {
+	if fd.MetaOps == nil {
+		fd.MetaOps = &MetaOps{}
+	}
+	if fd.MetaOps.SetOverrides == nil {
+		fd.MetaOps.SetOverrides = make(map[enums.OverrideMetaType]string, 0)
+	}
+	if fd.MetaOps.AppendOverrides == nil {
+		fd.MetaOps.AppendOverrides = make(map[enums.OverrideMetaType]string, 0)
+	}
+	if fd.MetaOps.ReplaceOverrides == nil {
+		fd.MetaOps.ReplaceOverrides = make(map[enums.OverrideMetaType]MOverrideReplacePair, 0)
+	}
+	if fd.MetaOps.DateTags == nil {
+		fd.MetaOps.DateTags = make(map[string]MetaDateTag, 0)
+	}
+	if fd.MetaOps.DeleteDateTags == nil {
+		fd.MetaOps.DeleteDateTags = make(map[string]MetaDateTag, 0)
+	}
+	if fd.MetaOps.NewFields == nil {
+		fd.MetaOps.NewFields = []MetaNewField{}
+	}
+	if fd.MetaOps.Appends == nil {
+		fd.MetaOps.Appends = []MetaAppend{}
+	}
+	if fd.MetaOps.Prefixes == nil {
+		fd.MetaOps.Prefixes = []MetaPrefix{}
+	}
+	if fd.MetaOps.Replaces == nil {
+		fd.MetaOps.Replaces = []MetaReplace{}
+	}
+	if fd.MetaOps.TrimSuffixes == nil {
+		fd.MetaOps.TrimSuffixes = []MetaTrimSuffix{}
+	}
+	if fd.MetaOps.TrimPrefixes == nil {
+		fd.MetaOps.TrimPrefixes = []MetaTrimPrefix{}
+	}
+	if fd.MetaOps.CopyToFields == nil {
+		fd.MetaOps.CopyToFields = []CopyToField{}
+	}
+	if fd.MetaOps.PasteFromFields == nil {
+		fd.MetaOps.PasteFromFields = []PasteFromField{}
 	}
 }
 
@@ -94,9 +143,7 @@ type FileData struct {
 	MetaOps *MetaOps
 
 	// File transformations
-	FilenameReplaceSuffix  []FilenameReplaceSuffix
-	FilenameReplacePrefix  []FilenameReplacePrefix
-	FilenameReplaceStrings []FilenameReplaceStrings
+	FilenameOps *FilenameOps
 
 	// Misc
 	MetaFileType      enums.MetaFiletype `json:"-" xml:"-"`

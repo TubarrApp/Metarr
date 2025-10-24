@@ -125,12 +125,12 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			if len(parts) != 4 {
 				return nil, errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
-			var loc enums.MetaDateTagLocation
+			var loc enums.DateTagLocation
 			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DateTagLogPrefix
+				loc = enums.DateTagLocPrefix
 			case "suffix":
-				loc = enums.DateTagLogSuffix
+				loc = enums.DateTagLocSuffix
 			default:
 				return nil, errors.New("date tag location must be prefix, or suffix")
 			}
@@ -149,13 +149,13 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			if len(parts) != 4 {
 				return nil, errors.New("delete-date-tag should be in format 'field:delete-date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
-			var loc enums.MetaDateTagLocation
+			var loc enums.DateTagLocation
 
 			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DateTagLogPrefix
+				loc = enums.DateTagLocPrefix
 			case "suffix":
-				loc = enums.DateTagLogSuffix
+				loc = enums.DateTagLocSuffix
 			default:
 				return nil, errors.New("date tag location must be prefix, or suffix")
 			}
@@ -178,80 +178,135 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 	return ops, nil
 }
 
-// ValidateSetFilenameSuffixReplace checks if the input format for filename suffix replacement is valid.
-func ValidateSetFilenameSuffixReplace(filenameReplaceSuffixInput []string) error {
-	filenameReplaceSuffix := make([]models.FilenameReplaceSuffix, 0, len(filenameReplaceSuffixInput))
-
-	for _, pair := range filenameReplaceSuffixInput {
-		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) < 2 {
-			return errors.New("invalid use of filename-replace-suffix, values must be written as 'suffix:replacement'")
+// ValidateFilenameOps checks and validates filename operations.
+func ValidateSetFilenameOps(filenameOps []string) error {
+	if len(filenameOps) == 0 {
+		logging.D(2, "No filename operations to add.")
+		return nil
+	}
+	const invalidWarning = "Removing invalid filename operation %q. (Correct format style: 'prefix:[COOL VIDEOS] ', 'date-tag:prefix:ymd')"
+	fOpModel := &models.FilenameOps{}
+	validOps := make([]string, 0, len(filenameOps))
+	for _, op := range filenameOps {
+		opParts := strings.Split(op, ":")
+		if len(opParts) < 2 || len(opParts) > 3 {
+			logging.W(invalidWarning, op)
+			continue
 		}
-		filenameReplaceSuffix = append(filenameReplaceSuffix, models.FilenameReplaceSuffix{
-			Suffix:      parts[0],
-			Replacement: parts[1],
-		})
-	}
-	if len(filenameReplaceSuffix) > 0 {
-		logging.I("Filename replace suffixes: %v", filenameReplaceSuffix)
-		abstractions.Set(keys.FilenameReplaceSfx, filenameReplaceSuffix)
-	}
-	return nil
-}
-
-// ValidateSetFilenamePrefixReplace checks if the input format for filename prefix replacement is valid.
-func ValidateSetFilenamePrefixReplace(filenameReplacePrefixInput []string) error {
-	filenameReplacePrefix := make([]models.FilenameReplacePrefix, 0, len(filenameReplacePrefixInput))
-
-	for _, pair := range filenameReplacePrefixInput {
-		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) < 2 {
-			return errors.New("invalid use of filename-replace-prefix, values must be written as 'prefix:replacement'")
+		opType := opParts[0]
+		switch len(opParts) {
+		case 2:
+			opValue := opParts[1]
+			switch opType {
+			case "prefix":
+				fOpModel.Prefixes = append(fOpModel.Prefixes, models.FOpPrefix{
+					Value: opValue,
+				})
+				validOps = append(validOps, op)
+			case "append":
+				fOpModel.Appends = append(fOpModel.Appends, models.FOpAppend{
+					Value: opValue,
+				})
+				validOps = append(validOps, op)
+			}
+		case 3:
+			switch opType {
+			case "date-tag":
+				if fOpModel.DateTag != nil {
+					logging.W("Only one date tag accepted per run to prevent user error")
+					continue
+				}
+				tagLoc := opParts[1]
+				dateFmt := opParts[2]
+				var tagLocEnum enums.DateTagLocation
+				switch tagLoc {
+				case "prefix":
+					tagLocEnum = enums.DateTagLocPrefix
+				case "suffix":
+					tagLocEnum = enums.DateTagLocSuffix
+				default:
+					logging.E("Invalid filename date tag entry. Should be 'date-tag:prefix/suffix:ymd'")
+					continue
+				}
+				e, err := dateEnum(dateFmt)
+				if err != nil {
+					logging.E("Invalid date format, should be 'ymd', 'Ydm' (etc)")
+					continue
+				}
+				fOpModel.DateTag = &models.FOpDateTag{
+					Loc:        tagLocEnum,
+					DateFormat: e,
+				}
+				validOps = append(validOps, op)
+			case "delete-date-tag":
+				if fOpModel.DeleteDateTags != nil {
+					logging.W("Only one delete date tag accepted, try using 'all' to replace all instances")
+					continue
+				}
+				tagLoc := opParts[1]
+				dateFmt := opParts[2]
+				var tagLocEnum enums.DateTagLocation
+				switch tagLoc {
+				case "prefix":
+					tagLocEnum = enums.DateTagLocPrefix
+				case "suffix":
+					tagLocEnum = enums.DateTagLocSuffix
+				case "all":
+					tagLocEnum = enums.DateTagLocAll
+				default:
+					logging.E("Invalid filename delete-date-tag entry. Should be 'delete-date-tag:prefix/suffix/all:ymd'")
+					continue
+				}
+				e, err := dateEnum(dateFmt)
+				if err != nil {
+					logging.E("Invalid date format, should be 'ymd', 'Ydm' (etc)")
+					continue
+				}
+				fOpModel.DeleteDateTags = &models.FOpDeleteDateTag{
+					Loc:        tagLocEnum,
+					DateFormat: e,
+				}
+				validOps = append(validOps, op)
+			case "replace":
+				findStr := opParts[1]
+				replaceStr := opParts[2]
+				fOpModel.Replaces = append(fOpModel.Replaces, models.FOpReplace{
+					FindString:  findStr,
+					Replacement: replaceStr,
+				})
+				validOps = append(validOps, op)
+			case "trim-suffix":
+				findSuffix := opParts[1]
+				replaceStr := opParts[2]
+				fOpModel.ReplaceSuffixes = append(fOpModel.ReplaceSuffixes, models.FOpReplaceSuffix{
+					Suffix:      findSuffix,
+					Replacement: replaceStr,
+				})
+				validOps = append(validOps, op)
+			case "trim-prefix":
+				findPrefix := opParts[1]
+				replaceStr := opParts[2]
+				fOpModel.ReplacePrefixes = append(fOpModel.ReplacePrefixes, models.FOpReplacePrefix{
+					Prefix:      findPrefix,
+					Replacement: replaceStr,
+				})
+				validOps = append(validOps, op)
+			default:
+				logging.E(invalidWarning, op)
+				continue
+			}
 		}
-		filenameReplacePrefix = append(filenameReplacePrefix, models.FilenameReplacePrefix{
-			Prefix:      parts[0],
-			Replacement: parts[1],
-		})
 	}
-	if len(filenameReplacePrefix) > 0 {
-		logging.I("Filename replace prefixes: %v", filenameReplacePrefix)
-		abstractions.Set(keys.FilenameReplacePfx, filenameReplacePrefix)
+	if len(validOps) == 0 {
+		return fmt.Errorf("no valid filename operations were entered. Got: %v", filenameOps)
 	}
-	return nil
-}
+	logging.I("Added %d filename operations: %v", len(validOps), validOps)
 
-// ValidateSetFilenameStringReplace checks if the input format for filename string replacements is valid.
-func ValidateSetFilenameStringReplace(replaceStrings []string) error {
-	filenameReplaceStrings := make([]models.FilenameReplaceStrings, 0, len(replaceStrings))
-
-	for _, pair := range replaceStrings {
-		parts := strings.SplitN(pair, ":", 2)
-		if len(parts) < 2 {
-			return errors.New("invalid use of filename-replace-strings, values must be written as 'find:replacement'")
-		}
-		filenameReplaceStrings = append(filenameReplaceStrings, models.FilenameReplaceStrings{
-			FindString:  parts[0],
-			ReplaceWith: parts[1],
-		})
+	// Set values into Viper
+	abstractions.Set(keys.FilenameOpsModels, fOpModel)
+	if fOpModel.DeleteDateTags != nil {
+		abstractions.Set(keys.FilenameDeleteDateTags, fOpModel.DeleteDateTags)
 	}
-	if len(filenameReplaceStrings) > 0 {
-		logging.I("Filename replace strings: %v", filenameReplaceStrings)
-		abstractions.Set(keys.FilenameReplaceStr, filenameReplaceStrings)
-	}
-	return nil
-}
-
-// ValidateDateReplaceFormat initializes the user's preferred format for dates.
-func ValidateDateReplaceFormat(dateFmt string) error {
-	dateFmt = strings.TrimSpace(dateFmt)
-
-	formatEnum, err := dateEnum(dateFmt)
-	if err != nil {
-		return err
-	}
-
-	abstractions.Set(keys.FileDateFmt, formatEnum)
-	logging.D(1, "Set file date format to %v", formatEnum)
 
 	return nil
 }

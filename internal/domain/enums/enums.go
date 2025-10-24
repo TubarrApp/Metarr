@@ -71,13 +71,14 @@ const (
 	DateMmDd
 )
 
-// MetaDateTagLocation determines where a date tag should be added in a string.
-type MetaDateTagLocation int
+// DateTagLocation determines where a date tag should be added in a string.
+type DateTagLocation int
 
-// MetaDateTagLocation definitions.
+// DateTagLocation definitions.
 const (
-	DateTagLogPrefix MetaDateTagLocation = iota
-	DateTagLogSuffix
+	DateTagLocPrefix DateTagLocation = iota
+	DateTagLocSuffix
+	DateTagLocAll
 )
 
 // MetaDateTaggingType determines the type of operation to perform for date tags.

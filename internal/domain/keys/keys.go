@@ -21,13 +21,9 @@ const (
 	MaxCPU          string = "max-cpu"
 	MinFreeMemInput string = "min-free-mem"
 
-	FilenameReplaceSfx string = "filename-replace-suffix"
-	FilenameReplacePfx string = "filename-replace-prefix"
-	FilenameReplaceStr string = "filename-replace-strings"
-	InputFileDatePfx   string = "filename-date-tag"
-	DeleteDateTagPfx   string = "filename-date-tag-delete"
-	RenameStyle        string = "rename-style"
-	MFilenamePfx       string = "metadata-filename-prefix"
+	FilenameOpsInput string = "filename-ops"
+	RenameStyle      string = "rename-style"
+	MFilenamePfx     string = "metadata-filename-prefix"
 
 	MetaOps      string = "meta-ops"
 	MDescDatePfx string = "desc-date-prefix"
@@ -73,8 +69,7 @@ const (
 
 // Filename edits
 const (
-	Rename      string = "Rename"
-	FileDateFmt string = "filenameDateTag"
+	Rename string = "Rename"
 )
 
 // Meta edits
@@ -93,10 +88,8 @@ const (
 	MDelDateTagMap  string = "metaDelDateTagMap"
 )
 
-// MultiEntryFields lists the fields containing multiple entries.
-var MultiEntryFields = []string{
-	InputVideoExts,
-	InputMetaExts,
-	FilePrefixes,
-	FilenameReplaceSfx,
-}
+// Internal filename operation keys. Not exposed to end user.
+const (
+	FilenameOpsModels      string = "INTERNAL-filename-ops"
+	FilenameDeleteDateTags string = "INTERNAL-filename-delete-date-tags"
+)

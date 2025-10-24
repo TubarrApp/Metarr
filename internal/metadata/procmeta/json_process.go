@@ -123,8 +123,25 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		logging.D(2, "Some metafields were unfilled")
 	}
 
-	// Make filename date tag
-	logging.D(3, "About to make date tag for: %v", file.Name())
+	// Construct date tag
+	logging.D(1, "About to make date tag for: %v", file.Name())
+	if fd.FilenameOps != nil && fd.FilenameOps.DateTag != nil {
+		dateTagOp := fd.FilenameOps.DateTag
+		dateFmt := dateTagOp.DateFormat
+
+		if dateFmt != enums.DateFmtSkip {
+			dateTag, err := metatags.MakeDateTag(data, fd, dateFmt)
+			if err != nil {
+				logging.E("Failed to make date tag: %v", err)
+			} else if !strings.Contains(file.Name(), dateTag) {
+				fd.FilenameDateTag = dateTag
+			}
+		} else {
+			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
+		}
+	} else {
+		logging.D(1, "No date tag operation configured for %q", file.Name())
+	}
 
 	if logging.Level > 3 {
 		printout.CreateModelPrintout(fd, fd.OriginalVideoBaseName, "Printing model fields before making date tag")
@@ -134,25 +151,6 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	if abstractions.IsSet(keys.MFilenamePfx) {
 		logging.D(3, "About to make prefix tag for: %v", file.Name())
 		fd.FilenameMetaPrefix = metatags.MakeFilenameTag(data, file)
-	}
-
-	logging.D(3, "About to make date tag for: %v", file.Name())
-	if abstractions.IsSet(keys.FileDateFmt) {
-		dateFmt, ok := abstractions.Get(keys.FileDateFmt).(enums.DateFormat)
-		switch {
-		case !ok:
-			logging.E("Got null or wrong type for file date format. Got type %T", dateFmt)
-		case dateFmt != enums.DateFmtSkip:
-			dateTag, err := metatags.MakeDateTag(data, fd, dateFmt)
-			if err != nil {
-				logging.E("Failed to make date tag: %v", err)
-			}
-			if !strings.Contains(file.Name(), dateTag) {
-				fd.FilenameDateTag = dateTag
-			}
-		default:
-			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
-		}
 	}
 
 	// Check if metadata is already existent in target file

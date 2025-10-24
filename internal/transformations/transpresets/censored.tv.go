@@ -78,7 +78,7 @@ func censoredTvFSuffixes(fd *models.FileData) {
 			logging.I(`Added filename suffix replacement %q -> ""`, checkForSuffix)
 		}
 	}
-	logging.I("Total filename suffix replacements: %d", len(fd.FilenameReplaceSuffix))
+	logging.I("Total filename suffix replacements: %d", len(fd.FilenameOps.ReplaceSuffixes))
 }
 
 // censoredSuffixExists checks if the suffix exists.

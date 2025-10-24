@@ -78,34 +78,14 @@ func initAllFileTransformers() error {
 	}
 
 	// Prefix files with date tag
-	rootCmd.PersistentFlags().String(keys.InputFileDatePfx, "", "Looks for dates in metadata to prefix the video with. (date:format [e.g. Ymd for yyyy-mm-dd])")
-	if err := viper.BindPFlag(keys.InputFileDatePfx, rootCmd.PersistentFlags().Lookup(keys.InputFileDatePfx)); err != nil {
-		return err
-	}
-
-	// Strip existing date tag
-	rootCmd.PersistentFlags().Bool(keys.DeleteDateTagPfx, false, "Delete existing date tags from files")
-	if err := viper.BindPFlag(keys.DeleteDateTagPfx, rootCmd.PersistentFlags().Lookup(keys.DeleteDateTagPfx)); err != nil {
+	rootCmd.PersistentFlags().StringSlice(keys.FilenameOpsInput, nil, "Filename operations for renaming files (e.g. 'prefix:[CATEGORY] ', 'date-tag:prefix:ymd')")
+	if err := viper.BindPFlag(keys.FilenameOpsInput, rootCmd.PersistentFlags().Lookup(keys.FilenameOpsInput)); err != nil {
 		return err
 	}
 
 	// Rename convention
 	rootCmd.PersistentFlags().StringP(keys.RenameStyle, "r", "skip", "Rename flag (spaces, underscores, fixes-only, or skip)")
 	if err := viper.BindPFlag(keys.RenameStyle, rootCmd.PersistentFlags().Lookup(keys.RenameStyle)); err != nil {
-		return err
-	}
-
-	// Replace filename suffix/prefix/strings
-	rootCmd.PersistentFlags().StringSlice(keys.FilenameReplaceSfx, nil, "Replaces a specified suffix on filenames. (suffix:replacement)")
-	if err := viper.BindPFlag(keys.FilenameReplaceSfx, rootCmd.PersistentFlags().Lookup(keys.FilenameReplaceSfx)); err != nil {
-		return err
-	}
-	rootCmd.PersistentFlags().StringSlice(keys.FilenameReplacePfx, nil, "Replaces a specified prefix on filenames. (prefix:replacement)")
-	if err := viper.BindPFlag(keys.FilenameReplacePfx, rootCmd.PersistentFlags().Lookup(keys.FilenameReplacePfx)); err != nil {
-		return err
-	}
-	rootCmd.PersistentFlags().StringSlice(keys.FilenameReplaceStr, nil, "Replaces all instances of a specified string in the filename (find:replace)")
-	if err := viper.BindPFlag(keys.FilenameReplaceStr, rootCmd.PersistentFlags().Lookup(keys.FilenameReplaceStr)); err != nil {
 		return err
 	}
 

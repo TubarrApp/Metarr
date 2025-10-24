@@ -3,6 +3,7 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/abstractions"
+	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
@@ -16,7 +17,6 @@ import (
 
 // shouldRename determines if file rename operations are needed for this file
 func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
-	dateFmt := abstractions.GetString(keys.FileDateFmt)
 	rName := enums.RenamingSkip
 
 	var ok bool
@@ -29,21 +29,9 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 
 	switch {
 	case fd.FilenameMetaPrefix != "",
-		len(fd.FilenameReplaceSuffix) > 0,
-		len(fd.FilenameReplacePrefix) > 0,
-		len(fd.FilenameReplaceStrings) > 0,
-		dateFmt != "",
 		rName != enums.RenamingSkip:
 
-		logging.I("Flag detected that %q should be renamed\n\nFilename prefix: %q\nFile string replacements: %v\nFile suffix replacements: %v\nFile prefix replacements:%v\nFile date format: %q\nFile date tag: %q\nFile rename: %v",
-			fd.OriginalVideoPath,
-			fd.FilenameMetaPrefix,
-			fd.FilenameReplaceStrings,
-			fd.FilenameReplaceSuffix,
-			fd.FilenameReplacePrefix,
-			dateFmt,
-			fd.FilenameDateTag,
-			rName != enums.RenamingSkip)
+		logging.I("Flag detected that %q should be renamed", fd.OriginalVideoPath)
 		rename = true
 	}
 
@@ -51,7 +39,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		move = true
 	}
 
-	if abstractions.IsSet(keys.InputFileDatePfx) {
+	if abstractions.IsSet(keys.FilenameOpsModels) {
 		rename = true
 	}
 
@@ -116,16 +104,10 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 		renamedMeta = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedMeta)
 	}
 
-	if len(m.FilenameDateTag) > 2 {
-		renamedVideo = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedVideo)
-		renamedMeta = fmt.Sprintf("%s %s", m.FilenameDateTag, renamedMeta)
-	}
-
 	if style == enums.RenamingUnderscores {
 		renamedVideo = strings.ReplaceAll(renamedVideo, " ", "_")
 		renamedMeta = strings.ReplaceAll(renamedMeta, " ", "_")
 	}
-
 	return renamedVideo, renamedMeta
 }
 
@@ -198,7 +180,7 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 }
 
 // replaceStrings applies configured string replacements to a filename.
-func replaceStrings(filename string, replaceStrings []models.FilenameReplaceStrings) string {
+func replaceStrings(filename string, replaceStrings []models.FOpReplace) string {
 	if len(replaceStrings) == 0 {
 		logging.D(1, "No string replacements configured, keeping original filename: %q", filename)
 		return filename
@@ -208,7 +190,7 @@ func replaceStrings(filename string, replaceStrings []models.FilenameReplaceStri
 
 	for _, rep := range replaceStrings {
 		prevFilename := filename
-		filename = strings.ReplaceAll(filename, rep.FindString, rep.ReplaceWith)
+		filename = strings.ReplaceAll(filename, rep.FindString, rep.Replacement)
 
 		if filename == prevFilename {
 			lowerFindString := strings.ToLower(rep.FindString)
@@ -221,14 +203,14 @@ func replaceStrings(filename string, replaceStrings []models.FilenameReplaceStri
 				logging.W("String replacements are case-sensitive!\nFound %q in string %q, but not user-specified %q.", lowerFindString, filename, rep.FindString)
 			}
 		} else {
-			logging.D(2, "Replacement made: %s -> %s (replaced %q with %q)", prevFilename, filename, rep.FindString, rep.ReplaceWith)
+			logging.D(2, "Replacement made: %s -> %s (replaced %q with %q)", prevFilename, filename, rep.FindString, rep.Replacement)
 		}
 	}
 	return filename
 }
 
 // replaceSuffix applies configured suffix replacements to a filename.
-func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) string {
+func replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
 
 	logging.D(2, "Received filename %s", filename)
 
@@ -252,7 +234,7 @@ func replaceSuffix(filename string, suffixes []models.FilenameReplaceSuffix) str
 }
 
 // replacePrefix applies configured suffix replacements to a filename.
-func replacePrefix(filename string, prefixes []models.FilenameReplacePrefix) string {
+func replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
 
 	logging.D(2, "Received filename %s", filename)
 
@@ -272,6 +254,131 @@ func replacePrefix(filename string, prefixes []models.FilenameReplacePrefix) str
 			break // Break after prefix found and removed
 		}
 	}
+	return filename
+}
+
+// appendStrings applies configured string appends to a filename.
+func appendStrings(filename string, appends []models.FOpAppend) string {
+	if len(appends) == 0 {
+		logging.D(1, "No string appends configured, keeping original filename: %q", filename)
+		return filename
+	}
+	logging.D(2, "Processing filename %s with string appends: %v", filename, appends)
+	for _, app := range appends {
+		prevFilename := filename
+		filename = filename + app.Value
+		logging.D(2, "Append made: %s -> %s (appended %q)", prevFilename, filename, app.Value)
+	}
+	return filename
+}
+
+// prefixStrings applies configured string prefixes to a filename.
+func prefixStrings(filename string, prefixes []models.FOpPrefix) string {
+	if len(prefixes) == 0 {
+		logging.D(1, "No string prefixes configured, keeping original filename: %q", filename)
+		return filename
+	}
+	logging.D(2, "Processing filename %s with string prefixes: %v", filename, prefixes)
+	for _, pre := range prefixes {
+		prevFilename := filename
+		filename = pre.Value + filename
+		logging.D(2, "Prefix made: %s -> %s (prefixed %q)", prevFilename, filename, pre.Value)
+	}
+	return filename
+}
+
+// addDateTag applies a date tag to a filename at the specified location.
+func addDateTag(filename string, dateTag *models.FOpDateTag, dateTagStr string) string {
+	if dateTag == nil {
+		logging.D(1, "No date tag configured, keeping original filename: %q", filename)
+		return filename
+	}
+
+	if dateTagStr == "" {
+		logging.W("No date tag string provided for date tag, keeping original filename: %q", filename)
+		return filename
+	}
+
+	var result string
+	switch dateTag.Loc {
+	case enums.DateTagLocPrefix:
+		if strings.HasPrefix(filename, dateTagStr) {
+			return filename
+		}
+
+		result = dateTagStr + " " + filename
+		logging.D(2, "Added date tag prefix: %s -> %s", filename, result)
+	case enums.DateTagLocSuffix:
+		if strings.HasSuffix(filename, dateTagStr) {
+			return filename
+		}
+
+		result = filename + " " + dateTagStr
+		logging.D(2, "Added date tag suffix: %s -> %s", filename, result)
+	default:
+		logging.W("Invalid date tag location: %v, keeping original filename", dateTag.Loc)
+		return filename
+	}
+
+	return result
+}
+
+// deleteDateTag removes date tags from a filename at the specified location(s).
+func deleteDateTag(filename string, deleteTag *models.FOpDeleteDateTag) string {
+	if deleteTag == nil {
+		logging.D(1, "No delete date tag configured, keeping original filename: %q", filename)
+		return filename
+	}
+
+	prevFilename := filename
+
+	switch deleteTag.Loc {
+	case enums.DateTagLocPrefix:
+		filename = dates.StripDateTag(filename, enums.DateTagLocPrefix)
+		logging.D(2, "Stripped prefix date tag: %s -> %s", prevFilename, filename)
+	case enums.DateTagLocSuffix:
+		filename = dates.StripDateTag(filename, enums.DateTagLocSuffix)
+		logging.D(2, "Stripped suffix date tag: %s -> %s", prevFilename, filename)
+	case enums.DateTagLocAll:
+		// Strip all date tags from anywhere in the string
+		for {
+			oldFilename := filename
+			// Look for any [date] pattern
+			openTag := strings.Index(filename, "[")
+			if openTag == -1 {
+				break
+			}
+			closeTag := strings.Index(filename[openTag:], "]")
+			if closeTag == -1 {
+				break
+			}
+			closeTag += openTag
+
+			dateStr := filename[openTag+1 : closeTag]
+			if regex.DateTagCompile().MatchString(dateStr) {
+				// Remove this date tag
+				filename = filename[:openTag] + filename[closeTag+1:]
+			} else {
+				// Not a valid date tag, skip past this bracket
+				if closeTag+1 >= len(filename) {
+					break
+				}
+				// Replace the opening bracket temporarily to skip it
+				filename = filename[:openTag] + "\x00" + filename[openTag+1:]
+			}
+
+			if oldFilename == filename {
+				break
+			}
+		}
+		// Restore any temporarily replaced brackets
+		filename = strings.ReplaceAll(filename, "\x00", "[")
+		logging.D(2, "Stripped all date tags: %s -> %s", prevFilename, filename)
+	default:
+		logging.W("Unknown date tag location: %v, keeping original filename", deleteTag.Loc)
+		return filename
+	}
+
 	return filename
 }
 

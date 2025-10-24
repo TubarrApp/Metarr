@@ -9,7 +9,6 @@ import (
 	"metarr/internal/ffmpeg"
 	"metarr/internal/metadata/procmeta"
 	"metarr/internal/models"
-	"metarr/internal/transformations"
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"os"
@@ -240,14 +239,20 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		matchedFiles = metaMap
 	}
 
-	// Strip existing date tag
-	if abstractions.GetBool(keys.DeleteDateTagPfx) {
-		logging.I("Stripping date tags from files...")
-		err := transformations.StripDateTagFromFilename(matchedFiles, videoMap, metaMap)
-		if err != nil {
-			logging.E("Failed to strip date tags: %v", err)
-		}
-	}
+	// // Strip existing date tag
+	// if abstractions.IsSet(keys.FilenameDeleteDateTags) {
+	// 	deleteDateTagModel, ok := abstractions.Get(keys.FilenameDeleteDateTags).(*models.FOpDeleteDateTag)
+	// 	if !ok || deleteDateTagModel == nil {
+	// 		logging.E("Got wrong type %T or 'nil' for filename ops models", deleteDateTagModel)
+	// 	}
+
+	// 	logging.I("Stripping date tags from files...")
+	// 	err := transformations.StripDateTagFromFilename(deleteDateTagModel, matchedFiles, videoMap, metaMap)
+	// 	if err != nil {
+	// 		logging.E("Failed to strip date tags: %v", err)
+	// 	}
+
+	// }
 
 	var (
 		openMetaFilename,
@@ -346,9 +351,6 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
 	go func() {
 		<-ctx.Done()
-
-		logging.I("Shutdown signal received, cleaning up temporary files...")
-
 		// Wait for workers to finish
 		wg.Wait()
 

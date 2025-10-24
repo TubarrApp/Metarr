@@ -116,7 +116,7 @@ type MetaNewField struct {
 
 // MetaDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDateTag struct {
-	Loc    enums.MetaDateTagLocation
+	Loc    enums.DateTagLocation
 	Format enums.DateFormat
 }
 
