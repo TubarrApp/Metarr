@@ -24,9 +24,7 @@ import (
 	"sync"
 )
 
-var (
-	mu sync.Mutex
-)
+var jsonEditMutexMap sync.Map
 
 // ProcessJSONFile opens and processes a JSON file.
 func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
@@ -36,11 +34,15 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	logging.D(2, "Beginning JSON file processing...")
 
-	// Function mutex
-	mu.Lock()
-	defer mu.Unlock()
-
 	filePath := fd.JSONFilePath
+	value, _ := jsonEditMutexMap.LoadOrStore(filePath, &sync.Mutex{})
+	fileMutex, ok := value.(*sync.Mutex)
+	if !ok {
+		return nil, fmt.Errorf("internal error: mutex map corrupted for file %s", filePath)
+	}
+
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 
 	// Open the file
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
@@ -71,8 +73,8 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 
 	// Get web data first (before MakeMetaEdits in case of transformation presets)
-	ok := jsonfields.FillWebpageDetails(fd, data)
-	if ok {
+	gotWebData := jsonfields.FillWebpageDetails(fd, data)
+	if gotWebData {
 		logging.I("URLs grabbed: %s", fd.MWebData.TryURLs)
 	}
 
@@ -125,22 +127,29 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	// Construct date tag
 	logging.D(1, "About to make date tag for: %v", file.Name())
-	if fd.FilenameOps != nil && fd.FilenameOps.DateTag != nil {
-		dateTagOp := fd.FilenameOps.DateTag
-		dateFmt := dateTagOp.DateFormat
 
-		if dateFmt != enums.DateFmtSkip {
-			dateTag, err := metatags.MakeDateTag(data, fd, dateFmt)
-			if err != nil {
-				logging.E("Failed to make date tag: %v", err)
-			} else if !strings.Contains(file.Name(), dateTag) {
-				fd.FilenameDateTag = dateTag
-			}
-		} else {
-			logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
-		}
-	} else {
+	// Should skip date tag generation?
+	var skipDateTag bool
+	if fd.FilenameOps == nil || fd.FilenameOps.DateTag == nil {
 		logging.D(1, "No date tag operation configured for %q", file.Name())
+		skipDateTag = true
+
+	} else if fd.FilenameOps.DateTag.DateFormat == enums.DateFmtSkip {
+		logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
+		skipDateTag = true
+	}
+
+	// Make date tag and apply to model if necessary
+	if !skipDateTag {
+		dateTag, err := metatags.MakeDateTag(data, fd, fd.FilenameOps.DateTag.DateFormat)
+		switch {
+		case err != nil:
+			logging.E("Failed to make date tag: %v", err)
+		case strings.Contains(file.Name(), dateTag):
+			logging.I("Date tag %q already found in file name %q", dateTag, file.Name())
+		default:
+			fd.FilenameDateTag = dateTag
+		}
 	}
 
 	if logging.Level > 3 {

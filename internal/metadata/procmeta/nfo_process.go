@@ -9,7 +9,10 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
+	"sync"
 )
+
+var nfoEditMutexMap sync.Map
 
 // ProcessNFOFiles processes NFO files and sends data into the metadata model
 func ProcessNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
@@ -18,6 +21,16 @@ func ProcessNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 
 	logging.D(2, "Beginning NFO file processing...")
+
+	filePath := fd.NFOFilePath
+	value, _ := nfoEditMutexMap.LoadOrStore(filePath, &sync.Mutex{})
+	fileMutex, ok := value.(*sync.Mutex)
+	if !ok {
+		return nil, fmt.Errorf("internal error: mutex map corrupted for file %s", filePath)
+	}
+
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 
 	// Open the file
 	file, err := os.OpenFile(fd.NFOFilePath, os.O_RDWR, 0o644)

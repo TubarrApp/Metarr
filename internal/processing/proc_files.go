@@ -239,21 +239,6 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		matchedFiles = metaMap
 	}
 
-	// // Strip existing date tag
-	// if abstractions.IsSet(keys.FilenameDeleteDateTags) {
-	// 	deleteDateTagModel, ok := abstractions.Get(keys.FilenameDeleteDateTags).(*models.FOpDeleteDateTag)
-	// 	if !ok || deleteDateTagModel == nil {
-	// 		logging.E("Got wrong type %T or 'nil' for filename ops models", deleteDateTagModel)
-	// 	}
-
-	// 	logging.I("Stripping date tags from files...")
-	// 	err := transformations.StripDateTagFromFilename(deleteDateTagModel, matchedFiles, videoMap, metaMap)
-	// 	if err != nil {
-	// 		logging.E("Failed to strip date tags: %v", err)
-	// 	}
-
-	// }
-
 	var (
 		openMetaFilename,
 		openVideoFilename,
