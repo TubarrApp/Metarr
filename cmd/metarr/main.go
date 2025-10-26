@@ -66,10 +66,10 @@ func main() {
 	initializeApplication()
 
 	// Start logging
-	dir := filepath.Dir(paths.HomeMetarrDir)
-	logging.I("Setting log file at %q", dir)
+	logDir := filepath.Dir(paths.LogFilePath)
+	logging.I("Setting log file at %q", logDir)
 
-	if err = logging.SetupLogging(dir); err != nil {
+	if err = logging.SetupLogging(logDir); err != nil {
 		fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
 	}
 

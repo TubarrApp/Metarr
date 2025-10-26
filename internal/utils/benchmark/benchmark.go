@@ -5,7 +5,9 @@ package benchmark
 
 import (
 	"fmt"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/keys"
 	"metarr/internal/domain/paths"
 	"metarr/internal/utils/logging"
 	"os"
@@ -42,6 +44,10 @@ func CloseBenchmarking() {
 
 // SetupBenchmarking sets up and initiates benchmarking for a program run.
 func SetupBenchmarking() (*BenchFiles, error) {
+	if !abstractions.IsSet(keys.Benchmarking) {
+		return nil, nil
+	}
+
 	var err error
 	b := new(BenchFiles)
 

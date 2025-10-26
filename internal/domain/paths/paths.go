@@ -45,10 +45,12 @@ func InitProgFilesDirs() error {
 	LogFilePath = filepath.Join(logOutputDir, logFile)
 
 	// Benchmark directory
-	BenchmarkDir = filepath.Join(HomeMetarrDir, benchmarkDir)
-	if _, err := os.Stat(BenchmarkDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(BenchmarkDir, consts.PermsGenericDir); err != nil {
-			return fmt.Errorf("failed to make benchmark directory: %w", err)
+	if abstractions.IsSet(keys.Benchmarking) {
+		BenchmarkDir = filepath.Join(HomeMetarrDir, benchmarkDir)
+		if _, err := os.Stat(BenchmarkDir); os.IsNotExist(err) {
+			if err := os.MkdirAll(BenchmarkDir, consts.PermsGenericDir); err != nil {
+				return fmt.Errorf("failed to make benchmark directory: %w", err)
+			}
 		}
 	}
 	return nil
