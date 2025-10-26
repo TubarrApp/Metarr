@@ -9,6 +9,7 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
+	"path/filepath"
 )
 
 // initializeApplication sets up the application for the current run.
@@ -22,9 +23,12 @@ func initializeApplication() {
 	fmt.Printf("\nMain Metarr file/dir locations:\n\nMetarr Directories: %s\nLog file: %s\n\n",
 		paths.HomeMetarrDir, paths.LogFilePath)
 
-	// Setup logging
-	if err := logging.SetupLogging(paths.HomeMetarrDir); err != nil {
-		fmt.Printf("could not set up logging, proceeding without: %v", err)
+	// Start logging
+	logDir := filepath.Dir(paths.LogFilePath)
+	fmt.Printf("Setting log file at %q", logDir)
+
+	if err := logging.SetupLogging(logDir); err != nil {
+		fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
 	}
 }
 
