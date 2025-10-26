@@ -16,7 +16,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
-	Short: "metarr is a video and metatagging tool",
+	Short: "Metarr is a video and metatagging tool.",
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		// Set logging level
 		logging.Level = min(max(viper.GetInt(keys.DebugLevel), 0), 5)
