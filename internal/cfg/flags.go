@@ -29,12 +29,12 @@ func initFilesDirs() error {
 	}
 
 	// JSON
-	rootCmd.PersistentFlags().StringSliceP(keys.JSONDirs, "j", nil, "A directory containing videos")
+	rootCmd.PersistentFlags().StringSliceP(keys.JSONDirs, "j", nil, "A directory containing JSON metadata files")
 	if err := viper.BindPFlag(keys.JSONDirs, rootCmd.PersistentFlags().Lookup(keys.JSONDirs)); err != nil {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringSliceP(keys.JSONFiles, "J", nil, "A directory containing videos")
+	rootCmd.PersistentFlags().StringSliceP(keys.JSONFiles, "J", nil, "A JSON metadata file")
 	if err := viper.BindPFlag(keys.JSONFiles, rootCmd.PersistentFlags().Lookup(keys.JSONFiles)); err != nil {
 		return err
 	}
