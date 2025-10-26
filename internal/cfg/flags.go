@@ -190,7 +190,7 @@ func initVideoTransformers() error {
 // initFiltering initializes user flag settings for filtering files to work with.
 func initFiltering() error {
 	// Video file extensions to convert
-	rootCmd.PersistentFlags().StringSliceP(keys.InputVideoExts, "e", []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
+	rootCmd.PersistentFlags().StringSlice(keys.InputVideoExts, []string{"all"}, "File extensions to convert (all, mkv, mp4, webm)")
 	if err := viper.BindPFlag(keys.InputVideoExts, rootCmd.PersistentFlags().Lookup(keys.InputVideoExts)); err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func initFiltering() error {
 	}
 
 	// Only convert files with prefix
-	rootCmd.PersistentFlags().StringSliceP(keys.FilePrefixes, "p", []string{""}, "Filters files by prefixes")
+	rootCmd.PersistentFlags().StringSlice(keys.FilePrefixes, []string{""}, "Filters files by prefixes")
 	if err := viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes)); err != nil {
 		return err
 	}
