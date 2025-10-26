@@ -55,8 +55,6 @@ func main() {
 
 	// Early exit if not executing
 	if !abstractions.GetBool("execute") {
-		fmt.Println()
-		logging.I("(Separate fields supporting multiple entries by commas with no spaces e.g. \"title:example,date:20240101\")\n")
 		return
 	}
 
@@ -112,7 +110,6 @@ func main() {
 	case <-ctx.Done():
 		logging.I("Shutdown was triggered by signal")
 	default:
-		// Normal completion
 	}
 
 	// End program run
