@@ -161,7 +161,6 @@ func (fp *fileProcessor) processRenames(videoBase, metaBase string) (string, str
 
 // constructFinalPaths creates and validates the final file paths.
 func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, metaExt string) error {
-
 	renamedVPath := filepath.Join(fp.fd.VideoDirectory, renamedVideo+vidExt)
 	renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
 

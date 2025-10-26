@@ -8,17 +8,11 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
 
-var (
-	logInit    bool
-	muBatchID  sync.Mutex
-	muLogSetup sync.Mutex
-	atomID     int64
-)
+var atomID int64
 
 type batch struct {
 	ID         int64
@@ -107,19 +101,6 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 			continue
 		}
 
-		// Start logging
-		if !logInit {
-			muLogSetup.Lock()
-			dir := filepath.Dir(openJSON.Name())
-			logging.I("Setting log file at %q", dir)
-
-			if err = logging.SetupLogging(dir); err != nil {
-				fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
-			}
-			logInit = true
-			muLogSetup.Unlock()
-		}
-
 		// Initiate batch process
 		if err := processBatch(batch, core, openVideo, openJSON); err != nil {
 			return err
@@ -133,9 +114,9 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 
 		var videoDoneMsg string
 		if !batch.SkipVideos {
-			videoDoneMsg = fmt.Sprintf("Video %s: %q\n", fileOrDirMsg, batch.Video)
+			videoDoneMsg = fmt.Sprintf("Input Video %s: %q\n", fileOrDirMsg, batch.Video)
 		}
-		logging.I("Finished tasks for:\n\n%sJSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
+		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {
@@ -154,11 +135,8 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 
 // convertCfgToBatch converts a config batch to a local batch.
 func convertCfgToBatch(config models.BatchConfig) *batch {
-
-	muBatchID.Lock()
 	atomic.AddInt64(&atomID, 1)
 	id := atomic.LoadInt64(&atomID)
-	muBatchID.Unlock()
 
 	newBatch := &batch{
 		ID:         id,

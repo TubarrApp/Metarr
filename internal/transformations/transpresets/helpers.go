@@ -47,9 +47,9 @@ func addSuffix(fd *models.FileData, suffix, replacement string) {
 	}, nil)
 }
 
-// addPrefix is a convenience function to add a single prefix replacement.
-func addPrefix(fd *models.FileData, prefix, replacement string) {
-	addFilenameReplacements(fd, nil, []models.FOpReplacePrefix{
-		{Prefix: prefix, Replacement: replacement},
-	})
-}
+// // addPrefix is a convenience function to add a single prefix replacement.
+// func addPrefix(fd *models.FileData, prefix, replacement string) {
+// 	addFilenameReplacements(fd, nil, []models.FOpReplacePrefix{
+// 		{Prefix: prefix, Replacement: replacement},
+// 	})
+// }

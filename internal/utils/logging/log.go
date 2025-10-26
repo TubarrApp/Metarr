@@ -79,7 +79,10 @@ func SetupLogging(targetDir string) error {
 	fileLogger = zerolog.New(logfile).With().Timestamp().Logger()
 	Loggable = true
 
-	b := builderPool.Get().(*strings.Builder) //nolint:errcheck
+	b, ok := builderPool.Get().(*strings.Builder)
+	if !ok {
+		return fmt.Errorf("dev error: builderPool stored wrong variable type %T", b)
+	}
 	b.Reset()
 	defer func() {
 		b.Reset()
@@ -127,7 +130,12 @@ func getCaller(skip int) callerInfo {
 
 // buildLogMessage constructs a log message with optional caller info
 func buildLogMessage(prefix, msg string, caller *callerInfo) string {
-	b := builderPool.Get().(*strings.Builder) //nolint:errcheck
+	b, ok := builderPool.Get().(*strings.Builder)
+	if !ok {
+		fmt.Printf("Dev error: builderPool stored wrong variable type %T", b)
+		return ""
+	}
+
 	b.Reset()
 	defer func() {
 		b.Reset()

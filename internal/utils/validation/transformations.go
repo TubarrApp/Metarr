@@ -178,7 +178,7 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 	return ops, nil
 }
 
-// ValidateFilenameOps checks and validates filename operations.
+// ValidateSetFilenameOps checks and validates filename operations.
 func ValidateSetFilenameOps(filenameOps []string) error {
 	if len(filenameOps) == 0 {
 		logging.D(2, "No filename operations to add.")

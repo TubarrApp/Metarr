@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/cfg"
+	"metarr/internal/domain/paths"
 	"metarr/internal/models"
 	"metarr/internal/processing"
 	"metarr/internal/utils/benchmark"
@@ -14,6 +15,7 @@ import (
 	"metarr/internal/utils/prompt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
@@ -62,6 +64,14 @@ func main() {
 
 	// Initialize application
 	initializeApplication()
+
+	// Start logging
+	dir := filepath.Dir(paths.HomeMetarrDir)
+	logging.I("Setting log file at %q", dir)
+
+	if err = logging.SetupLogging(dir); err != nil {
+		fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
+	}
 
 	// Setup context for cancellation
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
