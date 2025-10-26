@@ -55,6 +55,7 @@ func main() {
 
 	// Early exit if not executing
 	if !abstractions.GetBool("execute") {
+		fmt.Println()
 		return
 	}
 
