@@ -12,7 +12,7 @@ import (
 // initFilesDirs initializes user flag settings for input files and directories.
 func initFilesDirs() error {
 	// Batch
-	rootCmd.PersistentFlags().StringSlice(keys.BatchPairsInput, nil, "Pairs of video and JSON directories (e.g. '/videodir:/metadir')")
+	rootCmd.PersistentFlags().StringSliceP(keys.BatchPairsInput, "b", nil, "Pairs of video and JSON directories (e.g. '/videodir:/metadir')")
 	if err := viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput)); err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func initMetaTransformers() error {
 // initVideoTransformers initializes user flag settings for transformation of video files.
 func initVideoTransformers() error {
 	// Output extension type
-	rootCmd.PersistentFlags().String(keys.OutputFiletype, "", "File extension to output files as (mp4 works best for most media servers)")
+	rootCmd.PersistentFlags().StringP(keys.OutputFiletype, "e", "", "File extension to output files as (mp4 works best for most media servers)")
 	if err := viper.BindPFlag(keys.OutputFiletype, rootCmd.PersistentFlags().Lookup(keys.OutputFiletype)); err != nil {
 		return err
 	}
