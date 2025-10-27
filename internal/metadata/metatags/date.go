@@ -13,7 +13,6 @@ import (
 
 // MakeDateTag attempts to create the date tag for files using metafile data.
 func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
-
 	if dateFmt == enums.DateFmtSkip {
 		logging.D(1, "Skip set, not making file date tag for %q", fd.OriginalVideoBaseName)
 		return "", nil
@@ -45,7 +44,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 	}
 
 	dateTag := fmt.Sprintf("[%s]", dateStr)
-	logging.I("Made date tag %q from file '%v'", dateTag, fd.FinalVideoPath)
+	logging.I("Made date tag %q from file '%v'", dateTag, fd.JSONFilePath)
 	return dateTag, nil
 }
 

@@ -252,8 +252,8 @@ func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
 	}
 }
 
-// StripDateTag removes [yy-mm-dd] or [yyyy-mm-dd] tags from a field string.
-func StripDateTag(val string, loc enums.DateTagLocation) string {
+// StripDateTags removes [yy-mm-dd] or [yyyy-mm-dd] tags from a field string.
+func StripDateTags(val string, loc enums.DateTagLocation) (dateStrs []string, result string) {
 	val = strings.TrimSpace(val)
 
 	switch loc {
@@ -264,7 +264,7 @@ func StripDateTag(val string, loc enums.DateTagLocation) string {
 		if openTag == 0 && closeTag > openTag {
 			dateStr := val[openTag+1 : closeTag]
 			if regex.DateTagCompile().MatchString(dateStr) {
-				return strings.TrimLeft(val[closeTag+1:], " ")
+				return []string{dateStr}, strings.TrimLeft(val[closeTag+1:], " ")
 			}
 		}
 
@@ -275,9 +275,35 @@ func StripDateTag(val string, loc enums.DateTagLocation) string {
 		if openTag >= 0 && closeTag > openTag && closeTag == len(val)-1 {
 			dateStr := val[openTag+1 : closeTag]
 			if regex.DateTagCompile().MatchString(dateStr) {
-				return strings.TrimSpace(val[:openTag])
+				return []string{dateStr}, strings.TrimSpace(val[:openTag])
 			}
 		}
+
+	case enums.DateTagLocAll:
+		return stripAllDateTags(val)
 	}
-	return val
+	return nil, val
+}
+
+// stripAllDateTags removes all date tags and returns them.
+func stripAllDateTags(val string) (tags []string, cleaned string) {
+	logging.D(3, "stripAllDateTags input: %q", val)
+
+	pattern := regex.DateTagWithBracketsCompile()
+	logging.D(3, "Pattern: %v", pattern.String())
+
+	// Find all tags
+	tags = pattern.FindAllString(val, -1)
+	logging.D(3, "Found tags: %v (count: %d)", tags, len(tags))
+
+	// Remove all tags
+	cleaned = pattern.ReplaceAllString(val, "")
+	logging.D(3, "After removal: %q", cleaned)
+
+	// Clean up extra spaces
+	cleaned = strings.TrimSpace(cleaned)
+	cleaned = regex.DoubleSpacesCompile().ReplaceAllString(cleaned, " ")
+	logging.D(3, "Final cleaned: %q", cleaned)
+
+	return tags, cleaned
 }

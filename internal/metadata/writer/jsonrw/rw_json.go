@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/fs/backup"
@@ -143,7 +142,6 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 	if err := rw.writeJSONToFile(rw.File, currentMeta); err != nil {
 		return currentMeta, err
 	}
-
 	rw.updateMeta(currentMeta)
 
 	logging.D(3, "Successfully updated JSON file with new metadata")
@@ -155,122 +153,71 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	if file == nil {
 		return false, errors.New("file passed in nil")
 	}
-	currentMeta := rw.copyMeta()
 
+	currentMeta := rw.copyMeta()
 	logging.D(5, "Entering MakeJSONEdits.\nData: %v", currentMeta)
 
-	var (
-		edited    bool
-		trimPfx   []models.MetaTrimPrefix
-		trimSfx   []models.MetaTrimSuffix
-		apnd      []models.MetaAppend
-		pfx       []models.MetaPrefix
-		newField  []models.MetaSetField
-		replace   []models.MetaReplace
-		copyTo    []models.CopyToField
-		pasteFrom []models.PasteFromField
-	)
-
-	// Initialize:
-	// Replacements
-	if len(fd.MetaOps.Replaces) > 0 {
-		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
-		replace = fd.MetaOps.Replaces
-	}
-
-	// Field trim
-	if len(fd.MetaOps.TrimPrefixes) > 0 {
-		logging.I("Model for file %q trimming prefixes", fd.OriginalVideoBaseName)
-		trimPfx = fd.MetaOps.TrimPrefixes
-	}
-
-	if len(fd.MetaOps.TrimSuffixes) > 0 {
-		logging.I("Model for file %q trimming suffixes", fd.OriginalVideoBaseName)
-		trimSfx = fd.MetaOps.TrimSuffixes
-	}
-
-	// Append and prefix
-	if len(fd.MetaOps.Appends) > 0 {
-		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
-		apnd = fd.MetaOps.Appends
-	}
-
-	if len(fd.MetaOps.Prefixes) > 0 {
-		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
-		pfx = fd.MetaOps.Prefixes
-	}
-
-	// New fields
-	if len(fd.MetaOps.SetFields) > 0 {
-		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
-		newField = fd.MetaOps.SetFields
-	}
-
-	// Copy/paste
-	if len(fd.MetaOps.CopyToFields) > 0 {
-		logging.I("Model for file %q copying to fields", fd.MetaOps.CopyToFields)
-		copyTo = fd.MetaOps.CopyToFields
-	}
-
-	if len(fd.MetaOps.PasteFromFields) > 0 {
-		logging.I("Model for file %q copying to fields", fd.MetaOps.PasteFromFields)
-		pasteFrom = fd.MetaOps.PasteFromFields
-	}
-
+	var edited bool
 	filename := rw.File.Name()
-
-	// Make edits:
-	// Replace
-	if len(replace) > 0 {
-		if changesMade := rw.replaceJSON(currentMeta, replace); changesMade {
-			edited = true
-		}
-	}
-
-	// Trim
-	if len(trimPfx) > 0 {
-		if changesMade := rw.trimJSONPrefix(currentMeta, trimPfx); changesMade {
-			edited = true
-		}
-	}
-
-	if len(trimSfx) > 0 {
-		if changesMade := rw.trimJSONSuffix(currentMeta, trimSfx); changesMade {
-			edited = true
-		}
-	}
-
-	// Append and prefix
-	if len(apnd) > 0 {
-		if changesMade := rw.jsonAppend(currentMeta, filename, apnd); changesMade {
-			edited = true
-		}
-	}
-
-	if len(pfx) > 0 {
-		if changesMade := rw.jsonPrefix(currentMeta, filename, pfx); changesMade {
-			edited = true
-		}
-	}
-
-	// Copy/paste
-	if len(copyTo) > 0 {
-		if ok := rw.copyToField(currentMeta, copyTo); ok {
-			edited = true
-		}
-	}
-
-	if len(pasteFrom) > 0 {
-		if ok := rw.pasteFromField(currentMeta, pasteFrom); ok {
-			edited = true
-		}
-	}
-
-	// Add new
-	if len(newField) > 0 {
-		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, newField); err != nil {
-			logging.E("Failed to set fields with %+v: %v", newField, err)
+	ops := fd.MetaOps
+	// 1. Set fields first (establishes baseline values)
+	if len(ops.SetFields) > 0 {
+		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
+		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, ops.SetFields); err != nil {
+			logging.E("Failed to set fields with %+v: %v", ops.SetFields, err)
 		} else if ok {
+			edited = true
+		}
+	}
+
+	// 2. Copy/Paste operations (move data between fields)
+	if len(ops.CopyToFields) > 0 {
+		logging.I("Model for file %q copying to fields", ops.CopyToFields)
+		if changesMade := rw.copyToField(currentMeta, ops.CopyToFields); changesMade {
+			edited = true
+		}
+	}
+
+	if len(ops.PasteFromFields) > 0 {
+		logging.I("Model for file %q pasting from fields", ops.PasteFromFields)
+		if changesMade := rw.pasteFromField(currentMeta, ops.PasteFromFields); changesMade {
+			edited = true
+		}
+	}
+
+	// 3. Replace operations (modify existing content)
+	if len(ops.Replaces) > 0 {
+		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
+		if changesMade := rw.replaceJSON(currentMeta, ops.Replaces); changesMade {
+			edited = true
+		}
+	}
+
+	if len(ops.ReplacePrefixes) > 0 {
+		logging.I("Model for file %q replacing prefixes", fd.OriginalVideoBaseName)
+		if changesMade := rw.replaceJSONPrefix(currentMeta, ops.ReplacePrefixes); changesMade {
+			edited = true
+		}
+	}
+
+	if len(ops.ReplaceSuffixes) > 0 {
+		logging.I("Model for file %q replacing suffixes", fd.OriginalVideoBaseName)
+		if changesMade := rw.replaceJSONSuffix(currentMeta, ops.ReplaceSuffixes); changesMade {
+			edited = true
+		}
+	}
+
+	// 4. Add content (prefix/append)
+	if len(ops.Prefixes) > 0 {
+		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
+		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes); changesMade {
+			edited = true
+		}
+	}
+
+	if len(ops.Appends) > 0 {
+		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
+		if changesMade := rw.jsonAppend(currentMeta, filename, ops.Appends); changesMade {
 			edited = true
 		}
 	}
@@ -299,9 +246,6 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	if file == nil {
 		return false, errors.New("file passed in nil")
 	}
-
-	logging.D(4, "Entering MakeDateTagEdits for file %q", file.Name())
-
 	currentMeta := rw.copyMeta()
 
 	logging.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
@@ -310,7 +254,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	if len(fd.MetaOps.DeleteDateTags) > 0 {
 		logging.I("Stripping metafield date tags (User entered: %v)", fd.MetaOps.DeleteDateTags)
 
-		if ok, err := rw.jsonFieldDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd, enums.DatetagDelOp); err != nil {
+		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd); err != nil {
 			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
 		} else if ok {
 			edited = true
@@ -321,7 +265,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	if len(fd.MetaOps.DateTags) > 0 {
 		logging.I("Adding metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
 
-		if ok, err := rw.jsonFieldDateTag(currentMeta, fd.MetaOps.DateTags, fd, enums.DatetagAddOp); err != nil {
+		if ok, err := rw.jsonFieldAddDateTag(currentMeta, fd.MetaOps.DateTags, fd); err != nil {
 			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
 		} else if ok {
 			edited = true

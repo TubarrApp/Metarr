@@ -107,8 +107,8 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		newContent string
 		err        error
 
-		trimPfx   []models.MetaTrimPrefix
-		trimSfx   []models.MetaTrimSuffix
+		trimPfx   []models.MetaReplacePrefix
+		trimSfx   []models.MetaReplaceSuffix
 		apnd      []models.MetaAppend
 		pfx       []models.MetaPrefix
 		newField  []models.MetaSetField
@@ -125,14 +125,14 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 
 	// Field trim
-	if len(fd.MetaOps.TrimPrefixes) > 0 {
+	if len(fd.MetaOps.ReplacePrefixes) > 0 {
 		logging.I("Model for file %q trimming prefixes", fd.OriginalVideoBaseName)
-		trimPfx = fd.MetaOps.TrimPrefixes
+		trimPfx = fd.MetaOps.ReplacePrefixes
 	}
 
-	if len(fd.MetaOps.TrimSuffixes) > 0 {
+	if len(fd.MetaOps.ReplaceSuffixes) > 0 {
 		logging.I("Model for file %q trimming suffixes", fd.OriginalVideoBaseName)
-		trimSfx = fd.MetaOps.TrimSuffixes
+		trimSfx = fd.MetaOps.ReplaceSuffixes
 	}
 
 	// Append and prefix
@@ -315,8 +315,7 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 }
 
 // trimXMLPrefix applies meta replacement to the fields in the xml data
-func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaTrimPrefix) (dataRtn string, edited bool) {
-
+func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePrefix) (dataRtn string, edited bool) {
 	logging.D(5, "Entering trimXmlPrefix with data: %v", data)
 
 	if len(trimPfx) == 0 {
@@ -351,8 +350,7 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaTrimPrefix)
 }
 
 // trimXMLSuffix trims specified
-func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaTrimSuffix) (dataRtn string, edited bool) {
-
+func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuffix) (dataRtn string, edited bool) {
 	logging.D(5, "Entering trimXmlSuffix with data: %v", data)
 
 	if len(trimSfx) == 0 {
@@ -431,7 +429,7 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 	}
 
 	for _, append := range apnd {
-		if append.Field == "" || append.Suffix == "" {
+		if append.Field == "" || append.Append == "" {
 			continue
 		}
 
@@ -447,9 +445,9 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.D(2, "Identified input xml field %q, appending suffix %q", append.Field, append.Suffix)
+		logging.D(2, "Identified input xml field %q, appending suffix %q", append.Field, append.Append)
 
-		data = data[:contentStart] + content + append.Suffix + data[endIdx:]
+		data = data[:contentStart] + content + append.Append + data[endIdx:]
 		edited = true
 	}
 	logging.D(5, "After meta replacements: %v", data)

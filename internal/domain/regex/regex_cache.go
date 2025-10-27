@@ -12,6 +12,8 @@ import (
 var (
 	AnsiEscape                *regexp.Regexp
 	DateTagDetect             *regexp.Regexp
+	DateTagWithBrackets       *regexp.Regexp
+	DoubleSpaces              *regexp.Regexp
 	ExtraSpaces               *regexp.Regexp
 	InvalidChars              *regexp.Regexp
 	SpecialChars              *regexp.Regexp
@@ -22,6 +24,8 @@ var (
 	// Initialize sync.Once for each compilation
 	ansiEscapeOnce              sync.Once
 	dateTagDetectOnce           sync.Once
+	dateTagWithBracketsOnce     sync.Once
+	doubleSpacesOnce            sync.Once
 	extraSpacesOnce             sync.Once
 	invalidCharsOnce            sync.Once
 	specialCharsOnce            sync.Once
@@ -113,6 +117,26 @@ func DateTagCompile() *regexp.Regexp {
 		DateTagDetect = regexp.MustCompile(`^\d{2,4}-\d{2}-\d{2}$`)
 	})
 	return DateTagDetect
+}
+
+// DateTagWithBracketsCompile compiles regex to find [date] tags anywhere in string
+func DateTagWithBracketsCompile() *regexp.Regexp {
+	dateTagWithBracketsOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+		DateTagWithBrackets = regexp.MustCompile(`\[\d{2,4}-\d{2}-\d{2}\]`)
+	})
+	return DateTagWithBrackets
+}
+
+// DoubleSpacesCompils compiles regex to detect double spaces
+func DoubleSpacesCompile() *regexp.Regexp {
+	doubleSpacesOnce.Do(func() {
+		contractionMu.Lock()
+		defer contractionMu.Unlock()
+		DoubleSpaces = regexp.MustCompile(`\s+`)
+	})
+	return DoubleSpaces
 }
 
 // ExtraSpacesCompile compiles regex for extra spaces

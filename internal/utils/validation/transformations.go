@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
@@ -15,179 +14,178 @@ import (
 func ValidateSetMetaOps(metaOpsInput []string) error {
 	logging.D(2, "Validating meta operations...")
 	if len(metaOpsInput) == 0 {
-		return nil // Return empty initialized struct
+		return nil
 	}
+	const invalidWarning = "Removing invalid meta operation %q. (Correct format style: 'title:prefix:[DOG CLIPS] ', 'title:date-tag:prefix:ymd')"
 
 	ops := models.NewMetaOps()
 	validOpsForPrintout := make([]string, 0, len(metaOpsInput))
 
 	for _, op := range metaOpsInput {
 		parts := strings.Split(op, ":")
-
 		if len(parts) < 3 || len(parts) > 4 {
-			return errors.New("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:set:Video Title')")
+			logging.W(invalidWarning, op)
+			continue
 		}
 
 		field := parts[0]
 		operation := parts[1]
-		value := parts[2]
 
-		switch strings.ToLower(operation) {
-		case "set":
-			switch field {
-			case "all-credits", "credits-all":
-				ops.SetOverrides[enums.OverrideMetaCredits] = value
-			}
+		switch len(parts) {
+		case 3:
+			value := parts[2]
 
-			newFieldModel := models.MetaSetField{
-				Field: field,
-				Value: value,
-			}
-			ops.SetFields = append(ops.SetFields, newFieldModel)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
-
-		case "append":
-			switch field {
-			case "all-credits", "credits-all":
-				ops.AppendOverrides[enums.OverrideMetaCredits] = value
-			}
-
-			apndModel := models.MetaAppend{
-				Field:  field,
-				Suffix: value,
-			}
-			ops.Appends = append(ops.Appends, apndModel)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Suffix)
-
-		case "prefix":
-			pfxModel := models.MetaPrefix{
-				Field:  field,
-				Prefix: value,
-			}
-			ops.Prefixes = append(ops.Prefixes, pfxModel)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
-
-		case "replace-suffix":
-			tSfxModel := models.MetaTrimSuffix{
-				Field:  field,
-				Suffix: value,
-			}
-			ops.TrimSuffixes = append(ops.TrimSuffixes, tSfxModel)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new suffix trim op:\nField: %s\nSuffix: %s", tSfxModel.Field, tSfxModel.Suffix)
-
-		case "replace-prefix":
-			tPfxModel := models.MetaTrimPrefix{
-				Field:  field,
-				Prefix: value,
-			}
-			ops.TrimPrefixes = append(ops.TrimPrefixes, tPfxModel)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new prefix trim op:\nField: %s\nPrefix: %s", tPfxModel.Field, tPfxModel.Prefix)
-
-		case "copy-to":
-			c := models.CopyToField{
-				Field: field,
-				Dest:  value,
-			}
-			ops.CopyToFields = append(ops.CopyToFields, c)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
-
-		case "paste-from":
-			p := models.PasteFromField{
-				Field:  field,
-				Origin: value,
-			}
-			ops.PasteFromFields = append(ops.PasteFromFields, p)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
-
-		case "replace":
-			if len(parts) != 4 {
-				return errors.New("replacement should be in format 'field:replace:text:replacement'")
-			}
-
-			switch field {
-			case "all-credits", "credits-all":
-				ops.ReplaceOverrides[enums.OverrideMetaCredits] = models.MOverrideReplacePair{
-					Value:       value,
-					Replacement: parts[3],
+			switch strings.ToLower(operation) {
+			case "set":
+				switch field {
+				case "all-credits", "credits-all":
+					ops.SetOverrides[enums.OverrideMetaCredits] = value
 				}
-			}
-			rModel := models.MetaReplace{
-				Field:       field,
-				Value:       value,
-				Replacement: parts[3],
-			}
+				newFieldModel := models.MetaSetField{
+					Field: field,
+					Value: value,
+				}
+				ops.SetFields = append(ops.SetFields, newFieldModel)
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
 
-			ops.Replaces = append(ops.Replaces, rModel)
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
+			case "append":
+				apndModel := models.MetaAppend{
+					Field:  field,
+					Append: value,
+				}
+				ops.Appends = append(ops.Appends, apndModel)
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Append)
 
-		case "date-tag":
-			if len(parts) != 4 {
-				return errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
-			}
-			var loc enums.DateTagLocation
-			switch strings.ToLower(value) {
 			case "prefix":
-				loc = enums.DateTagLocPrefix
-			case "suffix":
-				loc = enums.DateTagLocSuffix
+				pfxModel := models.MetaPrefix{
+					Field:  field,
+					Prefix: value,
+				}
+				ops.Prefixes = append(ops.Prefixes, pfxModel)
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
+
+			case "copy-to":
+				c := models.CopyToField{
+					Field: field,
+					Dest:  value,
+				}
+				ops.CopyToFields = append(ops.CopyToFields, c)
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
+
+			case "paste-from":
+				p := models.PasteFromField{
+					Field:  field,
+					Origin: value,
+				}
+				ops.PasteFromFields = append(ops.PasteFromFields, p)
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
+			}
+		case 4:
+			switch strings.ToLower(operation) {
+			case "replace":
+				findStr := parts[2]
+				replacement := parts[3]
+				rModel := models.MetaReplace{
+					Field:       field,
+					Value:       findStr,
+					Replacement: replacement,
+				}
+				ops.Replaces = append(ops.Replaces, rModel)
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
+
+			case "date-tag":
+				loc := parts[2]
+				dateFmt := parts[3]
+				var dateTagLocation enums.DateTagLocation
+				switch strings.ToLower(loc) {
+				case "prefix":
+					dateTagLocation = enums.DateTagLocPrefix
+				case "suffix":
+					dateTagLocation = enums.DateTagLocSuffix
+				default:
+					logging.E("date tag location must be prefix, or suffix, skipping op %v", op)
+					continue
+				}
+				e, err := dateEnum(dateFmt)
+				if err != nil {
+					return err
+				}
+				ops.DateTags[field] = models.MetaDateTag{
+					// Don't need field, using map
+					Loc:    dateTagLocation,
+					Format: e,
+				}
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, loc, dateFmt)
+
+			case "delete-date-tag":
+				loc := parts[2]
+				dateFmt := parts[3]
+				var dateTagLocation enums.DateTagLocation
+				switch strings.ToLower(loc) {
+				case "prefix":
+					dateTagLocation = enums.DateTagLocPrefix
+				case "suffix":
+					dateTagLocation = enums.DateTagLocSuffix
+				case "all":
+					dateTagLocation = enums.DateTagLocAll
+				default:
+					logging.E("date tag location must be prefix, suffix, pr all. Skipping op %v", op)
+					continue
+				}
+				e, err := dateEnum(dateFmt)
+				if err != nil {
+					return err
+				}
+				ops.DeleteDateTags[field] = models.MetaDeleteDateTag{
+					// Don't need field, using map
+					Loc:    dateTagLocation,
+					Format: e,
+				}
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, loc, dateFmt)
+
+			case "replace-suffix":
+				findSuffix := parts[2]
+				replaceStr := parts[3]
+				ops.ReplaceSuffixes = append(ops.ReplaceSuffixes, models.MetaReplaceSuffix{
+					Field:       field,
+					Suffix:      findSuffix,
+					Replacement: replaceStr,
+				})
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
+
+			case "replace-prefix":
+				findPrefix := parts[2]
+				replaceStr := parts[3]
+				ops.ReplacePrefixes = append(ops.ReplacePrefixes, models.MetaReplacePrefix{
+					Field:       field,
+					Prefix:      findPrefix,
+					Replacement: replaceStr,
+				})
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
+
 			default:
-				return errors.New("date tag location must be prefix, or suffix")
+				logging.E(invalidWarning, op)
+				continue
 			}
-			e, err := dateEnum(parts[3])
-			if err != nil {
-				return err
-			}
-
-			ops.DateTags[field] = models.MetaDateTag{
-				Loc:    loc,
-				Format: e,
-			}
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, value, parts[3])
-
-		case "delete-date-tag":
-			if len(parts) != 4 {
-				return errors.New("delete-date-tag should be in format 'field:delete-date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
-			}
-			var loc enums.DateTagLocation
-
-			switch strings.ToLower(value) {
-			case "prefix":
-				loc = enums.DateTagLocPrefix
-			case "suffix":
-				loc = enums.DateTagLocSuffix
-			default:
-				return errors.New("date tag location must be prefix, or suffix")
-			}
-
-			e, err := dateEnum(parts[3])
-			if err != nil {
-				return err
-			}
-
-			ops.DeleteDateTags[field] = models.MetaDateTag{
-				Loc:    loc,
-				Format: e,
-			}
-			validOpsForPrintout = append(validOpsForPrintout, op)
-			logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
-
 		default:
-			return fmt.Errorf("unrecognized meta operation %q (valid operations: set, append, prefix, replace-suffix, replace-prefix, replace, date-tag, delete-date-tag, copy-to, paste-from)", parts[1])
+			logging.E(invalidWarning, op)
+			continue
 		}
 	}
 	if len(validOpsForPrintout) == 0 {
-		return fmt.Errorf("no valid filename operations were entered. Got: %v", metaOpsInput)
+		logging.E("No valid meta operations were entered. Got: %v", metaOpsInput)
 	}
-	logging.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
+	logging.I("Added %d meta operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 
 	// Set values into Viper
 	abstractions.Set(keys.MetaOpsModels, ops)
@@ -211,11 +209,11 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 			logging.W(invalidWarning, op)
 			continue
 		}
-		opType := opParts[0]
+		operation := opParts[0]
 		switch len(opParts) {
 		case 2:
 			opValue := opParts[1]
-			switch opType {
+			switch strings.ToLower(operation) {
 			case "prefix":
 				fOpModel.Prefixes = append(fOpModel.Prefixes, models.FOpPrefix{
 					Value: opValue,
@@ -231,7 +229,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				logging.D(3, "Added new append operation:\nAppend: %s\n", opValue)
 			}
 		case 3:
-			switch opType {
+			switch strings.ToLower(operation) {
 			case "date-tag":
 				if fOpModel.DateTag.DateFormat != enums.DateFmtSkip {
 					logging.W("Only one date tag accepted per run to prevent user error")
@@ -329,7 +327,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 		}
 	}
 	if len(validOpsForPrintout) == 0 {
-		return fmt.Errorf("no valid filename operations were entered. Got: %v", filenameOpsInput)
+		logging.E("No valid filename operations were entered. Got: %v", filenameOpsInput)
 	}
 	logging.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 

@@ -334,10 +334,10 @@ func deleteDateTag(filename string, deleteTag models.FOpDeleteDateTag) string {
 
 	switch deleteTag.Loc {
 	case enums.DateTagLocPrefix:
-		filename = dates.StripDateTag(filename, enums.DateTagLocPrefix)
+		_, filename = dates.StripDateTags(filename, enums.DateTagLocPrefix)
 		logging.D(2, "Stripped prefix date tag: %s -> %s", prevFilename, filename)
 	case enums.DateTagLocSuffix:
-		filename = dates.StripDateTag(filename, enums.DateTagLocSuffix)
+		_, filename = dates.StripDateTags(filename, enums.DateTagLocSuffix)
 		logging.D(2, "Stripped suffix date tag: %s -> %s", prevFilename, filename)
 	case enums.DateTagLocAll:
 		// Strip all date tags from anywhere in the string

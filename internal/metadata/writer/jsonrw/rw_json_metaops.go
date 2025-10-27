@@ -41,8 +41,8 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace) 
 	return edited
 }
 
-// trimJSONPrefix trims defined prefixes from specified fields
-func (rw *JSONFileRW) trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPrefix) bool {
+// replaceJSONPrefix trims defined prefixes from specified fields
+func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaReplacePrefix) bool {
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
@@ -52,6 +52,7 @@ func (rw *JSONFileRW) trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPre
 
 	edited := false
 	for _, p := range tPfx {
+		logging.I("PREFIX: %v, REPLACEMENT: %v", p.Prefix, p.Replacement)
 		if p.Field == "" || p.Prefix == "" {
 			continue
 		}
@@ -60,7 +61,7 @@ func (rw *JSONFileRW) trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPre
 
 			if strVal, ok := val.(string); ok {
 				logging.D(3, "Identified field %q, trimming %q", p.Field, p.Prefix)
-				j[p.Field] = strings.TrimPrefix(strVal, p.Prefix)
+				j[p.Field] = p.Replacement + strings.TrimPrefix(strVal, p.Prefix)
 				edited = true
 			}
 		}
@@ -69,8 +70,8 @@ func (rw *JSONFileRW) trimJSONPrefix(j map[string]any, tPfx []models.MetaTrimPre
 	return edited
 }
 
-// trimJSONSuffix trims defined suffixes from specified fields
-func (rw *JSONFileRW) trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuffix) bool {
+// replaceJSONSuffix trims defined suffixes from specified fields
+func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaReplaceSuffix) bool {
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
@@ -88,7 +89,7 @@ func (rw *JSONFileRW) trimJSONSuffix(j map[string]any, tSfx []models.MetaTrimSuf
 
 			if strVal, ok := val.(string); ok {
 				logging.D(3, "Identified field %q, trimming %q", s.Field, s.Suffix)
-				j[s.Field] = strings.TrimSuffix(strVal, s.Suffix)
+				j[s.Field] = strings.TrimSuffix(strVal, s.Suffix) + s.Replacement
 				edited = true
 			}
 		}
@@ -108,7 +109,7 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 
 	edited := false
 	for _, a := range apnd {
-		if a.Field == "" || a.Suffix == "" {
+		if a.Field == "" || a.Append == "" {
 			continue
 		}
 
@@ -116,8 +117,8 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 
 			if strVal, ok := value.(string); ok {
 
-				logging.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Suffix)
-				strVal += a.Suffix
+				logging.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
+				strVal += a.Append
 				j[a.Field] = strVal
 				edited = true
 			}
@@ -271,27 +272,26 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 	return newAddition, nil
 }
 
-// jsonFieldDateTag sets date tags in designated meta fields.
-func (rw *JSONFileRW) jsonFieldDateTag(j map[string]any, dtm map[string]models.MetaDateTag, fd *models.FileData, op enums.MetaDateTaggingType) (bool, error) {
-
-	logging.D(2, "Making metadata date tag for %q...", fd.OriginalVideoBaseName)
-
-	if len(dtm) == 0 {
+// jsonFieldAddDateTag sets date tags in designated meta fields.
+func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[string]models.MetaDateTag, fd *models.FileData) (bool, error) {
+	if len(addDateTag) == 0 {
 		logging.D(3, "No date tag operations to perform")
 		return false, nil
 	}
 	if fd == nil {
 		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
 	}
+	logging.D(2, "Adding metadata date tags for %q...", fd.OriginalVideoBaseName)
 
 	edited := false
-	for fld, d := range dtm {
+
+	// Add date tags
+	for fld, d := range addDateTag {
 		val, exists := j[fld]
 		if !exists {
 			logging.D(3, "Field %q not found in metadata", fld)
 			continue
 		}
-
 		strVal, ok := val.(string)
 		if !ok {
 			logging.D(3, "Field %q is not a string value, type: %T", fld, val)
@@ -304,58 +304,67 @@ func (rw *JSONFileRW) jsonFieldDateTag(j map[string]any, dtm map[string]models.M
 			return false, fmt.Errorf("failed to generate date tag for field %q: %w", fld, err)
 		}
 
-		if op == enums.DatetagAddOp && strings.Contains(strVal, tag) {
+		// Check if tag already exists
+		if strings.Contains(strVal, tag) {
 			logging.I("Tag %q already exists in field %q", tag, strVal)
-			continue // skip this field
+			continue
 		}
 
 		// Apply the tag based on location
+		var result string
 		switch d.Loc {
 		case enums.DateTagLocPrefix:
-			switch op {
-			case enums.DatetagDelOp:
-				before := strVal
-				result := dates.StripDateTag(strVal, d.Loc)
-				result = rw.cleanFieldValue(result)
-
-				j[fld] = result
-
-				if j[fld] != before {
-					logging.I("Deleted date tag %q prefix from field %q", tag, fld)
-					edited = true
-				} else {
-					logging.E("Failed to strip date tag from %q", before)
-				}
-			case enums.DatetagAddOp:
-				j[fld] = fmt.Sprintf("%s %s", tag, strVal)
-				logging.I("Added date tag %q as prefix to field %q", tag, fld)
-				edited = true
-			}
-
+			result = fmt.Sprintf("%s %s", tag, strVal)
 		case enums.DateTagLocSuffix:
-			switch op {
-			case enums.DatetagDelOp:
-				before := strVal
-				result := dates.StripDateTag(strVal, d.Loc)
-				result = rw.cleanFieldValue(result)
-
-				j[fld] = result
-
-				if j[fld] != before {
-					logging.I("Deleted date tag %q suffix from field %q", tag, fld)
-					edited = true
-				} else {
-					logging.E("Failed to strip date tag from %q", before)
-				}
-			case enums.DatetagAddOp:
-
-				j[fld] = fmt.Sprintf("%s %s", strVal, tag)
-				logging.I("Added date tag %q as suffix to field %q", tag, fld)
-				edited = true
-			}
-
+			result = fmt.Sprintf("%s %s", strVal, tag)
 		default:
 			return false, fmt.Errorf("invalid date tag location enum: %v", d.Loc)
+		}
+
+		result = rw.cleanFieldValue(result)
+		j[fld] = result
+		logging.I("Added date tag %q to field %q (location: %v)", tag, fld, d.Loc)
+		edited = true
+	}
+	return edited, nil
+}
+
+// jsonFieldDeleteDateTag sets date tags in designated meta fields.
+func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map[string]models.MetaDeleteDateTag, fd *models.FileData) (bool, error) {
+	if len(deleteDateTag) == 0 {
+		logging.D(3, "No delete date tag operations to perform")
+		return false, nil
+	}
+	if fd == nil {
+		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
+	}
+	logging.D(2, "Deleting metadata date tags for %q...", fd.OriginalVideoBaseName)
+
+	edited := false
+
+	// Delete date tags:
+	for fld, d := range deleteDateTag {
+		val, exists := j[fld]
+		if !exists {
+			logging.D(3, "Field %q not found in metadata", fld)
+			continue
+		}
+
+		strVal, ok := val.(string)
+		if !ok {
+			logging.D(3, "Field %q is not a string value, type: %T", fld, val)
+			continue
+		}
+
+		before := strVal
+		deletedTags, result := dates.StripDateTags(strVal, d.Loc)
+		result = rw.cleanFieldValue(result)
+
+		j[fld] = result
+
+		if j[fld] != before {
+			logging.I("Deleted date tags %v at from field %q (operation: %v)", deletedTags, fld, d)
+			edited = true
 		}
 	}
 	return edited, nil
@@ -363,7 +372,6 @@ func (rw *JSONFileRW) jsonFieldDateTag(j map[string]any, dtm map[string]models.M
 
 // copyToField copies values from one meta field to another
 func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField) bool {
-
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(copyTo) == 0 {
@@ -393,7 +401,6 @@ func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField)
 
 // pasteFromField copies values from one meta field to another
 func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromField) bool {
-
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(paste) == 0 {

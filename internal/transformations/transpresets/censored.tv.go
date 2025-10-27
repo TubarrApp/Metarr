@@ -20,30 +20,34 @@ func CensoredTvTransformations(fd *models.FileData) {
 // censoredTvMSuffixes adds meta suffix replacements.
 func censoredTvTrimSuffixes(fd *models.FileData) {
 	var (
-		trimSfx []models.MetaTrimSuffix
+		trimSfx []models.MetaReplaceSuffix
 		ok      bool
 	)
 
 	if abstractions.IsSet(keys.MTrimSuffix) {
-		if trimSfx, ok = abstractions.Get(keys.MTrimSuffix).([]models.MetaTrimSuffix); !ok {
+		if trimSfx, ok = abstractions.Get(keys.MTrimSuffix).([]models.MetaReplaceSuffix); !ok {
 			logging.E("Got type %T, may be null", trimSfx)
 		}
 	}
 
-	var newSfx = make([]models.MetaTrimSuffix, 0, len(trimSfx)+4)
+	var newSfx = make([]models.MetaReplaceSuffix, 0, len(trimSfx)+4)
 
-	newSfx = append(newSfx, models.MetaTrimSuffix{
-		Field:  "title",
-		Suffix: " (1)",
-	}, models.MetaTrimSuffix{
-		Field:  "fulltitle",
-		Suffix: " (1)",
-	}, models.MetaTrimSuffix{
-		Field:  "id",
-		Suffix: "-1",
-	}, models.MetaTrimSuffix{
-		Field:  "display_id",
-		Suffix: "-1",
+	newSfx = append(newSfx, models.MetaReplaceSuffix{
+		Field:       "title",
+		Suffix:      " (1)",
+		Replacement: "",
+	}, models.MetaReplaceSuffix{
+		Field:       "fulltitle",
+		Suffix:      " (1)",
+		Replacement: "",
+	}, models.MetaReplaceSuffix{
+		Field:       "id",
+		Suffix:      "-1",
+		Replacement: "",
+	}, models.MetaReplaceSuffix{
+		Field:       "display_id",
+		Suffix:      "-1",
+		Replacement: "",
 	})
 
 	for _, newSuffix := range newSfx {
@@ -60,7 +64,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		}
 		logging.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoBaseName, entries)
 	}
-	fd.MetaOps.TrimSuffixes = trimSfx
+	fd.MetaOps.ReplaceSuffixes = trimSfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements.
@@ -82,7 +86,7 @@ func censoredTvFSuffixes(fd *models.FileData) {
 }
 
 // censoredSuffixExists checks if the suffix exists.
-func censoredSuffixExists(suffixes []models.MetaTrimSuffix, field string) bool {
+func censoredSuffixExists(suffixes []models.MetaReplaceSuffix, field string) bool {
 	for _, suffix := range suffixes {
 		if suffix.Field == field {
 			return true

@@ -11,13 +11,13 @@ type MetaOps struct {
 	AppendOverrides  map[enums.OverrideMetaType]string
 	ReplaceOverrides map[enums.OverrideMetaType]MOverrideReplacePair
 	DateTags         map[string]MetaDateTag
-	DeleteDateTags   map[string]MetaDateTag
+	DeleteDateTags   map[string]MetaDeleteDateTag
 	SetFields        []MetaSetField
 	Appends          []MetaAppend
 	Prefixes         []MetaPrefix
 	Replaces         []MetaReplace
-	TrimSuffixes     []MetaTrimSuffix
-	TrimPrefixes     []MetaTrimPrefix
+	ReplaceSuffixes  []MetaReplaceSuffix
+	ReplacePrefixes  []MetaReplacePrefix
 	CopyToFields     []CopyToField
 	PasteFromFields  []PasteFromField
 }
@@ -32,14 +32,14 @@ func NewMetaOps() *MetaOps {
 		ReplaceOverrides: make(map[enums.OverrideMetaType]MOverrideReplacePair),
 		AppendOverrides:  make(map[enums.OverrideMetaType]string),
 		DateTags:         make(map[string]MetaDateTag),
-		DeleteDateTags:   make(map[string]MetaDateTag),
+		DeleteDateTags:   make(map[string]MetaDeleteDateTag),
 
 		// Initialize slices
 		SetFields:       make([]MetaSetField, 0),
 		Appends:         make([]MetaAppend, 0),
 		Prefixes:        make([]MetaPrefix, 0),
-		TrimSuffixes:    make([]MetaTrimSuffix, 0),
-		TrimPrefixes:    make([]MetaTrimPrefix, 0),
+		ReplaceSuffixes: make([]MetaReplaceSuffix, 0),
+		ReplacePrefixes: make([]MetaReplacePrefix, 0),
 		Replaces:        make([]MetaReplace, 0),
 		CopyToFields:    make([]CopyToField, 0),
 		PasteFromFields: make([]PasteFromField, 0),
@@ -65,7 +65,7 @@ func (fd *FileData) EnsureMetaOps() {
 		fd.MetaOps.DateTags = make(map[string]MetaDateTag, 0)
 	}
 	if fd.MetaOps.DeleteDateTags == nil {
-		fd.MetaOps.DeleteDateTags = make(map[string]MetaDateTag, 0)
+		fd.MetaOps.DeleteDateTags = make(map[string]MetaDeleteDateTag, 0)
 	}
 	if fd.MetaOps.SetFields == nil {
 		fd.MetaOps.SetFields = []MetaSetField{}
@@ -79,11 +79,11 @@ func (fd *FileData) EnsureMetaOps() {
 	if fd.MetaOps.Replaces == nil {
 		fd.MetaOps.Replaces = []MetaReplace{}
 	}
-	if fd.MetaOps.TrimSuffixes == nil {
-		fd.MetaOps.TrimSuffixes = []MetaTrimSuffix{}
+	if fd.MetaOps.ReplaceSuffixes == nil {
+		fd.MetaOps.ReplaceSuffixes = []MetaReplaceSuffix{}
 	}
-	if fd.MetaOps.TrimPrefixes == nil {
-		fd.MetaOps.TrimPrefixes = []MetaTrimPrefix{}
+	if fd.MetaOps.ReplacePrefixes == nil {
+		fd.MetaOps.ReplacePrefixes = []MetaReplacePrefix{}
 	}
 	if fd.MetaOps.CopyToFields == nil {
 		fd.MetaOps.CopyToFields = []CopyToField{}
@@ -123,7 +123,7 @@ type PasteFromField struct {
 // MetaAppend appends text onto a metafield's value.
 type MetaAppend struct {
 	Field  string
-	Suffix string
+	Append string
 }
 
 // MetaPrefix prefixes text onto a metafield's value.
@@ -133,15 +133,17 @@ type MetaPrefix struct {
 }
 
 // MetaTrimPrefix trims a given prefix from a metafield's value.
-type MetaTrimPrefix struct {
-	Field  string
-	Prefix string
+type MetaReplacePrefix struct {
+	Field       string
+	Prefix      string
+	Replacement string
 }
 
 // MetaTrimSuffix trims a given suffix from a metafield's value.
-type MetaTrimSuffix struct {
-	Field  string
-	Suffix string
+type MetaReplaceSuffix struct {
+	Field       string
+	Suffix      string
+	Replacement string
 }
 
 // MetaSetField contains a new field and value to add to metadata.
@@ -152,6 +154,14 @@ type MetaSetField struct {
 
 // MetaDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDateTag struct {
+	// Don't need field, using map
+	Loc    enums.DateTagLocation
+	Format enums.DateFormat
+}
+
+// MetaDeleteDateTag contains the location for a date tag placement, and format (e.g. ymd).
+type MetaDeleteDateTag struct {
+	// Don't need field, using map
 	Loc    enums.DateTagLocation
 	Format enums.DateFormat
 }
