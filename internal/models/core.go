@@ -81,8 +81,8 @@ func (fd *FileData) EnsureMetaOps() {
 	if fd.MetaOps.DeleteDateTags == nil {
 		fd.MetaOps.DeleteDateTags = make(map[string]MetaDateTag, 0)
 	}
-	if fd.MetaOps.NewFields == nil {
-		fd.MetaOps.NewFields = []MetaNewField{}
+	if fd.MetaOps.SetFields == nil {
+		fd.MetaOps.SetFields = []MetaSetField{}
 	}
 	if fd.MetaOps.Appends == nil {
 		fd.MetaOps.Appends = []MetaAppend{}

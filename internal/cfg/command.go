@@ -4,7 +4,6 @@ package cfg
 import (
 	"fmt"
 	"metarr/internal/domain/keys"
-	"metarr/internal/models"
 	"metarr/internal/utils/benchmark"
 	"metarr/internal/utils/logging"
 	"os"
@@ -62,11 +61,11 @@ var rootCmd = &cobra.Command{
 }
 
 // Execute is the primary initializer of Viper.
-func Execute() (metaOps *models.MetaOps, err error) {
+func Execute() error {
 	fmt.Println()
 	if err := rootCmd.Execute(); err != nil {
 		logging.E("Failed to execute cobra")
-		return nil, err
+		return err
 	}
-	return metaOps, nil
+	return nil
 }

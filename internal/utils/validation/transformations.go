@@ -17,7 +17,6 @@ func ValidateSetMetaOps(MetaOpsInput []string) error {
 	if len(MetaOpsInput) == 0 {
 		return nil // Return empty initialized struct
 	}
-
 	ops := models.NewMetaOps()
 	for _, op := range MetaOpsInput {
 		parts := strings.Split(op, ":")
@@ -37,11 +36,11 @@ func ValidateSetMetaOps(MetaOpsInput []string) error {
 				ops.SetOverrides[enums.OverrideMetaCredits] = value
 			}
 
-			newFieldModel := models.MetaNewField{
+			newFieldModel := models.MetaSetField{
 				Field: field,
 				Value: value,
 			}
-			ops.NewFields = append(ops.NewFields, newFieldModel)
+			ops.SetFields = append(ops.SetFields, newFieldModel)
 			logging.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
 
 		case "append":

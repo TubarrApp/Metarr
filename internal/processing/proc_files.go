@@ -186,7 +186,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = fsread.GetMetadataFiles(openMeta, batch.MetaOps)
+		metaMap, err = fsread.GetMetadataFiles(openMeta)
 		if err != nil {
 			logging.E("Failed to retrieve metadata files in %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
@@ -196,7 +196,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 
 		if !skipVideos {
-			videoMap, err = fsread.GetVideoFiles(openVideo, batch.MetaOps)
+			videoMap, err = fsread.GetVideoFiles(openVideo)
 			if err != nil {
 				logging.E("Failed to retrieve video files in %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
@@ -207,7 +207,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 		// Batch is a file request...
 	} else if !batch.IsDirs {
-		metaMap, err = fsread.GetSingleMetadataFile(openMeta, batch.MetaOps)
+		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
 		if err != nil {
 			logging.E("Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
@@ -217,7 +217,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 
 		if !skipVideos {
-			videoMap, err = fsread.GetSingleVideoFile(openVideo, batch.MetaOps)
+			videoMap, err = fsread.GetSingleVideoFile(openVideo)
 			if err != nil {
 				logging.E("Failed to retrieve video file %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
@@ -282,7 +282,6 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 
 // executeFile handles processing for both video and metadata files.
 func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filename string, fd *models.FileData) (*models.FileData, error) {
-
 	// Check for context cancellation
 	select {
 	case <-ctx.Done():

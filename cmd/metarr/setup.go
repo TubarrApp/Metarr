@@ -25,7 +25,7 @@ func initializeApplication() {
 
 	// Start logging
 	logDir := filepath.Dir(paths.LogFilePath)
-	fmt.Printf("Setting log file at %q", logDir)
+	fmt.Printf("Setting log file at %q\n\n", logDir)
 
 	if err := logging.SetupLogging(logDir); err != nil {
 		fmt.Printf("\n\nWarning: Log file was not created\nReason: %s\n\n", err)
@@ -33,9 +33,7 @@ func initializeApplication() {
 }
 
 // initializeBatchConfigs ensures the entered files and directories are valid and creates batch pairs.
-func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.BatchConfig, err error) {
-	metaOps = models.EnsureMetaOps(metaOps)
-
+func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 	var videoDirs, videoFiles, jsonDirs, jsonFiles []string
 	if abstractions.IsSet(keys.VideoFiles) {
 		videoFiles = abstractions.GetStringSlice(keys.VideoFiles)

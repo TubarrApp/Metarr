@@ -12,7 +12,7 @@ type MetaOps struct {
 	ReplaceOverrides map[enums.OverrideMetaType]MOverrideReplacePair
 	DateTags         map[string]MetaDateTag
 	DeleteDateTags   map[string]MetaDateTag
-	NewFields        []MetaNewField
+	SetFields        []MetaSetField
 	Appends          []MetaAppend
 	Prefixes         []MetaPrefix
 	Replaces         []MetaReplace
@@ -35,7 +35,7 @@ func NewMetaOps() *MetaOps {
 		DeleteDateTags:   make(map[string]MetaDateTag),
 
 		// Initialize slices
-		NewFields:       make([]MetaNewField, 0),
+		SetFields:       make([]MetaSetField, 0),
 		Appends:         make([]MetaAppend, 0),
 		Prefixes:        make([]MetaPrefix, 0),
 		TrimSuffixes:    make([]MetaTrimSuffix, 0),
@@ -105,8 +105,8 @@ type MetaTrimSuffix struct {
 	Suffix string
 }
 
-// MetaNewField contains a new field and value to add to metadata.
-type MetaNewField struct {
+// MetaSetField contains a new field and value to add to metadata.
+type MetaSetField struct {
 	Field string
 	Value string
 }

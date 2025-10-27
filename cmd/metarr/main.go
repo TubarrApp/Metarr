@@ -46,8 +46,7 @@ func main() {
 	defer benchmark.CloseBenchmarking()
 
 	// Parse configuration
-	metaOps, err := cfg.Execute()
-	if err != nil {
+	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Println()
 		os.Exit(1)
@@ -84,7 +83,7 @@ func main() {
 	prompt.InitUserInputReader()
 
 	// Initialize batch configurations
-	batches, err := initializeBatchConfigs(metaOps)
+	batches, err := initializeBatchConfigs()
 	if err != nil {
 		logging.E("Failed to initialize batch configs. Exiting...")
 		cancel()

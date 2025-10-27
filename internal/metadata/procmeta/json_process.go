@@ -30,7 +30,6 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	if fd == nil {
 		return nil, errors.New("model passed in null")
 	}
-
 	logging.D(2, "Beginning JSON file processing...")
 
 	filePath := fd.JSONFilePath

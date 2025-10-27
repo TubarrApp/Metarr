@@ -53,7 +53,7 @@ func InitFetchFilesVars() (err error) {
 }
 
 // GetVideoFiles fetches video files from a directory.
-func GetVideoFiles(videoDir *os.File, metaOps *models.MetaOps) (map[string]*models.FileData, error) {
+func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	files, err := videoDir.ReadDir(-1)
 	if err != nil {
 		return nil, fmt.Errorf("error reading video directory %q: %w", videoDir.Name(), err)
@@ -76,7 +76,6 @@ func GetVideoFiles(videoDir *os.File, metaOps *models.MetaOps) (map[string]*mode
 			videoFilenameBase := filepath.Base(file.Name())
 
 			m := models.NewFileData()
-			m.MetaOps = models.EnsureMetaOps(metaOps)
 
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
 			m.OriginalVideoBaseName = strings.TrimSuffix(videoFilenameBase, filepath.Ext(file.Name()))
@@ -98,7 +97,7 @@ func GetVideoFiles(videoDir *os.File, metaOps *models.MetaOps) (map[string]*mode
 }
 
 // GetMetadataFiles fetches metadata files from a directory.
-func GetMetadataFiles(metaDir *os.File, metaOps *models.MetaOps) (map[string]*models.FileData, error) {
+func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	files, err := metaDir.ReadDir(-1)
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata directory %q: %w", metaDir.Name(), err)
@@ -124,7 +123,6 @@ func GetMetadataFiles(metaDir *os.File, metaOps *models.MetaOps) (map[string]*mo
 		baseName := strings.TrimSuffix(metaFilenameBase, ext)
 
 		m := models.NewFileData()
-		m.MetaOps = models.EnsureMetaOps(metaOps)
 
 		filePath := filepath.Join(metaDir.Name(), file.Name())
 
@@ -162,12 +160,11 @@ func GetMetadataFiles(metaDir *os.File, metaOps *models.MetaOps) (map[string]*mo
 }
 
 // GetSingleVideoFile handles a single video file.
-func GetSingleVideoFile(videoFile *os.File, metaOps *models.MetaOps) (map[string]*models.FileData, error) {
+func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error) {
 	videoMap := make(map[string]*models.FileData, 1)
 	videoFilename := filepath.Base(videoFile.Name())
 
 	videoData := models.NewFileData()
-	videoData.MetaOps = models.EnsureMetaOps(metaOps)
 
 	videoData.OriginalVideoPath = videoFile.Name()
 	videoData.OriginalVideoBaseName = strings.TrimSuffix(videoFilename, filepath.Ext(videoFilename))
@@ -180,12 +177,11 @@ func GetSingleVideoFile(videoFile *os.File, metaOps *models.MetaOps) (map[string
 }
 
 // GetSingleMetadataFile handles a single metadata file.
-func GetSingleMetadataFile(metaFile *os.File, metaOps *models.MetaOps) (map[string]*models.FileData, error) {
+func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, error) {
 	metaMap := make(map[string]*models.FileData, 1)
 	videoFilename := filepath.Base(metaFile.Name())
 
 	metaFileData := models.NewFileData()
-	metaFileData.MetaOps = models.EnsureMetaOps(metaOps)
 
 	ext := filepath.Ext(metaFile.Name())
 

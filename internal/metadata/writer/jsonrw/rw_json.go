@@ -155,7 +155,6 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	if file == nil {
 		return false, errors.New("file passed in nil")
 	}
-
 	currentMeta := rw.copyMeta()
 
 	logging.D(5, "Entering MakeJSONEdits.\nData: %v", currentMeta)
@@ -166,7 +165,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 		trimSfx   []models.MetaTrimSuffix
 		apnd      []models.MetaAppend
 		pfx       []models.MetaPrefix
-		newField  []models.MetaNewField
+		newField  []models.MetaSetField
 		replace   []models.MetaReplace
 		copyTo    []models.CopyToField
 		pasteFrom []models.PasteFromField
@@ -202,9 +201,9 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	}
 
 	// New fields
-	if len(fd.MetaOps.NewFields) > 0 {
+	if len(fd.MetaOps.SetFields) > 0 {
 		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
-		newField = fd.MetaOps.NewFields
+		newField = fd.MetaOps.SetFields
 	}
 
 	// Copy/paste

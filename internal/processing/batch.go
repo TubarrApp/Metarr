@@ -20,7 +20,6 @@ type batch struct {
 	JSON       string
 	IsDirs     bool
 	SkipVideos bool
-	MetaOps    *models.MetaOps
 	bp         *batchProcessor
 }
 
@@ -145,7 +144,5 @@ func convertCfgToBatch(config models.BatchConfig) *batch {
 		IsDirs:     config.IsDirs,
 		SkipVideos: config.SkipVideos,
 	}
-
-	newBatch.MetaOps = models.EnsureMetaOps(newBatch.MetaOps)
 	return newBatch
 }

@@ -79,7 +79,7 @@ const (
 	MCopyToField    string = "copyToField"
 	MPasteFromField string = "pasteFromField"
 	MAppend         string = "metaAppend"
-	MNewField       string = "metaNewField"
+	MNewField       string = "MetaSetField"
 	MPrefix         string = "metaPrefix"
 	MReplaceText    string = "metaReplaceText"
 	MTrimPrefix     string = "metaTrimPrefix"

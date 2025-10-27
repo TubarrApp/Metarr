@@ -158,7 +158,7 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file
-func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaNewField) (bool, error) {
+func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaSetField) (bool, error) {
 	if len(newField) == 0 {
 		logging.E("No new field additions found for file %q", file)
 		return false, nil
