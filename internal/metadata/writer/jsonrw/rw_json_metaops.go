@@ -52,7 +52,6 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 
 	edited := false
 	for _, p := range tPfx {
-		logging.I("PREFIX: %v, REPLACEMENT: %v", p.Prefix, p.Replacement)
 		if p.Field == "" || p.Prefix == "" {
 			continue
 		}
@@ -60,6 +59,9 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 		if val, exists := j[p.Field]; exists {
 
 			if strVal, ok := val.(string); ok {
+				if !strings.HasPrefix(strVal, p.Prefix) {
+					continue
+				}
 				logging.D(3, "Identified field %q, trimming %q", p.Field, p.Prefix)
 				j[p.Field] = p.Replacement + strings.TrimPrefix(strVal, p.Prefix)
 				edited = true
@@ -88,6 +90,9 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaRepl
 		if val, exists := j[s.Field]; exists {
 
 			if strVal, ok := val.(string); ok {
+				if !strings.HasSuffix(strVal, s.Suffix) {
+					continue
+				}
 				logging.D(3, "Identified field %q, trimming %q", s.Field, s.Suffix)
 				j[s.Field] = strings.TrimSuffix(strVal, s.Suffix) + s.Replacement
 				edited = true
