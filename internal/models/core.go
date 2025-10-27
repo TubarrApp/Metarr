@@ -20,6 +20,8 @@ func NewFileData() *FileData {
 		MWebData:   &MetadataWebData{},
 		MOther:     &MetadataOtherData{},
 	}
+
+	// Filename Ops
 	if abstractions.IsSet(keys.FilenameOpsModels) {
 		if fOps, ok := abstractions.Get(keys.FilenameOpsModels).(*FilenameOps); ok {
 			fd.FilenameOps = fOps
@@ -27,6 +29,9 @@ func NewFileData() *FileData {
 			fmt.Printf("Failed to retrieve FilenameOps from abstractions, got type %T", abstractions.Get(keys.FilenameOpsModels))
 		}
 	}
+	fd.EnsureFilenameOps()
+
+	// Meta Ops
 	if abstractions.IsSet(keys.MetaOpsModels) {
 		if mOps, ok := abstractions.Get(keys.MetaOpsModels).(*MetaOps); ok {
 			fd.MetaOps = mOps
@@ -34,77 +39,9 @@ func NewFileData() *FileData {
 			fmt.Printf("Failed to retrieve MetaOps from abstractions, got type %T", abstractions.Get(keys.MetaOpsModels))
 		}
 	}
-	fd.EnsureFilenameOps()
 	fd.EnsureMetaOps()
+
 	return fd
-}
-
-// EnsureFilenameOps initializes nil filename operation structure values.
-func (fd *FileData) EnsureFilenameOps() {
-	if fd.FilenameOps == nil {
-		fd.FilenameOps = &FilenameOps{}
-	}
-	if fd.FilenameOps.Appends == nil {
-		fd.FilenameOps.Appends = []FOpAppend{}
-	}
-	if fd.FilenameOps.Prefixes == nil {
-		fd.FilenameOps.Prefixes = []FOpPrefix{}
-	}
-	if fd.FilenameOps.Replaces == nil {
-		fd.FilenameOps.Replaces = []FOpReplace{}
-	}
-	if fd.FilenameOps.ReplacePrefixes == nil {
-		fd.FilenameOps.ReplacePrefixes = []FOpReplacePrefix{}
-	}
-	if fd.FilenameOps.ReplaceSuffixes == nil {
-		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
-	}
-}
-
-// EnsureMetaOps initializes nil metadata operation structure values.
-func (fd *FileData) EnsureMetaOps() {
-	if fd.MetaOps == nil {
-		fd.MetaOps = &MetaOps{}
-	}
-	if fd.MetaOps.SetOverrides == nil {
-		fd.MetaOps.SetOverrides = make(map[enums.OverrideMetaType]string, 0)
-	}
-	if fd.MetaOps.AppendOverrides == nil {
-		fd.MetaOps.AppendOverrides = make(map[enums.OverrideMetaType]string, 0)
-	}
-	if fd.MetaOps.ReplaceOverrides == nil {
-		fd.MetaOps.ReplaceOverrides = make(map[enums.OverrideMetaType]MOverrideReplacePair, 0)
-	}
-	if fd.MetaOps.DateTags == nil {
-		fd.MetaOps.DateTags = make(map[string]MetaDateTag, 0)
-	}
-	if fd.MetaOps.DeleteDateTags == nil {
-		fd.MetaOps.DeleteDateTags = make(map[string]MetaDateTag, 0)
-	}
-	if fd.MetaOps.SetFields == nil {
-		fd.MetaOps.SetFields = []MetaSetField{}
-	}
-	if fd.MetaOps.Appends == nil {
-		fd.MetaOps.Appends = []MetaAppend{}
-	}
-	if fd.MetaOps.Prefixes == nil {
-		fd.MetaOps.Prefixes = []MetaPrefix{}
-	}
-	if fd.MetaOps.Replaces == nil {
-		fd.MetaOps.Replaces = []MetaReplace{}
-	}
-	if fd.MetaOps.TrimSuffixes == nil {
-		fd.MetaOps.TrimSuffixes = []MetaTrimSuffix{}
-	}
-	if fd.MetaOps.TrimPrefixes == nil {
-		fd.MetaOps.TrimPrefixes = []MetaTrimPrefix{}
-	}
-	if fd.MetaOps.CopyToFields == nil {
-		fd.MetaOps.CopyToFields = []CopyToField{}
-	}
-	if fd.MetaOps.PasteFromFields == nil {
-		fd.MetaOps.PasteFromFields = []PasteFromField{}
-	}
 }
 
 // FileData contains information about the file and how it should be handled.

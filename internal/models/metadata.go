@@ -46,12 +46,51 @@ func NewMetaOps() *MetaOps {
 	}
 }
 
-// EnsureMetaOps returns the provided MetaOps or creates a new one if nil.
-func EnsureMetaOps(mOps *MetaOps) *MetaOps {
-	if mOps == nil {
-		return NewMetaOps()
+// EnsureMetaOps initializes nil metadata operation structure values.
+func (fd *FileData) EnsureMetaOps() {
+	if fd.MetaOps == nil {
+		fd.MetaOps = NewMetaOps()
+		return
 	}
-	return mOps
+	if fd.MetaOps.SetOverrides == nil {
+		fd.MetaOps.SetOverrides = make(map[enums.OverrideMetaType]string, 0)
+	}
+	if fd.MetaOps.AppendOverrides == nil {
+		fd.MetaOps.AppendOverrides = make(map[enums.OverrideMetaType]string, 0)
+	}
+	if fd.MetaOps.ReplaceOverrides == nil {
+		fd.MetaOps.ReplaceOverrides = make(map[enums.OverrideMetaType]MOverrideReplacePair, 0)
+	}
+	if fd.MetaOps.DateTags == nil {
+		fd.MetaOps.DateTags = make(map[string]MetaDateTag, 0)
+	}
+	if fd.MetaOps.DeleteDateTags == nil {
+		fd.MetaOps.DeleteDateTags = make(map[string]MetaDateTag, 0)
+	}
+	if fd.MetaOps.SetFields == nil {
+		fd.MetaOps.SetFields = []MetaSetField{}
+	}
+	if fd.MetaOps.Appends == nil {
+		fd.MetaOps.Appends = []MetaAppend{}
+	}
+	if fd.MetaOps.Prefixes == nil {
+		fd.MetaOps.Prefixes = []MetaPrefix{}
+	}
+	if fd.MetaOps.Replaces == nil {
+		fd.MetaOps.Replaces = []MetaReplace{}
+	}
+	if fd.MetaOps.TrimSuffixes == nil {
+		fd.MetaOps.TrimSuffixes = []MetaTrimSuffix{}
+	}
+	if fd.MetaOps.TrimPrefixes == nil {
+		fd.MetaOps.TrimPrefixes = []MetaTrimPrefix{}
+	}
+	if fd.MetaOps.CopyToFields == nil {
+		fd.MetaOps.CopyToFields = []CopyToField{}
+	}
+	if fd.MetaOps.PasteFromFields == nil {
+		fd.MetaOps.PasteFromFields = []PasteFromField{}
+	}
 }
 
 // BatchConfig holds data for the current batch's configuration options.

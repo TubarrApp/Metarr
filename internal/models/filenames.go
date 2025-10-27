@@ -22,18 +22,33 @@ func NewFilenameOps() *FilenameOps {
 		ReplaceSuffixes: make([]FOpReplaceSuffix, 0),
 		ReplacePrefixes: make([]FOpReplacePrefix, 0),
 	}
-	fo.DateTag.DateFormat = enums.DateFmtSkip
-	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip
+	fo.DateTag.DateFormat = enums.DateFmtSkip        // Zero value
+	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip // Zero value
 
 	return fo
 }
 
-// EnsureFilenameOps returns the provided FilenameOps or creates a new one if nil.
-func EnsureFilenameOps(fOps *FilenameOps) *FilenameOps {
-	if fOps == nil {
-		return NewFilenameOps()
+// EnsureFilenameOps initializes nil filename operation structure values.
+func (fd *FileData) EnsureFilenameOps() {
+	if fd.FilenameOps == nil {
+		fd.FilenameOps = NewFilenameOps()
+		return
 	}
-	return fOps
+	if fd.FilenameOps.Appends == nil {
+		fd.FilenameOps.Appends = []FOpAppend{}
+	}
+	if fd.FilenameOps.Prefixes == nil {
+		fd.FilenameOps.Prefixes = []FOpPrefix{}
+	}
+	if fd.FilenameOps.Replaces == nil {
+		fd.FilenameOps.Replaces = []FOpReplace{}
+	}
+	if fd.FilenameOps.ReplacePrefixes == nil {
+		fd.FilenameOps.ReplacePrefixes = []FOpReplacePrefix{}
+	}
+	if fd.FilenameOps.ReplaceSuffixes == nil {
+		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
+	}
 }
 
 // FOpAppend is the value to append onto a filename.

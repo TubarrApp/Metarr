@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-// String constants
+// Main program string constants.
 const (
 	timeFormat     = "2006-01-02 15:04:05.00 MST"
 	startLogFormat = "Metarr started at: %s"
