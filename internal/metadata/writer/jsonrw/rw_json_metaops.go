@@ -57,9 +57,9 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 		}
 
 		if val, exists := j[p.Field]; exists {
-
 			if strVal, ok := val.(string); ok {
 				if !strings.HasPrefix(strVal, p.Prefix) {
+					logging.D(3, "Metafield %q does not contain prefix %q, not making replacement", strVal, p.Prefix)
 					continue
 				}
 				logging.D(3, "Identified field %q, trimming %q", p.Field, p.Prefix)
@@ -88,9 +88,9 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaRepl
 		}
 
 		if val, exists := j[s.Field]; exists {
-
 			if strVal, ok := val.(string); ok {
 				if !strings.HasSuffix(strVal, s.Suffix) {
+					logging.D(3, "Metafield %q does not contain suffix %q, not making replacement", strVal, s.Suffix)
 					continue
 				}
 				logging.D(3, "Identified field %q, trimming %q", s.Field, s.Suffix)
@@ -119,9 +119,7 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 		}
 
 		if value, exists := j[a.Field]; exists {
-
 			if strVal, ok := value.(string); ok {
-
 				logging.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
 				strVal += a.Append
 				j[a.Field] = strVal
