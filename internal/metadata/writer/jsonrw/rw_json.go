@@ -150,18 +150,17 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 }
 
 // MakeJSONEdits applies a series of transformations and writes the final result to the file
-func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, error) {
+func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	if file == nil {
 		return false, errors.New("file passed in nil")
 	}
-
 	currentMeta := rw.copyMeta()
 	logging.D(5, "Entering MakeJSONEdits.\nData: %v", currentMeta)
 
-	var edited bool
 	filename := rw.File.Name()
 	mtp := parsing.NewMetaTemplateParser(file.Name())
 	ops := fd.MetaOps
+
 	// 1. Set fields first (establishes baseline values)
 	if len(ops.SetFields) > 0 {
 		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)

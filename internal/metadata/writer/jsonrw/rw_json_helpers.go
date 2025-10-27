@@ -6,27 +6,28 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"metarr/internal/utils/logging"
 	"os"
 	"strings"
 	"sync"
 )
 
-// Map buffer
+// Map buffer.
 var metaMapPool = sync.Pool{
 	New: func() any {
 		return make(map[string]any, 81) // 81 objects in tested JSON file received from yt-dlp
 	},
 }
 
-// JSON pool buffer
+// JSON pool buffer.
 var jsonBufferPool = sync.Pool{
 	New: func() any {
 		return bytes.NewBuffer(make([]byte, 0, 4096)) // i.e. 4KiB
 	},
 }
 
-// writeJSONToFile is a private metadata writing helper function
+// writeJSONToFile is a private metadata writing helper function.
 func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	if file == nil {
 		return errors.New("file passed in nil")
@@ -89,12 +90,11 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	if err := file.Sync(); err != nil {
 		return fmt.Errorf("failed to sync file: %w", err)
 	}
-
 	success = true
 	return nil
 }
 
-// copyMeta creates a deep copy of the metadata map under read lock
+// copyMeta creates a deep copy of the metadata map under read lock.
 func (rw *JSONFileRW) copyMeta() map[string]any {
 	rw.mu.RLock()
 	defer rw.mu.RUnlock()
@@ -104,13 +104,11 @@ func (rw *JSONFileRW) copyMeta() map[string]any {
 	}
 
 	currentMeta := metaMapPool.Get().(map[string]any)
-	for k, v := range rw.Meta {
-		currentMeta[k] = v
-	}
+	maps.Copy(currentMeta, rw.Meta)
 	return currentMeta
 }
 
-// updateMeta safely updates the metadata map under write lock
+// updateMeta safely updates the metadata map under write lock.
 func (rw *JSONFileRW) updateMeta(newMeta map[string]any) {
 	if newMeta == nil {
 		newMeta = metaMapPool.Get().(map[string]any)
@@ -127,7 +125,7 @@ func (rw *JSONFileRW) updateMeta(newMeta map[string]any) {
 	}
 }
 
-// cleanFieldValue trims leading/trailing whitespaces after deletions
+// cleanFieldValue trims leading/trailing whitespaces after deletions.
 func (rw *JSONFileRW) cleanFieldValue(value string) string {
 	cleaned := strings.TrimSpace(value)
 	cleaned = strings.Join(strings.Fields(cleaned), " ")

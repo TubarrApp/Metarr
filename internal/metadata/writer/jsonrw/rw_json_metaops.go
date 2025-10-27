@@ -16,15 +16,13 @@ import (
 )
 
 // replaceJSON makes user defined JSON replacements.
-func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, mtp *parsing.MetaTemplateParser) bool {
+func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
 	if len(rplce) == 0 {
 		logging.E("Called replaceJson without replacements")
 		return false
 	}
-
-	edited := false
 	for _, r := range rplce {
 		if r.Field == "" || r.Value == "" {
 			continue
@@ -43,15 +41,13 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 }
 
 // replaceJSONPrefix trims defined prefixes from specified fields.
-func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) bool {
+func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
 		logging.E("Called trimJsonPrefix without prefixes to trim")
 		return false
 	}
-
-	edited := false
 	for _, p := range tPfx {
 		if p.Field == "" || p.Prefix == "" {
 			continue
@@ -74,15 +70,13 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 }
 
 // replaceJSONSuffix trims defined suffixes from specified fields.
-func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) bool {
+func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
 		logging.E("Called trimJsonSuffix without prefixes to trim")
 		return false
 	}
-
-	edited := false
 	for _, s := range tSfx {
 		if s.Field == "" || s.Suffix == "" {
 			continue
@@ -105,15 +99,13 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaRepl
 }
 
 // jsonAppend appends to the fields in the JSON data.
-func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.MetaAppend, mtp *parsing.MetaTemplateParser) bool {
+func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.MetaAppend, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
 	if len(apnd) == 0 {
 		logging.E("No new suffixes to append for file %q", file)
 		return false // No replacements to apply
 	}
-
-	edited := false
 	for _, a := range apnd {
 		if a.Field == "" || a.Append == "" {
 			continue
@@ -133,15 +125,13 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 }
 
 // jsonPrefix applies prefixes to the fields in the JSON data.
-func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix, mtp *parsing.MetaTemplateParser) bool {
+func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(pfx) == 0 {
 		logging.E("No new prefix replacements found for file %q", file)
 		return false // No replacements to apply
 	}
-
-	edited := false
 	for _, p := range pfx {
 		if p.Field == "" || p.Prefix == "" {
 			continue
@@ -162,7 +152,7 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file.
-func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaSetField, mtp *parsing.MetaTemplateParser) (bool, error) {
+func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaSetField, mtp *parsing.MetaTemplateParser) (edited bool, err error) {
 	if len(newField) == 0 {
 		logging.E("No new field additions found for file %q", file)
 		return false, nil
@@ -277,7 +267,7 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 }
 
 // jsonFieldAddDateTag sets date tags in designated meta fields.
-func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[string]models.MetaDateTag, fd *models.FileData) (bool, error) {
+func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[string]models.MetaDateTag, fd *models.FileData) (edited bool, err error) {
 	if len(addDateTag) == 0 {
 		logging.D(3, "No date tag operations to perform")
 		return false, nil
@@ -285,9 +275,7 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 	if fd == nil {
 		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
 	}
-	logging.D(2, "Adding metadata date tags for %q...", fd.OriginalVideoBaseName)
-
-	edited := false
+	logging.D(2, "Adding metadata date tags for %q...", fd.JSONBaseName)
 
 	// Add date tags
 	for fld, d := range addDateTag {
@@ -334,7 +322,7 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 }
 
 // jsonFieldDeleteDateTag sets date tags in designated meta fields.
-func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map[string]models.MetaDeleteDateTag, fd *models.FileData) (bool, error) {
+func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map[string]models.MetaDeleteDateTag, fd *models.FileData) (edited bool, err error) {
 	if len(deleteDateTag) == 0 {
 		logging.D(3, "No delete date tag operations to perform")
 		return false, nil
@@ -343,8 +331,6 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
 	}
 	logging.D(2, "Deleting metadata date tags for %q...", fd.OriginalVideoBaseName)
-
-	edited := false
 
 	// Delete date tags:
 	for fld, d := range deleteDateTag {
@@ -375,15 +361,13 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 }
 
 // copyToField copies values from one meta field to another.
-func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField) bool {
+func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField) (edited bool) {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(copyTo) == 0 {
 		logging.E("No new copy operations found")
 		return false
 	}
-
-	edited := false
 	for _, c := range copyTo {
 		if c.Field == "" || c.Dest == "" {
 			continue
@@ -403,15 +387,13 @@ func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField)
 }
 
 // pasteFromField copies values from one meta field to another.
-func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromField) bool {
+func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromField) (edited bool) {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(paste) == 0 {
 		logging.E("No new paste operations found")
 		return false
 	}
-
-	edited := false
 	for _, p := range paste {
 		if p.Field == "" || p.Origin == "" {
 			continue

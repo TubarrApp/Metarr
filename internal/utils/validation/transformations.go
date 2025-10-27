@@ -22,7 +22,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 	validOpsForPrintout := make([]string, 0, len(metaOpsInput))
 
 	for _, op := range metaOpsInput {
-		parts := strings.Split(op, ":")
+		parts := EscapedSplit(op, ':')
 		if len(parts) < 3 || len(parts) > 4 {
 			logging.W(invalidWarning, op)
 			continue
@@ -42,8 +42,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 					ops.SetOverrides[enums.OverrideMetaCredits] = value
 				}
 				newFieldModel := models.MetaSetField{
-					Field: field,
-					Value: value,
+					Field: UnescapeSplit(field, ":"),
+					Value: UnescapeSplit(value, ":"),
 				}
 				ops.SetFields = append(ops.SetFields, newFieldModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -51,8 +51,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "append":
 				apndModel := models.MetaAppend{
-					Field:  field,
-					Append: value,
+					Field:  UnescapeSplit(field, ":"),
+					Append: UnescapeSplit(value, ":"),
 				}
 				ops.Appends = append(ops.Appends, apndModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -60,8 +60,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "prefix":
 				pfxModel := models.MetaPrefix{
-					Field:  field,
-					Prefix: value,
+					Field:  UnescapeSplit(field, ":"),
+					Prefix: UnescapeSplit(value, ":"),
 				}
 				ops.Prefixes = append(ops.Prefixes, pfxModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -69,8 +69,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "copy-to":
 				c := models.CopyToField{
-					Field: field,
-					Dest:  value,
+					Field: UnescapeSplit(field, ":"),
+					Dest:  UnescapeSplit(value, ":"),
 				}
 				ops.CopyToFields = append(ops.CopyToFields, c)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -78,8 +78,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "paste-from":
 				p := models.PasteFromField{
-					Field:  field,
-					Origin: value,
+					Field:  UnescapeSplit(field, ":"),
+					Origin: UnescapeSplit(value, ":"),
 				}
 				ops.PasteFromFields = append(ops.PasteFromFields, p)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -91,9 +91,9 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				findStr := parts[2]
 				replacement := parts[3]
 				rModel := models.MetaReplace{
-					Field:       field,
-					Value:       findStr,
-					Replacement: replacement,
+					Field:       UnescapeSplit(field, ":"),
+					Value:       UnescapeSplit(findStr, ":"),
+					Replacement: UnescapeSplit(replacement, ":"),
 				}
 				ops.Replaces = append(ops.Replaces, rModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -155,9 +155,9 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				findSuffix := parts[2]
 				replaceStr := parts[3]
 				ops.ReplaceSuffixes = append(ops.ReplaceSuffixes, models.MetaReplaceSuffix{
-					Field:       field,
-					Suffix:      findSuffix,
-					Replacement: replaceStr,
+					Field:       UnescapeSplit(field, ":"),
+					Suffix:      UnescapeSplit(findSuffix, ":"),
+					Replacement: UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
@@ -166,9 +166,9 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				findPrefix := parts[2]
 				replaceStr := parts[3]
 				ops.ReplacePrefixes = append(ops.ReplacePrefixes, models.MetaReplacePrefix{
-					Field:       field,
-					Prefix:      findPrefix,
-					Replacement: replaceStr,
+					Field:       UnescapeSplit(field, ":"),
+					Prefix:      UnescapeSplit(findPrefix, ":"),
+					Replacement: UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
@@ -204,26 +204,26 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 	validOpsForPrintout := make([]string, 0, len(filenameOpsInput))
 
 	for _, op := range filenameOpsInput {
-		opParts := strings.Split(op, ":")
-		if len(opParts) < 2 || len(opParts) > 3 {
+		parts := EscapedSplit(op, ':')
+		if len(parts) < 2 || len(parts) > 3 {
 			logging.W(invalidWarning, op)
 			continue
 		}
-		operation := opParts[0]
-		switch len(opParts) {
+		operation := parts[0]
+		switch len(parts) {
 		case 2:
-			opValue := opParts[1]
+			opValue := parts[1]
 			switch strings.ToLower(operation) {
 			case "prefix":
 				fOpModel.Prefixes = append(fOpModel.Prefixes, models.FOpPrefix{
-					Value: opValue,
+					Value: UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new prefix operation:\nPrefix: %s\n", opValue)
 
 			case "append":
 				fOpModel.Appends = append(fOpModel.Appends, models.FOpAppend{
-					Value: opValue,
+					Value: UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new append operation:\nAppend: %s\n", opValue)
@@ -235,8 +235,8 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 					logging.W("Only one date tag accepted per run to prevent user error")
 					continue
 				}
-				tagLoc := opParts[1]
-				dateFmt := opParts[2]
+				tagLoc := parts[1]
+				dateFmt := parts[2]
 				var tagLocEnum enums.DateTagLocation
 				switch tagLoc {
 				case "prefix":
@@ -264,8 +264,8 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 					logging.W("Only one delete date tag accepted, try using 'all' to replace all instances")
 					continue
 				}
-				tagLoc := opParts[1]
-				dateFmt := opParts[2]
+				tagLoc := parts[1]
+				dateFmt := parts[2]
 				var tagLocEnum enums.DateTagLocation
 				switch tagLoc {
 				case "prefix":
@@ -291,31 +291,31 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				logging.D(3, "Added delete date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
 
 			case "replace":
-				findStr := opParts[1]
-				replaceStr := opParts[2]
+				findStr := parts[1]
+				replaceStr := parts[2]
 				fOpModel.Replaces = append(fOpModel.Replaces, models.FOpReplace{
-					FindString:  findStr,
-					Replacement: replaceStr,
+					FindString:  UnescapeSplit(findStr, ":"),
+					Replacement: UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new replace operation:\nFind Strings: %s\nReplace With: %s\n", findStr, replaceStr)
 
 			case "replace-suffix":
-				findSuffix := opParts[1]
-				replaceStr := opParts[2]
+				findSuffix := parts[1]
+				replaceStr := parts[2]
 				fOpModel.ReplaceSuffixes = append(fOpModel.ReplaceSuffixes, models.FOpReplaceSuffix{
-					Suffix:      findSuffix,
-					Replacement: replaceStr,
+					Suffix:      UnescapeSplit(findSuffix, ":"),
+					Replacement: UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
 
 			case "replace-prefix":
-				findPrefix := opParts[1]
-				replaceStr := opParts[2]
+				findPrefix := parts[1]
+				replaceStr := parts[2]
 				fOpModel.ReplacePrefixes = append(fOpModel.ReplacePrefixes, models.FOpReplacePrefix{
-					Prefix:      findPrefix,
-					Replacement: replaceStr,
+					Prefix:      UnescapeSplit(findPrefix, ":"),
+					Replacement: UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)

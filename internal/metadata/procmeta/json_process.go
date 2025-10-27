@@ -70,6 +70,8 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		return nil, errors.New("json decoded nil")
 	}
 
+	logging.I("Got metadata from file: %v", data)
+
 	// Get web data first (before MakeMetaEdits in case of transformation presets)
 	gotWebData := jsonfields.FillWebpageDetails(fd, data)
 	if gotWebData {
