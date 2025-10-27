@@ -227,6 +227,16 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new append operation:\nAppend: %s\n", opValue)
+
+			case "set":
+				if fOpModel.Set.IsSet {
+					logging.E("Only one set operation can be run per batch. Skipping operation %q.", op)
+					continue
+				}
+				fOpModel.Set = models.FOpSet{
+					IsSet: true,
+					Value: opValue,
+				}
 			}
 		case 3:
 			switch strings.ToLower(operation) {

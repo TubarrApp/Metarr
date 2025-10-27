@@ -24,7 +24,6 @@ var (
 
 // renameFiles performs renaming operations.
 func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData, skipVideos bool) {
-
 	var (
 		replaceStyle                           enums.ReplaceToStyle
 		ok                                     bool
@@ -55,8 +54,7 @@ func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData,
 		return
 	}
 
-	err := transformations.FileRename(fd, replaceStyle, skipVideos)
-	if err != nil {
+	if err := transformations.FileRename(fd, replaceStyle, skipVideos); err != nil {
 		logging.AddToErrorArray(err)
 		logging.E("Failed to rename files: %v", err)
 	} else {

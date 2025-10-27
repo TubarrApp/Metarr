@@ -7,27 +7,49 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/utils/fs/fswrite"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/validation"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 )
+
+var filenameTaken sync.Map
+
+// getUniqueFilename appends numbers onto a filename if the filename already exists.
+func getUniqueFilename(base string) string {
+	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
+	n := counter.(*atomic.Int32).Add(1)
+	if n == 1 {
+		return base
+	}
+	return fmt.Sprintf("%s (%d)", base, n-1) // First file is plain, first duplicate gets " (1)"
+}
 
 // fileProcessor handles the renaming and moving of files.
 type fileProcessor struct {
-	fd         *models.FileData
-	style      enums.ReplaceToStyle
-	skipVideos bool
+	fd            *models.FileData
+	style         enums.ReplaceToStyle
+	metatagParser *parsing.MetaTemplateParser
+	metadata      map[string]any
+	skipVideos    bool
 }
 
 // FileRename formats the file names
-func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideos bool) error {
-
+func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideos bool) (err error) {
 	fp := &fileProcessor{
-		fd:         fileData,
-		style:      style,
-		skipVideos: skipVideos,
+		fd:            fileData,
+		style:         style,
+		skipVideos:    skipVideos,
+		metatagParser: parsing.NewMetaTemplateParser(fileData.JSONFilePath),
+	}
+
+	fp.metadata, err = fileData.JSONFileRW.RefreshJSON()
+	if err != nil {
+		return err
 	}
 
 	if err := fp.process(); err != nil {
@@ -148,11 +170,11 @@ func (fp *fileProcessor) processRenames(videoBase, metaBase string) (string, str
 	var renamedVideo, renamedMeta string
 
 	if !fp.skipVideos {
-		renamedVideo = constructNewNames(videoBase, fp.style, fp.fd)
+		renamedVideo = fp.constructNewNames(videoBase, fp.style, fp.fd)
 		renamedMeta = renamedVideo // Video name as meta base (if possible) for better consistency
 		logging.D(2, "Renamed video to %q", renamedVideo)
 	} else {
-		renamedMeta = constructNewNames(metaBase, fp.style, fp.fd)
+		renamedMeta = fp.constructNewNames(metaBase, fp.style, fp.fd)
 		logging.D(3, "Renamed meta now %q", renamedMeta)
 	}
 
@@ -192,6 +214,7 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for final video: %w", err)
 		}
+		fp.fd.FinalVideoPath = getUniqueFilename(fp.fd.FinalVideoPath)
 	}
 
 	if fp.fd.JSONFilePath != "" && !filepath.IsAbs(fp.fd.JSONFilePath) {
@@ -199,14 +222,14 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
+		fp.fd.JSONFilePath = getUniqueFilename(fp.fd.JSONFilePath)
 	}
-
 	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
 	return nil
 }
 
 // constructNewNames constructs the new file names.
-func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
+func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
 	logging.D(2, "Processing metafile base name: %q", fileBase)
 	fOps := fd.FilenameOps
 
@@ -217,6 +240,7 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 	prefixOps := fOps.Prefixes
 	dateTag := fOps.DateTag
 	deleteDateTags := fOps.DeleteDateTags
+	set := fOps.Set
 
 	// Check if any renaming to do
 	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 &&
@@ -228,38 +252,43 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 
 	// Delete date tags first (if configured)
 	if deleteDateTags.DateFormat != enums.DateFmtSkip {
-		fileBase = deleteDateTag(fileBase, deleteDateTags)
+		fileBase = fp.deleteDateTag(fileBase, deleteDateTags)
+	}
+
+	// Set strings
+	if set.IsSet {
+		fileBase = fp.setString(fileBase, set)
 	}
 
 	// Make string replacements
 	if len(replacements) > 0 {
-		fileBase = replaceStrings(fileBase, replacements)
+		fileBase = fp.replaceStrings(fileBase, replacements)
 	}
 
 	// Replace/trim prefixes
 	if len(prefixes) > 0 {
-		fileBase = replacePrefix(fileBase, prefixes)
+		fileBase = fp.replacePrefix(fileBase, prefixes)
 	}
 
 	// Replace/trim suffixes
 	if len(suffixes) > 0 {
-		fileBase = replaceSuffix(fileBase, suffixes)
+		fileBase = fp.replaceSuffix(fileBase, suffixes)
 	}
 
 	// Add prefixes
 	if len(prefixOps) > 0 {
-		fileBase = prefixStrings(fileBase, prefixOps)
+		fileBase = fp.prefixStrings(fileBase, prefixOps)
 	}
 
 	// Add appends
 	if len(appends) > 0 {
-		fileBase = appendStrings(fileBase, appends)
+		fileBase = fp.appendStrings(fileBase, appends)
 	}
 
 	// Add date tag
 	if fd.FilenameDateTag != "" {
 		if !strings.Contains(fileBase, fd.FilenameDateTag) {
-			fileBase = addDateTag(fileBase, dateTag, fd.FilenameDateTag)
+			fileBase = fp.addDateTag(fileBase, dateTag, fd.FilenameDateTag)
 		} else {
 			logging.D(2, "Date tag already present in filename, skipping addition")
 		}

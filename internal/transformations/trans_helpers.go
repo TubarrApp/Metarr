@@ -69,7 +69,6 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 
 // getMetafileData retrieves meta type specific data.
 func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
-
 	switch m.MetaFileType {
 	case enums.MetaFiletypeJSON:
 		return m.JSONBaseName, m.JSONDirectory, m.JSONFilePath
@@ -83,7 +82,6 @@ func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
 
 // applyNamingStyle applies renaming conventions.
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
-
 	switch style {
 	case enums.RenamingSpaces:
 		output = strings.ReplaceAll(input, "_", " ")
@@ -98,7 +96,6 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 
 // addTags handles the tagging of the video files where necessary.
 func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (renamedV, renamedM string) {
-
 	if len(m.FilenameMetaPrefix) > 2 {
 		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
 		renamedMeta = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedMeta)
@@ -113,7 +110,6 @@ func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.R
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
 func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
-
 	if videoBase == "" || metaBase == "" {
 		return videoBase, metaBase, fmt.Errorf("empty input strings to fix contractions (file %q)", fdVideoRef)
 	}
@@ -179,8 +175,18 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 		nil
 }
 
+// setString applies strings as a name for the current file.
+func (fp *fileProcessor) setString(filename string, setString models.FOpSet) string {
+	if !setString.IsSet {
+		logging.E("Dev error: setString is not set for filename %q", filename)
+		return filename
+	}
+	filename = setString.Value
+	return fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
+}
+
 // replaceStrings applies configured string replacements to a filename.
-func replaceStrings(filename string, replaceStrings []models.FOpReplace) string {
+func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models.FOpReplace) string {
 	if len(replaceStrings) == 0 {
 		logging.D(1, "No string replacements configured, keeping original filename: %q", filename)
 		return filename
@@ -190,6 +196,7 @@ func replaceStrings(filename string, replaceStrings []models.FOpReplace) string 
 
 	for _, rep := range replaceStrings {
 		prevFilename := filename
+		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
 		filename = strings.ReplaceAll(filename, rep.FindString, rep.Replacement)
 
 		if filename == prevFilename {
@@ -210,8 +217,7 @@ func replaceStrings(filename string, replaceStrings []models.FOpReplace) string 
 }
 
 // replaceSuffix applies configured suffix replacements to a filename.
-func replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
-
+func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
 	logging.D(2, "Received filename %s", filename)
 
 	if len(suffixes) == 0 {
@@ -222,6 +228,7 @@ func replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
 	logging.D(2, "Processing filename %s with suffixes: %v", filename, suffixes)
 
 	for _, suffix := range suffixes {
+		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
 		logging.D(2, "Checking suffix %q against filename %q", suffix.Suffix, filename)
 
 		if before, ok := strings.CutSuffix(filename, suffix.Suffix); ok {
@@ -234,8 +241,7 @@ func replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
 }
 
 // replacePrefix applies configured suffix replacements to a filename.
-func replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
-
+func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
 	logging.D(2, "Received filename %s", filename)
 
 	if len(prefixes) == 0 {
@@ -246,6 +252,7 @@ func replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
 	logging.D(2, "Processing filename %s with prefixes: %v", filename, prefixes)
 
 	for _, prefix := range prefixes {
+		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
 		logging.D(2, "Checking prefix %q against filename %q", prefix.Prefix, filename)
 
 		if after, ok := strings.CutPrefix(filename, prefix.Prefix); ok {
@@ -258,13 +265,14 @@ func replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
 }
 
 // appendStrings applies configured string appends to a filename.
-func appendStrings(filename string, appends []models.FOpAppend) string {
+func (fp *fileProcessor) appendStrings(filename string, appends []models.FOpAppend) string {
 	if len(appends) == 0 {
 		logging.D(1, "No string appends configured, keeping original filename: %q", filename)
 		return filename
 	}
 	logging.D(2, "Processing filename %s with string appends: %v", filename, appends)
 	for _, app := range appends {
+		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
 		prevFilename := filename
 		filename = filename + app.Value
 		logging.D(2, "Append made: %s -> %s (appended %q)", prevFilename, filename, app.Value)
@@ -273,13 +281,14 @@ func appendStrings(filename string, appends []models.FOpAppend) string {
 }
 
 // prefixStrings applies configured string prefixes to a filename.
-func prefixStrings(filename string, prefixes []models.FOpPrefix) string {
+func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPrefix) string {
 	if len(prefixes) == 0 {
 		logging.D(1, "No string prefixes configured, keeping original filename: %q", filename)
 		return filename
 	}
 	logging.D(2, "Processing filename %s with string prefixes: %v", filename, prefixes)
 	for _, pre := range prefixes {
+		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
 		prevFilename := filename
 		filename = pre.Value + filename
 		logging.D(2, "Prefix made: %s -> %s (prefixed %q)", prevFilename, filename, pre.Value)
@@ -288,7 +297,7 @@ func prefixStrings(filename string, prefixes []models.FOpPrefix) string {
 }
 
 // addDateTag applies a date tag to a filename at the specified location.
-func addDateTag(filename string, dateTag models.FOpDateTag, dateTagStr string) string {
+func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, dateTagStr string) string {
 	if dateTag.DateFormat == enums.DateFmtSkip {
 		logging.D(1, "No date tag configured, keeping original filename: %q", filename)
 		return filename
@@ -324,7 +333,7 @@ func addDateTag(filename string, dateTag models.FOpDateTag, dateTagStr string) s
 }
 
 // deleteDateTag removes date tags from a filename at the specified location(s).
-func deleteDateTag(filename string, deleteTag models.FOpDeleteDateTag) string {
+func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDeleteDateTag) string {
 	if deleteTag.DateFormat == enums.DateFmtSkip {
 		logging.D(1, "No delete date tag configured, keeping original filename: %q", filename)
 		return filename
@@ -390,8 +399,8 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 
 	prevString := ""
 
-	// Keep replacing until no more changes occur
-	// fixes accidental double spaces or double underscores
+	// Keep replacing until no more changes occur.
+	// Fixes accidental double spaces or double underscores
 	// in the "s" contractions
 	for f != prevString {
 		prevString = f

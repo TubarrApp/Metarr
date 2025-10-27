@@ -6,6 +6,7 @@ import "metarr/internal/domain/enums"
 type FilenameOps struct {
 	DateTag         FOpDateTag
 	DeleteDateTags  FOpDeleteDateTag
+	Set             FOpSet
 	Appends         []FOpAppend
 	Prefixes        []FOpPrefix
 	Replaces        []FOpReplace
@@ -45,6 +46,9 @@ func (fd *FileData) EnsureFilenameOps() {
 	}
 	if fd.FilenameOps.ReplacePrefixes == nil {
 		fd.FilenameOps.ReplacePrefixes = []FOpReplacePrefix{}
+	}
+	if fd.FilenameOps.ReplaceSuffixes == nil {
+		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
 	}
 	if fd.FilenameOps.ReplaceSuffixes == nil {
 		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
@@ -89,4 +93,10 @@ type FOpReplaceSuffix struct {
 type FOpReplacePrefix struct {
 	Prefix      string
 	Replacement string
+}
+
+// FOpSet can be used to set filenames. Before writing final name changes, check for duplicate filenames and use ++.
+type FOpSet struct {
+	IsSet bool
+	Value string
 }
