@@ -288,8 +288,8 @@ func prefixStrings(filename string, prefixes []models.FOpPrefix) string {
 }
 
 // addDateTag applies a date tag to a filename at the specified location.
-func addDateTag(filename string, dateTag *models.FOpDateTag, dateTagStr string) string {
-	if dateTag == nil {
+func addDateTag(filename string, dateTag models.FOpDateTag, dateTagStr string) string {
+	if dateTag.DateFormat == enums.DateFmtSkip {
 		logging.D(1, "No date tag configured, keeping original filename: %q", filename)
 		return filename
 	}
@@ -324,8 +324,8 @@ func addDateTag(filename string, dateTag *models.FOpDateTag, dateTagStr string) 
 }
 
 // deleteDateTag removes date tags from a filename at the specified location(s).
-func deleteDateTag(filename string, deleteTag *models.FOpDeleteDateTag) string {
-	if deleteTag == nil {
+func deleteDateTag(filename string, deleteTag models.FOpDeleteDateTag) string {
+	if deleteTag.DateFormat == enums.DateFmtSkip {
 		logging.D(1, "No delete date tag configured, keeping original filename: %q", filename)
 		return filename
 	}

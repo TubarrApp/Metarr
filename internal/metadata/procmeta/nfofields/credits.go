@@ -8,9 +8,8 @@ import (
 	"strings"
 )
 
-// fillNFODescriptions attempts to fill in title info from NFO
-func fillNFOCredits(fd *models.FileData) bool {
-
+// fillNFODescriptions attempts to fill in title info from NFO.
+func fillNFOCredits(fd *models.FileData) (filled bool) {
 	c := fd.MCredits
 	n := fd.NFOData
 

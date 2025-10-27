@@ -11,8 +11,8 @@ import (
 	"metarr/internal/utils/printout"
 )
 
-func fillNFOTimestamps(fd *models.FileData) bool {
-
+// fillNFOTimestamps fills empty date fields from existing date metafields.
+func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 	t := fd.MDates
 	w := fd.MWebData
 	n := fd.NFOData
@@ -22,7 +22,6 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		consts.NPremiereDate: &t.ReleaseDate,
 		consts.NYear:         &t.Year,
 	}
-
 	cleanEmptyFields(fieldMap)
 
 	gotRelevantDate := false
@@ -35,7 +34,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 	}()
 
 	if n.Premiered != "" {
-		if rtn, ok := dates.YyyyMmDd(n.Premiered); ok && rtn != "" {
+		if rtn, ok := dates.YmdFromMeta(n.Premiered); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -44,7 +43,7 @@ func fillNFOTimestamps(fd *models.FileData) bool {
 		gotRelevantDate = true
 	}
 	if n.ReleaseDate != "" {
-		if rtn, ok := dates.YyyyMmDd(n.ReleaseDate); ok && rtn != "" {
+		if rtn, ok := dates.YmdFromMeta(n.ReleaseDate); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}

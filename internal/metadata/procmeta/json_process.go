@@ -17,7 +17,6 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/transformations"
 	"metarr/internal/utils/logging"
-	"metarr/internal/utils/printout"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,6 +102,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		dates.FormatAllDates(fd)
 	}
 
+	// Make date tag edits if meta ops requires it
 	if len(fd.MetaOps.DateTags) > 0 || len(fd.MetaOps.DeleteDateTags) > 0 {
 		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
@@ -125,17 +125,13 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		logging.D(2, "Some metafields were unfilled")
 	}
 
-	// Construct date tag
+	// Construct date tag:
 	logging.D(1, "About to make date tag for: %v", file.Name())
 
 	// Should skip date tag generation?
 	var skipDateTag bool
-	if fd.FilenameOps == nil || fd.FilenameOps.DateTag == nil {
+	if fd.FilenameOps == nil || fd.FilenameOps.DateTag.DateFormat == enums.DateFmtSkip {
 		logging.D(1, "No date tag operation configured for %q", file.Name())
-		skipDateTag = true
-
-	} else if fd.FilenameOps.DateTag.DateFormat == enums.DateFmtSkip {
-		logging.D(1, "Set file date tag format to skip, not making date tag for %q", file.Name())
 		skipDateTag = true
 	}
 
@@ -150,10 +146,6 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		default:
 			fd.FilenameDateTag = dateTag
 		}
-	}
-
-	if logging.Level > 3 {
-		printout.CreateModelPrintout(fd, fd.OriginalVideoBaseName, "Printing model fields before making date tag")
 	}
 
 	// Add new filename tag for files

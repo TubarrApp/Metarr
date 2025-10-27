@@ -143,7 +143,6 @@ func convertCfgToBatch(config models.BatchConfig) *batch {
 		Video:      config.Video,
 		JSON:       config.JSON,
 		IsDirs:     config.IsDirs,
-		MetaOps:    config.MetaOps,
 		SkipVideos: config.SkipVideos,
 	}
 

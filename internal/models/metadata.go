@@ -34,7 +34,7 @@ func NewMetaOps() *MetaOps {
 		DateTags:         make(map[string]MetaDateTag),
 		DeleteDateTags:   make(map[string]MetaDateTag),
 
-		// Initialize slices (optional but good practice for clarity)
+		// Initialize slices
 		NewFields:       make([]MetaNewField, 0),
 		Appends:         make([]MetaAppend, 0),
 		Prefixes:        make([]MetaPrefix, 0),
@@ -47,8 +47,6 @@ func NewMetaOps() *MetaOps {
 }
 
 // EnsureMetaOps returns the provided MetaOps or creates a new one if nil.
-//
-// This is useful for defensive programming to avoid nil pointer dereferences.
 func EnsureMetaOps(mOps *MetaOps) *MetaOps {
 	if mOps == nil {
 		return NewMetaOps()
@@ -62,7 +60,6 @@ type BatchConfig struct {
 	Video      string
 	JSON       string
 	IsDirs     bool
-	MetaOps    *MetaOps
 	SkipVideos bool
 }
 

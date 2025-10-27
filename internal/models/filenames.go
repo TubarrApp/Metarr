@@ -4,13 +4,36 @@ import "metarr/internal/domain/enums"
 
 // FilenameOps contains maps related to filename renaming operations.
 type FilenameOps struct {
-	DateTag         *FOpDateTag
-	DeleteDateTags  *FOpDeleteDateTag
+	DateTag         FOpDateTag
+	DeleteDateTags  FOpDeleteDateTag
 	Appends         []FOpAppend
 	Prefixes        []FOpPrefix
 	Replaces        []FOpReplace
 	ReplaceSuffixes []FOpReplaceSuffix
 	ReplacePrefixes []FOpReplacePrefix
+}
+
+// NewFilenameOps creates a new FilenameOps with initialized slices.
+func NewFilenameOps() *FilenameOps {
+	fo := &FilenameOps{
+		Appends:         make([]FOpAppend, 0),
+		Prefixes:        make([]FOpPrefix, 0),
+		Replaces:        make([]FOpReplace, 0),
+		ReplaceSuffixes: make([]FOpReplaceSuffix, 0),
+		ReplacePrefixes: make([]FOpReplacePrefix, 0),
+	}
+	fo.DateTag.DateFormat = enums.DateFmtSkip
+	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip
+
+	return fo
+}
+
+// EnsureFilenameOps returns the provided FilenameOps or creates a new one if nil.
+func EnsureFilenameOps(fOps *FilenameOps) *FilenameOps {
+	if fOps == nil {
+		return NewFilenameOps()
+	}
+	return fOps
 }
 
 // FOpAppend is the value to append onto a filename.

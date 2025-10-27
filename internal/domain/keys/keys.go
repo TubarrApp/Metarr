@@ -25,7 +25,7 @@ const (
 	RenameStyle      string = "rename-style"
 	MFilenamePfx     string = "metadata-filename-prefix"
 
-	MetaOps      string = "meta-ops"
+	MetaOpsInput string = "meta-ops"
 	MDescDatePfx string = "desc-date-prefix"
 	MDescDateSfx string = "desc-date-suffix"
 
@@ -90,6 +90,6 @@ const (
 
 // Internal filename operation keys. Not exposed to end user.
 const (
-	FilenameOpsModels      string = "INTERNAL-filename-ops"
-	FilenameDeleteDateTags string = "INTERNAL-filename-delete-date-tags"
+	FilenameOpsModels string = "INTERNAL-filename-ops"
+	MetaOpsModels     string = "INTERNAL-meta-ops"
 )

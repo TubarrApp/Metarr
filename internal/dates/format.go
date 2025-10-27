@@ -59,10 +59,8 @@ func ParseNumDate(dateNum string) (string, error) {
 	return dateStr, nil
 }
 
-// YyyyMmDd converts inputted date strings into the user's defined format.
-func YyyyMmDd(date string) (string, bool) {
-
-	t := ""
+// YmdFromMeta converts inputted date strings into the user's defined format.
+func YmdFromMeta(date string) (t string, madeDate bool) {
 	if tIdx := strings.Index(date, "T"); tIdx != -1 {
 		t = date[tIdx:]
 	}
@@ -97,18 +95,15 @@ func FormatDateString(year, month, day string, dateFmt enums.DateFormat) string 
 	case enums.DateMmDdYyyy, enums.DateMmDdYy:
 		parts = [3]string{month, day, year}
 	}
-
 	return joinNonEmpty(parts)
 }
 
 // FormatAllDates formats timestamps into a hyphenated form.
-func FormatAllDates(fd *models.FileData) string {
+func FormatAllDates(fd *models.FileData) (result string) {
 	var (
-		result string
-		err    error
-		ok     bool
+		err error
+		ok  bool
 	)
-
 	d := fd.MDates
 
 	fields := []string{
@@ -123,7 +118,7 @@ func FormatAllDates(fd *models.FileData) string {
 		if field != "" {
 			logging.D(2, "Attempting to format %+v", field)
 
-			if result, ok = YyyyMmDd(field); ok {
+			if result, ok = YmdFromMeta(field); ok {
 				d.FormattedDate = result
 				logging.D(2, "Got formatted date %q", result)
 

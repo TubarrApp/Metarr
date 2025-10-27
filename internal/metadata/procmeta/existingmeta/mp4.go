@@ -12,8 +12,7 @@ import (
 )
 
 // MP4MetaMatches checks FFprobe captured metadata from the video against the metafile.
-func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
-
+func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bool) {
 	c := fd.MCredits
 	d := fd.MDates
 	t := fd.MTitleDesc
@@ -62,8 +61,8 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) bool {
 			new:      strings.TrimSpace(t.Title),
 		},
 		consts.JCreationTime: {
-			existing: safeGetDatePart(ffData.Format.Tags.CreationTime),
-			new:      safeGetDatePart(d.CreationTime),
+			existing: getDatePart(ffData.Format.Tags.CreationTime),
+			new:      getDatePart(d.CreationTime),
 		},
 		consts.JDate: {
 			existing: strings.TrimSpace(ffData.Format.Tags.Date),

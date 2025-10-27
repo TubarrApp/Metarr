@@ -4,7 +4,7 @@
 package existingmeta
 
 import (
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/utils/logging"
 	"strings"
 )
 
@@ -26,8 +26,8 @@ type ffprobeTags struct {
 	Composer     string `json:"composer"`
 }
 
-// safeGetDatePart safely extracts the date part before 'T' if it exists.
-func safeGetDatePart(timeStr string) string {
+// getDatePart safely extracts the date part before 'T' if it exists.
+func getDatePart(timeStr string) string {
 	timeStr = strings.TrimSpace(timeStr)
 	if parts := strings.Split(timeStr, "T"); len(parts) > 0 {
 		return parts[0]

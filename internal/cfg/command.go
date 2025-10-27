@@ -7,7 +7,6 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/benchmark"
 	"metarr/internal/utils/logging"
-	"metarr/internal/utils/validation"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -44,8 +43,8 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
+			// Load in config file
 			if configFile != "" {
-				// load and normalize keys from any Viper-supported config file
 				if err := loadConfigFile(configFile); err != nil {
 					fmt.Fprintf(os.Stderr, "failed loading config file: %v\n", err)
 					os.Exit(1)
@@ -62,17 +61,12 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-// Execute is the primary initializer of Viper
+// Execute is the primary initializer of Viper.
 func Execute() (metaOps *models.MetaOps, err error) {
 	fmt.Println()
 	if err := rootCmd.Execute(); err != nil {
 		logging.E("Failed to execute cobra")
 		return nil, err
 	}
-
-	if metaOps, err = validation.ValidateMetaOps(viper.GetStringSlice(keys.MetaOps)); err != nil {
-		return nil, err
-	}
-
 	return metaOps, nil
 }

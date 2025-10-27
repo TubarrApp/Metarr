@@ -27,6 +27,13 @@ func NewFileData() *FileData {
 			fmt.Printf("Failed to retrieve FilenameOps from abstractions, got type %T", abstractions.Get(keys.FilenameOpsModels))
 		}
 	}
+	if abstractions.IsSet(keys.MetaOpsModels) {
+		if mOps, ok := abstractions.Get(keys.MetaOpsModels).(*MetaOps); ok {
+			fd.MetaOps = mOps
+		} else {
+			fmt.Printf("Failed to retrieve MetaOps from abstractions, got type %T", abstractions.Get(keys.MetaOpsModels))
+		}
+	}
 	fd.EnsureFilenameOps()
 	fd.EnsureMetaOps()
 	return fd

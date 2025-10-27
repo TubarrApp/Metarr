@@ -220,14 +220,14 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 
 	// Check if any renaming to do
 	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 &&
-		len(appends) == 0 && len(prefixOps) == 0 && dateTag == nil &&
-		deleteDateTags == nil && style == enums.RenamingSkip {
+		len(appends) == 0 && len(prefixOps) == 0 && dateTag.DateFormat == enums.DateFmtSkip &&
+		deleteDateTags.DateFormat == enums.DateFmtSkip && style == enums.RenamingSkip {
 		logging.D(1, "No filename operations or naming style to apply")
 		return fileBase
 	}
 
 	// Delete date tags first (if configured)
-	if deleteDateTags != nil {
+	if deleteDateTags.DateFormat != enums.DateFmtSkip {
 		fileBase = deleteDateTag(fileBase, deleteDateTags)
 	}
 
@@ -257,7 +257,7 @@ func constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.F
 	}
 
 	// Add date tag
-	if dateTag != nil && fd.FilenameDateTag != "" {
+	if fd.FilenameDateTag != "" {
 		if !strings.Contains(fileBase, fd.FilenameDateTag) {
 			fileBase = addDateTag(fileBase, dateTag, fd.FilenameDateTag)
 		} else {

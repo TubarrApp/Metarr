@@ -131,5 +131,12 @@ func initTransformations() error {
 			return err
 		}
 	}
+
+	// Validate meta operations
+	if viper.IsSet(keys.MetaOpsInput) {
+		if err := validation.ValidateSetMetaOps(viper.GetStringSlice(keys.MetaOpsInput)); err != nil {
+			return err
+		}
+	}
 	return nil
 }

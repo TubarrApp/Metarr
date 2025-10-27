@@ -11,22 +11,19 @@ import (
 	"strings"
 )
 
-// ValidateMetaOps parses the meta transformation operations
-func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
+// ValidateSetMetaOps parses the meta transformation operations
+func ValidateSetMetaOps(MetaOpsInput []string) error {
 	logging.D(2, "Validating meta operations...")
-
 	if len(MetaOpsInput) == 0 {
-		logging.D(2, "No metadata operations passed in")
-		return models.NewMetaOps(), nil // Return empty initialized struct
+		return nil // Return empty initialized struct
 	}
 
 	ops := models.NewMetaOps()
 	for _, op := range MetaOpsInput {
-		// Check validity
 		parts := strings.Split(op, ":")
 
 		if len(parts) < 3 || len(parts) > 4 {
-			return nil, errors.New("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:set:Video Title')")
+			return errors.New("malformed input meta-ops, each entry must be at least 3 parts, split by : (e.g. 'title:set:Video Title')")
 		}
 
 		field := parts[0]
@@ -102,7 +99,7 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 
 		case "replace":
 			if len(parts) != 4 {
-				return nil, errors.New("replacement should be in format 'field:replace:text:replacement'")
+				return errors.New("replacement should be in format 'field:replace:text:replacement'")
 			}
 
 			switch field {
@@ -123,7 +120,7 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 
 		case "date-tag":
 			if len(parts) != 4 {
-				return nil, errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+				return errors.New("date-tag should be in format 'field:date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
 			var loc enums.DateTagLocation
 			switch strings.ToLower(value) {
@@ -132,11 +129,11 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			case "suffix":
 				loc = enums.DateTagLocSuffix
 			default:
-				return nil, errors.New("date tag location must be prefix, or suffix")
+				return errors.New("date tag location must be prefix, or suffix")
 			}
 			e, err := dateEnum(parts[3])
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			ops.DateTags[field] = models.MetaDateTag{
@@ -147,7 +144,7 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 
 		case "delete-date-tag":
 			if len(parts) != 4 {
-				return nil, errors.New("delete-date-tag should be in format 'field:delete-date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
+				return errors.New("delete-date-tag should be in format 'field:delete-date-tag:location:format' (Ymd is yyyy-mm-dd, ymd is yy-mm-dd)")
 			}
 			var loc enums.DateTagLocation
 
@@ -157,12 +154,12 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			case "suffix":
 				loc = enums.DateTagLocSuffix
 			default:
-				return nil, errors.New("date tag location must be prefix, or suffix")
+				return errors.New("date tag location must be prefix, or suffix")
 			}
 
 			e, err := dateEnum(parts[3])
 			if err != nil {
-				return nil, err
+				return err
 			}
 
 			ops.DeleteDateTags[field] = models.MetaDateTag{
@@ -172,10 +169,12 @@ func ValidateMetaOps(MetaOpsInput []string) (*models.MetaOps, error) {
 			logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, value, parts[3])
 
 		default:
-			return nil, fmt.Errorf("unrecognized meta operation %q (valid operations: set, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, paste-from)", parts[1])
+			return fmt.Errorf("unrecognized meta operation %q (valid operations: set, append, prefix, trim-suffix, trim-prefix, replace, date-tag, delete-date-tag, copy-to, paste-from)", parts[1])
 		}
 	}
-	return ops, nil
+	// Set values into Viper
+	abstractions.Set(keys.MetaOpsModels, ops)
+	return nil
 }
 
 // ValidateSetFilenameOps checks and validates filename operations.
@@ -212,7 +211,7 @@ func ValidateSetFilenameOps(filenameOps []string) error {
 		case 3:
 			switch opType {
 			case "date-tag":
-				if fOpModel.DateTag != nil {
+				if fOpModel.DateTag.DateFormat != enums.DateFmtSkip {
 					logging.W("Only one date tag accepted per run to prevent user error")
 					continue
 				}
@@ -233,13 +232,13 @@ func ValidateSetFilenameOps(filenameOps []string) error {
 					logging.E("Invalid date format, should be 'ymd', 'Ydm' (etc)")
 					continue
 				}
-				fOpModel.DateTag = &models.FOpDateTag{
+				fOpModel.DateTag = models.FOpDateTag{
 					Loc:        tagLocEnum,
 					DateFormat: e,
 				}
 				validOps = append(validOps, op)
 			case "delete-date-tag":
-				if fOpModel.DeleteDateTags != nil {
+				if fOpModel.DeleteDateTags.DateFormat != enums.DateFmtSkip {
 					logging.W("Only one delete date tag accepted, try using 'all' to replace all instances")
 					continue
 				}
@@ -262,7 +261,7 @@ func ValidateSetFilenameOps(filenameOps []string) error {
 					logging.E("Invalid date format, should be 'ymd', 'Ydm' (etc)")
 					continue
 				}
-				fOpModel.DeleteDateTags = &models.FOpDeleteDateTag{
+				fOpModel.DeleteDateTags = models.FOpDeleteDateTag{
 					Loc:        tagLocEnum,
 					DateFormat: e,
 				}
@@ -304,10 +303,6 @@ func ValidateSetFilenameOps(filenameOps []string) error {
 
 	// Set values into Viper
 	abstractions.Set(keys.FilenameOpsModels, fOpModel)
-	if fOpModel.DeleteDateTags != nil {
-		abstractions.Set(keys.FilenameDeleteDateTags, fOpModel.DeleteDateTags)
-	}
-
 	return nil
 }
 

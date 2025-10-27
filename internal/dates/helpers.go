@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// ParseDateComponents extracts and validates year, month, and day from the date string
+// ParseDateComponents extracts and validates year, month, and day from the date string.
 func ParseDateComponents(date string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	date = strings.ReplaceAll(date, "-", "")
 	date = strings.TrimSpace(date)
@@ -22,7 +22,7 @@ func ParseDateComponents(date string, dateFmt enums.DateFormat) (year, month, da
 	return validateDateComponents(year, month, day)
 }
 
-// dayStringSwitch appends a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd')
+// dayStringSwitch appends a numerical day with the appropriate suffix (e.g. '1st', '2nd', '3rd').
 func dayStringSwitch(day string) string {
 	var b strings.Builder
 	b.Grow(len(day) + 2)
@@ -54,7 +54,7 @@ func dayStringSwitch(day string) string {
 	return b.String()
 }
 
-// Convert a numerical month to a word
+// Convert a numerical month to a word.
 func monthStringSwitch(month string) string {
 	var monthStr string
 	switch month {
@@ -89,7 +89,7 @@ func monthStringSwitch(month string) string {
 	return monthStr
 }
 
-// joinNonEmpty joins non-empty strings from an array with hyphens
+// joinNonEmpty joins non-empty strings from an array with hyphens.
 func joinNonEmpty(parts [3]string) string {
 	nonEmpty := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -103,7 +103,7 @@ func joinNonEmpty(parts [3]string) string {
 	return strings.Join(nonEmpty, "-")
 }
 
-// getYear returns the year digits from the date string
+// getYear returns the year digits from the date string.
 func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	d = strings.ReplaceAll(d, "-", "")
 	d = strings.TrimSpace(d)
@@ -173,7 +173,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 	return "", "", "", fmt.Errorf("failed to parse year, month, and day from %q", d)
 }
 
-// validateDateComponents attempts to fix faulty date arrangements
+// validateDateComponents attempts to fix faulty date arrangements.
 func validateDateComponents(year, month, day string) (y, m, d string, err error) {
 	if isValidMonth(month) && isValidDay(day, month, year) {
 		return year, month, day, nil
@@ -188,7 +188,7 @@ func validateDateComponents(year, month, day string) (y, m, d string, err error)
 	return "", "", "", fmt.Errorf("invalid date components: year=%s, month=%s, day=%s", year, month, day)
 }
 
-// isValidMonth checks if the month inputted is a valid month
+// isValidMonth checks if the month inputted is a valid month.
 func isValidMonth(month string) bool {
 	m, err := strconv.Atoi(month)
 	if err != nil {
@@ -197,7 +197,7 @@ func isValidMonth(month string) bool {
 	return m >= 1 && m <= 12
 }
 
-// isValidDay checks if the day inputted is a valid day
+// isValidDay checks if the day inputted is a valid day.
 func isValidDay(day, month, year string) bool {
 	d, err := strconv.Atoi(day)
 	if err != nil {
@@ -279,6 +279,5 @@ func StripDateTag(val string, loc enums.DateTagLocation) string {
 			}
 		}
 	}
-
 	return val
 }

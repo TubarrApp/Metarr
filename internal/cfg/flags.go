@@ -106,8 +106,8 @@ func initAllFileTransformers() error {
 // initMetaTransformers initializes user flag settings for manipulation of metadata.
 func initMetaTransformers() error {
 	// Metadata transformations
-	rootCmd.PersistentFlags().StringSlice(keys.MetaOps, nil, "Metadata operations (field:operation:value) - e.g. title:set:New Title, description:prefix:Draft-, tags:append:newtag")
-	if err := viper.BindPFlag(keys.MetaOps, rootCmd.PersistentFlags().Lookup(keys.MetaOps)); err != nil {
+	rootCmd.PersistentFlags().StringSlice(keys.MetaOpsInput, nil, "Metadata operations (field:operation:value) - e.g. title:set:New Title, description:prefix:Draft-, tags:append:newtag")
+	if err := viper.BindPFlag(keys.MetaOpsInput, rootCmd.PersistentFlags().Lookup(keys.MetaOpsInput)); err != nil {
 		return err
 	}
 

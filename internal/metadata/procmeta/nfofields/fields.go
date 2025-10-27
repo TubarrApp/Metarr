@@ -3,17 +3,11 @@ package nfofields
 
 import (
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
-	"metarr/internal/utils/printout"
 	"strings"
 )
 
-// FillNFO is the primary entrypoint for filling NFO metadata
-// from an open file's read content
-func FillNFO(fd *models.FileData) bool {
-
-	var filled bool
-
+// FillNFO is the primary entrypoint for filling NFO metadata from an open file's read content.
+func FillNFO(fd *models.FileData) (filled bool) {
 	if ok := fillNFOTimestamps(fd); ok {
 		filled = true
 	}
@@ -33,11 +27,6 @@ func FillNFO(fd *models.FileData) bool {
 	if ok := fillNFOWebData(fd); ok {
 		filled = true
 	}
-
-	if logging.Level > 2 {
-		printout.CreateModelPrintout(fd, fd.NFOBaseName, "After filling metadata from NFO for file %q", fd.NFOFilePath)
-	}
-
 	return filled
 }
 

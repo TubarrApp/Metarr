@@ -7,9 +7,8 @@ import (
 	"metarr/internal/utils/printout"
 )
 
-// fillNFODescriptions attempts to fill in title info from NFO
-func fillNFOWebData(fd *models.FileData) bool {
-
+// fillNFOWebData attempts to fill in web data from NFO.
+func fillNFOWebData(fd *models.FileData) (filled bool) {
 	w := fd.MWebData
 	nw := fd.NFOData.WebpageInfo
 

@@ -7,9 +7,8 @@ import (
 	"metarr/internal/utils/printout"
 )
 
-// fillNFOTitles attempts to fill in title info from NFO
-func fillNFOTitles(fd *models.FileData) bool {
-
+// fillNFOTitles attempts to fill in titles from NFO.
+func fillNFOTitles(fd *models.FileData) (filled bool) {
 	t := fd.MTitleDesc
 	n := fd.NFOData
 

@@ -68,12 +68,9 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 	vFileCount := 0
 	if len(videoDirs) > 0 {
 		for i := range videoDirs {
-			var newBatchConfig = models.BatchConfig{
-				MetaOps: models.EnsureMetaOps(metaOps),
-			}
+			var newBatchConfig = models.BatchConfig{}
 
 			// Video directories
-
 			newBatchConfig.Video = videoDirs[i]
 
 			// JSON directories
@@ -100,11 +97,8 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 	// Remnant JSON directories
 	if len(jsonDirs) > vDirCount {
 		remnantJSONDirs := jsonDirs[vDirCount:]
-
 		for i := range remnantJSONDirs {
-			var newBatchConfig = models.BatchConfig{
-				MetaOps: models.EnsureMetaOps(metaOps),
-			}
+			var newBatchConfig = models.BatchConfig{}
 
 			// JSON directories
 			jInfo, err := os.Stat(remnantJSONDirs[i])
@@ -123,15 +117,12 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 			tasks = append(tasks, newBatchConfig)
 		}
 	}
-
 	logging.I("Finding video and JSON files...")
 
 	// Make file batches
 	if len(videoFiles) > 0 {
 		for i := range videoFiles {
-			var newBatchConfig = models.BatchConfig{
-				MetaOps: models.EnsureMetaOps(metaOps),
-			}
+			var newBatchConfig = models.BatchConfig{}
 			logging.D(3, "Checking video file %q ...", videoFiles[i])
 
 			// Video files
@@ -168,9 +159,7 @@ func initializeBatchConfigs(metaOps *models.MetaOps) (batchConfig []models.Batch
 		// Remnant JSON files
 		if len(jsonFiles) > vFileCount {
 			remnantJSONFiles := jsonFiles[vFileCount:]
-			var newBatchConfig = models.BatchConfig{
-				MetaOps: models.EnsureMetaOps(metaOps),
-			}
+			var newBatchConfig = models.BatchConfig{}
 
 			// JSON Files
 			for i := range remnantJSONFiles {
