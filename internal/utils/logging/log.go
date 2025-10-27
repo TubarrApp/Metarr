@@ -234,12 +234,12 @@ func log(level logType, prefix, msg string, withCaller bool, args ...any) {
 
 // E logs error messages
 func E(msg string, args ...any) {
-	log(logError, consts.RedError, msg, true, args...)
+	log(logError, consts.ColorRedError, msg, true, args...)
 }
 
 // S logs success messages
 func S(msg string, args ...any) {
-	log(logSuccess, consts.GreenSuccess, msg, false, args...)
+	log(logSuccess, consts.ColorGreenSuccess, msg, false, args...)
 }
 
 // D logs debug messages
@@ -247,17 +247,17 @@ func D(l int, msg string, args ...any) {
 	if Level < l {
 		return
 	}
-	log(logDebug, consts.YellowDebug, msg, true, args...)
+	log(logDebug, consts.ColorYellowDebug, msg, true, args...)
 }
 
 // W logs warning messages
 func W(msg string, args ...any) {
-	log(logWarn, consts.YellowWarning, msg, false, args...)
+	log(logWarn, consts.ColorYellowWarning, msg, false, args...)
 }
 
 // I logs info messages
 func I(msg string, args ...any) {
-	log(logInfo, consts.BlueInfo, msg, false, args...)
+	log(logInfo, consts.ColorBlueInfo, msg, false, args...)
 }
 
 // P logs plain messages

@@ -17,9 +17,9 @@ const (
 
 // Tags
 const (
-	RedError      string = ColorRed + "[ERROR] " + ColorReset
-	GreenSuccess  string = ColorGreen + "[Success] " + ColorReset
-	YellowDebug   string = ColorYellow + "[Debug] " + ColorReset
-	YellowWarning string = ColorYellow + "[Warning] " + ColorReset
-	BlueInfo      string = ColorCyan + "[Info] " + ColorReset
+	ColorRedError      string = ColorRed + "[ERROR] " + ColorReset
+	ColorGreenSuccess  string = ColorGreen + "[Success] " + ColorReset
+	ColorYellowDebug   string = ColorYellow + "[Debug] " + ColorReset
+	ColorYellowWarning string = ColorYellow + "[Warning] " + ColorReset
+	ColorBlueInfo      string = ColorCyan + "[Info] " + ColorReset
 )

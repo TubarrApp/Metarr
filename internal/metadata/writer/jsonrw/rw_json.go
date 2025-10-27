@@ -11,6 +11,7 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/utils/fs/backup"
 	"metarr/internal/utils/logging"
 	"os"
@@ -159,11 +160,12 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 
 	var edited bool
 	filename := rw.File.Name()
+	mtp := parsing.NewMetaTemplateParser(file.Name())
 	ops := fd.MetaOps
 	// 1. Set fields first (establishes baseline values)
 	if len(ops.SetFields) > 0 {
 		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
-		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, ops.SetFields); err != nil {
+		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, ops.SetFields, mtp); err != nil {
 			logging.E("Failed to set fields with %+v: %v", ops.SetFields, err)
 		} else if ok {
 			edited = true
@@ -188,21 +190,21 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// 3. Replace operations (modify existing content)
 	if len(ops.Replaces) > 0 {
 		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
-		if changesMade := rw.replaceJSON(currentMeta, ops.Replaces); changesMade {
+		if changesMade := rw.replaceJSON(currentMeta, ops.Replaces, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.ReplacePrefixes) > 0 {
 		logging.I("Model for file %q replacing prefixes", fd.OriginalVideoBaseName)
-		if changesMade := rw.replaceJSONPrefix(currentMeta, ops.ReplacePrefixes); changesMade {
+		if changesMade := rw.replaceJSONPrefix(currentMeta, ops.ReplacePrefixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.ReplaceSuffixes) > 0 {
 		logging.I("Model for file %q replacing suffixes", fd.OriginalVideoBaseName)
-		if changesMade := rw.replaceJSONSuffix(currentMeta, ops.ReplaceSuffixes); changesMade {
+		if changesMade := rw.replaceJSONSuffix(currentMeta, ops.ReplaceSuffixes, mtp); changesMade {
 			edited = true
 		}
 	}
@@ -210,14 +212,14 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (bool, e
 	// 4. Add content (prefix/append)
 	if len(ops.Prefixes) > 0 {
 		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
-		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes); changesMade {
+		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.Appends) > 0 {
 		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
-		if changesMade := rw.jsonAppend(currentMeta, filename, ops.Appends); changesMade {
+		if changesMade := rw.jsonAppend(currentMeta, filename, ops.Appends, mtp); changesMade {
 			edited = true
 		}
 	}

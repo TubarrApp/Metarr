@@ -50,8 +50,6 @@ const (
 
 // Primary program
 const (
-	WaitGroup  string = "WaitGroup"
-	SingleFile string = "SingleFile"
 	MinFreeMem string = "minFreeMem"
 )
 

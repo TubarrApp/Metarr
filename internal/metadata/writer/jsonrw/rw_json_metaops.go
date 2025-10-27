@@ -9,13 +9,14 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/metadata/metatags"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
 	"strings"
 )
 
-// replaceJSON makes user defined JSON replacements
-func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace) bool {
+// replaceJSON makes user defined JSON replacements.
+func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, mtp *parsing.MetaTemplateParser) bool {
 	logging.D(5, "Entering replaceJson with data: %v", j)
 
 	if len(rplce) == 0 {
@@ -30,6 +31,7 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace) 
 		}
 		if val, exists := j[r.Field]; exists {
 			if strVal, ok := val.(string); ok {
+				r.Replacement = mtp.FillMetaTemplateTag(r.Replacement, j)
 				logging.D(3, "Identified field %q, replacing %q with %q", r.Field, r.Value, r.Replacement)
 				j[r.Field] = strings.ReplaceAll(strVal, r.Value, r.Replacement)
 				edited = true
@@ -40,8 +42,8 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace) 
 	return edited
 }
 
-// replaceJSONPrefix trims defined prefixes from specified fields
-func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaReplacePrefix) bool {
+// replaceJSONPrefix trims defined prefixes from specified fields.
+func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) bool {
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
 	if len(tPfx) == 0 {
@@ -57,6 +59,7 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 		if val, exists := j[p.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				if !strings.HasPrefix(strVal, p.Prefix) {
+					p.Prefix = mtp.FillMetaTemplateTag(p.Prefix, j)
 					logging.D(3, "Metafield %q does not contain prefix %q, not making replacement", strVal, p.Prefix)
 					continue
 				}
@@ -70,8 +73,8 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 	return edited
 }
 
-// replaceJSONSuffix trims defined suffixes from specified fields
-func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaReplaceSuffix) bool {
+// replaceJSONSuffix trims defined suffixes from specified fields.
+func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) bool {
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
 	if len(tSfx) == 0 {
@@ -86,6 +89,7 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaRepl
 		}
 		if val, exists := j[s.Field]; exists {
 			if strVal, ok := val.(string); ok {
+				s.Suffix = mtp.FillMetaTemplateTag(s.Suffix, j)
 				if !strings.HasSuffix(strVal, s.Suffix) {
 					logging.D(3, "Metafield %q does not contain suffix %q, not making replacement", strVal, s.Suffix)
 					continue
@@ -100,8 +104,8 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaRepl
 	return edited
 }
 
-// jsonAppend appends to the fields in the JSON data
-func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.MetaAppend) bool {
+// jsonAppend appends to the fields in the JSON data.
+func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.MetaAppend, mtp *parsing.MetaTemplateParser) bool {
 	logging.D(5, "Entering jsonAppend with data: %v", j)
 
 	if len(apnd) == 0 {
@@ -116,6 +120,7 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 		}
 		if value, exists := j[a.Field]; exists {
 			if strVal, ok := value.(string); ok {
+				a.Append = mtp.FillMetaTemplateTag(a.Append, j)
 				logging.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
 				strVal += a.Append
 				j[a.Field] = strVal
@@ -127,8 +132,8 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 	return edited
 }
 
-// jsonPrefix applies prefixes to the fields in the JSON data
-func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix) bool {
+// jsonPrefix applies prefixes to the fields in the JSON data.
+func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix, mtp *parsing.MetaTemplateParser) bool {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
 	if len(pfx) == 0 {
@@ -143,6 +148,7 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 		}
 		if value, found := j[p.Field]; found {
 			if strVal, ok := value.(string); ok {
+				p.Prefix = mtp.FillMetaTemplateTag(p.Prefix, j)
 				logging.D(3, "Identified input JSON field '%v', adding prefix '%v'", p.Field, p.Prefix)
 				strVal = p.Prefix + strVal
 				j[p.Field] = strVal
@@ -155,8 +161,8 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 	return edited
 }
 
-// setJSONField can insert a new field which does not yet exist into the metadata file
-func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaSetField) (bool, error) {
+// setJSONField can insert a new field which does not yet exist into the metadata file.
+func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newField []models.MetaSetField, mtp *parsing.MetaTemplateParser) (bool, error) {
 	if len(newField) == 0 {
 		logging.E("No new field additions found for file %q", file)
 		return false, nil
@@ -184,6 +190,7 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 		if n.Field == "" || n.Value == "" {
 			continue
 		}
+		n.Value = mtp.FillMetaTemplateTag(n.Value, j)
 
 		// If field doesn't exist at all, add it
 		if _, exists := j[n.Field]; !exists {
@@ -367,7 +374,7 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 	return edited, nil
 }
 
-// copyToField copies values from one meta field to another
+// copyToField copies values from one meta field to another.
 func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField) bool {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
@@ -381,7 +388,6 @@ func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField)
 		if c.Field == "" || c.Dest == "" {
 			continue
 		}
-
 		if value, found := j[c.Field]; found {
 
 			if val, ok := value.(string); ok {
@@ -396,7 +402,7 @@ func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField)
 	return edited
 }
 
-// pasteFromField copies values from one meta field to another
+// pasteFromField copies values from one meta field to another.
 func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromField) bool {
 	logging.D(5, "Entering jsonPrefix with data: %v", j)
 
@@ -410,7 +416,6 @@ func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromF
 		if p.Field == "" || p.Origin == "" {
 			continue
 		}
-
 		if value, found := j[p.Origin]; found {
 
 			if val, ok := value.(string); ok {
@@ -421,6 +426,5 @@ func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromF
 		}
 	}
 	logging.D(5, "After making paste operation changes: %v", j)
-
 	return edited
 }

@@ -81,15 +81,6 @@ const (
 	DateTagLocAll
 )
 
-// MetaDateTaggingType determines the type of operation to perform for date tags.
-type MetaDateTaggingType int
-
-// MetaDateTaggingType definitions.
-const (
-	DatetagAddOp MetaDateTaggingType = iota
-	DatetagDelOp
-)
-
 // MetaFiletype is the type of meta file, e.g. JSON or NFO.
 type MetaFiletype int
 

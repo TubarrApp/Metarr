@@ -10,13 +10,6 @@ import (
 	"strings"
 )
 
-const (
-	openTag       = "{{"
-	closeTag      = "}}"
-	avgReplaceLen = 32
-	templateLen   = len(openTag) + len(closeTag) + 4
-)
-
 // DirectoryParser is used to access and use directory parsing elements.
 type DirectoryParser struct {
 	FD *models.FileData
@@ -35,6 +28,7 @@ func (dp *DirectoryParser) ParseDirectory(dir string) (parsedDir string, err err
 		return "", errors.New("directory sent in empty")
 	}
 
+	const openTag = "{{"
 	parsed := dir
 	if strings.Contains(dir, openTag) {
 		var err error
@@ -57,6 +51,11 @@ func (dp *DirectoryParser) ParseDirectory(dir string) (parsedDir string, err err
 //
 // Returns error if the desired data isn't present, to prevent unexpected results for the user.
 func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
+	const (
+		openTag     = "{{"
+		closeTag    = "}}"
+		templateLen = len(openTag) + len(closeTag) + 4
+	)
 	opens := strings.Count(dir, openTag)
 	closes := strings.Count(dir, closeTag)
 	if opens != closes {
@@ -64,7 +63,7 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 	}
 
 	var b strings.Builder
-	b.Grow(len(dir) - (opens * templateLen) + (opens * avgReplaceLen)) // Approximate size
+	b.Grow(len(dir) - (opens * templateLen) + (opens * 32)) // Approximate size
 	remaining := dir
 
 	for range opens {
