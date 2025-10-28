@@ -115,20 +115,15 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 	if videoBase == "" || metaBase == "" {
 		return videoBase, metaBase, fmt.Errorf("empty input strings to fix contractions (file %q)", fdVideoRef)
 	}
-
 	var contractionsMap map[string]models.ContractionPattern
 
 	switch style {
-
 	case enums.RenamingSpaces:
 		contractionsMap = regex.ContractionMapSpacesCompile()
-
 	case enums.RenamingUnderscores:
 		contractionsMap = regex.ContractionMapUnderscoresCompile()
-
 	case enums.RenamingFixesOnly:
 		contractionsMap = regex.ContractionMapAllCompile()
-
 	default:
 		return videoBase, metaBase, nil
 	}
@@ -167,7 +162,6 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 		logging.D(2, "Made contraction replacements for file %q", filename)
 		return filename
 	}
-
 	// Trim whitespace and fix contractions in both filenames
 	videoBase = strings.TrimSpace(videoBase)
 	metaBase = strings.TrimSpace(metaBase)
