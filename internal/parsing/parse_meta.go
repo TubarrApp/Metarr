@@ -21,9 +21,9 @@ func NewMetaTemplateParser(jsonFileName string) *MetaTemplateParser {
 //
 // If no valid substitutions occur, returns the original input string.
 func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string]any) (result string) {
-	result, replaced := mtp.fillMetaTemplateTagRecursive(inputStr, j)
-	if !replaced {
-		return inputStr // No successful replacements, return original
+	result, anyValid := mtp.fillMetaTemplateTagRecursive(inputStr, j)
+	if !anyValid {
+		return inputStr // No valid replacements, return original
 	}
 	return result
 }

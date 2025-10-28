@@ -29,7 +29,14 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 		}
 		if val, exists := j[r.Field]; exists {
 			if strVal, ok := val.(string); ok {
-				r.Replacement = mtp.FillMetaTemplateTag(r.Replacement, j)
+				// Fill tag
+				result := mtp.FillMetaTemplateTag(r.Replacement, j)
+				if r.Replacement == result {
+					continue
+				}
+				r.Replacement = result
+
+				// Process
 				logging.D(3, "Identified field %q, replacing %q with %q", r.Field, r.Value, r.Replacement)
 				j[r.Field] = strings.ReplaceAll(strVal, r.Value, r.Replacement)
 				edited = true
@@ -41,26 +48,33 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 }
 
 // replaceJSONPrefix trims defined prefixes from specified fields.
-func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) (edited bool) {
+func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering trimJsonPrefix with data: %v", j)
 
-	if len(tPfx) == 0 {
+	if len(rPfx) == 0 {
 		logging.E("Called trimJsonPrefix without prefixes to trim")
 		return false
 	}
-	for _, p := range tPfx {
-		if p.Field == "" || p.Prefix == "" {
+	for _, rp := range rPfx {
+		if rp.Field == "" || rp.Prefix == "" {
 			continue
 		}
-		if val, exists := j[p.Field]; exists {
+		if val, exists := j[rp.Field]; exists {
 			if strVal, ok := val.(string); ok {
-				if !strings.HasPrefix(strVal, p.Prefix) {
-					p.Prefix = mtp.FillMetaTemplateTag(p.Prefix, j)
-					logging.D(3, "Metafield %q does not contain prefix %q, not making replacement", strVal, p.Prefix)
+				// Fill tag
+				result := mtp.FillMetaTemplateTag(rp.Prefix, j)
+				if rp.Prefix == result {
 					continue
 				}
-				logging.D(3, "Identified field %q, trimming %q", p.Field, p.Prefix)
-				j[p.Field] = p.Replacement + strings.TrimPrefix(strVal, p.Prefix)
+				rp.Prefix = result
+
+				// Process
+				if !strings.HasPrefix(strVal, rp.Prefix) {
+					logging.D(3, "Metafield %q does not contain prefix %q, not making replacement", strVal, rp.Prefix)
+					continue
+				}
+				logging.D(3, "Identified field %q, trimming %q", rp.Field, rp.Prefix)
+				j[rp.Field] = rp.Replacement + strings.TrimPrefix(strVal, rp.Prefix)
 				edited = true
 			}
 		}
@@ -70,26 +84,33 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, tPfx []models.MetaRepl
 }
 
 // replaceJSONSuffix trims defined suffixes from specified fields.
-func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, tSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) (edited bool) {
+func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) (edited bool) {
 	logging.D(5, "Entering trimJsonSuffix with data: %v", j)
 
-	if len(tSfx) == 0 {
+	if len(rSfx) == 0 {
 		logging.E("Called trimJsonSuffix without prefixes to trim")
 		return false
 	}
-	for _, s := range tSfx {
-		if s.Field == "" || s.Suffix == "" {
+	for _, rs := range rSfx {
+		if rs.Field == "" || rs.Suffix == "" {
 			continue
 		}
-		if val, exists := j[s.Field]; exists {
+		if val, exists := j[rs.Field]; exists {
 			if strVal, ok := val.(string); ok {
-				s.Suffix = mtp.FillMetaTemplateTag(s.Suffix, j)
-				if !strings.HasSuffix(strVal, s.Suffix) {
-					logging.D(3, "Metafield %q does not contain suffix %q, not making replacement", strVal, s.Suffix)
+				// Fill tag
+				result := mtp.FillMetaTemplateTag(rs.Suffix, j)
+				if rs.Suffix == result {
 					continue
 				}
-				logging.D(3, "Identified field %q, trimming %q", s.Field, s.Suffix)
-				j[s.Field] = strings.TrimSuffix(strVal, s.Suffix) + s.Replacement
+				rs.Suffix = result
+
+				// Process
+				if !strings.HasSuffix(strVal, rs.Suffix) {
+					logging.D(3, "Metafield %q does not contain suffix %q, not making replacement", strVal, rs.Suffix)
+					continue
+				}
+				logging.D(3, "Identified field %q, trimming %q", rs.Field, rs.Suffix)
+				j[rs.Field] = strings.TrimSuffix(strVal, rs.Suffix) + rs.Replacement
 				edited = true
 			}
 		}
@@ -112,7 +133,14 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 		}
 		if value, exists := j[a.Field]; exists {
 			if strVal, ok := value.(string); ok {
-				a.Append = mtp.FillMetaTemplateTag(a.Append, j)
+				// Fill tag
+				result := mtp.FillMetaTemplateTag(a.Append, j)
+				if a.Append == result {
+					continue
+				}
+				a.Append = result
+
+				// Process
 				logging.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
 				strVal += a.Append
 				j[a.Field] = strVal
@@ -138,7 +166,14 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 		}
 		if value, found := j[p.Field]; found {
 			if strVal, ok := value.(string); ok {
-				p.Prefix = mtp.FillMetaTemplateTag(p.Prefix, j)
+				// Fill tag
+				result := mtp.FillMetaTemplateTag(p.Prefix, j)
+				if p.Prefix == result {
+					continue
+				}
+				p.Prefix = result
+
+				// Process
 				logging.D(3, "Identified input JSON field '%v', adding prefix '%v'", p.Field, p.Prefix)
 				strVal = p.Prefix + strVal
 				j[p.Field] = strVal

@@ -177,11 +177,15 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		logging.E("Dev error: setString is not set for filename %q", filename)
 		return filename
 	}
-
-	prevFilename := filename
-	newFilename := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
+	// Fill tag
+	result := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
+	if result == setString.Value {
+		return filename
+	}
+	newFilename := result
 
 	// Check if 'set' is renaming to itself
+	prevFilename := filename
 	if newFilename == prevFilename {
 		logging.D(2, "File already has target name %q, skipping", prevFilename)
 		return filename
@@ -219,9 +223,15 @@ func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models
 	logging.D(2, "Processing filename %s with string replacements: %v", filename, replaceStrings)
 
 	for _, rep := range replaceStrings {
+		// Expand template tags
+		replacement := fp.metatagParser.FillMetaTemplateTag(rep.Replacement, fp.metadata)
+		if replacement == rep.Replacement {
+			continue
+		}
+
+		// Process
 		prevFilename := filename
-		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
-		filename = strings.ReplaceAll(filename, rep.FindString, rep.Replacement)
+		filename = strings.ReplaceAll(filename, rep.FindString, replacement)
 
 		if filename == prevFilename {
 			lowerFindString := strings.ToLower(rep.FindString)
@@ -231,10 +241,12 @@ func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models
 			if strings.Contains(filename, lowerFindString) ||
 				strings.Contains(filename, upperFindString) ||
 				strings.Contains(filename, titleFindString) {
-				logging.W("String replacements are case-sensitive!\nFound %q in string %q, but not user-specified %q.", lowerFindString, filename, rep.FindString)
+				logging.W("String replacements are case-sensitive!\nFound %q in string %q, but not user-specified %q.",
+					lowerFindString, filename, rep.FindString)
 			}
 		} else {
-			logging.D(2, "Replacement made: %s -> %s (replaced %q with %q)", prevFilename, filename, rep.FindString, rep.Replacement)
+			logging.D(2, "Replacement made: %s -> %s (replaced %q with %q)",
+				prevFilename, filename, rep.FindString, replacement)
 		}
 	}
 	return filename
@@ -242,47 +254,47 @@ func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models
 
 // replaceSuffix applies configured suffix replacements to a filename.
 func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
-	logging.D(2, "Received filename %s", filename)
-
 	if len(suffixes) == 0 {
 		logging.D(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	logging.D(2, "Processing filename %s with suffixes: %v", filename, suffixes)
-
 	for _, suffix := range suffixes {
-		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
-		logging.D(2, "Checking suffix %q against filename %q", suffix.Suffix, filename)
+		// Expand template tags
+		replacement := fp.metatagParser.FillMetaTemplateTag(suffix.Replacement, fp.metadata)
+		if replacement == suffix.Replacement {
+			continue
+		}
 
+		// Process
 		if before, ok := strings.CutSuffix(filename, suffix.Suffix); ok {
-			filename = before + suffix.Replacement
-			logging.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, suffix.Replacement)
-			break // Break after suffix found and removed
+			filename = before + replacement
+			logging.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, replacement)
+			break
 		}
 	}
 	return filename
 }
 
-// replacePrefix applies configured suffix replacements to a filename.
+// replacePrefix applies configured prefix replacements to a filename.
 func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
-	logging.D(2, "Received filename %s", filename)
-
 	if len(prefixes) == 0 {
 		logging.D(1, "No prefix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	logging.D(2, "Processing filename %s with prefixes: %v", filename, prefixes)
-
 	for _, prefix := range prefixes {
-		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
-		logging.D(2, "Checking prefix %q against filename %q", prefix.Prefix, filename)
+		// Expand template tags
+		replacement := fp.metatagParser.FillMetaTemplateTag(prefix.Replacement, fp.metadata)
+		if replacement == prefix.Replacement {
+			continue
+		}
 
+		// Process
 		if after, ok := strings.CutPrefix(filename, prefix.Prefix); ok {
-			filename = prefix.Replacement + after
-			logging.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, prefix.Replacement)
-			break // Break after prefix found and removed
+			filename = replacement + after
+			logging.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, replacement)
+			break
 		}
 	}
 	return filename
@@ -294,12 +306,18 @@ func (fp *fileProcessor) appendStrings(filename string, appends []models.FOpAppe
 		logging.D(1, "No string appends configured, keeping original filename: %q", filename)
 		return filename
 	}
-	logging.D(2, "Processing filename %s with string appends: %v", filename, appends)
+
 	for _, app := range appends {
-		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
-		prevFilename := filename
-		filename = filename + app.Value
-		logging.D(2, "Append made: %s -> %s (appended %q)", prevFilename, filename, app.Value)
+		// Expand template tags
+		value := fp.metatagParser.FillMetaTemplateTag(app.Value, fp.metadata)
+		if value == app.Value {
+			continue
+		}
+
+		// Process
+		prev := filename
+		filename = filename + value
+		logging.D(2, "Append made: %s -> %s (appended %q)", prev, filename, value)
 	}
 	return filename
 }
@@ -310,12 +328,18 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 		logging.D(1, "No string prefixes configured, keeping original filename: %q", filename)
 		return filename
 	}
-	logging.D(2, "Processing filename %s with string prefixes: %v", filename, prefixes)
+
 	for _, pre := range prefixes {
-		filename = fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
-		prevFilename := filename
-		filename = pre.Value + filename
-		logging.D(2, "Prefix made: %s -> %s (prefixed %q)", prevFilename, filename, pre.Value)
+		// Expand template tags
+		value := fp.metatagParser.FillMetaTemplateTag(pre.Value, fp.metadata)
+		if value == pre.Value {
+			continue
+		}
+
+		// Process
+		prev := filename
+		filename = value + filename
+		logging.D(2, "Prefix made: %s -> %s (prefixed %q)", prev, filename, value)
 	}
 	return filename
 }
