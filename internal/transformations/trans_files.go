@@ -19,18 +19,43 @@ import (
 )
 
 var filenameTaken sync.Map
+var fileRenameMuMap sync.Map
 
 // getUniqueFilename appends numbers onto a filename if the filename already exists.
-func getUniqueFilename(base string) string {
-	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
-	n := counter.(*atomic.Int32).Add(1)
-	var candidate string
-	if n == 1 {
-		candidate = base
-	} else {
-		candidate = fmt.Sprintf("%s (%d)", base, n-1)
+func getUniqueFilename(dir, base, ext, currentFile string) string {
+	getMu, _ := fileRenameMuMap.LoadOrStore(base, &sync.Mutex{})
+	mu, ok := getMu.(*sync.Mutex)
+	if !ok {
+		logging.E("Dev error: wrong type in map, got %T", mu)
 	}
-	return candidate
+	mu.Lock()
+	defer mu.Unlock()
+
+	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
+	for {
+		n := counter.(*atomic.Int32).Add(1)
+		var candidate string
+		if n == 1 {
+			candidate = base
+		} else {
+			candidate = fmt.Sprintf("%s (%d)", base, n-1)
+		}
+
+		targetPath := filepath.Join(dir, candidate+ext)
+		currentPath := filepath.Join(dir, currentFile+ext)
+
+		// If target is the current file, use it (renaming to self)
+		if targetPath == currentPath {
+			return candidate
+		}
+
+		// Check if target exists
+		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+			return candidate
+		}
+
+		logging.D(2, "File %s already exists, trying next number", targetPath)
+	}
 }
 
 // fileProcessor handles the renaming and moving of files.

@@ -11,6 +11,7 @@ import (
 	"metarr/internal/transformations/transpresets"
 	"metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"unicode"
@@ -197,7 +198,8 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		logging.I("File %q is just a numbered version of %q, altering by set for multiple files in a batch would cause file rename race conditions. Keeping original name.", prevFilename, newFilename)
 		return prevFilename
 	}
-	return getUniqueFilename(newFilename)
+
+	return getUniqueFilename(fp.fd.VideoDirectory, newFilename, filepath.Ext(fp.fd.FinalVideoPath), prevFilename)
 }
 
 // isJustNumberedVersion checks if newName is just oldName with " (number)" added.
