@@ -169,27 +169,27 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 }
 
 // setString applies strings as a name for the current file.
-func (fp *fileProcessor) setString(filename string, setString models.FOpSet) (string, error) {
+func (fp *fileProcessor) setString(filename string, setString models.FOpSet) string {
 	if !setString.IsSet {
 		logging.E("Dev error: setString is not set for filename %q", filename)
-		return filename, nil
+		return filename
 	}
 
 	// Fill template
 	result := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
 	if result == "" {
 		logging.W("setString result was empty for template %q", setString.Value)
-		return filename, nil
+		return filename
 	}
 
 	// If nothing changed, just return the original
 	if result == filename {
 		logging.D(2, "setString produced same name (%q), skipping", filename)
-		return filename, nil
+		return filename
 	}
 
 	// Generate unique filename if necessary
-	return fp.getUniqueFilename(result, filename)
+	return result
 }
 
 // replaceStrings applies configured string replacements to a filename.

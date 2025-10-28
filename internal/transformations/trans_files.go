@@ -236,6 +236,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	logging.D(2, "Processing metafile base name: %q", fileBase)
 	fOps := fd.FilenameOps
 	set := fOps.Set
+	initialBase := fileBase
 
 	// Early exit if nothing to do
 	if !set.IsSet && len(fOps.Replaces) == 0 && len(fOps.ReplacePrefixes) == 0 &&
@@ -253,9 +254,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 
 	// Set string template
 	if set.IsSet {
-		if fileBase, err = fp.setString(fileBase, set); err != nil {
-			return fileBase, err
-		}
+		fileBase = fp.setString(fileBase, set)
 	}
 
 	// Other transformations
@@ -284,13 +283,16 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	}
 
 	// Ensure uniqueness
-	return fileBase, nil
+	return fp.getUniqueFilename(fileBase, initialBase)
 }
 
 // getUniqueFilename appends numbers onto a filename if the filename already exists.
-func (fp *fileProcessor) getUniqueFilename(base, currentFile string) (uniqueFilename string, err error) {
-	var dir, ext string
+func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilename string, err error) {
+	if newBase == oldBase {
+		return newBase, nil
+	}
 
+	var dir, ext string
 	vExt := filepath.Ext(fp.fd.FinalVideoPath)
 	jExt := filepath.Ext(fp.fd.JSONFilePath)
 
@@ -303,10 +305,10 @@ func (fp *fileProcessor) getUniqueFilename(base, currentFile string) (uniqueFile
 	}
 
 	if dir == "" {
-		return base, fmt.Errorf("no directory, cannot check for uniqueness")
+		return newBase, fmt.Errorf("no directory, cannot check for uniqueness")
 	}
 
-	getMu, _ := fileRenameMuMap.LoadOrStore(base, &sync.Mutex{})
+	getMu, _ := fileRenameMuMap.LoadOrStore(newBase, &sync.Mutex{})
 	mu, ok := getMu.(*sync.Mutex)
 	if !ok {
 		logging.E("Dev error: wrong type in map, got %T", mu)
@@ -314,20 +316,20 @@ func (fp *fileProcessor) getUniqueFilename(base, currentFile string) (uniqueFile
 	mu.Lock()
 	defer mu.Unlock()
 
-	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
+	counter, _ := filenameTaken.LoadOrStore(newBase, &atomic.Int32{})
 	for {
 		n := counter.(*atomic.Int32).Add(1)
 		var candidate string
 		if n == 1 {
-			candidate = base
+			candidate = newBase
 		} else {
-			candidate = fmt.Sprintf("%s (%d)", base, n-1)
+			candidate = fmt.Sprintf("%s (%d)", newBase, n-1)
 		}
 
 		targetPath := filepath.Join(dir, candidate+ext)
-		currentPath := filepath.Join(dir, currentFile+ext)
+		currentPath := filepath.Join(dir, oldBase+ext)
 
-		// If target is the current file, use it (renaming to self)
+		// If target is the current name, use it (overwriting self)
 		if targetPath == currentPath {
 			return candidate, nil
 		}
