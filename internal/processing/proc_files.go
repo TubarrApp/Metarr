@@ -35,11 +35,8 @@ type workItem struct {
 }
 
 // processFiles is the main program function to process folder entries.
-func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File) error {
-	var (
-		skipVideos bool
-		err        error
-	)
+func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File) ([]*models.FileData, error) {
+	var skipVideos bool
 
 	if abstractions.IsSet(keys.SkipVideos) {
 		skipVideos = abstractions.GetBool(keys.SkipVideos)
@@ -48,8 +45,8 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	}
 
 	// Match and video file maps, and meta file count
-	if err = getFiles(batch, openMeta, openVideo, skipVideos); err != nil {
-		return err
+	if err := getFiles(batch, openMeta, openVideo, skipVideos); err != nil {
+		return nil, err
 	}
 
 	logging.I("Found %d file(s) to process", batch.bp.counts.totalMatched)
@@ -113,7 +110,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	collectorWg.Wait()
 
 	// Handle temp files and cleanup
-	if err = cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
+	if err := cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
 		logging.AddToErrorArray(err)
 		logging.E("Failed to cleanup temp files: %v", err)
 	}
@@ -123,7 +120,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		batch.bp.logFailedVideos()
 	}
 
-	return nil
+	return processedModels, nil
 }
 
 // workerVideoProcess performs the video processing operation for a worker.
@@ -147,9 +144,6 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 				logging.E("Worker %d error executing file %q: %v", id, filename, err)
 				continue
 			}
-
-			renameFiles(job.filename, job.metaFilename, batch.ID, executed, job.skipVids)
-
 			results <- executed
 		}
 	}

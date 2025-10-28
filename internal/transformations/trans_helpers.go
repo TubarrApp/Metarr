@@ -11,8 +11,6 @@ import (
 	"metarr/internal/transformations/transpresets"
 	"metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
-	"path/filepath"
-	"regexp"
 	"strings"
 	"unicode"
 )
@@ -66,7 +64,6 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 		}
 	}
 	return ""
-
 }
 
 // getMetafileData retrieves meta type specific data.
@@ -172,45 +169,27 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 }
 
 // setString applies strings as a name for the current file.
-func (fp *fileProcessor) setString(filename string, setString models.FOpSet) string {
+func (fp *fileProcessor) setString(filename string, setString models.FOpSet) (string, error) {
 	if !setString.IsSet {
 		logging.E("Dev error: setString is not set for filename %q", filename)
-		return filename
+		return filename, nil
 	}
-	// Fill tag
+
+	// Fill template
 	result := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
-	if result == setString.Value {
-		return filename
-	}
-	newFilename := result
-
-	// Check if 'set' is renaming to itself
-	prevFilename := filename
-	if newFilename == prevFilename {
-		logging.D(2, "File already has target name %q, skipping", prevFilename)
-		return filename
+	if result == "" {
+		logging.W("setString result was empty for template %q", setString.Value)
+		return filename, nil
 	}
 
-	// Check if current filename is already a numbered version of the target base
-	if isJustNumberedVersion(newFilename, prevFilename) {
-		logging.I("File %q is just a numbered version of %q, altering by set for multiple files in a batch would cause file rename race conditions. Keeping original name.", prevFilename, newFilename)
-		return prevFilename
+	// If nothing changed, just return the original
+	if result == filename {
+		logging.D(2, "setString produced same name (%q), skipping", filename)
+		return filename, nil
 	}
 
-	return getUniqueFilename(fp.fd.VideoDirectory, newFilename, filepath.Ext(fp.fd.FinalVideoPath), prevFilename)
-}
-
-// isJustNumberedVersion checks if newName is just oldName with " (number)" added.
-func isJustNumberedVersion(oldName, newName string) bool {
-	// Remove any existing number from oldName: "hello (3)" -> "hello"
-	re := regex.BracketedNumberCompile()
-	oldBase := re.ReplaceAllString(oldName, "")
-
-	// Check if newName matches pattern: old + " (number)"
-	pattern := fmt.Sprintf(`^%s(\s*\(\d+\))?$`, regexp.QuoteMeta(oldBase))
-	matched, _ := regexp.MatchString(pattern, newName)
-
-	return matched && oldName != newName
+	// Generate unique filename if necessary
+	return fp.getUniqueFilename(result, filename)
 }
 
 // replaceStrings applies configured string replacements to a filename.

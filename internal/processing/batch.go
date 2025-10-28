@@ -4,10 +4,13 @@ package processing
 import (
 	"fmt"
 	"metarr/internal/abstractions"
+	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
+	"metarr/internal/transformations"
 	"metarr/internal/utils/logging"
 	"os"
+	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -54,15 +57,18 @@ type batchProcessor struct {
 	}
 }
 
-// StartBatchLoop begins processing the batch.
-func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
+// StartMainBatchLoop begins processing the batch.
+func StartMainBatchLoop(core *models.Core, batches []models.BatchConfig) ([]*models.FileData, error) {
 	if len(batches) == 0 {
 		logging.I("No batches sent in?")
-		return nil
+		return nil, nil
 	}
 
 	job := 1
 	skipVideos := abstractions.GetBool(keys.SkipVideos)
+
+	// Collect all processed files from all batches
+	allProcessedFiles := make([]*models.FileData, 0)
 
 	// Begin iteration...
 	for _, b := range batches {
@@ -90,20 +96,23 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 		// Open JSON file
 		if openJSON, err = os.Open(batch.JSON); err != nil {
 			logging.E("Failed to open %s", batch.JSON)
-
 			// Close accompanying video...
 			if openVideo != nil {
 				if err := openVideo.Close(); err != nil {
-					return fmt.Errorf("failed to close failed video %q after JSON failure: %w", openVideo.Name(), err)
+					return allProcessedFiles, fmt.Errorf("failed to close failed video %q after JSON failure: %w", openVideo.Name(), err)
 				}
 			}
 			continue
 		}
 
 		// Initiate batch process
-		if err := processBatch(batch, core, openVideo, openJSON); err != nil {
-			return err
+		processedFiles, err := processBatch(batch, core, openVideo, openJSON)
+		if err != nil {
+			return allProcessedFiles, err
 		}
+
+		// Append this batch's files to the overall collection
+		allProcessedFiles = append(allProcessedFiles, processedFiles...)
 
 		// Completion message
 		fileOrDirMsg := "Directory"
@@ -115,6 +124,7 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 		if !batch.SkipVideos {
 			videoDoneMsg = fmt.Sprintf("Input Video %s: %q\n", fileOrDirMsg, batch.Video)
 		}
+
 		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
 
 		// Close files explicitly at the end of each iteration
@@ -129,6 +139,67 @@ func StartBatchLoop(core *models.Core, batches []models.BatchConfig) error {
 		job++
 	}
 	logging.I("All batch tasks finished!")
+	return allProcessedFiles, nil
+}
+
+// RenameFiles begins file renaming operations for a batch.
+func RenameFiles(fdArray []*models.FileData) error {
+	var replaceStyle enums.ReplaceToStyle
+	skipVideos := abstractions.GetBool(keys.SkipVideos)
+
+	if abstractions.IsSet(keys.Rename) {
+		if style, ok := abstractions.Get(keys.Rename).(enums.ReplaceToStyle); ok {
+			replaceStyle = style
+			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
+		} else {
+			return fmt.Errorf("invalid rename style type")
+		}
+	}
+
+	// Create a copy to sort
+	sortedFiles := make([]*models.FileData, 0, len(fdArray))
+	for _, fd := range fdArray {
+		if fd != nil {
+			sortedFiles = append(sortedFiles, fd)
+		}
+	}
+
+	// Sort alphabetically by JSON path
+	sort.Slice(sortedFiles, func(i, j int) bool {
+		return sortedFiles[i].JSONFilePath < sortedFiles[j].JSONFilePath
+	})
+
+	// Iterate over sorted list
+	processedDirs := make(map[string]bool)
+	for _, fd := range sortedFiles {
+		if fd == nil {
+			continue
+		}
+
+		// Rename
+		if err := transformations.FileRename(fd, replaceStyle, skipVideos); err != nil {
+			logging.AddToErrorArray(err)
+			logging.E("Failed to rename file %q: %v", fd.OriginalVideoBaseName, err)
+			continue
+		}
+
+		// Track directory for success message
+		var directory string
+		if fd.JSONDirectory != "" {
+			directory = fd.JSONDirectory
+		} else if fd.VideoDirectory != "" {
+			directory = fd.VideoDirectory
+		}
+		if directory != "" {
+			processedDirs[directory] = true
+		}
+	}
+
+	// Log success per directory
+	for dir := range processedDirs {
+		logging.S("Successfully formatted file names in directory: %s", dir)
+	}
+
 	return nil
 }
 

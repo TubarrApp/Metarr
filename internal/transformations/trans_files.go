@@ -21,43 +21,6 @@ import (
 var filenameTaken sync.Map
 var fileRenameMuMap sync.Map
 
-// getUniqueFilename appends numbers onto a filename if the filename already exists.
-func getUniqueFilename(dir, base, ext, currentFile string) string {
-	getMu, _ := fileRenameMuMap.LoadOrStore(base, &sync.Mutex{})
-	mu, ok := getMu.(*sync.Mutex)
-	if !ok {
-		logging.E("Dev error: wrong type in map, got %T", mu)
-	}
-	mu.Lock()
-	defer mu.Unlock()
-
-	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
-	for {
-		n := counter.(*atomic.Int32).Add(1)
-		var candidate string
-		if n == 1 {
-			candidate = base
-		} else {
-			candidate = fmt.Sprintf("%s (%d)", base, n-1)
-		}
-
-		targetPath := filepath.Join(dir, candidate+ext)
-		currentPath := filepath.Join(dir, currentFile+ext)
-
-		// If target is the current file, use it (renaming to self)
-		if targetPath == currentPath {
-			return candidate
-		}
-
-		// Check if target exists
-		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-			return candidate
-		}
-
-		logging.D(2, "File %s already exists, trying next number", targetPath)
-	}
-}
-
 // fileProcessor handles the renaming and moving of files.
 type fileProcessor struct {
 	fd            *models.FileData
@@ -168,10 +131,12 @@ func (fp *fileProcessor) handleRenaming() error {
 	vidExt := fp.determineVideoExtension(originalVPath)
 
 	// Rename
-	renamedVideo, renamedMeta := fp.processRenames(videoBase, metaBase)
+	renamedVideo, renamedMeta, err := fp.processRenames(videoBase, metaBase)
+	if err != nil {
+		return err
+	}
 
 	// Fix contractions
-	var err error
 	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoBaseName, fp.style); err != nil {
 		return fmt.Errorf("failed to fix contractions for %s. error: %w", renamedVideo, err)
 	}
@@ -205,18 +170,22 @@ func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
 }
 
 // processRenames handles the renaming logic for both video and meta files.
-func (fp *fileProcessor) processRenames(videoBase, metaBase string) (string, string) {
-	var renamedVideo, renamedMeta string
-
+func (fp *fileProcessor) processRenames(videoBase, metaBase string) (renamedVideo, renamedMeta string, err error) {
 	if !fp.skipVideos {
-		renamedVideo = fp.constructNewNames(videoBase, fp.style, fp.fd)
+		renamedVideo, err = fp.constructNewNames(videoBase, fp.style, fp.fd)
+		if err != nil {
+			return videoBase, metaBase, err
+		}
 		renamedMeta = renamedVideo // Video name as meta base (if possible) for better consistency
 		logging.D(2, "Renamed video to %q", renamedVideo)
 	} else {
-		renamedMeta = fp.constructNewNames(metaBase, fp.style, fp.fd)
+		renamedMeta, err = fp.constructNewNames(metaBase, fp.style, fp.fd)
+		if err != nil {
+			return videoBase, metaBase, err
+		}
 		logging.D(3, "Renamed meta now %q", renamedMeta)
 	}
-	return renamedVideo, renamedMeta
+	return renamedVideo, renamedMeta, nil
 }
 
 // constructFinalPaths creates and validates the final file paths.
@@ -262,78 +231,112 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	return nil
 }
 
-// constructNewNames constructs the new file names.
-func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) string {
+// constructNewNames constructs the new file names and ensures uniqueness.
+func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) (newName string, err error) {
 	logging.D(2, "Processing metafile base name: %q", fileBase)
 	fOps := fd.FilenameOps
-
-	replacements := fOps.Replaces
-	suffixes := fOps.ReplaceSuffixes
-	prefixes := fOps.ReplacePrefixes
-	appends := fOps.Appends
-	prefixOps := fOps.Prefixes
-	dateTag := fOps.DateTag
-	deleteDateTags := fOps.DeleteDateTags
 	set := fOps.Set
 
-	// Check if any renaming to do
-	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 &&
-		len(appends) == 0 && len(prefixOps) == 0 && dateTag.DateFormat == enums.DateFmtSkip &&
-		deleteDateTags.DateFormat == enums.DateFmtSkip && style == enums.RenamingSkip &&
-		!set.IsSet {
+	// Early exit if nothing to do
+	if !set.IsSet && len(fOps.Replaces) == 0 && len(fOps.ReplacePrefixes) == 0 &&
+		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Appends) == 0 &&
+		fOps.DateTag.DateFormat == enums.DateFmtSkip && fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
+		style == enums.RenamingSkip {
 		logging.D(1, "No filename operations or naming style to apply")
-		return fileBase
+		return fileBase, nil
 	}
 
-	// Delete date tags first (if configured)
-	if deleteDateTags.DateFormat != enums.DateFmtSkip {
-		fileBase = fp.deleteDateTag(fileBase, deleteDateTags)
+	// Delete date tags first
+	if fOps.DeleteDateTags.DateFormat != enums.DateFmtSkip {
+		fileBase = fp.deleteDateTag(fileBase, fOps.DeleteDateTags)
 	}
 
-	// Set strings
+	// Set string template
 	if set.IsSet {
-		fileBase = fp.setString(fileBase, set)
-	}
-
-	// Make string replacements
-	if len(replacements) > 0 {
-		fileBase = fp.replaceStrings(fileBase, replacements)
-	}
-
-	// Replace/trim prefixes
-	if len(prefixes) > 0 {
-		fileBase = fp.replacePrefix(fileBase, prefixes)
-	}
-
-	// Replace/trim suffixes
-	if len(suffixes) > 0 {
-		fileBase = fp.replaceSuffix(fileBase, suffixes)
-	}
-
-	// Add prefixes
-	if len(prefixOps) > 0 {
-		fileBase = fp.prefixStrings(fileBase, prefixOps)
-	}
-
-	// Add appends
-	if len(appends) > 0 {
-		fileBase = fp.appendStrings(fileBase, appends)
-	}
-
-	// Add date tag
-	if fd.FilenameDateTag != "" {
-		if !strings.Contains(fileBase, fd.FilenameDateTag) {
-			fileBase = fp.addDateTag(fileBase, dateTag, fd.FilenameDateTag)
-		} else {
-			logging.D(2, "Date tag already present in filename, skipping addition")
+		if fileBase, err = fp.setString(fileBase, set); err != nil {
+			return fileBase, err
 		}
+	}
+
+	// Other transformations
+	if len(fOps.Replaces) > 0 {
+		fileBase = fp.replaceStrings(fileBase, fOps.Replaces)
+	}
+	if len(fOps.ReplacePrefixes) > 0 {
+		fileBase = fp.replacePrefix(fileBase, fOps.ReplacePrefixes)
+	}
+	if len(fOps.ReplaceSuffixes) > 0 {
+		fileBase = fp.replaceSuffix(fileBase, fOps.ReplaceSuffixes)
+	}
+	if len(fOps.Prefixes) > 0 {
+		fileBase = fp.prefixStrings(fileBase, fOps.Prefixes)
+	}
+	if len(fOps.Appends) > 0 {
+		fileBase = fp.appendStrings(fileBase, fOps.Appends)
+	}
+	if fd.FilenameDateTag != "" && !strings.Contains(fileBase, fd.FilenameDateTag) {
+		fileBase = fp.addDateTag(fileBase, fOps.DateTag, fd.FilenameDateTag)
 	}
 
 	// Apply naming style
 	if style != enums.RenamingSkip {
 		fileBase = applyNamingStyle(style, fileBase)
-	} else {
-		logging.D(1, "No naming style selected, skipping rename style")
 	}
-	return fileBase
+
+	// Ensure uniqueness
+	return fileBase, nil
+}
+
+// getUniqueFilename appends numbers onto a filename if the filename already exists.
+func (fp *fileProcessor) getUniqueFilename(base, currentFile string) (uniqueFilename string, err error) {
+	var dir, ext string
+
+	vExt := filepath.Ext(fp.fd.FinalVideoPath)
+	jExt := filepath.Ext(fp.fd.JSONFilePath)
+
+	if fp.fd.VideoDirectory != "" && vExt != "" {
+		dir = fp.fd.VideoDirectory
+		ext = vExt
+	} else if fp.fd.JSONDirectory != "" && jExt != "" {
+		dir = fp.fd.JSONDirectory
+		ext = jExt
+	}
+
+	if dir == "" {
+		return base, fmt.Errorf("no directory, cannot check for uniqueness")
+	}
+
+	getMu, _ := fileRenameMuMap.LoadOrStore(base, &sync.Mutex{})
+	mu, ok := getMu.(*sync.Mutex)
+	if !ok {
+		logging.E("Dev error: wrong type in map, got %T", mu)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+
+	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
+	for {
+		n := counter.(*atomic.Int32).Add(1)
+		var candidate string
+		if n == 1 {
+			candidate = base
+		} else {
+			candidate = fmt.Sprintf("%s (%d)", base, n-1)
+		}
+
+		targetPath := filepath.Join(dir, candidate+ext)
+		currentPath := filepath.Join(dir, currentFile+ext)
+
+		// If target is the current file, use it (renaming to self)
+		if targetPath == currentPath {
+			return candidate, nil
+		}
+
+		// Check if target exists
+		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+			return candidate, nil
+		}
+
+		logging.D(2, "File %s already exists, trying next number", targetPath)
+	}
 }

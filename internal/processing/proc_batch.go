@@ -27,29 +27,28 @@ var batchPool = &sync.Pool{
 }
 
 // processBatch is the entrypoint for batch processing.
-func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File) error {
+func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File) (fdArray []*models.FileData, err error) {
 	if batch == nil {
-		return errors.New("batch entered null")
+		return nil, errors.New("batch entered null")
 	}
 
-	var err error
 	if batch.bp, err = getNewBatchProcessor(batch.ID); err != nil {
-		return err
+		return nil, err
 	}
 	defer batch.bp.release()
 
-	if err = processFiles(batch, core, openVideo, openMeta); err != nil {
-		return err
+	if fdArray, err = processFiles(batch, core, openVideo, openMeta); err != nil {
+		return fdArray, err
 	}
 
 	errArray := logging.GetErrorArray()
 	if len(errArray) == 0 {
 		fmt.Println()
 		logging.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
-		return nil
+		return fdArray, nil
 	}
 
-	return nil
+	return fdArray, nil
 }
 
 // getBatchProcessor returns the singleton batchProcessor instance

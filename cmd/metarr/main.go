@@ -91,19 +91,32 @@ func main() {
 	}
 
 	// Process batches
+	fdArray := make([]*models.FileData, 0, len(batches))
 	if len(batches) > 0 {
-		if err := processing.StartBatchLoop(core, batches); err != nil {
+		fdArrayResult, err := processing.StartMainBatchLoop(core, batches)
+		if err != nil {
 			logging.E("error during batch loop: %v", err)
 			cancel()
 			wg.Wait()
 			os.Exit(1)
 		}
+		fdArray = append(fdArray, fdArrayResult...)
 	} else {
 		logging.I("No files or directories to process. Exiting.")
 	}
 
 	// Wait for all goroutines to finish
 	wg.Wait()
+
+	// Process renames
+	if len(fdArray) > 0 {
+		logging.I("Processing file renames for %d file(s)...", len(fdArray))
+
+		if err := processing.RenameFiles(fdArray); err != nil {
+			logging.E("Error during file renaming: %v", err)
+		}
+		logging.S("File renaming complete!")
+	}
 
 	// Check if shutdown was triggered by signal
 	select {

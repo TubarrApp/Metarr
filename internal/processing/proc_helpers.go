@@ -4,13 +4,10 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	"metarr/internal/transformations"
 	"metarr/internal/utils/logging"
 	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -21,46 +18,6 @@ import (
 var (
 	muPrint, muResource sync.Mutex
 )
-
-// renameFiles performs renaming operations.
-func renameFiles(videoPath, metaPath string, batchID int64, fd *models.FileData, skipVideos bool) {
-	var (
-		replaceStyle                           enums.ReplaceToStyle
-		ok                                     bool
-		inputVideoDir, inputJSONDir, directory string
-	)
-
-	if abstractions.IsSet(keys.Rename) {
-		if replaceStyle, ok = abstractions.Get(keys.Rename).(enums.ReplaceToStyle); !ok {
-			logging.E("Received wrong type for rename style. Got %T", replaceStyle)
-		} else {
-			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
-		}
-	}
-
-	inputJSONDir = filepath.Dir(metaPath)
-	if !skipVideos {
-		inputVideoDir = filepath.Dir(videoPath)
-	}
-
-	switch {
-	case inputJSONDir != "":
-		directory = inputJSONDir
-	case inputVideoDir != "":
-		directory = inputVideoDir
-	default:
-		errMsg := fmt.Errorf("not renaming file, no directory detected (batch ID: %d)", batchID)
-		logging.AddToErrorArray(errMsg)
-		return
-	}
-
-	if err := transformations.FileRename(fd, replaceStyle, skipVideos); err != nil {
-		logging.AddToErrorArray(err)
-		logging.E("Failed to rename files: %v", err)
-	} else {
-		logging.S("Successfully formatted file names in directory: %s", directory)
-	}
-}
 
 // sysResourceLoop checks the system resources, staying in the loop until resources meet the set criteria.
 func sysResourceLoop(fileStr string) {
