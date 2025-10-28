@@ -305,13 +305,13 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 	}
 
 	if dir == "" {
-		return newBase, fmt.Errorf("no directory, cannot check for uniqueness")
+		return oldBase, fmt.Errorf("no directory, cannot check for uniqueness")
 	}
 
 	getMu, _ := fileRenameMuMap.LoadOrStore(newBase, &sync.Mutex{})
 	mu, ok := getMu.(*sync.Mutex)
 	if !ok {
-		logging.E("Dev error: wrong type in map, got %T", mu)
+		return oldBase, fmt.Errorf("dev error: wrong type in map, got %T", mu)
 	}
 	mu.Lock()
 	defer mu.Unlock()
