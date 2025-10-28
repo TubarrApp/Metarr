@@ -72,7 +72,6 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 			TempOutputFilePath:    m.TempOutputFilePath,
 			FinalVideoPath:        m.FinalVideoPath,
 			FinalVideoBaseName:    m.FinalVideoBaseName,
-			FilenameMetaPrefix:    m.FilenameMetaPrefix,
 			FilenameDateTag:       m.FilenameDateTag,
 			RenamedVideoPath:      m.RenamedVideoPath,
 			RenamedMetaPath:       m.RenamedMetaPath,

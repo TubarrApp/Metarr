@@ -142,7 +142,6 @@ func (fp *fileProcessor) handleRenaming() error {
 	}
 
 	// Add tags and trim
-	renamedVideo, renamedMeta = addTags(renamedVideo, renamedMeta, fp.fd, fp.style)
 	renamedVideo = strings.TrimSpace(renamedVideo)
 	renamedMeta = strings.TrimSpace(renamedMeta)
 

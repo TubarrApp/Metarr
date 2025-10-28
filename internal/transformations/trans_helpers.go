@@ -28,9 +28,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	}
 
 	switch {
-	case fd.FilenameMetaPrefix != "",
-		rName != enums.RenamingSkip:
-
+	case rName != enums.RenamingSkip:
 		logging.I("Flag detected that %q should be renamed", fd.OriginalVideoPath)
 		rename = true
 	}
@@ -91,20 +89,6 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 		output = input
 	}
 	return output
-}
-
-// addTags handles the tagging of the video files where necessary.
-func addTags(renamedVideo, renamedMeta string, m *models.FileData, style enums.ReplaceToStyle) (renamedV, renamedM string) {
-	if len(m.FilenameMetaPrefix) > 2 {
-		renamedVideo = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedVideo)
-		renamedMeta = fmt.Sprintf("%s %s", m.FilenameMetaPrefix, renamedMeta)
-	}
-
-	if style == enums.RenamingUnderscores {
-		renamedVideo = strings.ReplaceAll(renamedVideo, " ", "_")
-		renamedMeta = strings.ReplaceAll(renamedMeta, " ", "_")
-	}
-	return renamedVideo, renamedMeta
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.

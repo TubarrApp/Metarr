@@ -34,6 +34,7 @@ func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string
 	return result, true
 }
 
+// fillMetaTemplateTagRecursive fills in all templating tags in the string.
 func (mtp *MetaTemplateParser) fillMetaTemplateTagRecursive(inputStr string, j map[string]any) (result string, anyReplaced bool) {
 	openTagIdx := strings.Index(inputStr, "{{")
 	closeTagIdx := strings.Index(inputStr, "}}")
@@ -60,8 +61,8 @@ func (mtp *MetaTemplateParser) fillMetaTemplateTagRecursive(inputStr string, j m
 	}
 
 	tag := inputStr[:openTagIdx] + replacement + inputStr[closeTagIdx+2:]
-	recursiveResult, recursiveReplaced := mtp.fillMetaTemplateTagRecursive(tag, j)
-	return recursiveResult, true || recursiveReplaced
+	recursiveResult, _ := mtp.fillMetaTemplateTagRecursive(tag, j)
+	return recursiveResult, true
 }
 
 // fillTag finds the matching string for a given template tag.
@@ -71,7 +72,6 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 	if template == "" || j[template] == nil {
 		return "", false
 	}
-
 	// Search map for template key
 	for k, v := range j {
 		if k == template {
@@ -83,7 +83,6 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 			return strVal, true
 		}
 	}
-
 	logging.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
 	return "", false
 }

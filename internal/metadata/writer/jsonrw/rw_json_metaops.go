@@ -192,7 +192,6 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 		logging.E("No new field additions found for file %q", file)
 		return false, nil
 	}
-
 	var (
 		metaOW,
 		metaPS bool

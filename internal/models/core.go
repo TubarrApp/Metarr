@@ -55,10 +55,9 @@ type FileData struct {
 	FinalVideoBaseName    string `json:"-" xml:"-"`
 
 	// Transformations
-	FilenameMetaPrefix string `json:"-" xml:"-"`
-	FilenameDateTag    string `json:"-" xml:"-"`
-	RenamedVideoPath   string `json:"-" xml:"-"`
-	RenamedMetaPath    string `json:"-" xml:"-"`
+	FilenameDateTag  string `json:"-" xml:"-"`
+	RenamedVideoPath string `json:"-" xml:"-"`
+	RenamedMetaPath  string `json:"-" xml:"-"`
 
 	// JSON paths
 	JSONDirectory string `json:"-" xml:"-"`

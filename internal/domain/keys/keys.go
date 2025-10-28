@@ -23,7 +23,6 @@ const (
 
 	FilenameOpsInput string = "filename-ops"
 	RenameStyle      string = "rename-style"
-	MFilenamePfx     string = "metadata-filename-prefix"
 
 	MetaOpsInput string = "meta-ops"
 	MDescDatePfx string = "desc-date-prefix"

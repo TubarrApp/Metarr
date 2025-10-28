@@ -71,12 +71,6 @@ func initResourceRelated() error {
 
 // initAllFileTransformers initializes user flag settings for transformations applying to all files.
 func initAllFileTransformers() error {
-	// Prefix file with metafield
-	rootCmd.PersistentFlags().StringSlice(keys.MFilenamePfx, nil, "Adds a specified metatag's value onto the start of the filename")
-	if err := viper.BindPFlag(keys.MFilenamePfx, rootCmd.PersistentFlags().Lookup(keys.MFilenamePfx)); err != nil {
-		return err
-	}
-
 	// Prefix files with date tag
 	rootCmd.PersistentFlags().StringSlice(keys.FilenameOpsInput, nil, "Filename operations for renaming files (e.g. 'prefix:[CATEGORY] ', 'date-tag:prefix:ymd')")
 	if err := viper.BindPFlag(keys.FilenameOpsInput, rootCmd.PersistentFlags().Lookup(keys.FilenameOpsInput)); err != nil {

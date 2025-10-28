@@ -149,12 +149,6 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		}
 	}
 
-	// Add new filename tag for files
-	if abstractions.IsSet(keys.MFilenamePfx) {
-		logging.D(3, "About to make prefix tag for: %v", file.Name())
-		fd.FilenameMetaPrefix = metatags.MakeFilenameTag(data, file)
-	}
-
 	// Check if metadata is already existent in target file
 	if filetypeMetaCheckSwitch(ctx, fd) {
 		logging.I("Metadata already exists in target file %q", fd.OriginalVideoBaseName)
