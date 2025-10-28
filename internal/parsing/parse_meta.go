@@ -20,12 +20,18 @@ func NewMetaTemplateParser(jsonFileName string) *MetaTemplateParser {
 // FillMetaTemplateTag returns the original string filled with inferred data.
 //
 // If no valid substitutions occur, returns the original input string.
-func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string]any) (result string) {
+func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string]any) (result string, isTemplate bool) {
+	openTagIdx := strings.Index(inputStr, "{{")
+	closeTagIdx := strings.Index(inputStr, "}}")
+	if openTagIdx < 0 || closeTagIdx < 0 || closeTagIdx < openTagIdx {
+		return inputStr, false
+	}
+
 	result, anyValid := mtp.fillMetaTemplateTagRecursive(inputStr, j)
 	if !anyValid {
-		return inputStr // No valid replacements, return original
+		return inputStr, true // No valid replacements, return unchanged
 	}
-	return result
+	return result, true
 }
 
 func (mtp *MetaTemplateParser) fillMetaTemplateTagRecursive(inputStr string, j map[string]any) (result string, anyReplaced bool) {

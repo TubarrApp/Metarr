@@ -174,9 +174,8 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		logging.E("Dev error: setString is not set for filename %q", filename)
 		return filename
 	}
-
 	// Fill template
-	result := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
+	result, _ := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
 	if result == "" {
 		logging.W("setString result was empty for template %q", setString.Value)
 		return filename
@@ -187,8 +186,6 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		logging.D(2, "setString produced same name (%q), skipping", filename)
 		return filename
 	}
-
-	// Generate unique filename if necessary
 	return result
 }
 
@@ -203,8 +200,8 @@ func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models
 
 	for _, rep := range replaceStrings {
 		// Expand template tags
-		replacement := fp.metatagParser.FillMetaTemplateTag(rep.Replacement, fp.metadata)
-		if replacement == rep.Replacement {
+		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(rep.Replacement, fp.metadata)
+		if replacement == rep.Replacement && isTemplate {
 			continue
 		}
 
@@ -240,8 +237,8 @@ func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpRep
 
 	for _, suffix := range suffixes {
 		// Expand template tags
-		replacement := fp.metatagParser.FillMetaTemplateTag(suffix.Replacement, fp.metadata)
-		if replacement == suffix.Replacement {
+		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(suffix.Replacement, fp.metadata)
+		if replacement == suffix.Replacement && isTemplate {
 			continue
 		}
 
@@ -264,8 +261,8 @@ func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpRep
 
 	for _, prefix := range prefixes {
 		// Expand template tags
-		replacement := fp.metatagParser.FillMetaTemplateTag(prefix.Replacement, fp.metadata)
-		if replacement == prefix.Replacement {
+		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(prefix.Replacement, fp.metadata)
+		if replacement == prefix.Replacement && isTemplate {
 			continue
 		}
 
@@ -288,8 +285,8 @@ func (fp *fileProcessor) appendStrings(filename string, appends []models.FOpAppe
 
 	for _, app := range appends {
 		// Expand template tags
-		value := fp.metatagParser.FillMetaTemplateTag(app.Value, fp.metadata)
-		if value == app.Value {
+		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(app.Value, fp.metadata)
+		if value == app.Value && isTemplate {
 			continue
 		}
 
@@ -310,8 +307,8 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 
 	for _, pre := range prefixes {
 		// Expand template tags
-		value := fp.metatagParser.FillMetaTemplateTag(pre.Value, fp.metadata)
-		if value == pre.Value {
+		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(pre.Value, fp.metadata)
+		if value == pre.Value && isTemplate {
 			continue
 		}
 

@@ -30,8 +30,8 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 		if val, exists := j[r.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag
-				result := mtp.FillMetaTemplateTag(r.Replacement, j)
-				if r.Replacement == result {
+				result, isTemplate := mtp.FillMetaTemplateTag(r.Replacement, j)
+				if result == r.Replacement && isTemplate {
 					continue
 				}
 				r.Replacement = result
@@ -62,8 +62,8 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaRepl
 		if val, exists := j[rp.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag
-				result := mtp.FillMetaTemplateTag(rp.Prefix, j)
-				if rp.Prefix == result {
+				result, isTemplate := mtp.FillMetaTemplateTag(rp.Prefix, j)
+				if result == rp.Prefix && isTemplate {
 					continue
 				}
 				rp.Prefix = result
@@ -98,8 +98,8 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaRepl
 		if val, exists := j[rs.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag
-				result := mtp.FillMetaTemplateTag(rs.Suffix, j)
-				if rs.Suffix == result {
+				result, isTemplate := mtp.FillMetaTemplateTag(rs.Suffix, j)
+				if result == rs.Suffix && isTemplate {
 					continue
 				}
 				rs.Suffix = result
@@ -134,8 +134,8 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 		if value, exists := j[a.Field]; exists {
 			if strVal, ok := value.(string); ok {
 				// Fill tag
-				result := mtp.FillMetaTemplateTag(a.Append, j)
-				if a.Append == result {
+				result, isTemplate := mtp.FillMetaTemplateTag(a.Append, j)
+				if result == a.Append && isTemplate {
 					continue
 				}
 				a.Append = result
@@ -167,8 +167,8 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 		if value, found := j[p.Field]; found {
 			if strVal, ok := value.(string); ok {
 				// Fill tag
-				result := mtp.FillMetaTemplateTag(p.Prefix, j)
-				if p.Prefix == result {
+				result, isTemplate := mtp.FillMetaTemplateTag(p.Prefix, j)
+				if result == p.Prefix && isTemplate {
 					continue
 				}
 				p.Prefix = result
@@ -215,7 +215,7 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 		if n.Field == "" || n.Value == "" {
 			continue
 		}
-		n.Value = mtp.FillMetaTemplateTag(n.Value, j)
+		n.Value, _ = mtp.FillMetaTemplateTag(n.Value, j)
 
 		// If field doesn't exist at all, add it
 		if _, exists := j[n.Field]; !exists {
