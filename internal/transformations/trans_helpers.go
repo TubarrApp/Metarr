@@ -11,6 +11,7 @@ import (
 	"metarr/internal/transformations/transpresets"
 	"metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -181,8 +182,35 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		logging.E("Dev error: setString is not set for filename %q", filename)
 		return filename
 	}
-	filename = setString.Value
-	return fp.metatagParser.FillMetaTemplateTag(filename, fp.metadata)
+
+	prevFilename := filename
+	newFilename := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
+
+	// Check if 'set' is renaming to itself
+	if newFilename == prevFilename {
+		logging.D(2, "File already has target name %q, skipping", prevFilename)
+		return filename
+	}
+
+	// Check if current filename is already a numbered version of the target base
+	if isJustNumberedVersion(newFilename, prevFilename) {
+		logging.I("File %q is just a numbered version of %q, altering by set for multiple files in a batch would cause file rename race conditions. Keeping original name.", prevFilename, newFilename)
+		return prevFilename
+	}
+	return getUniqueFilename(newFilename)
+}
+
+// isJustNumberedVersion checks if newName is just oldName with " (number)" added.
+func isJustNumberedVersion(oldName, newName string) bool {
+	// Remove any existing number from oldName: "hello (3)" -> "hello"
+	re := regex.BracketedNumberCompile()
+	oldBase := re.ReplaceAllString(oldName, "")
+
+	// Check if newName matches pattern: old + " (number)"
+	pattern := fmt.Sprintf(`^%s(\s*\(\d+\))?$`, regexp.QuoteMeta(oldBase))
+	matched, _ := regexp.MatchString(pattern, newName)
+
+	return matched && oldName != newName
 }
 
 // replaceStrings applies configured string replacements to a filename.

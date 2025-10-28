@@ -11,6 +11,7 @@ import (
 // Regex cache.
 var (
 	AnsiEscape                *regexp.Regexp
+	BracketedNumber           *regexp.Regexp
 	DateTagDetect             *regexp.Regexp
 	DateTagWithBrackets       *regexp.Regexp
 	DoubleSpaces              *regexp.Regexp
@@ -23,6 +24,7 @@ var (
 
 	// Initialize sync.Once for each compilation
 	ansiEscapeOnce              sync.Once
+	bracketedNumberOnce         sync.Once
 	dateTagDetectOnce           sync.Once
 	dateTagWithBracketsOnce     sync.Once
 	doubleSpacesOnce            sync.Once
@@ -32,16 +34,13 @@ var (
 	contractionsSpacedOnce      sync.Once
 	contractionsUnderscoredOnce sync.Once
 	contractionsAllOnce         sync.Once
-	contractionMu               sync.RWMutex
+	compileMu                   sync.RWMutex
 )
 
 // ContractionMapAllCompile compiles the regex pattern for spaced AND underscored contractions and returns
 // a model containing the regex and the replacement
 func ContractionMapAllCompile() map[string]models.ContractionPattern {
 	contractionsAllOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		ContractionMapAll = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced)+len(consts.ContractionsUnderscored))
 		// Spaced map
 		for contraction, replacement := range consts.ContractionsSpaced {
@@ -65,9 +64,6 @@ func ContractionMapAllCompile() map[string]models.ContractionPattern {
 // a model containing the regex and the replacement
 func ContractionMapSpacesCompile() map[string]models.ContractionPattern {
 	contractionsSpacedOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		ContractionMapSpaced = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced))
 		for contraction, replacement := range consts.ContractionsSpaced {
 			ContractionMapSpaced[contraction] = models.ContractionPattern{
@@ -83,9 +79,6 @@ func ContractionMapSpacesCompile() map[string]models.ContractionPattern {
 // a model containing the regex and the replacement
 func ContractionMapUnderscoresCompile() map[string]models.ContractionPattern {
 	contractionsUnderscoredOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		ContractionMapUnderscored = make(map[string]models.ContractionPattern, len(consts.ContractionsUnderscored))
 		for contraction, replacement := range consts.ContractionsUnderscored {
 			ContractionMapUnderscored[contraction] = models.ContractionPattern{
@@ -100,20 +93,22 @@ func ContractionMapUnderscoresCompile() map[string]models.ContractionPattern {
 // AnsiEscapeCompile compiles regex for ANSI escape codes
 func AnsiEscapeCompile() *regexp.Regexp {
 	ansiEscapeOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		AnsiEscape = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	})
 	return AnsiEscape
 }
 
+// BracketedNumberCompile compiles regex for ANSI escape codes
+func BracketedNumberCompile() *regexp.Regexp {
+	bracketedNumberOnce.Do(func() {
+		BracketedNumber = regexp.MustCompile(`\s*\(\d+\)$`)
+	})
+	return BracketedNumber
+}
+
 // DateTagCompile compiles regex to detect date structures (used in filename date tag stripping)
 func DateTagCompile() *regexp.Regexp {
 	dateTagDetectOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		DateTagDetect = regexp.MustCompile(`^\d{2,4}-\d{2}-\d{2}$`)
 	})
 	return DateTagDetect
@@ -122,8 +117,6 @@ func DateTagCompile() *regexp.Regexp {
 // DateTagWithBracketsCompile compiles regex to find [date] tags anywhere in string
 func DateTagWithBracketsCompile() *regexp.Regexp {
 	dateTagWithBracketsOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
 		DateTagWithBrackets = regexp.MustCompile(`\[\d{2,4}-\d{2}-\d{2}\]`)
 	})
 	return DateTagWithBrackets
@@ -132,8 +125,6 @@ func DateTagWithBracketsCompile() *regexp.Regexp {
 // DoubleSpacesCompils compiles regex to detect double spaces
 func DoubleSpacesCompile() *regexp.Regexp {
 	doubleSpacesOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
 		DoubleSpaces = regexp.MustCompile(`\s+`)
 	})
 	return DoubleSpaces
@@ -142,9 +133,6 @@ func DoubleSpacesCompile() *regexp.Regexp {
 // ExtraSpacesCompile compiles regex for extra spaces
 func ExtraSpacesCompile() *regexp.Regexp {
 	extraSpacesOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		ExtraSpaces = regexp.MustCompile(`\s+`)
 	})
 	return ExtraSpaces
@@ -153,9 +141,6 @@ func ExtraSpacesCompile() *regexp.Regexp {
 // InvalidCharsCompile compiles regex for invalid characters
 func InvalidCharsCompile() *regexp.Regexp {
 	invalidCharsOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		InvalidChars = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
 	})
 	return InvalidChars
@@ -164,9 +149,6 @@ func InvalidCharsCompile() *regexp.Regexp {
 // SpecialCharsCompile compiles regex for special characters
 func SpecialCharsCompile() *regexp.Regexp {
 	specialCharsOnce.Do(func() {
-		contractionMu.Lock()
-		defer contractionMu.Unlock()
-
 		SpecialChars = regexp.MustCompile(`[^\w\s-]`)
 	})
 	return SpecialChars

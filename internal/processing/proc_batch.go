@@ -12,7 +12,7 @@ import (
 )
 
 var batchPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &batchProcessor{
 			failures: struct {
 				items []failedVideo

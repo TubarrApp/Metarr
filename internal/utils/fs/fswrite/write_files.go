@@ -89,7 +89,6 @@ func (fs *FSFileWriter) WriteResults() error {
 		}
 		logging.S("Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
 	}
-
 	return nil
 }
 

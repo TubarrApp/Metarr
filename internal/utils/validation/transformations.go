@@ -183,7 +183,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 		}
 	}
 	if len(validOpsForPrintout) == 0 {
-		logging.E("No valid meta operations were entered. Got: %v", metaOpsInput)
+		return fmt.Errorf("no valid meta operations were entered. Got: %v", metaOpsInput)
 	}
 	logging.I("Added %d meta operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 
@@ -237,6 +237,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 					IsSet: true,
 					Value: opValue,
 				}
+				validOpsForPrintout = append(validOpsForPrintout, op)
 			}
 		case 3:
 			switch strings.ToLower(operation) {
@@ -337,7 +338,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 		}
 	}
 	if len(validOpsForPrintout) == 0 {
-		logging.E("No valid filename operations were entered. Got: %v", filenameOpsInput)
+		return fmt.Errorf("no valid filename operations were entered. Got: %v", filenameOpsInput)
 	}
 	logging.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 

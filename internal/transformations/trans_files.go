@@ -11,6 +11,7 @@ import (
 	"metarr/internal/utils/fs/fswrite"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/validation"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -23,10 +24,13 @@ var filenameTaken sync.Map
 func getUniqueFilename(base string) string {
 	counter, _ := filenameTaken.LoadOrStore(base, &atomic.Int32{})
 	n := counter.(*atomic.Int32).Add(1)
+	var candidate string
 	if n == 1 {
-		return base
+		candidate = base
+	} else {
+		candidate = fmt.Sprintf("%s (%d)", base, n-1)
 	}
-	return fmt.Sprintf("%s (%d)", base, n-1) // First file is plain, first duplicate gets " (1)"
+	return candidate
 }
 
 // fileProcessor handles the renaming and moving of files.
@@ -47,7 +51,17 @@ func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideo
 		metatagParser: parsing.NewMetaTemplateParser(fileData.JSONFilePath),
 	}
 
-	fp.metadata, err = fileData.JSONFileRW.RefreshJSON()
+	metaFile, err := os.Open(fp.fd.JSONFilePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := metaFile.Close(); err != nil {
+			logging.E("Error closing file %q: %v", metaFile.Name(), err)
+		}
+	}()
+
+	fp.metadata, err = fileData.JSONFileRW.DecodeJSON(metaFile)
 	if err != nil {
 		return err
 	}
@@ -177,18 +191,15 @@ func (fp *fileProcessor) processRenames(videoBase, metaBase string) (string, str
 		renamedMeta = fp.constructNewNames(metaBase, fp.style, fp.fd)
 		logging.D(3, "Renamed meta now %q", renamedMeta)
 	}
-
 	return renamedVideo, renamedMeta
 }
 
 // constructFinalPaths creates and validates the final file paths.
-func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, metaExt string) error {
+func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, metaExt string) (err error) {
 	renamedVPath := filepath.Join(fp.fd.VideoDirectory, renamedVideo+vidExt)
 	renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
 
 	logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
-
-	var err error
 
 	if filepath.IsAbs(renamedVPath) {
 		fp.fd.RenamedVideoPath = renamedVPath
@@ -214,7 +225,6 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for final video: %w", err)
 		}
-		fp.fd.FinalVideoPath = getUniqueFilename(fp.fd.FinalVideoPath)
 	}
 
 	if fp.fd.JSONFilePath != "" && !filepath.IsAbs(fp.fd.JSONFilePath) {
@@ -222,7 +232,6 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
-		fp.fd.JSONFilePath = getUniqueFilename(fp.fd.JSONFilePath)
 	}
 	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
 	return nil
@@ -245,7 +254,8 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	// Check if any renaming to do
 	if len(suffixes) == 0 && len(prefixes) == 0 && len(replacements) == 0 &&
 		len(appends) == 0 && len(prefixOps) == 0 && dateTag.DateFormat == enums.DateFmtSkip &&
-		deleteDateTags.DateFormat == enums.DateFmtSkip && style == enums.RenamingSkip {
+		deleteDateTags.DateFormat == enums.DateFmtSkip && style == enums.RenamingSkip &&
+		!set.IsSet {
 		logging.D(1, "No filename operations or naming style to apply")
 		return fileBase
 	}
@@ -300,6 +310,5 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	} else {
 		logging.D(1, "No naming style selected, skipping rename style")
 	}
-
 	return fileBase
 }
