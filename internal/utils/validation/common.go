@@ -7,6 +7,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/utils/logging"
 	"os"
 	"strconv"
@@ -184,7 +185,7 @@ func ValidateOutputFiletype(o string) {
 	}
 
 	valid := false
-	for ext := range consts.AllVidExtensions {
+	for ext := range lookupmaps.AllVidExtensions {
 		if o != ext {
 			continue
 		}
@@ -210,10 +211,12 @@ func ValidateMetaOverwritePreserve(mOverwrite, mPreserve bool) {
 func ValidatePurgeMetafiles(purgeType string) {
 	var e enums.PurgeMetafiles
 
+	// Normalize string
 	purgeType = strings.TrimSpace(purgeType)
 	purgeType = strings.ToLower(purgeType)
 	purgeType = strings.ReplaceAll(purgeType, ".", "")
 
+	// Compare to list
 	switch purgeType {
 	case "all":
 		e = enums.PurgeMetaAll
@@ -255,42 +258,49 @@ func WarnMalformedKeys() {
 // ValidateInputFiletypes checks that the inputted filetypes are accepted.
 func ValidateInputFiletypes(argsVInputExts, argsMInputExts []string) {
 	// Video extensions
-	inputVExts := make([]enums.ConvertFromFiletype, 0, len(argsVInputExts))
+	inputVExts := make([]string, 0, len(argsVInputExts))
 	for _, data := range argsVInputExts {
+		// Normalize
+		data = strings.TrimSpace(data)
+		data = strings.ToLower(data)
+		if !strings.HasPrefix(data, ".") && data != "all" {
+			data = "." + data
+		}
+
 		switch data {
-		case "mkv":
-			inputVExts = append(inputVExts, enums.VidExtsMKV)
-		case "mp4":
-			inputVExts = append(inputVExts, enums.VidExtsMP4)
-		case "webm":
-			inputVExts = append(inputVExts, enums.VidExtsWebM)
+		case "all":
+			inputVExts = []string{"all"}
+		case ".mkv":
+			inputVExts = append(inputVExts, data)
+		case ".mp4":
+			inputVExts = append(inputVExts, data)
+		case ".webm":
+			inputVExts = append(inputVExts, data)
 		default:
-			inputVExts = append(inputVExts, enums.VidExtsAll)
+			continue
 		}
 	}
 	if len(inputVExts) == 0 {
-		inputVExts = append(inputVExts, enums.VidExtsAll)
+		inputVExts = []string{"all"}
 	}
-	logging.D(2, "Received video input extension filter: %v", inputVExts)
-	abstractions.Set(keys.InputVExtsEnum, inputVExts)
+	logging.D(2, "Received video input extension filters: %v", inputVExts)
+	abstractions.Set(keys.InputVExts, inputVExts)
 
 	// Metadata extensions
-	inputMExts := make([]enums.MetaFiletypeFilter, 0, len(argsMInputExts))
+	inputMExts := make([]string, 0, len(argsMInputExts))
 	for _, data := range argsMInputExts {
 		switch data {
-		case "json":
-			inputMExts = append(inputMExts, enums.MetaExtsJSON)
-		case "nfo":
-			inputMExts = append(inputMExts, enums.MetaExtsNFO)
+		case "json", "nfo":
+			inputMExts = append(inputMExts, data)
 		default:
-			inputMExts = append(inputMExts, enums.MetaExtsAll)
+			continue
 		}
 	}
 	if len(inputMExts) == 0 {
-		inputMExts = append(inputMExts, enums.MetaExtsAll)
+		inputMExts = append(inputMExts, "all")
 	}
 	logging.D(2, "Received meta input extension filter: %v", inputMExts)
-	abstractions.Set(keys.InputMExtsEnum, inputMExts)
+	abstractions.Set(keys.InputMExts, inputMExts)
 }
 
 // ValidateSetFileFilters checks and sets the file prefix filters.

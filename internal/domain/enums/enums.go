@@ -1,27 +1,6 @@
 // Package enums holds enumerated variables.
 package enums
 
-// ConvertFromFiletype is the type of filename to perform conversions on.
-type ConvertFromFiletype int
-
-// ConvertFromFiletype definitions.
-const (
-	VidExtsAll ConvertFromFiletype = iota
-	VidExtsMKV
-	VidExtsMP4
-	VidExtsWebM
-)
-
-// MetaFiletypeFilter filters the metadata files to read from.
-type MetaFiletypeFilter int
-
-// MetaFiletypeFilter definitions.
-const (
-	MetaExtsAll MetaFiletypeFilter = iota
-	MetaExtsJSON
-	MetaExtsNFO
-)
-
 // OverrideMetaType holds the value for the type of metafield to override all values of (e.g. "credits").
 type OverrideMetaType int
 

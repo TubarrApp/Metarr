@@ -2,10 +2,11 @@ package fsread
 
 import (
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/lookupmaps"
+	"metarr/internal/domain/regex"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ func hasFileExtension(filename string, extensions map[string]bool) bool {
 	if ext == "" {
 		return false
 	}
-	if _, exists := extensions[ext]; exists {
+	if isSet := extensions[ext]; isSet {
 		logging.I("File %q has valid extension %q, processing...", filename, ext)
 		return true
 	}
@@ -27,8 +28,8 @@ func hasFileExtension(filename string, extensions map[string]bool) bool {
 	return false
 }
 
-// matchesFileFilter determines if the input file has the desired suffix or prefix.
-func matchesFileFilter(fileName string, slice []string, f func(string, string) bool) bool {
+// matchesFilenameFilter determines if the input file has the desired suffix or prefix.
+func matchesFilenameFilter(fileName string, slice []string, f func(string, string) bool) bool {
 	if len(slice) == 0 {
 		return false
 	}
@@ -42,17 +43,20 @@ func matchesFileFilter(fileName string, slice []string, f func(string, string) b
 
 // GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized.
 func GetDirStats(dir string) (vidCount, metaCount int) {
-
-	// Quick initial scan just counting files, not storing anything
+	// Quick initial scan (counts files only)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return 0, 0
 	}
 	for _, entry := range entries {
 		if !entry.IsDir() {
-			ext := strings.ToLower(filepath.Ext(entry.Name()))
+			// Normalize extension string
+			ext := filepath.Ext(entry.Name())
+			ext = strings.TrimSpace(ext)
+			ext = strings.ToLower(ext)
 
-			for key := range consts.AllVidExtensions {
+			// Check for valid extensions
+			for key := range lookupmaps.AllVidExtensions {
 				if ext == key {
 					vidCount++
 					continue
@@ -69,11 +73,10 @@ func GetDirStats(dir string) (vidCount, metaCount int) {
 }
 
 // NormalizeFilename removes special characters and normalizes spacing.
-func NormalizeFilename(filename string, specialChars, extraSpaces *regexp.Regexp) string {
-
+func NormalizeFilename(filename string) string {
 	normalized := strings.ToLower(filename)
-	normalized = specialChars.ReplaceAllString(normalized, "")
-	normalized = extraSpaces.ReplaceAllString(normalized, " ")
+	normalized = regex.ExtraSpacesCompile().ReplaceAllString(normalized, "")
+	normalized = regex.ExtraSpacesCompile().ReplaceAllString(normalized, " ")
 	normalized = strings.TrimSpace(normalized)
 
 	return normalized
@@ -83,47 +86,39 @@ func NormalizeFilename(filename string, specialChars, extraSpaces *regexp.Regexp
 //
 // E.g. ".info" for yt-dlp outputted JSON files
 func TrimMetafileSuffixes(metaBase, videoBase string) string {
+	patterns := []struct {
+		full  string
+		noExt string
+	}{
+		// JSON
+		{".info.json", ".info"},
+		{".metadata.json", ".metadata"},
+		{".model.json", ".model"},
+		{".manifest.cdm.json", ".manifest.cdm"},
 
-	switch {
-
-	case strings.HasSuffix(metaBase, ".info.json"): // FFmpeg
-		if !strings.HasSuffix(videoBase, ".info") {
-			metaBase = strings.TrimSuffix(metaBase, ".info.json")
-		} else {
-			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
+		// NFO
+		{".movie.nfo", ".movie"},
+		{".tvshow.nfo", ".tvshow"},
+		{".episode.nfo", ".episode"},
+		{".disc.nfo", ".disc"},
+		{".release.nfo", ".release"},
+		{".bdinfo.nfo", ".bdinfo"},
+		{".mediainfo.nfo", ".mediainfo"},
+	}
+	// Trims suffix from metafiles. Handles cases where a video was filename.metadata.mp4
+	// and metafile was filename.metadata.json, so both become filename.metadata and match.
+	for _, pattern := range patterns {
+		if strings.HasSuffix(metaBase, pattern.full) {
+			if !strings.HasSuffix(videoBase, pattern.noExt) {
+				return strings.TrimSuffix(metaBase, pattern.full)
+			}
 		}
-
-	case strings.HasSuffix(metaBase, ".metadata.json"): // Angular
-		if !strings.HasSuffix(videoBase, ".metadata") {
-			metaBase = strings.TrimSuffix(metaBase, ".metadata.json")
-		} else {
-			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
-		}
-
-	case strings.HasSuffix(metaBase, ".model.json"):
-		if !strings.HasSuffix(videoBase, ".model") {
-			metaBase = strings.TrimSuffix(metaBase, ".model.json")
-		} else {
-			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
-		}
-
-	case strings.HasSuffix(metaBase, ".manifest.cdfd.json"):
-		if !strings.HasSuffix(videoBase, ".manifest.cdm") {
-			metaBase = strings.TrimSuffix(metaBase, ".manifest.cdfd.json")
-		} else {
-			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
-		}
-
-	default:
-		switch {
-		case !strings.HasSuffix(videoBase, consts.MExtJSON): // Edge cases where metafile extension is in the suffix of the video file
-			metaBase = strings.TrimSuffix(metaBase, consts.MExtJSON)
-
-		case !strings.HasSuffix(videoBase, consts.MExtNFO):
-			metaBase = strings.TrimSuffix(metaBase, consts.MExtNFO)
-
-		default:
-			logging.D(1, "Common suffix not found for metafile (%s)", metaBase)
+	}
+	// Same as above but directly strips the metafile extension. Handles edge cases where
+	// video is file.json.mp4 and metafile is file.json, so they both become file.json.
+	for k := range lookupmaps.AllMetaExtensions {
+		if strings.HasSuffix(metaBase, k) && !strings.HasSuffix(videoBase, k) {
+			return strings.TrimSuffix(metaBase, k)
 		}
 	}
 	return metaBase

@@ -63,8 +63,8 @@ const (
 
 // Filter for files
 const (
-	InputVExtsEnum string = "inputVideoExtsEnum"
-	InputMExtsEnum string = "inputMetaExtsEnum"
+	InputVExts string = "inputVideoExtsEnum"
+	InputMExts string = "inputMetaExtsEnum"
 )
 
 // Filename edits

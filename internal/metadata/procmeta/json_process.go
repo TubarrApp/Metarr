@@ -160,7 +160,6 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 // filetypeMetaCheckSwitch checks metadata matches by file extension (different extensions store different fields).
 func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
-
 	logging.D(4, "Entering filetypeMetaCheckSwitch with %q", fd.OriginalVideoPath)
 
 	var outExt string

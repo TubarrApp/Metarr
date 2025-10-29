@@ -318,26 +318,26 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 
 	counter, _ := filenameTaken.LoadOrStore(newBase, &atomic.Int32{})
 	for {
-		n := counter.(*atomic.Int32).Add(1)
-		var candidate string
-		if n == 1 {
-			candidate = newBase
-		} else {
-			candidate = fmt.Sprintf("%s (%d)", newBase, n-1)
-		}
-
+		candidate := newBase
 		targetPath := filepath.Join(dir, candidate+ext)
-		currentPath := filepath.Join(dir, oldBase+ext)
-
-		// If target is the current name, use it (overwriting self)
-		if targetPath == currentPath {
-			return candidate, nil
-		}
 
 		// Check if target exists
 		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 			return candidate, nil
 		}
+
+		n := counter.(*atomic.Int32).Add(1)
+		candidate = fmt.Sprintf("%s (%d)", newBase, n)
+
+		// If target is the current name, use it (can overwrite self)
+		currentPath := filepath.Join(dir, oldBase+ext)
+		newTargetPath := filepath.Join(dir, candidate+ext)
+
+		// Check if target exists
+		if _, err := os.Stat(newTargetPath); os.IsNotExist(err) || newTargetPath == currentPath {
+			return candidate, nil
+		}
+
 		logging.D(2, "File %s already exists, trying next number", targetPath)
 	}
 }

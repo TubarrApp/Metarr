@@ -18,24 +18,6 @@ const (
 // TimeSfx is used as a time suffix format in metadata.
 const TimeSfx = "T00:00:00Z"
 
-// AllVidExtensions is a map of found video extensions.
-var (
-	AllVidExtensions = map[string]bool{
-		Ext3G2: false, Ext3GP: false, ExtAVI: false, ExtF4V: false, ExtFLV: false,
-		ExtM4V: false, ExtMKV: false, ExtMOV: false, ExtMP4: false, ExtMPEG: false,
-		ExtMPG: false, ExtMTS: false, ExtOGM: false, ExtOGV: false, ExtRM: false,
-		ExtRMVB: false, ExtTS: false, ExtVOB: false, ExtWEBM: false, ExtWMV: false,
-		ExtASF: false,
-	}
-)
-
-// AllMetaExtensions is a map of found metafile extensions.
-var (
-	AllMetaExtensions = map[string]bool{
-		MExtJSON: false, MExtNFO: false,
-	}
-)
-
 // Webpage tags
 var (
 	// Ensure lengths match
