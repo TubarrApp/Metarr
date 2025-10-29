@@ -15,12 +15,6 @@ import (
 	"strings"
 )
 
-// Variable cache
-var (
-	videoExtensions,
-	metaExtensions map[string]bool
-)
-
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops.
 func InitFetchFilesVars() (err error) {
 	// Handle video extension input
@@ -28,17 +22,11 @@ func InitFetchFilesVars() (err error) {
 	if !ok {
 		return fmt.Errorf("wrong type sent in. Received type %T", inVExts)
 	}
-	if videoExtensions, err = setVideoExtensions(inVExts); err != nil {
-		return err
-	}
 
 	// Handle meta extension input
 	inMExts, ok := abstractions.Get(keys.InputMExtsEnum).([]enums.MetaFiletypeFilter)
 	if !ok {
 		return fmt.Errorf("wrong type sent in. Received type %T", inMExts)
-	}
-	if metaExtensions, err = setMetaExtensions(inMExts); err != nil {
-		return err
 	}
 	return nil
 }
@@ -49,7 +37,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading video directory %q: %w", videoDir.Name(), err)
 	}
-	logging.I("Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), videoExtensions)
+	logging.I("Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), consts.AllVidExtensions)
 
 	// Iterate over video files in directory
 	videoFiles := make(map[string]*models.FileData, len(files))
@@ -77,7 +65,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		// Other checks (is not a directory, has a video extension, is not a Metarr backup)
-		if !file.IsDir() && HasFileExtension(file.Name(), videoExtensions) {
+		if !file.IsDir() && hasFileExtension(file.Name(), consts.AllVidExtensions) {
 			videoFilenameBase := filepath.Base(file.Name())
 
 			m := models.NewFileData()
@@ -95,7 +83,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		}
 	}
 	if len(videoFiles) == 0 {
-		return nil, fmt.Errorf("no video files with extensions: %v or matching file filters found in directory: %s", videoExtensions, videoDir.Name())
+		return nil, fmt.Errorf("no video files with extensions: %v or matching file filters found in directory: %s", consts.AllVidExtensions, videoDir.Name())
 	}
 	return videoFiles, nil
 }
@@ -106,7 +94,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata directory %q: %w", metaDir.Name(), err)
 	}
-	logging.I("Filtering video directory %q:\nFile extensions: %v\n\n", metaDir.Name(), metaExtensions)
+	logging.I("Filtering video directory %q:\nFile extensions: %v\n\n", metaDir.Name(), consts.AllMetaExtensions)
 
 	// Iterate over metadata files in directory
 	metaFiles := make(map[string]*models.FileData, len(files))
@@ -137,7 +125,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		// File is a directory or does not have meta extensions.
-		if file.IsDir() || !metaExtensions[ext] {
+		if file.IsDir() || !consts.AllMetaExtensions[ext] {
 			continue
 		}
 
@@ -170,7 +158,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 	}
 	if len(metaFiles) == 0 {
-		return nil, fmt.Errorf("no meta files with extensions: %v or matching file filters found in directory: %s", metaExtensions, metaDir.Name())
+		return nil, fmt.Errorf("no meta files with extensions: %v or matching file filters found in directory: %s", consts.AllMetaExtensions, metaDir.Name())
 	}
 	logging.D(3, "Returning meta files %v", metaFiles)
 	return metaFiles, nil

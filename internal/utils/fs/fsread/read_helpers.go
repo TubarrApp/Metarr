@@ -1,9 +1,7 @@
 package fsread
 
 import (
-	"errors"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/enums"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
@@ -12,7 +10,7 @@ import (
 )
 
 // HasFileExtension checks if the file has a valid extension from a passed in map.
-func HasFileExtension(filename string, extensions map[string]bool) bool {
+func hasFileExtension(filename string, extensions map[string]bool) bool {
 	if extensions == nil {
 		logging.E("Extensions sent in nil.")
 		return false
@@ -40,61 +38,6 @@ func matchesFileFilter(fileName string, slice []string, f func(string, string) b
 		}
 	}
 	return false
-}
-
-// setVideoExtensions creates a list of extensions to filter.
-func setVideoExtensions(exts []enums.ConvertFromFiletype) (map[string]bool, error) {
-	videoExtensions := make(map[string]bool, len(consts.AllVidExtensions))
-
-	for _, arg := range exts {
-		switch arg {
-		case enums.VidExtsMKV:
-			videoExtensions[consts.ExtMKV] = true
-
-		case enums.VidExtsMP4:
-			videoExtensions[consts.ExtMP4] = true
-
-		case enums.VidExtsWebM:
-			videoExtensions[consts.ExtWEBM] = true
-
-		case enums.VidExtsAll:
-			for key := range consts.AllVidExtensions {
-				videoExtensions[key] = true
-			}
-		}
-	}
-
-	if len(videoExtensions) == 0 {
-		return nil, errors.New("failed to set video extensions")
-	}
-
-	return videoExtensions, nil
-}
-
-// setMetaExtensions creates a list of meta extensions to filter.
-func setMetaExtensions(exts []enums.MetaFiletypeFilter) (map[string]bool, error) {
-	metaExtensions := make(map[string]bool, len(consts.AllMetaExtensions))
-
-	for _, arg := range exts {
-		switch arg {
-		case enums.MetaExtsJSON:
-			metaExtensions[consts.MExtJSON] = true
-
-		case enums.MetaExtsNFO:
-			metaExtensions[consts.MExtNFO] = true
-
-		case enums.MetaExtsAll:
-			for key := range consts.AllMetaExtensions {
-				metaExtensions[key] = true
-			}
-		}
-	}
-
-	if len(metaExtensions) == 0 {
-		return nil, errors.New("failed to set meta extensions")
-	}
-
-	return metaExtensions, nil
 }
 
 // GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized.
