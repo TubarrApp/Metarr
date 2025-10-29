@@ -150,7 +150,6 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		switch ext {
 		case consts.MExtJSON:
 			logging.D(1, "Detected JSON file %q", file.Name())
-
 			m.JSONFilePath = filePath
 			m.JSONBaseName = baseName
 			m.JSONDirectory = metaDir.Name()
@@ -158,7 +157,6 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 
 		case consts.MExtNFO:
 			logging.D(1, "Detected NFO file %q", file.Name())
-
 			m.NFOFilePath = filePath
 			m.NFOBaseName = baseName
 			m.NFODirectory = metaDir.Name()
@@ -202,7 +200,6 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	ext := filepath.Ext(metaFile.Name())
 	switch ext {
 	case consts.MExtJSON:
-
 		metaFileData.MetaFileType = enums.MetaFiletypeJSON
 		metaFileData.JSONFilePath = metaFile.Name()
 		metaFileData.JSONBaseName = strings.TrimSuffix(metaBaseFilename, ext)
@@ -210,7 +207,6 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 		logging.D(3, "Created JSON metadata file data for single file: %s", metaBaseFilename)
 
 	case consts.MExtNFO:
-
 		metaFileData.MetaFileType = enums.MetaFiletypeNFO
 		metaFileData.NFOFilePath = metaFile.Name()
 		metaFileData.NFOBaseName = strings.TrimSuffix(metaBaseFilename, ext)
