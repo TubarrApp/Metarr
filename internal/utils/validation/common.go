@@ -252,7 +252,7 @@ func WarnMalformedKeys() {
 	}
 }
 
-// ValidateInputFiletypes checks that the inputted filetypes are accepted
+// ValidateInputFiletypes checks that the inputted filetypes are accepted.
 func ValidateInputFiletypes(argsVInputExts, argsMInputExts []string) {
 	// Video extensions
 	inputVExts := make([]enums.ConvertFromFiletype, 0, len(argsVInputExts))
@@ -293,20 +293,20 @@ func ValidateInputFiletypes(argsVInputExts, argsMInputExts []string) {
 	abstractions.Set(keys.InputMExtsEnum, inputMExts)
 }
 
-// ValidateFilePrefixes checks and sets the file prefix filters
-func ValidateFilePrefixes(argsInputPrefixes []string) {
-	if !abstractions.IsSet(keys.FilePrefixes) {
+// ValidateSetFileFilters checks and sets the file prefix filters.
+func ValidateSetFileFilters(viperKey string, argsInputPrefixes []string) {
+	if !abstractions.IsSet(viperKey) {
 		return
 	}
-	filePrefixes := make([]string, 0, len(argsInputPrefixes))
+	fileFilters := make([]string, 0, len(argsInputPrefixes))
 
 	for _, arg := range argsInputPrefixes {
 		if arg != "" {
-			filePrefixes = append(filePrefixes, arg)
+			fileFilters = append(fileFilters, arg)
 		}
 	}
-	if len(filePrefixes) > 0 {
-		abstractions.Set(keys.FilePrefixes, filePrefixes)
+	if len(fileFilters) > 0 {
+		abstractions.Set(viperKey, fileFilters)
 	}
 }
 
@@ -421,7 +421,7 @@ func ValidateTranscodeQuality(q string) error {
 	return nil
 }
 
-// ValidateRenameFlag sets the rename style to apply
+// ValidateRenameFlag sets the rename style to apply.
 func ValidateRenameFlag(argRenameFlag string) {
 	var renameFlag enums.ReplaceToStyle
 

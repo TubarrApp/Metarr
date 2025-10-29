@@ -196,8 +196,23 @@ func initFiltering() error {
 	}
 
 	// Only convert files with prefix
-	rootCmd.PersistentFlags().StringSlice(keys.FilePrefixes, []string{""}, "Filters files by prefixes")
+	rootCmd.PersistentFlags().StringSlice(keys.FilePrefixes, []string{""}, "Filters files to edit by prefixes")
 	if err := viper.BindPFlag(keys.FilePrefixes, rootCmd.PersistentFlags().Lookup(keys.FilePrefixes)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().StringSlice(keys.FileSuffixes, []string{""}, "Filters files to edit by suffixes")
+	if err := viper.BindPFlag(keys.FileSuffixes, rootCmd.PersistentFlags().Lookup(keys.FileSuffixes)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().StringSlice(keys.FileContains, []string{""}, "Filters files to edit by strings contained")
+	if err := viper.BindPFlag(keys.FileContains, rootCmd.PersistentFlags().Lookup(keys.FileContains)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().StringSlice(keys.FileOmits, []string{""}, "Filters files to edit by strings omitted")
+	if err := viper.BindPFlag(keys.FileOmits, rootCmd.PersistentFlags().Lookup(keys.FileOmits)); err != nil {
 		return err
 	}
 	return nil

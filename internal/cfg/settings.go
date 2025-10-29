@@ -52,7 +52,7 @@ func init() {
 		"config program function initialization failure")
 }
 
-// execute more thoroughly handles settings created in the Viper init
+// execute more thoroughly handles settings created in the Viper init.
 func execute() error {
 
 	// Concurrency
@@ -68,9 +68,18 @@ func execute() error {
 		viper.GetStringSlice(keys.InputMetaExts),
 	)
 
-	// File prefix filter settings
+	// File filter settings
 	if viper.IsSet(keys.FilePrefixes) {
-		validation.ValidateFilePrefixes(viper.GetStringSlice(keys.FilePrefixes))
+		validation.ValidateSetFileFilters(keys.FilePrefixes, viper.GetStringSlice(keys.FilePrefixes))
+	}
+	if viper.IsSet(keys.FileSuffixes) {
+		validation.ValidateSetFileFilters(keys.FileSuffixes, viper.GetStringSlice(keys.FileSuffixes))
+	}
+	if viper.IsSet(keys.FileContains) {
+		validation.ValidateSetFileFilters(keys.FileContains, viper.GetStringSlice(keys.FileContains))
+	}
+	if viper.IsSet(keys.FileOmits) {
+		validation.ValidateSetFileFilters(keys.FileOmits, viper.GetStringSlice(keys.FileOmits))
 	}
 
 	// Filetype to output as

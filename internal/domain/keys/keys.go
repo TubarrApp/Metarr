@@ -15,7 +15,10 @@ const (
 
 	InputMetaExts  string = "input-meta-exts"
 	InputVideoExts string = "input-video-exts"
-	FilePrefixes   string = "prefix"
+	FilePrefixes   string = "filter-prefix"
+	FileSuffixes   string = "filter-suffix"
+	FileContains   string = "filter-contains"
+	FileOmits      string = "filter-omits"
 
 	Concurrency     string = "concurrency"
 	MaxCPU          string = "max-cpu"

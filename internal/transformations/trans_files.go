@@ -151,7 +151,6 @@ func (fp *fileProcessor) handleRenaming() error {
 	if err := fp.constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, filepath.Ext(originalMPath)); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -251,12 +250,12 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		fileBase = fp.deleteDateTag(fileBase, fOps.DeleteDateTags)
 	}
 
-	// Set string template
+	// Explicit string setting e.g. 'title:set:{{year}}\: {{fulltitle}}'
 	if set.IsSet {
 		fileBase = fp.setString(fileBase, set)
 	}
 
-	// Other transformations
+	// Transformations which search the string to replace elements
 	if len(fOps.Replaces) > 0 {
 		fileBase = fp.replaceStrings(fileBase, fOps.Replaces)
 	}
@@ -266,6 +265,13 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	if len(fOps.ReplaceSuffixes) > 0 {
 		fileBase = fp.replaceSuffix(fileBase, fOps.ReplaceSuffixes)
 	}
+
+	// Apply naming style after string search replacements
+	if style != enums.RenamingSkip {
+		fileBase = applyNamingStyle(style, fileBase)
+	}
+
+	// Plain appends etc.
 	if len(fOps.Prefixes) > 0 {
 		fileBase = fp.prefixStrings(fileBase, fOps.Prefixes)
 	}
@@ -274,11 +280,6 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	}
 	if fd.FilenameDateTag != "" && !strings.Contains(fileBase, fd.FilenameDateTag) {
 		fileBase = fp.addDateTag(fileBase, fOps.DateTag, fd.FilenameDateTag)
-	}
-
-	// Apply naming style
-	if style != enums.RenamingSkip {
-		fileBase = applyNamingStyle(style, fileBase)
 	}
 
 	// Ensure uniqueness
@@ -337,7 +338,6 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 			return candidate, nil
 		}
-
 		logging.D(2, "File %s already exists, trying next number", targetPath)
 	}
 }

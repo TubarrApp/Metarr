@@ -17,12 +17,10 @@ func HasFileExtension(filename string, extensions map[string]bool) bool {
 		logging.E("Extensions sent in nil.")
 		return false
 	}
-
 	ext := strings.ToLower(filepath.Ext(filename))
 	if ext == "" {
 		return false
 	}
-
 	if _, exists := extensions[ext]; exists {
 		logging.I("File %q has valid extension %q, processing...", filename, ext)
 		return true
@@ -31,15 +29,13 @@ func HasFileExtension(filename string, extensions map[string]bool) bool {
 	return false
 }
 
-// HasPrefix determines if the input file has the desired prefix.
-func HasPrefix(fileName string, prefixes []string) bool {
-
-	if prefixes == nil {
-		prefixes = append(prefixes, "")
+// matchesFileFilter determines if the input file has the desired suffix or prefix.
+func matchesFileFilter(fileName string, slice []string, f func(string, string) bool) bool {
+	if len(slice) == 0 {
+		return false
 	}
-
-	for _, data := range prefixes {
-		if strings.HasPrefix(strings.ToLower(fileName), strings.ToLower(data)) {
+	for _, s := range slice {
+		if f(fileName, s) {
 			return true
 		}
 	}
@@ -48,7 +44,6 @@ func HasPrefix(fileName string, prefixes []string) bool {
 
 // setVideoExtensions creates a list of extensions to filter.
 func setVideoExtensions(exts []enums.ConvertFromFiletype) (map[string]bool, error) {
-
 	videoExtensions := make(map[string]bool, len(consts.AllVidExtensions))
 
 	for _, arg := range exts {
@@ -78,7 +73,6 @@ func setVideoExtensions(exts []enums.ConvertFromFiletype) (map[string]bool, erro
 
 // setMetaExtensions creates a list of meta extensions to filter.
 func setMetaExtensions(exts []enums.MetaFiletypeFilter) (map[string]bool, error) {
-
 	metaExtensions := make(map[string]bool, len(consts.AllMetaExtensions))
 
 	for _, arg := range exts {
@@ -101,15 +95,6 @@ func setMetaExtensions(exts []enums.MetaFiletypeFilter) (map[string]bool, error)
 	}
 
 	return metaExtensions, nil
-}
-
-// SetPrefixFilter sets a list of prefixes to filter.
-func SetPrefixFilter(inputPrefixFilters []string) []string {
-
-	prefixFilters := make([]string, 0, len(inputPrefixFilters))
-	prefixFilters = append(prefixFilters, inputPrefixFilters...)
-
-	return prefixFilters
 }
 
 // GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized.

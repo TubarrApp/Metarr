@@ -18,7 +18,6 @@ var (
 
 // File creates a backup copy of the original file before modifying it.
 func File(file *os.File) error {
-
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)
@@ -65,16 +64,15 @@ func File(file *os.File) error {
 	return nil
 }
 
-// generateBackupFilename creates a backup filename by appending "_backup" to the original filename
+// generateBackupFilename creates a backup filename by appending "_backup" to the original filename.
 func generateBackupFilename(originalFilePath string) string {
 	ext := filepath.Ext(originalFilePath)
 	base := strings.TrimSuffix(originalFilePath, ext)
 	return base + consts.BackupTag + ext
 }
 
-// RenameToBackup renames the passed in file
+// RenameToBackup renames the passed in file to a backup version.
 func RenameToBackup(filename string) (backupName string, err error) {
-
 	if filename == "" {
 		logging.E("filename was passed in to backup empty")
 	}
