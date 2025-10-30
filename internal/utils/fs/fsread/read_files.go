@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/models"
@@ -168,20 +167,15 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		baseName := strings.TrimSuffix(metaFilenameBase, ext)
 		filePath := filepath.Join(metaDir.Name(), file.Name())
 
-		switch ext {
-		case consts.MExtJSON:
-			logging.D(1, "Detected JSON file %q", file.Name())
-			m.JSONFilePath = filePath
-			m.JSONBaseName = baseName
-			m.JSONDirectory = metaDir.Name()
-			m.MetaFileType = enums.MetaFiletypeJSON
-
-		case consts.MExtNFO:
-			logging.D(1, "Detected NFO file %q", file.Name())
-			m.NFOFilePath = filePath
-			m.NFOBaseName = baseName
-			m.NFODirectory = metaDir.Name()
-			m.MetaFileType = enums.MetaFiletypeNFO
+		// Check if valid metafile is present
+		for k := range lookupmaps.AllMetaExtensions {
+			if ext == k {
+				logging.D(1, "Detected %s file %q", strings.ToUpper(ext), file.Name())
+				m.MetaFilePath = filePath
+				m.MetaFileBaseName = baseName
+				m.MetaDirectory = metaDir.Name()
+				m.MetaFileType = ext
+			}
 		}
 
 		// Skip if it's a Metarr-generated backup file
@@ -218,27 +212,24 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	metaMap := make(map[string]*models.FileData, 1)
 	metaBaseFilename := filepath.Base(metaFile.Name())
 
-	metaFileData := models.NewFileData()
+	m := models.NewFileData()
 	ext := filepath.Ext(metaFile.Name())
-	switch ext {
-	case consts.MExtJSON:
-		metaFileData.MetaFileType = enums.MetaFiletypeJSON
-		metaFileData.JSONFilePath = metaFile.Name()
-		metaFileData.JSONBaseName = strings.TrimSuffix(metaBaseFilename, ext)
-		metaFileData.JSONDirectory = filepath.Dir(metaFile.Name())
-		logging.D(3, "Created JSON metadata file data for single file: %s", metaBaseFilename)
+	filename := metaFile.Name()
+	baseName := strings.TrimSuffix(metaBaseFilename, ext)
+	dir := filepath.Dir(metaFile.Name())
 
-	case consts.MExtNFO:
-		metaFileData.MetaFileType = enums.MetaFiletypeNFO
-		metaFileData.NFOFilePath = metaFile.Name()
-		metaFileData.NFOBaseName = strings.TrimSuffix(metaBaseFilename, ext)
-		metaFileData.NFODirectory = filepath.Dir(metaFile.Name())
-		logging.D(3, "Created NFO metadata file data for single file: %s", metaBaseFilename)
-
-	default:
-		return nil, fmt.Errorf("unsupported metadata file type: %s", ext)
+	// Check if valid metafile is present
+	for k := range lookupmaps.AllMetaExtensions {
+		if ext == k {
+			logging.D(1, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
+			m.MetaFilePath = filename
+			m.MetaFileBaseName = baseName
+			m.MetaDirectory = dir
+			m.MetaFileType = ext
+		}
 	}
-	metaMap[metaBaseFilename] = metaFileData
+
+	metaMap[metaBaseFilename] = m
 	return metaMap, nil
 }
 
@@ -266,20 +257,10 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, b
 
 		if fileData, exists := metaLookup[normalizedVideoBase]; exists && fileData != nil { // This checks if the key exists in the metaLookup map
 			matchedFiles[videoFilename] = videoData
+			matchedFiles[videoFilename].MetaFilePath = fileData.MetaFilePath
+			matchedFiles[videoFilename].MetaFileBaseName = fileData.MetaFileBaseName
+			matchedFiles[videoFilename].MetaDirectory = fileData.MetaDirectory
 			matchedFiles[videoFilename].MetaFileType = fileData.MetaFileType
-
-			// Type of metadata file
-			switch fileData.MetaFileType {
-			case enums.MetaFiletypeJSON: // JSON
-				matchedFiles[videoFilename].JSONFilePath = fileData.JSONFilePath
-				matchedFiles[videoFilename].JSONBaseName = fileData.JSONBaseName
-				matchedFiles[videoFilename].JSONDirectory = fileData.JSONDirectory
-
-			case enums.MetaFiletypeNFO: // NFO
-				matchedFiles[videoFilename].NFOFilePath = fileData.NFOFilePath
-				matchedFiles[videoFilename].NFOBaseName = fileData.NFOBaseName
-				matchedFiles[videoFilename].NFODirectory = fileData.NFODirectory
-			}
 		}
 	}
 	if len(matchedFiles) == 0 {

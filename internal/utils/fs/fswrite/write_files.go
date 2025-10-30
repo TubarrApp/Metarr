@@ -33,7 +33,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) 
 
 	inputVid := fd.FinalVideoPath
 	renamedVid := fd.RenamedVideoPath
-	inputMeta := fd.JSONFilePath
+	inputMeta := fd.MetaFilePath
 	renamedMeta := fd.RenamedMetaPath
 
 	if !skipVids {

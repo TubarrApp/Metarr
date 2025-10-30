@@ -32,7 +32,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 	logging.D(2, "Beginning JSON file processing...")
 
-	filePath := fd.JSONFilePath
+	filePath := fd.MetaFilePath
 	value, _ := jsonEditMutexMap.LoadOrStore(filePath, &sync.Mutex{})
 	fileMutex, ok := value.(*sync.Mutex)
 	if !ok {

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"sync"
 )
@@ -59,15 +58,11 @@ type FileData struct {
 	RenamedVideoPath string `json:"-" xml:"-"`
 	RenamedMetaPath  string `json:"-" xml:"-"`
 
-	// JSON paths
-	JSONDirectory string `json:"-" xml:"-"`
-	JSONFilePath  string `json:"-" xml:"-"`
-	JSONBaseName  string `json:"-" xml:"-"`
-
-	// NFO paths
-	NFOBaseName  string `json:"-" xml:"-"`
-	NFODirectory string `json:"-" xml:"-"`
-	NFOFilePath  string `json:"-" xml:"-"`
+	// Metafile paths
+	MetaDirectory    string `json:"-" xml:"-"`
+	MetaFilePath     string `json:"-" xml:"-"`
+	MetaFileBaseName string `json:"-" xml:"-"`
+	MetaFileType     string `json:"-" xml:"-"`
 
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
@@ -89,8 +84,7 @@ type FileData struct {
 	FilenameOps *FilenameOps
 
 	// Misc
-	MetaFileType      enums.MetaFiletype `json:"-" xml:"-"`
-	MetaAlreadyExists bool               `json:"-" xml:"-"`
+	MetaAlreadyExists bool `json:"-" xml:"-"`
 	ModelMOverwrite   bool
 }
 

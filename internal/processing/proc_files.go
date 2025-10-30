@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/enums"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
 	"metarr/internal/metadata/procmeta"
@@ -154,11 +154,11 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles 
 	for _, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
-		case enums.MetaFiletypeJSON:
-			logging.D(3, "File: %s: Meta file type in model as %v", fd.JSONFilePath, fd.MetaFileType)
+		case consts.MExtJSON:
+			logging.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			_, err = procmeta.ProcessJSONFile(ctx, fd)
-		case enums.MetaFiletypeNFO:
-			logging.D(3, "File: %s: Meta file type in model as %v", fd.NFOFilePath, fd.MetaFileType)
+		case consts.MExtNFO:
+			logging.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			_, err = procmeta.ProcessNFOFiles(ctx, fd)
 		}
 
@@ -286,7 +286,7 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	// Print progress for metadata
 	currentMeta := atomic.AddInt32(&bp.counts.processedMeta, 1)
 	totalMeta := atomic.LoadInt32(&bp.counts.totalMeta)
-	printProgress(typeMeta, currentMeta, totalMeta, fd.JSONDirectory)
+	printProgress(typeMeta, currentMeta, totalMeta, fd.MetaDirectory)
 
 	// System resource check
 	sysResourceLoop(filename)
@@ -320,7 +320,7 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	// Print progress for video
 	currentVideo := atomic.AddInt32(&bp.counts.processedVideo, 1)
 	totalVideo := atomic.LoadInt32(&bp.counts.totalVideo)
-	printProgress(typeVideo, currentVideo, totalVideo, fd.JSONDirectory)
+	printProgress(typeVideo, currentVideo, totalVideo, fd.MetaDirectory)
 
 	return fd, nil
 }

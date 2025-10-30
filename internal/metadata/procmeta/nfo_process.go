@@ -22,7 +22,7 @@ func ProcessNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	logging.D(2, "Beginning NFO file processing...")
 
-	filePath := fd.NFOFilePath
+	filePath := fd.MetaFilePath
 	value, _ := nfoEditMutexMap.LoadOrStore(filePath, &sync.Mutex{})
 	fileMutex, ok := value.(*sync.Mutex)
 	if !ok {
@@ -33,7 +33,7 @@ func ProcessNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 	defer fileMutex.Unlock()
 
 	// Open the file
-	file, err := os.OpenFile(fd.NFOFilePath, os.O_RDWR, 0o644)
+	file, err := os.OpenFile(fd.MetaFilePath, os.O_RDWR, 0o644)
 	if err != nil {
 		logging.AddToErrorArray(err)
 		return nil, fmt.Errorf("failed to open file: %w", err)

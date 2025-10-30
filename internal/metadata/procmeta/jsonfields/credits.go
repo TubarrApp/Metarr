@@ -96,7 +96,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 	case filled:
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
+			logging.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
 			return json, true
 		}
 
@@ -106,7 +106,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 		return json, true
 
 	case w.WebpageURL == "":
-		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in %q", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in %q", fd.MetaFilePath)
 		return json, false
 	}
 
@@ -124,7 +124,7 @@ func fillCredits(fd *models.FileData, json map[string]any) (map[string]any, bool
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.JSONFilePath, err)
+			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.MetaFilePath, err)
 			return json, true
 		}
 

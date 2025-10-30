@@ -64,19 +64,6 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 	return ""
 }
 
-// getMetafileData retrieves meta type specific data.
-func getMetafileData(m *models.FileData) (metaBase, metaDir, metaPath string) {
-	switch m.MetaFileType {
-	case enums.MetaFiletypeJSON:
-		return m.JSONBaseName, m.JSONDirectory, m.JSONFilePath
-	case enums.MetaFiletypeNFO:
-		return m.NFOBaseName, m.NFODirectory, m.NFOFilePath
-	default:
-		logging.E("No metafile type set in model %v", m)
-		return "", "", ""
-	}
-}
-
 // applyNamingStyle applies renaming conventions.
 func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
 	switch style {

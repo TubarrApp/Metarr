@@ -256,7 +256,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 		logging.I("Stripping metafield date tags (User entered: %v)", fd.MetaOps.DeleteDateTags)
 
 		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd); err != nil {
-			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
+			logging.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
 		} else if ok {
 			edited = true
 		}
@@ -267,7 +267,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 		logging.I("Adding metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
 
 		if ok, err := rw.jsonFieldAddDateTag(currentMeta, fd.MetaOps.DateTags, fd); err != nil {
-			logging.E("failed to delete date tag in %q: %v", fd.JSONFilePath, err)
+			logging.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
 		} else if ok {
 			edited = true
 		}

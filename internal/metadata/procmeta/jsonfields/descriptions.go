@@ -101,7 +101,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
+			logging.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
 		}
 
 		if len(rtn) == 0 {
@@ -114,7 +114,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 	}
 
 	if w.WebpageURL == "" {
-		logging.I("Page URL not found in data, so cannot scrape for missing description in %q", fd.JSONFilePath)
+		logging.I("Page URL not found in data, so cannot scrape for missing description in %q", fd.MetaFilePath)
 		return data, false
 	}
 
@@ -137,7 +137,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any) (map[string]any,
 		// Insert new scraped fields into file
 		rtn, err := fd.JSONFileRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.JSONFilePath, err)
+			logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
 		} else if rtn != nil {
 
 			data = rtn

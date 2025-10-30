@@ -80,7 +80,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
 
 	logging.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
-		fd.JSONFilePath,
+		fd.MetaFilePath,
 		fd.FinalVideoPath,
 		fd.TempOutputFilePath)
 

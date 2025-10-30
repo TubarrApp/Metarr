@@ -309,7 +309,7 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 	if fd == nil {
 		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
 	}
-	logging.D(2, "Adding metadata date tags for %q...", fd.JSONBaseName)
+	logging.D(2, "Adding metadata date tags for %q...", fd.MetaFileBaseName)
 
 	// Add date tags
 	for fld, d := range addDateTag {

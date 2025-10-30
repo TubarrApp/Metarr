@@ -164,9 +164,9 @@ func RenameFiles(fdArray []*models.FileData) error {
 		}
 	}
 
-	// Sort alphabetically by JSON path
+	// Sort alphabetically by meta path
 	sort.Slice(sortedFiles, func(i, j int) bool {
-		return sortedFiles[i].JSONFilePath < sortedFiles[j].JSONFilePath
+		return sortedFiles[i].MetaFilePath < sortedFiles[j].MetaFilePath
 	})
 
 	// Iterate over sorted list
@@ -185,8 +185,8 @@ func RenameFiles(fdArray []*models.FileData) error {
 
 		// Track directory for success message
 		var directory string
-		if fd.JSONDirectory != "" {
-			directory = fd.JSONDirectory
+		if fd.MetaDirectory != "" {
+			directory = fd.MetaDirectory
 		} else if fd.VideoDirectory != "" {
 			directory = fd.VideoDirectory
 		}

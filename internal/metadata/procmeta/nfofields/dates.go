@@ -86,7 +86,7 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 
 	case w.WebpageURL == "":
 
-		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.MetaFilePath)
 		return false
 	}
 

@@ -79,7 +79,7 @@ func fillTitles(fd *models.FileData, json map[string]any) (map[string]any, bool)
 
 	data, err := fd.JSONFileRW.WriteJSON(fieldMap)
 	if err != nil {
-		logging.E("Error writing JSON for file %q: %v", fd.JSONFilePath, err)
+		logging.E("Error writing JSON for file %q: %v", fd.MetaFilePath, err)
 		return data, false
 	}
 

@@ -44,7 +44,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 	}
 
 	dateTag := fmt.Sprintf("[%s]", dateStr)
-	logging.I("Made date tag %q from file '%v'", dateTag, fd.JSONFilePath)
+	logging.I("Made date tag %q from file '%v'", dateTag, fd.MetaFilePath)
 	return dateTag, nil
 }
 

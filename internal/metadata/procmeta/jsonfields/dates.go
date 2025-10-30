@@ -93,13 +93,13 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 		}
 
 		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
-			logging.E("Failed to write into JSON file %q: %v", fd.JSONFilePath, err)
+			logging.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
 		}
 
 		return true
 
 	case w.WebpageURL == "":
-		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.JSONFilePath)
+		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.MetaFilePath)
 		return false
 	}
 
@@ -146,7 +146,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any) bool {
 			dates.FormatAllDates(fd)
 		}
 		if _, err := fd.JSONFileRW.WriteJSON(fieldMap); err != nil {
-			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", date, fd.JSONFilePath, err)
+			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", date, fd.MetaFilePath, err)
 		}
 		return true
 	}

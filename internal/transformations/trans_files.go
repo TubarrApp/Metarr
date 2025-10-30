@@ -36,10 +36,10 @@ func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideo
 		fd:            fileData,
 		style:         style,
 		skipVideos:    skipVideos,
-		metatagParser: parsing.NewMetaTemplateParser(fileData.JSONFilePath),
+		metatagParser: parsing.NewMetaTemplateParser(fileData.MetaFilePath),
 	}
 
-	metaFile, err := os.Open(fp.fd.JSONFilePath)
+	metaFile, err := os.Open(fp.fd.MetaFilePath)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func (fp *fileProcessor) writeResult() error {
 	}
 
 	if abstractions.IsSet(keys.MetaPurge) {
-		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.JSONFilePath); err != nil {
+		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.MetaFilePath); err != nil {
 			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
@@ -123,7 +123,9 @@ func (fp *fileProcessor) writeResult() error {
 
 // handleRenaming processes the renaming operations.
 func (fp *fileProcessor) handleRenaming() error {
-	metaBase, metaDir, originalMPath := getMetafileData(fp.fd)
+	metaBase := fp.fd.MetaFileBaseName
+	metaDir := fp.fd.MetaDirectory
+	originalMPath := fp.fd.MetaFilePath
 	videoBase := fp.fd.FinalVideoBaseName
 	originalVPath := fp.fd.FinalVideoPath
 
@@ -219,8 +221,8 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		}
 	}
 
-	if fp.fd.JSONFilePath != "" && !filepath.IsAbs(fp.fd.JSONFilePath) {
-		fp.fd.JSONFilePath, err = filepath.Abs(fp.fd.JSONFilePath)
+	if fp.fd.MetaFilePath != "" && !filepath.IsAbs(fp.fd.MetaFilePath) {
+		fp.fd.MetaFilePath, err = filepath.Abs(fp.fd.MetaFilePath)
 		if err != nil {
 			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
@@ -294,13 +296,13 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 
 	var dir, ext string
 	vExt := filepath.Ext(fp.fd.FinalVideoPath)
-	jExt := filepath.Ext(fp.fd.JSONFilePath)
+	jExt := filepath.Ext(fp.fd.MetaFilePath)
 
 	if fp.fd.VideoDirectory != "" && vExt != "" {
 		dir = fp.fd.VideoDirectory
 		ext = vExt
-	} else if fp.fd.JSONDirectory != "" && jExt != "" {
-		dir = fp.fd.JSONDirectory
+	} else if fp.fd.MetaDirectory != "" && jExt != "" {
+		dir = fp.fd.MetaDirectory
 		ext = jExt
 	}
 

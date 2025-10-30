@@ -59,12 +59,10 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 			FilenameDateTag       string
 			RenamedVideoPath      string
 			RenamedMetaPath       string
-			JSONDirectory         string
-			JSONFilePath          string
-			JSONBaseName          string
-			NFOBaseName           string
-			NFODirectory          string
-			NFOFilePath           string
+			MetaDirectory         string
+			MetaFilePath          string
+			MetaBaseName          string
+			MetaFileType          string
 		}{
 			VideoDirectory:        m.VideoDirectory,
 			OriginalVideoPath:     m.OriginalVideoPath,
@@ -75,12 +73,10 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 			FilenameDateTag:       m.FilenameDateTag,
 			RenamedVideoPath:      m.RenamedVideoPath,
 			RenamedMetaPath:       m.RenamedMetaPath,
-			JSONDirectory:         m.JSONDirectory,
-			JSONFilePath:          m.JSONFilePath,
-			JSONBaseName:          m.JSONBaseName,
-			NFOBaseName:           m.NFOBaseName,
-			NFODirectory:          m.NFODirectory,
-			NFOFilePath:           m.NFOFilePath,
+			MetaDirectory:         m.MetaDirectory,
+			MetaFilePath:          m.MetaFilePath,
+			MetaBaseName:          m.MetaFileBaseName,
+			MetaFileType:          m.MetaFileType,
 		}
 
 		addSection("File Information", printStructFields(fileInfo))
