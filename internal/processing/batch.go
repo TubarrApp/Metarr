@@ -127,15 +127,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 
 		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
 
-		// Close files explicitly at the end of each iteration
-		if openVideo != nil {
-			if err := openVideo.Close(); err != nil {
-				logging.E("Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
-			}
-		}
-		if err := openJSON.Close(); err != nil {
-			logging.E("Failed to close JSON file %q after successful iteration: %v", openJSON.Name(), err)
-		}
+		// Files will be closed by setupCleanup when context is done
 		job++
 	}
 	logging.I("All batch tasks finished!")

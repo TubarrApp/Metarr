@@ -42,18 +42,17 @@ func ValidateMetarrOutputDirs(urlDirs []string) error {
 
 // ValidateDirectory validates that the directory exists, else creates it if desired.
 func ValidateDirectory(dir string, createIfNotFound bool) (os.FileInfo, error) {
-	// Check directory existence
+	logging.D(3, "Statting directory %q...", dir)
+
 	dirInfo, err := os.Stat(dir)
 	switch {
 	case err == nil: // If err IS nil
-
 		if !dirInfo.IsDir() {
 			return dirInfo, fmt.Errorf("path %q is a file, not a directory", dir)
 		}
 		return dirInfo, nil
 
 	case os.IsNotExist(err):
-		// path does not exist
 		if createIfNotFound {
 			logging.D(3, "Directory %q does not exist, creating it...", dir)
 			if err := os.MkdirAll(dir, consts.PermsGenericDir); err != nil {
@@ -67,38 +66,40 @@ func ValidateDirectory(dir string, createIfNotFound bool) (os.FileInfo, error) {
 		return nil, fmt.Errorf("directory %q does not exist", dir)
 
 	default:
-		// other error
 		return nil, fmt.Errorf("failed to stat directory %q: %w", dir, err)
 	}
 }
 
 // ValidateFile validates that the file exists, else creates it if desired.
-func ValidateFile(f string, createIfNotFound bool) (os.FileInfo, error) {
-	logging.D(3, "Statting file %q...", f)
-	fileInfo, err := os.Stat(f)
-	if err != nil {
-		if os.IsNotExist(err) {
-			switch {
-			case createIfNotFound:
-				logging.D(3, "File %q does not exist, creating it...", f)
-				if _, err := os.Create(f); err != nil {
-					return fileInfo, fmt.Errorf("file %q does not exist and Metarr failed to create it: %w", f, err)
-				}
-			default:
-				return fileInfo, fmt.Errorf("file %q does not exist: %w", f, err)
+func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
+	logging.D(3, "Statting file %q...", path)
+
+	info, err := os.Stat(path)
+	switch {
+	case err == nil: // If err IS nil
+		if info.IsDir() {
+			return info, fmt.Errorf("path %q is a directory, not a file", path)
+		}
+		return info, nil
+
+	case os.IsNotExist(err):
+		if createIfNotFound {
+			logging.D(3, "File %q does not exist, creating it...", path)
+			file, err := os.Create(path)
+			if err != nil {
+				return nil, fmt.Errorf("file %q does not exist and failed to create: %w", path, err)
 			}
-		} else {
-			return fileInfo, fmt.Errorf("failed to stat file %q: %w", f, err)
+			file.Close()
+			if info, err = os.Stat(path); err != nil {
+				return nil, fmt.Errorf("failed to stat created file %q: %w", path, err)
+			}
+			return info, nil
 		}
-	}
+		return nil, fmt.Errorf("file %q does not exist", path)
 
-	if fileInfo != nil {
-		if fileInfo.IsDir() {
-			return fileInfo, fmt.Errorf("file entered %q is a directory", f)
-		}
+	default:
+		return nil, fmt.Errorf("failed to stat file %q: %w", path, err)
 	}
-
-	return fileInfo, nil
 }
 
 // ValidateBatchPairs retrieves valid files and directories from a batch pair entry.
@@ -144,9 +145,9 @@ func ValidateBatchPairs(batchPairs []string) error {
 
 		// Add meta
 		if mIsDir {
-			mDirs = append(mDirs, video)
+			mDirs = append(mDirs, meta)
 		} else {
-			mFiles = append(mFiles, video)
+			mFiles = append(mFiles, meta)
 		}
 	}
 	viper.Set(keys.BatchPairs, models.BatchPairs{

@@ -269,6 +269,5 @@ func calculateFileHash(fpath string) ([]byte, error) {
 			return nil, fmt.Errorf("error reading file for hash: %w", err)
 		}
 	}
-
 	return hash.Sum(nil), nil
 }

@@ -116,6 +116,7 @@ func main() {
 
 	// End program run
 	endTime := time.Now()
+	fmt.Println()
 	logging.I(endLogFormat, endTime.Format(timeFormat))
 	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
 }

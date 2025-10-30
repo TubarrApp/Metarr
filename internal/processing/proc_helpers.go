@@ -194,7 +194,7 @@ func cleanupTempFiles(files map[string]*models.FileData) error {
 	)
 
 	if len(files) == 0 {
-		logging.I("No temporary files to clean up")
+		logging.D(3, "No temporary files to clean up")
 		return nil
 	}
 
