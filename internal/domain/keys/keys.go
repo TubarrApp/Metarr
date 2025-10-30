@@ -3,12 +3,12 @@ package keys
 
 // Terminal keys
 const (
-	BatchPairs string = "batch-pairs"
-	VideoDirs  string = "video-directory"
-	VideoFiles string = "video-file"
-	JSONDirs   string = "json-directory"
-	JSONFiles  string = "json-file"
-	MetaPurge  string = "purge-metafile"
+	BatchPairsInput string = "batch-pairs"
+	VideoDirs       string = "video-directory"
+	VideoFiles      string = "video-file"
+	JSONDirs        string = "json-directory"
+	JSONFiles       string = "json-file"
+	MetaPurge       string = "purge-metafile"
 
 	ConfigPath string = "config-file"
 	CookiePath string = "cookie-dir"
@@ -89,6 +89,7 @@ const (
 
 // Internal filename operation keys. Not exposed to end user.
 const (
+	BatchPairs        string = "INTERNAL-batch-files"
 	FilenameOpsModels string = "INTERNAL-filename-ops"
 	MetaOpsModels     string = "INTERNAL-meta-ops"
 )

@@ -153,22 +153,18 @@ func (fp *fileProcessor) writeResult() error {
 		err         error
 		deletedMeta bool
 	)
-
 	fsWriter, err := fswrite.NewFSFileWriter(fp.fd, fp.skipVideos)
 	if err != nil {
 		return err
 	}
-
 	if err := fsWriter.WriteResults(); err != nil {
 		return err
 	}
-
 	if abstractions.IsSet(keys.MetaPurge) {
 		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.MetaFilePath); err != nil {
 			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
-
 	if abstractions.IsSet(keys.OutputDirectory) {
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)

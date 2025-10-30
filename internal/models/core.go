@@ -93,3 +93,11 @@ type Core struct {
 	Ctx context.Context
 	Wg  *sync.WaitGroup
 }
+
+// BatchPairs contains directories and files from a batch entry.
+type BatchPairs struct {
+	VideoDirs,
+	VideoFiles,
+	MetaDirs,
+	MetaFiles []string
+}

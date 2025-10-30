@@ -8,6 +8,7 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/lookupmaps"
+	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
 	"strconv"
@@ -98,6 +99,57 @@ func ValidateFile(f string, createIfNotFound bool) (os.FileInfo, error) {
 	}
 
 	return fileInfo, nil
+}
+
+// ValidateBatchPairs retrieves valid files and directories from a batch pair entry.
+func ValidateBatchPairs(batchPairs []string) error {
+	var vDirs, vFiles, mDirs, mFiles []string
+	for _, pair := range batchPairs {
+		split := strings.SplitN(pair, ":", 2)
+		if len(split) < 2 {
+			logging.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'")
+			continue
+		}
+		video := split[0]
+		meta := split[1]
+
+		// Ensure no colons in names
+		if strings.Contains(video, ":") || strings.Contains(meta, ":") {
+			return fmt.Errorf("cannot use pair %q\nDO NOT put colons in file or folder names (FFmpeg treats as protocol)", pair)
+		}
+
+		// Handle video part
+		vStat, err := os.Stat(video)
+		if err != nil {
+			return err
+		}
+
+		switch vStat.IsDir() {
+		case true:
+			vDirs = append(vDirs, video)
+		case false:
+			vFiles = append(vFiles, video)
+		}
+
+		// Handle meta part
+		mStat, err := os.Stat(meta)
+		if err != nil {
+			return err
+		}
+		switch mStat.IsDir() {
+		case true:
+			mDirs = append(mDirs, meta)
+		case false:
+			mFiles = append(mFiles, meta)
+		}
+	}
+	viper.Set(keys.BatchPairs, models.BatchPairs{
+		VideoDirs:  vDirs,
+		VideoFiles: vFiles,
+		MetaDirs:   mDirs,
+		MetaFiles:  mFiles,
+	})
+	return nil
 }
 
 // ValidateConcurrencyLimit checks and ensures correct concurrency limit input.

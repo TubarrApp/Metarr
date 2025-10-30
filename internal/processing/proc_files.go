@@ -336,7 +336,7 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, openVid
 	go func() {
 		// Wait for context cancellation
 		<-ctx.Done()
-		logging.I("Context cancelled, performing cleanup for batch %d", batch.bp.batchID)
+		logging.D(2, "Context ended, performing cleanup for batch %d", batch.bp.batchID)
 
 		// Wait for workers to finish
 		wg.Wait()
@@ -365,6 +365,6 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, openVid
 		// Release the batch processor back to the pool
 		batch.bp.release()
 
-		logging.I("Batch %d cleanup completed after context cancellation", batch.bp.batchID)
+		logging.D(2, "Batch %d cleanup completed after context cancellation", batch.bp.batchID)
 	}()
 }

@@ -54,6 +54,12 @@ func init() {
 
 // execute more thoroughly handles settings created in the Viper init.
 func execute() error {
+	// Batch pairs
+	if viper.IsSet(keys.BatchPairsInput) {
+		if err := validation.ValidateBatchPairs(viper.GetStringSlice(keys.BatchPairsInput)); err != nil {
+			return err
+		}
+	}
 
 	// Concurrency
 	validation.ValidateConcurrencyLimit(viper.GetInt(keys.Concurrency))

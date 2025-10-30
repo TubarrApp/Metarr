@@ -37,14 +37,14 @@ func getFileDirs() (videoDirs, videoFiles, jsonDirs, jsonFiles []string, err err
 
 	// Check batch pairs.
 	if abstractions.IsSet(keys.BatchPairs) {
-		batchVDirs, batchVFiles, batchMDirs, batchMFiles, err := validateBatchPairEntry(abstractions.GetStringSlice(keys.BatchPairs))
-		if err != nil {
-			return nil, nil, nil, nil, err
+		batchPairs, ok := abstractions.Get(keys.BatchPairs).(models.BatchPairs)
+		if !ok {
+			return nil, nil, nil, nil, fmt.Errorf("%s got wrong type %T for expected BatchPairs model", consts.LogTagDevError, batchPairs)
 		}
-		videoDirs = append(videoDirs, batchVDirs...)
-		videoFiles = append(videoFiles, batchVFiles...)
-		jsonDirs = append(jsonDirs, batchMDirs...)
-		jsonFiles = append(jsonFiles, batchMFiles...)
+		videoDirs = append(videoDirs, batchPairs.VideoDirs...)
+		videoFiles = append(videoFiles, batchPairs.VideoFiles...)
+		jsonDirs = append(jsonDirs, batchPairs.MetaDirs...)
+		jsonFiles = append(jsonFiles, batchPairs.MetaFiles...)
 	}
 
 	if err := ensureNoColons(videoDirs); err != nil {
@@ -72,48 +72,6 @@ func ensureNoColons(slice []string) error {
 		}
 	}
 	return nil
-}
-
-// validateBatchPairEntry retrieves valid files and directories from a batch pair entry.
-func validateBatchPairEntry(batchPairs []string) (vDirs, vFiles, mDirs, mFiles []string, err error) {
-	for _, pair := range batchPairs {
-		split := strings.SplitN(pair, ":", 2)
-		if len(split) < 2 {
-			logging.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'")
-			continue
-		}
-		video := split[0]
-		meta := split[1]
-
-		// Ensure no colons in names
-		if strings.Contains(video, ":") || strings.Contains(meta, ":") {
-			return nil, nil, nil, nil, fmt.Errorf("cannot use pair %q\nDO NOT put colons in file or folder names (FFmpeg treats as protocol)", pair)
-		}
-
-		vStat, err := os.Stat(video)
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-
-		switch vStat.IsDir() {
-		case true:
-			vDirs = append(vDirs, video)
-		case false:
-			vFiles = append(vFiles, video)
-		}
-
-		mStat, err := os.Stat(meta)
-		if err != nil {
-			return nil, nil, nil, nil, err
-		}
-		switch mStat.IsDir() {
-		case true:
-			mDirs = append(mDirs, meta)
-		case false:
-			mFiles = append(mFiles, meta)
-		}
-	}
-	return vDirs, vFiles, mDirs, mFiles, nil
 }
 
 // getValidFileDirs checks for validity of files and directories, with fallback handling.

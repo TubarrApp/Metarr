@@ -12,8 +12,8 @@ import (
 // initFilesDirs initializes user flag settings for input files and directories.
 func initFilesDirs() error {
 	// Batch
-	rootCmd.PersistentFlags().StringSliceP(keys.BatchPairs, "b", nil, "Pairs of video and JSON files/directories (e.g. '/videodir:/metadir')")
-	if err := viper.BindPFlag(keys.BatchPairs, rootCmd.PersistentFlags().Lookup(keys.BatchPairs)); err != nil {
+	rootCmd.PersistentFlags().StringSliceP(keys.BatchPairsInput, "b", nil, "Pairs of video and JSON files/directories (e.g. '/videodir:/metadir')")
+	if err := viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput)); err != nil {
 		return err
 	}
 
