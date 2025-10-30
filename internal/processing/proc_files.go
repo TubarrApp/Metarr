@@ -62,7 +62,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	wg := core.Wg
 
 	processMetadataFiles(ctx, batch.bp, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
-	setupCleanup(ctx, wg, batch, openVideo, openMeta, &muFailed)
+	setupCleanup(ctx, wg, batch, &muFailed)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
@@ -188,42 +188,42 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 	if batch.IsDirs {
 		metaMap, err = fsread.GetMetadataFiles(openMeta)
 		if err != nil {
-			logging.E("Failed to retrieve metadata files in %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
 			})
+			return fmt.Errorf("failed to retrieve metadata files in %q: %w", openMeta.Name(), err)
 		}
 
 		if !skipVideos {
 			videoMap, err = fsread.GetVideoFiles(openVideo)
 			if err != nil {
-				logging.E("Failed to retrieve video files in %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
 					err:      err.Error(),
 				})
+				return fmt.Errorf("failed to retrieve video files in %q: %w", openVideo.Name(), err)
 			}
 		}
 		// Batch is a file request...
 	} else if !batch.IsDirs {
 		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
 		if err != nil {
-			logging.E("Failed to retrieve metadata file %q: %v", openMeta.Name(), err)
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
 				err:      err.Error(),
 			})
+			return fmt.Errorf("failed to retrieve metadata file %q: %w", openMeta.Name(), err)
 		}
 
 		if !skipVideos {
 			videoMap, err = fsread.GetSingleVideoFile(openVideo)
 			if err != nil {
-				logging.E("Failed to retrieve video file %q: %v", openVideo.Name(), err)
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
 					err:      err.Error(),
 				})
+				return fmt.Errorf("failed to retrieve video file %q: %w", openVideo.Name(), err)
 			}
 		}
 	}
@@ -332,9 +332,9 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 }
 
 // setupCleanup watches the context and safely cleans up batch resources on cancellation.
-func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, openVideo, openMeta *os.File, muFailed *sync.Mutex) {
+func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, muFailed *sync.Mutex) {
 	go func() {
-		// Wait for context cancellation
+		// Wait for context finish or cancellation
 		<-ctx.Done()
 		logging.D(2, "Context ended, performing cleanup for batch %d", batch.bp.batchID)
 
@@ -351,20 +351,7 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, openVid
 		batch.bp.logFailedVideos()
 		muFailed.Unlock()
 
-		// Close open file descriptors
-		if openVideo != nil {
-			if err := openVideo.Close(); err != nil {
-				logging.E("Failed to close openVideo: %v", err)
-			}
-		}
-		if openMeta != nil {
-			if err := openMeta.Close(); err != nil {
-				logging.E("Failed to close openMeta: %v", err)
-			}
-		}
 		// Release the batch processor back to the pool
 		batch.bp.release()
-
-		logging.D(2, "Batch %d cleanup completed after context cancellation", batch.bp.batchID)
 	}()
 }

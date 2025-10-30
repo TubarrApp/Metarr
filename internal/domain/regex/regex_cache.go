@@ -140,7 +140,7 @@ func DateTagWithBracketsCompile() *regexp.Regexp {
 	return DateTagWithBrackets
 }
 
-// DoubleSpacesCompils compiles regex to detect double spaces.
+// DoubleSpacesCompile compiles regex to detect double spaces.
 func DoubleSpacesCompile() *regexp.Regexp {
 	doubleSpacesOnce.Do(func() {
 		DoubleSpaces = regexp.MustCompile(`\s+`)

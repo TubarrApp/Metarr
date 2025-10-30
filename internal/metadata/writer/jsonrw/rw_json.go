@@ -110,7 +110,6 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 		}
 
 		if *ptr != "" {
-
 			if currentVal, exists := currentMeta[k]; !exists {
 				logging.D(3, "Adding new field %q with value %q", k, *ptr)
 				currentMeta[k] = *ptr

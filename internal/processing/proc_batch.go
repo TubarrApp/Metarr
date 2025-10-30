@@ -69,14 +69,13 @@ func (bp *batchProcessor) addFailure(f failedVideo) {
 
 // logFailedVideos logs videos which failed during this batch.
 func (bp *batchProcessor) logFailedVideos() {
-
 	if len(bp.failures.items) == 0 {
 		return
 	}
 
 	for i, failed := range bp.failures.items {
 		if i == 0 {
-			logging.E("Program finished, but some errors were encountered:")
+			logging.E("Batch finished, but some errors were encountered:")
 		}
 		fmt.Println()
 		logging.P("Filename: %v", failed.filename)

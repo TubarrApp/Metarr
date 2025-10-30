@@ -67,7 +67,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 	job := 1
 
 	// Collect all processed files from all batches
-	allProcessedFiles := make([]*models.FileData, len(batches))
+	allProcessedFiles := []*models.FileData{} // Do not assign length, parent uses length to go into renaming
 
 	// Begin iteration...
 	skipVideos := abstractions.GetBool(keys.SkipVideos)
@@ -108,7 +108,8 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		// Initiate batch process
 		processedFiles, err := processBatch(batch, core, openVideo, openJSON)
 		if err != nil {
-			return allProcessedFiles, err
+			logging.E("Batch with ID %d failed: %v", batch.bp.batchID, err)
+			continue
 		}
 
 		// Append this batch's files to the overall collection
@@ -127,7 +128,15 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 
 		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
 
-		// Files will be closed by setupCleanup when context is done
+		// Close files explicitly at the end of each iteration
+		if openVideo != nil {
+			if err := openVideo.Close(); err != nil {
+				logging.E("Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
+			}
+		}
+		if err := openJSON.Close(); err != nil {
+			logging.E("Failed to close JSON file %q after successful iteration: %v", openJSON.Name(), err)
+		}
 		job++
 	}
 	logging.I("All batch tasks finished!")

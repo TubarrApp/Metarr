@@ -132,14 +132,14 @@ type MetaPrefix struct {
 	Prefix string
 }
 
-// MetaTrimPrefix trims a given prefix from a metafield's value.
+// MetaReplacePrefix trims a given prefix from a metafield's value.
 type MetaReplacePrefix struct {
 	Field       string
 	Prefix      string
 	Replacement string
 }
 
-// MetaTrimSuffix trims a given suffix from a metafield's value.
+// MetaReplaceSuffix trims a given suffix from a metafield's value.
 type MetaReplaceSuffix struct {
 	Field       string
 	Suffix      string

@@ -89,7 +89,9 @@ func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
 			if err != nil {
 				return nil, fmt.Errorf("file %q does not exist and failed to create: %w", path, err)
 			}
-			file.Close()
+			if err := file.Close(); err != nil {
+				logging.E("Failed to close file %q: %v", file.Name(), err)
+			}
 			if info, err = os.Stat(path); err != nil {
 				return nil, fmt.Errorf("failed to stat created file %q: %w", path, err)
 			}

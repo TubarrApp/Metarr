@@ -95,11 +95,14 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 func (rw *JSONFileRW) copyMeta() map[string]any {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
-
 	if rw.Meta == nil {
 		return make(map[string]any)
 	}
-	return maps.Clone(rw.Meta)
+	cloned := maps.Clone(rw.Meta)
+	if cloned == nil {
+		return make(map[string]any)
+	}
+	return cloned
 }
 
 // updateMeta safely updates the metadata map under write lock.

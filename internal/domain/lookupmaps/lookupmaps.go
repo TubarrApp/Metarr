@@ -1,3 +1,6 @@
+// Package lookupmaps contain maps used in lookups.
+//
+// E.g. to determine which extensions should be considered valid on this run.
 package lookupmaps
 
 import "metarr/internal/domain/consts"
