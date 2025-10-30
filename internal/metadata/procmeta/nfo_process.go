@@ -39,8 +39,8 @@ func ProcessNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			logging.E("Failed to close file %q: %v", file.Name(), err)
+		if closeErr := file.Close(); closeErr != nil {
+			logging.E("Failed to close file %q: %v", file.Name(), closeErr)
 		}
 	}()
 

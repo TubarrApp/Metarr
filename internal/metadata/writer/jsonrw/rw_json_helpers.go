@@ -32,42 +32,38 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	if file == nil {
 		return errors.New("file passed in nil")
 	}
-
 	if j == nil {
 		return errors.New("JSON metadata passed in nil")
 	}
 
-	if rw.buffer == nil {
-		buf := jsonBufferPool.Get().(*bytes.Buffer)
-		rw.buffer = buf
-	}
-	rw.buffer.Reset()
-	defer jsonBufferPool.Put(rw.buffer)
+	// Get buffer from pool
+	buf := jsonBufferPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer jsonBufferPool.Put(buf)
 
-	if rw.encoder == nil {
-		enc := json.NewEncoder(rw.buffer)
-		rw.encoder = enc
-	}
-	rw.encoder.SetIndent("", "  ")
+	// Create encoder each time (cheap operation)
+	encoder := json.NewEncoder(buf)
+	encoder.SetIndent("", "  ")
 
 	// Marshal data
-	if err := rw.encoder.Encode(j); err != nil {
+	if err := encoder.Encode(j); err != nil {
 		return fmt.Errorf("marshal error: %w", err)
 	}
 
 	// Begin file ops
-	rw.muFileWrite.Lock()
-	defer rw.muFileWrite.Unlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	currentPos, err := file.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return fmt.Errorf("failed to get current position: %w", err)
 	}
+
 	success := false
 	defer func() {
 		if !success {
-			if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-				logging.E("Failed to seek file %q: %v", file.Name(), err)
+			if _, seekErr := file.Seek(currentPos, io.SeekStart); seekErr != nil {
+				logging.E("Failed to seek file %q: %v", file.Name(), seekErr)
 			}
 		}
 	}()
@@ -82,7 +78,7 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 		return fmt.Errorf("failed to truncate file: %w", err)
 	}
 
-	if _, err := rw.buffer.WriteTo(file); err != nil {
+	if _, err := buf.WriteTo(file); err != nil {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
@@ -90,22 +86,20 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 	if err := file.Sync(); err != nil {
 		return fmt.Errorf("failed to sync file: %w", err)
 	}
+
 	success = true
 	return nil
 }
 
-// copyMeta creates a deep copy of the metadata map under read lock.
+// copyMeta creates a deep copy of the metadata map under lock.
 func (rw *JSONFileRW) copyMeta() map[string]any {
-	rw.mu.RLock()
-	defer rw.mu.RUnlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	if rw.Meta == nil {
-		return metaMapPool.Get().(map[string]any)
+		return make(map[string]any)
 	}
-
-	currentMeta := metaMapPool.Get().(map[string]any)
-	maps.Copy(currentMeta, rw.Meta)
-	return currentMeta
+	return maps.Clone(rw.Meta)
 }
 
 // updateMeta safely updates the metadata map under write lock.

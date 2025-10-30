@@ -4,6 +4,7 @@ package transformations
 import (
 	"fmt"
 	"metarr/internal/abstractions"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -13,6 +14,7 @@ import (
 	"metarr/internal/utils/validation"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,8 +32,62 @@ type fileProcessor struct {
 	skipVideos    bool
 }
 
-// FileRename formats the file names
-func FileRename(fileData *models.FileData, style enums.ReplaceToStyle, skipVideos bool) (err error) {
+// RenameFiles begins file renaming operations for a batch.
+func RenameFiles(fdArray []*models.FileData) error {
+	var replaceStyle enums.ReplaceToStyle
+	skipVideos := abstractions.GetBool(keys.SkipVideos)
+
+	if abstractions.IsSet(keys.Rename) {
+		if style, ok := abstractions.Get(keys.Rename).(enums.ReplaceToStyle); ok {
+			replaceStyle = style
+			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
+		} else {
+			return fmt.Errorf("%s invalid rename style type %T", consts.LogTagDevError, replaceStyle)
+		}
+	}
+	// Create a copy to sort
+	sortedFiles := make([]*models.FileData, 0, len(fdArray))
+	for _, fd := range fdArray {
+		if fd != nil {
+			sortedFiles = append(sortedFiles, fd)
+		}
+	}
+	// Sort alphabetically by meta path
+	sort.Slice(sortedFiles, func(i, j int) bool {
+		return sortedFiles[i].MetaFilePath < sortedFiles[j].MetaFilePath
+	})
+	// Iterate over sorted list
+	processedDirs := make(map[string]bool)
+	for _, fd := range sortedFiles {
+		if fd == nil {
+			continue
+		}
+		// Rename
+		if err := renameFile(fd, replaceStyle, skipVideos); err != nil {
+			logging.AddToErrorArray(err)
+			logging.E("Failed to rename file %q: %v", fd.OriginalVideoBaseName, err)
+			continue
+		}
+		// Track directory for success message
+		var directory string
+		if fd.MetaDirectory != "" {
+			directory = fd.MetaDirectory
+		} else if fd.VideoDirectory != "" {
+			directory = fd.VideoDirectory
+		}
+		if directory != "" {
+			processedDirs[directory] = true
+		}
+	}
+	// Log success per directory
+	for dir := range processedDirs {
+		logging.S("Successfully formatted file names in directory: %s", dir)
+	}
+	return nil
+}
+
+// renameFile formats a video/metadata file pair's name.
+func renameFile(fileData *models.FileData, style enums.ReplaceToStyle, skipVideos bool) (err error) {
 	fp := &fileProcessor{
 		fd:            fileData,
 		style:         style,
@@ -313,7 +369,7 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 	getMu, _ := fileRenameMuMap.LoadOrStore(newBase, &sync.Mutex{})
 	mu, ok := getMu.(*sync.Mutex)
 	if !ok {
-		return oldBase, fmt.Errorf("dev error: wrong type in map, got %T", mu)
+		return oldBase, fmt.Errorf("%s wrong type in map, got %T", consts.LogTagDevError, mu)
 	}
 	mu.Lock()
 	defer mu.Unlock()

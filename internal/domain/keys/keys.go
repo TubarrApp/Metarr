@@ -3,12 +3,12 @@ package keys
 
 // Terminal keys
 const (
-	BatchPairsInput string = "batch-pairs"
-	VideoDirs       string = "video-directory"
-	VideoFiles      string = "video-file"
-	JSONDirs        string = "json-directory"
-	JSONFiles       string = "json-file"
-	MetaPurge       string = "purge-metafile"
+	BatchPairs string = "batch-pairs"
+	VideoDirs  string = "video-directory"
+	VideoFiles string = "video-file"
+	JSONDirs   string = "json-directory"
+	JSONFiles  string = "json-file"
+	MetaPurge  string = "purge-metafile"
 
 	ConfigPath string = "config-file"
 	CookiePath string = "cookie-dir"
@@ -57,7 +57,6 @@ const (
 
 // Files and directories
 const (
-	BatchPairs    string = "batchPairs"
 	MetaPurgeEnum string = "metaPurgeEnum"
 )
 

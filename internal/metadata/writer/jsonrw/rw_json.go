@@ -2,12 +2,12 @@
 package jsonrw
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
@@ -20,13 +20,10 @@ import (
 
 // JSONFileRW is used to access JSON reading/writing utilities.
 type JSONFileRW struct {
-	ctx         context.Context
-	mu          sync.RWMutex
-	muFileWrite sync.Mutex
-	Meta        map[string]any
-	File        *os.File
-	encoder     *json.Encoder
-	buffer      *bytes.Buffer
+	ctx  context.Context
+	mu   sync.Mutex
+	Meta map[string]any
+	File *os.File
 }
 
 // NewJSONFileRW creates a new instance of the JSON file reader/writer
@@ -52,8 +49,8 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	success := false
 	defer func() {
 		if !success {
-			if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-				logging.E("Failed to seek file %q: %v", file.Name(), err)
+			if _, seekErr := file.Seek(currentPos, io.SeekStart); seekErr != nil {
+				logging.E("Failed to seek file %q: %v", file.Name(), seekErr)
 			}
 		}
 	}()
@@ -65,21 +62,25 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 
 	// Decode to map
 	decoder := json.NewDecoder(file)
-	data := metaMapPool.Get().(map[string]any)
+	poolData := metaMapPool.Get().(map[string]any)
+	clear(poolData)
+	defer metaMapPool.Put(poolData)
 
-	if err := decoder.Decode(&data); err != nil {
+	if err := decoder.Decode(&poolData); err != nil {
 		return nil, fmt.Errorf("failed to decode JSON in DecodeMetadata: %w", err)
 	}
 
 	switch {
-	case len(data) == 0, data == nil:
-		logging.D(3, "Metadata not stored, is blank: %v", data)
-		return data, nil
+	case len(poolData) == 0, poolData == nil:
+		logging.D(3, "Metadata not stored, is blank: %v", poolData)
+		return make(map[string]any), nil
+
 	default:
-		rw.updateMeta(data)
-		logging.D(5, "Decoded and stored metadata: %v", data)
+		result := maps.Clone(poolData)
+		rw.updateMeta(result)
+		logging.D(5, "Decoded and stored metadata: %v", result)
 		success = true
-		return data, nil
+		return result, nil
 	}
 }
 

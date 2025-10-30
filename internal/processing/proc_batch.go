@@ -47,15 +47,14 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		logging.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
 		return fdArray, nil
 	}
-
 	return fdArray, nil
 }
 
-// getBatchProcessor returns the singleton batchProcessor instance
+// getBatchProcessor returns the singleton batchProcessor instance.
 func getNewBatchProcessor(batchID int64) (*batchProcessor, error) {
-	bp := batchPool.Get().(*batchProcessor)
-	if bp == nil {
-		return nil, fmt.Errorf("failed to get batch processor from pool for batch with ID %d", batchID)
+	bp, ok := batchPool.Get().(*batchProcessor)
+	if !ok || bp == nil {
+		return nil, fmt.Errorf("internal error: got type %T for batch processor with ID %d", bp, batchID)
 	}
 	bp.batchID = batchID
 	return bp, nil
@@ -100,36 +99,30 @@ func (bp *batchProcessor) syncMapToRegularMap(m *sync.Map) map[string]*models.Fi
 
 // reset prepares the batch processor for new batch operation.
 func (bp *batchProcessor) reset(expectedCount int) {
-	// Reset counters atomically
+	// Reset counters
 	atomic.StoreInt32(&bp.counts.totalMeta, 0)
 	atomic.StoreInt32(&bp.counts.totalVideo, 0)
-	atomic.StoreInt32(&bp.counts.totalMeta, 0)
 	atomic.StoreInt32(&bp.counts.processedMeta, 0)
 	atomic.StoreInt32(&bp.counts.processedVideo, 0)
 
-	// Clear sync.Maps
-	bp.files.matched.Range(func(k, _ interface{}) bool {
-		bp.files.matched.Delete(k)
-		return true
-	})
-	bp.files.video.Range(func(k, _ interface{}) bool {
-		bp.files.video.Delete(k)
-		return true
-	})
+	// Replace maps
+	bp.files.matched = sync.Map{}
+	bp.files.video = sync.Map{}
 
 	// Reset failures
 	bp.failures.mu.Lock()
-	if bp.failures.pool == nil {
+	switch {
+	case bp.failures.pool == nil:
 		bp.failures.pool = make([]failedVideo, 0, max(32, expectedCount))
-		bp.failures.items = bp.failures.pool
-	} else if cap(bp.failures.pool) >= expectedCount {
-		bp.failures.items = bp.failures.pool[:0]
-	} else {
+
+	case cap(bp.failures.pool) >= expectedCount:
+		bp.failures.pool = bp.failures.pool[:0]
+
+	default:
 		newCap := max(expectedCount, cap(bp.failures.pool)*2)
-		newPool := make([]failedVideo, 0, newCap)
-		bp.failures.pool = newPool
-		bp.failures.items = newPool
+		bp.failures.pool = make([]failedVideo, 0, newCap)
 	}
+	bp.failures.items = bp.failures.pool
 	bp.failures.mu.Unlock()
 }
 

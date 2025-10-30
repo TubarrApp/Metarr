@@ -4,13 +4,10 @@ package processing
 import (
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
-	"metarr/internal/transformations"
 	"metarr/internal/utils/logging"
 	"os"
-	"sort"
 	"sync"
 	"sync/atomic"
 )
@@ -57,20 +54,23 @@ type batchProcessor struct {
 	}
 }
 
-// StartMainBatchLoop begins processing the batch.
-func StartMainBatchLoop(core *models.Core, batches []models.BatchConfig) ([]*models.FileData, error) {
+// ProcessBatches begins processing the batch.
+func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
+	batches, err := initializeBatchConfigs()
+	if err != nil {
+		return nil, err
+	}
 	if len(batches) == 0 {
-		logging.I("No batches sent in?")
+		logging.I("No batches to process. Exiting.")
 		return nil, nil
 	}
-
 	job := 1
-	skipVideos := abstractions.GetBool(keys.SkipVideos)
 
 	// Collect all processed files from all batches
-	allProcessedFiles := make([]*models.FileData, 0)
+	allProcessedFiles := make([]*models.FileData, len(batches))
 
 	// Begin iteration...
+	skipVideos := abstractions.GetBool(keys.SkipVideos)
 	for _, b := range batches {
 		var (
 			openVideo *os.File
@@ -142,72 +142,143 @@ func StartMainBatchLoop(core *models.Core, batches []models.BatchConfig) ([]*mod
 	return allProcessedFiles, nil
 }
 
-// RenameFiles begins file renaming operations for a batch.
-func RenameFiles(fdArray []*models.FileData) error {
-	var replaceStyle enums.ReplaceToStyle
-	skipVideos := abstractions.GetBool(keys.SkipVideos)
+// initializeBatchConfigs ensures the entered files and directories are valid and creates batch pairs.
+func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
+	videoDirs, videoFiles, jsonDirs, jsonFiles, err := getFileDirs()
+	if err != nil {
+		return nil, err
+	}
+	logging.P("Finding video and JSON directories...")
 
-	if abstractions.IsSet(keys.Rename) {
-		if style, ok := abstractions.Get(keys.Rename).(enums.ReplaceToStyle); ok {
-			replaceStyle = style
-			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
-		} else {
-			return fmt.Errorf("invalid rename style type")
+	// Make directory batches
+	vDirCount := 0
+	vFileCount := 0
+	tasks := make([]models.BatchConfig, 0, (len(jsonDirs) + len(videoDirs) + len(jsonFiles) + len(videoFiles)))
+	if len(videoDirs) > 0 {
+		for i := range videoDirs {
+			var newBatchConfig = models.BatchConfig{}
+
+			// Video directories
+			newBatchConfig.Video = videoDirs[i]
+
+			// JSON directories
+			if len(jsonDirs) > i {
+				jInfo, err := os.Stat(jsonDirs[i])
+				if err != nil {
+					return nil, err
+				}
+				if !jInfo.IsDir() {
+					return nil, fmt.Errorf("file %q entered instead of directory", jInfo.Name())
+				}
+				newBatchConfig.JSON = jsonDirs[i]
+			}
+
+			// IsDirs
+			newBatchConfig.IsDirs = true
+
+			// Send to tasks
+			tasks = append(tasks, newBatchConfig)
+			vDirCount++
 		}
 	}
+	logging.I("Got %d directory pairs to process, %d singular JSON directories", vDirCount, len(jsonDirs)-vDirCount)
 
-	// Create a copy to sort
-	sortedFiles := make([]*models.FileData, 0, len(fdArray))
-	for _, fd := range fdArray {
-		if fd != nil {
-			sortedFiles = append(sortedFiles, fd)
+	// Remnant JSON directories
+	if len(jsonDirs) > vDirCount {
+		remnantJSONDirs := jsonDirs[vDirCount:]
+		for i := range remnantJSONDirs {
+			var newBatchConfig = models.BatchConfig{}
+
+			// JSON directories
+			jInfo, err := os.Stat(remnantJSONDirs[i])
+			if err != nil {
+				return nil, err
+			}
+			if !jInfo.IsDir() {
+				return nil, fmt.Errorf("file %q entered instead of directory", jInfo.Name())
+			}
+
+			// BatchConfig model settings:
+			newBatchConfig.JSON = remnantJSONDirs[i]
+			newBatchConfig.IsDirs = true
+			newBatchConfig.SkipVideos = true
+
+			// Send to tasks
+			tasks = append(tasks, newBatchConfig)
 		}
 	}
+	logging.I("Finding video and JSON files...")
 
-	// Sort alphabetically by meta path
-	sort.Slice(sortedFiles, func(i, j int) bool {
-		return sortedFiles[i].MetaFilePath < sortedFiles[j].MetaFilePath
-	})
+	// Make file batches
+	if len(videoFiles) > 0 {
+		for i := range videoFiles {
+			var newBatchConfig = models.BatchConfig{}
+			logging.D(3, "Checking video file %q ...", videoFiles[i])
 
-	// Iterate over sorted list
-	processedDirs := make(map[string]bool)
-	for _, fd := range sortedFiles {
-		if fd == nil {
-			continue
+			// Video files
+			vInfo, err := os.Stat(videoFiles[i])
+			if err != nil {
+				return nil, err
+			}
+			if vInfo.IsDir() {
+				return nil, fmt.Errorf("directory %q entered instead of file", vInfo.Name())
+			}
+			newBatchConfig.Video = videoFiles[i]
+
+			// JSON files
+			if len(jsonFiles) > i {
+				logging.D(3, "Checking JSON file %q ...", jsonFiles[i])
+				jInfo, err := os.Stat(jsonFiles[i])
+				if err != nil {
+					return nil, err
+				}
+				if jInfo.IsDir() {
+					return nil, fmt.Errorf("directory %q entered instead of file", jInfo.Name())
+				}
+				newBatchConfig.JSON = jsonFiles[i]
+			}
+			// NOT Dirs
+			newBatchConfig.IsDirs = false
+
+			// Send to tasks
+			tasks = append(tasks, newBatchConfig)
+			vFileCount++
 		}
 
-		// Rename
-		if err := transformations.FileRename(fd, replaceStyle, skipVideos); err != nil {
-			logging.AddToErrorArray(err)
-			logging.E("Failed to rename file %q: %v", fd.OriginalVideoBaseName, err)
-			continue
-		}
+		logging.I("Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
 
-		// Track directory for success message
-		var directory string
-		if fd.MetaDirectory != "" {
-			directory = fd.MetaDirectory
-		} else if fd.VideoDirectory != "" {
-			directory = fd.VideoDirectory
-		}
-		if directory != "" {
-			processedDirs[directory] = true
+		// Remnant JSON files
+		if len(jsonFiles) > vFileCount {
+			remnantJSONFiles := jsonFiles[vFileCount:]
+			var newBatchConfig = models.BatchConfig{}
+
+			// JSON Files
+			for i := range remnantJSONFiles {
+				jInfo, err := os.Stat(remnantJSONFiles[i])
+				if err != nil {
+					return nil, err
+				}
+				if jInfo.IsDir() {
+					return nil, fmt.Errorf("directory %q entered instead of file", jInfo.Name())
+				}
+
+				// BatchConfig model settings:
+				newBatchConfig.JSON = remnantJSONFiles[i]
+				newBatchConfig.IsDirs = false
+				newBatchConfig.SkipVideos = true
+
+				// Send to tasks
+				tasks = append(tasks, newBatchConfig)
+			}
 		}
 	}
-
-	// Log success per directory
-	for dir := range processedDirs {
-		logging.S("Successfully formatted file names in directory: %s", dir)
-	}
-
-	return nil
+	logging.I("Got %d batch jobs to perform.", len(tasks))
+	return tasks, nil
 }
 
 // convertCfgToBatch converts a config batch to a local batch.
 func convertCfgToBatch(config models.BatchConfig) *batch {
-	atomic.AddInt64(&atomID, 1)
-	id := atomic.LoadInt64(&atomID)
-
+	id := atomic.AddInt64(&atomID, 1)
 	newBatch := &batch{
 		ID:         id,
 		Video:      config.Video,

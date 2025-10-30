@@ -17,9 +17,10 @@ const (
 
 // Tags
 const (
-	ColorRedError      string = ColorRed + "[ERROR] " + ColorReset
-	ColorGreenSuccess  string = ColorGreen + "[Success] " + ColorReset
-	ColorYellowDebug   string = ColorYellow + "[Debug] " + ColorReset
-	ColorYellowWarning string = ColorYellow + "[Warning] " + ColorReset
-	ColorBlueInfo      string = ColorCyan + "[Info] " + ColorReset
+	LogTagError    string = ColorRed + "[ERROR] " + ColorReset
+	LogTagSuccess  string = ColorGreen + "[Success] " + ColorReset
+	LogTagDebug    string = ColorYellow + "[Debug] " + ColorReset
+	LogTagWarning  string = ColorYellow + "[Warning] " + ColorReset
+	LogTagInfo     string = ColorCyan + "[Info] " + ColorReset
+	LogTagDevError string = ColorRed + "[ DEV ERROR! ]" + ColorReset
 )

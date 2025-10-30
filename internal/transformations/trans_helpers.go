@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/dates"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/regex"
@@ -142,7 +143,7 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 // setString applies strings as a name for the current file.
 func (fp *fileProcessor) setString(filename string, setString models.FOpSet) string {
 	if !setString.IsSet {
-		logging.E("Dev error: setString is not set for filename %q", filename)
+		logging.E("%s setString is not set for filename %q", consts.LogTagDevError, filename)
 		return filename
 	}
 	// Fill template

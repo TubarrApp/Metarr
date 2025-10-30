@@ -246,8 +246,8 @@ func calculateFileHash(fpath string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to open file for hashing: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			logging.E("Failed to close %q: %v", file.Name(), err)
+		if closeErr := file.Close(); closeErr != nil {
+			logging.E("Failed to close %q: %v", file.Name(), closeErr)
 		}
 	}()
 

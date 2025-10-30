@@ -1,11 +1,9 @@
 package fsread
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/domain/regex"
 	"metarr/internal/utils/logging"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -39,37 +37,6 @@ func matchesFilenameFilter(fileName string, slice []string, f func(string, strin
 		}
 	}
 	return false
-}
-
-// GetDirStats returns the number of video or metadata files in a directory, so maps/slices can be suitable sized.
-func GetDirStats(dir string) (vidCount, metaCount int) {
-	// Quick initial scan (counts files only)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return 0, 0
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			// Normalize extension string
-			ext := filepath.Ext(entry.Name())
-			ext = strings.TrimSpace(ext)
-			ext = strings.ToLower(ext)
-
-			// Check for valid extensions
-			for key := range lookupmaps.AllVidExtensions {
-				if ext == key {
-					vidCount++
-					continue
-				}
-				switch ext {
-				case consts.MExtJSON, consts.MExtNFO:
-					metaCount++
-					continue
-				}
-			}
-		}
-	}
-	return vidCount, metaCount
 }
 
 // NormalizeFilename removes special characters and normalizes spacing.

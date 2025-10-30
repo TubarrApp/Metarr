@@ -21,13 +21,13 @@ import (
 // NFOFileRW is used to write NFO files.
 type NFOFileRW struct {
 	ctx   context.Context
-	mu    sync.RWMutex
+	mu    sync.Mutex
 	Model *models.NFOData
 	Meta  string
 	File  *os.File
 }
 
-// NewNFOFileRW creates a new instance of the NFO file reader/writer
+// NewNFOFileRW creates a new instance of the NFO file reader/writer.
 func NewNFOFileRW(ctx context.Context, file *os.File) *NFOFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &NFOFileRW{
@@ -36,7 +36,7 @@ func NewNFOFileRW(ctx context.Context, file *os.File) *NFOFileRW {
 	}
 }
 
-// DecodeMetadata decodes XML from a file into a map, stores, and returns it
+// DecodeMetadata decodes XML from a file into a map, stores, and returns it.
 func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
@@ -73,11 +73,10 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	return rw.Model, nil
 }
 
-// RefreshMetadata reloads the metadata map from the file after updates
+// RefreshMetadata reloads the metadata map from the file after updates.
 func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
-
-	rw.mu.RLock()
-	defer rw.mu.RUnlock()
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
@@ -95,7 +94,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 	return rw.Model, nil
 }
 
-// MakeMetaEdits applies a series of transformations and writes the final result to the file
+// MakeMetaEdits applies a series of transformations and writes the final result to the file.
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileData) (bool, error) {
 	// Ensure we have valid XML
 	if !strings.Contains(data, "<movie>") {
@@ -218,7 +217,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	return edited, nil
 }
 
-// Helper function to ensure XML structure
+// Helper function to ensure XML structure.
 func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 	// Ensure XML declaration
 	if !strings.HasPrefix(content, "<?xml") {
@@ -236,7 +235,7 @@ func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 	return content
 }
 
-// refreshMetadataInternal is a private metadata refresh function
+// refreshMetadataInternal is a private metadata refresh function.
 func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
@@ -255,7 +254,7 @@ func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 	return nil
 }
 
-// writeMetadataToFile is a private metadata writing helper function
+// writeMetadataToFile is a private metadata writing helper function.
 func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 
 	if err := file.Truncate(0); err != nil {
@@ -279,7 +278,7 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 	return writer.Flush()
 }
 
-// replaceXML applies meta replacement to the fields in the xml data
+// replaceXML applies meta replacement to the fields in the xml data.
 func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (dataRtn string, edited bool) {
 	logging.D(5, "Entering replaceXml with data: %v", data)
 
@@ -314,7 +313,7 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 	return data, edited
 }
 
-// trimXMLPrefix applies meta replacement to the fields in the xml data
+// trimXMLPrefix applies meta replacement to the fields in the XML data.
 func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePrefix) (dataRtn string, edited bool) {
 	logging.D(5, "Entering trimXmlPrefix with data: %v", data)
 
@@ -349,7 +348,7 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePref
 	return data, edited
 }
 
-// trimXMLSuffix trims specified
+// trimXMLSuffix trims specified.
 func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuffix) (dataRtn string, edited bool) {
 	logging.D(5, "Entering trimXmlSuffix with data: %v", data)
 
@@ -384,7 +383,7 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 	return data, edited
 }
 
-// xmlPrefix applies meta replacement to the fields in the xml data.
+// xmlPrefix applies meta replacement to the fields in the XML data.
 func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool) {
 
 	logging.D(5, "Entering xmlPrefix with data: %v", data)
@@ -522,9 +521,8 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 			// Check for context cancellation
 			select {
 			case <-rw.ctx.Done():
-				return data, false, fmt.Errorf("operation canceled for field: %s", addition.Field)
+				return data, false, fmt.Errorf("operation canceled for field %q: %w", addition.Field, rw.ctx.Err())
 			default:
-				// Proceed
 			}
 
 			if !metaOW && !metaPS {
@@ -561,9 +559,8 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 	return data, newAddition, nil
 }
 
-// addNewField adds a new field into the NFO
+// addNewField adds a new field into the NFO data.
 func (rw *NFOFileRW) addNewField(data, addition string) (string, bool) {
-
 	insertIdx := strings.Index(data, "<movie>")
 	insertAfter := insertIdx + len("<movie>")
 
@@ -573,7 +570,7 @@ func (rw *NFOFileRW) addNewField(data, addition string) (string, bool) {
 	return data, true
 }
 
-// addNewActorField adds a new actor into the file
+// addNewActorField adds a new actor into the file.
 func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 	castStart := strings.Index(data, "<cast>")
 	castEnd := strings.Index(data, "</cast>")
@@ -623,7 +620,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 	return data[:insertPoint] + newActor + "\n    " + data[insertPoint:], true
 }
 
-// flattenField flattens the metadata field for comparison
+// flattenField flattens the metadata field for comparison.
 func (rw *NFOFileRW) flattenField(s string) string {
 
 	rtn := strings.TrimSpace(s)

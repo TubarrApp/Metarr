@@ -13,6 +13,7 @@ import (
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 )
@@ -61,7 +62,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	wg := core.Wg
 
 	processMetadataFiles(ctx, batch.bp, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
-	setupCleanup(ctx, wg, batch, batch.bp.syncMapToRegularMap(&batch.bp.files.video), &muFailed)
+	setupCleanup(ctx, wg, batch, openVideo, openMeta, &muFailed)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
@@ -85,6 +86,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	collectorWg.Add(1)
 	go func() {
 		defer collectorWg.Done()
+
 		for result := range results {
 			if result != nil {
 				muProcessed.Lock()
@@ -119,16 +121,20 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	if errArray != nil {
 		batch.bp.logFailedVideos()
 	}
-
 	return processedModels, nil
 }
 
 // workerVideoProcess performs the video processing operation for a worker.
 func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, id int, jobs <-chan workItem, results chan<- *models.FileData) {
 	defer wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			logging.E("Worker %d panicked: %v\n%s", id, r, debug.Stack())
+		}
+	}()
 
+	// Execute video jobs
 	for job := range jobs {
-
 		skipVideos := job.skipVids
 		filename := job.filename
 
@@ -325,15 +331,18 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	return fd, nil
 }
 
-// setupCleanup creates a cleanup routine for file processing.
-func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, videoMap map[string]*models.FileData, muFailed *sync.Mutex) {
+// setupCleanup watches the context and safely cleans up batch resources on cancellation.
+func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, openVideo, openMeta *os.File, muFailed *sync.Mutex) {
 	go func() {
+		// Wait for context cancellation
 		<-ctx.Done()
+		logging.I("Context cancelled, performing cleanup for batch %d", batch.bp.batchID)
+
 		// Wait for workers to finish
 		wg.Wait()
 
-		// Cleanup temp files
-		if err := cleanupTempFiles(videoMap); err != nil {
+		// Clean up temp files
+		if err := cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
 			logging.E("Failed to cleanup temp files: %v", err)
 		}
 
@@ -342,6 +351,20 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, videoMa
 		batch.bp.logFailedVideos()
 		muFailed.Unlock()
 
-		os.Exit(0)
+		// Close open file descriptors
+		if openVideo != nil {
+			if err := openVideo.Close(); err != nil {
+				logging.E("Failed to close openVideo: %v", err)
+			}
+		}
+		if openMeta != nil {
+			if err := openMeta.Close(); err != nil {
+				logging.E("Failed to close openMeta: %v", err)
+			}
+		}
+		// Release the batch processor back to the pool
+		batch.bp.release()
+
+		logging.I("Batch %d cleanup completed after context cancellation", batch.bp.batchID)
 	}()
 }

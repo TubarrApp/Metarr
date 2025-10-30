@@ -262,11 +262,9 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 // buildFinalCommand assembles the final FFmpeg command.
 func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]string, error) {
 	args := make([]string, 0, b.calculateCommandCapacity(gpuFlag))
-
 	if hwAccel {
 		args = append(args, b.gpuAccel...)
 	}
-
 	args = append(args, "-y", "-i", b.inputFile)
 
 	// Apply format flags if format flags exist

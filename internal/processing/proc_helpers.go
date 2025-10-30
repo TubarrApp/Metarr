@@ -8,6 +8,7 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,6 +19,149 @@ import (
 var (
 	muPrint, muResource sync.Mutex
 )
+
+// getFileDirs returns files and directories entered by the user.
+func getFileDirs() (videoDirs, videoFiles, jsonDirs, jsonFiles []string, err error) {
+	if abstractions.IsSet(keys.VideoFiles) {
+		videoFiles = abstractions.GetStringSlice(keys.VideoFiles)
+	}
+	if abstractions.IsSet(keys.VideoDirs) {
+		videoDirs = abstractions.GetStringSlice(keys.VideoDirs)
+	}
+	if abstractions.IsSet(keys.JSONFiles) {
+		jsonFiles = abstractions.GetStringSlice(keys.JSONFiles)
+	}
+	if abstractions.IsSet(keys.JSONDirs) {
+		jsonDirs = abstractions.GetStringSlice(keys.JSONDirs)
+	}
+
+	// Check batch pairs.
+	if abstractions.IsSet(keys.BatchPairs) {
+		batchVDirs, batchVFiles, batchMDirs, batchMFiles, err := validateBatchPairEntry(abstractions.GetStringSlice(keys.BatchPairs))
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		videoDirs = append(videoDirs, batchVDirs...)
+		videoFiles = append(videoFiles, batchVFiles...)
+		jsonDirs = append(jsonDirs, batchMDirs...)
+		jsonFiles = append(jsonFiles, batchMFiles...)
+	}
+
+	if err := ensureNoColons(videoDirs); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := ensureNoColons(videoFiles); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := ensureNoColons(jsonDirs); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := ensureNoColons(jsonFiles); err != nil {
+		return nil, nil, nil, nil, err
+	}
+
+	videoDirs, videoFiles, jsonDirs, jsonFiles = getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles)
+	return videoDirs, videoFiles, jsonDirs, jsonFiles, nil
+}
+
+// ensureNoColons returns an error if any file or folder names in the slice contain colons, FFmpeg cannot handle them properly.
+func ensureNoColons(slice []string) error {
+	for _, s := range slice {
+		if strings.Contains(s, ":") {
+			return fmt.Errorf("failed due to invalid entry %q: FFmpeg cannot properly handle filenames or folders containing colons", s)
+		}
+	}
+	return nil
+}
+
+// validateBatchPairEntry retrieves valid files and directories from a batch pair entry.
+func validateBatchPairEntry(batchPairs []string) (vDirs, vFiles, mDirs, mFiles []string, err error) {
+	for _, pair := range batchPairs {
+		split := strings.SplitN(pair, ":", 2)
+		if len(split) < 2 {
+			logging.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'")
+			continue
+		}
+		video := split[0]
+		meta := split[1]
+
+		// Ensure no colons in names
+		if strings.Contains(video, ":") || strings.Contains(meta, ":") {
+			return nil, nil, nil, nil, fmt.Errorf("cannot use pair %q\nDO NOT put colons in file or folder names (FFmpeg treats as protocol)", pair)
+		}
+
+		vStat, err := os.Stat(video)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+
+		switch vStat.IsDir() {
+		case true:
+			vDirs = append(vDirs, video)
+		case false:
+			vFiles = append(vFiles, video)
+		}
+
+		mStat, err := os.Stat(meta)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		switch mStat.IsDir() {
+		case true:
+			mDirs = append(mDirs, meta)
+		case false:
+			mFiles = append(mFiles, meta)
+		}
+	}
+	return vDirs, vFiles, mDirs, mFiles, nil
+}
+
+// getValidFileDirs checks for validity of files and directories, with fallback handling.
+func getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles []string) (vDirs, vFiles, jDirs, jFiles []string) {
+	vDirs, misplacedVFiles := validatePaths("video directory", videoDirs)
+	misplacedVDirs, vFiles := validatePaths("video file", videoFiles)
+	jDirs, misplacedJFiles := validatePaths("JSON directory", jsonDirs)
+	misplacedJDirs, jFiles := validatePaths("JSON file", jsonFiles)
+
+	// Log and reassign misplaced entries
+	for _, f := range misplacedVFiles {
+		logging.W("User entered file %q as directory, appending to video files", f)
+		vFiles = append(vFiles, f)
+	}
+	for _, d := range misplacedVDirs {
+		logging.W("User entered directory %q as file, appending to video directories", d)
+		vDirs = append(vDirs, d)
+	}
+	for _, f := range misplacedJFiles {
+		logging.W("User entered file %q as directory, appending to valid JSON files", f)
+		jFiles = append(jFiles, f)
+	}
+	for _, d := range misplacedJDirs {
+		logging.W("User entered directory %q as file, appending to valid JSON directories", d)
+		jDirs = append(jDirs, d)
+	}
+
+	return vDirs, vFiles, jDirs, jFiles
+}
+
+// validatePaths checks whether each path in 'paths' is a directory or file.
+//
+// It classifies them into dirs and files while logging consistent warnings.
+func validatePaths(kind string, paths []string) (dirs, files []string) {
+	for _, p := range paths {
+		info, err := os.Stat(p)
+		if err != nil {
+			logging.E("Failed to stat %s path %q: %v", kind, p, err)
+			continue
+		}
+		if info.IsDir() {
+			dirs = append(dirs, p)
+		} else {
+			files = append(files, p)
+		}
+	}
+	return dirs, files
+}
 
 // sysResourceLoop checks the system resources, staying in the loop until resources meet the set criteria.
 func sysResourceLoop(fileStr string) {

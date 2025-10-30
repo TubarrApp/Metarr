@@ -1,7 +1,6 @@
 package jsonrw
 
 import (
-	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/dates"
@@ -230,8 +229,7 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 			// Check for cancellation
 			select {
 			case <-rw.ctx.Done():
-				logging.I("Operation canceled for field: %s", n.Field)
-				return false, errors.New("operation canceled")
+				return false, fmt.Errorf("operation canceled: %w", rw.ctx.Err())
 			default:
 			}
 
@@ -326,8 +324,12 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 
 		// Generate the date tag
 		tag, err := metatags.MakeDateTag(j, fd, d.Format)
-		if err != nil || tag == "" {
+		if err != nil {
 			return false, fmt.Errorf("failed to generate date tag for field %q: %w", fld, err)
+		}
+		if tag == "" {
+			logging.D(3, "Generated empty date tag for field %q, skipping", fld)
+			continue
 		}
 
 		// Check if tag already exists

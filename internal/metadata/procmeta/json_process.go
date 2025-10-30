@@ -49,8 +49,8 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			logging.E("Failed to close file %q: %v", file.Name(), err)
+		if closeErr := file.Close(); closeErr != nil {
+			logging.E("Failed to close file %q: %v", file.Name(), closeErr)
 		}
 	}()
 
@@ -67,7 +67,7 @@ func ProcessJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	}
 
 	if data == nil {
-		return nil, errors.New("json decoded nil")
+		return nil, fmt.Errorf("json decoded nil for file %q", file.Name())
 	}
 
 	logging.I("Got metadata from file: %v", data)

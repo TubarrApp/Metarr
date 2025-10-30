@@ -8,6 +8,7 @@ import (
 	"metarr/internal/cfg"
 	"metarr/internal/models"
 	"metarr/internal/processing"
+	"metarr/internal/transformations"
 	"metarr/internal/utils/benchmark"
 	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
@@ -82,28 +83,16 @@ func main() {
 	// Initialize user input reader (used for prompting the user during program run)
 	prompt.InitUserInputReader()
 
-	// Initialize batch configurations
-	batches, err := initializeBatchConfigs()
+	// Process batches
+	fdArray := []*models.FileData{}
+	fdArrayResult, err := processing.ProcessBatches(core)
 	if err != nil {
-		logging.E("Failed to initialize batch configs. Exiting...")
+		logging.E("error during batch loop: %v", err)
 		cancel()
+		wg.Wait()
 		os.Exit(1)
 	}
-
-	// Process batches
-	fdArray := make([]*models.FileData, 0, len(batches))
-	if len(batches) > 0 {
-		fdArrayResult, err := processing.StartMainBatchLoop(core, batches)
-		if err != nil {
-			logging.E("error during batch loop: %v", err)
-			cancel()
-			wg.Wait()
-			os.Exit(1)
-		}
-		fdArray = append(fdArray, fdArrayResult...)
-	} else {
-		logging.I("No files or directories to process. Exiting.")
-	}
+	fdArray = append(fdArray, fdArrayResult...)
 
 	// Wait for all goroutines to finish
 	wg.Wait()
@@ -112,7 +101,7 @@ func main() {
 	if len(fdArray) > 0 {
 		logging.I("Processing file renames for %d file(s)...", len(fdArray))
 
-		if err := processing.RenameFiles(fdArray); err != nil {
+		if err := transformations.RenameFiles(fdArray); err != nil {
 			logging.E("Error during file renaming: %v", err)
 		}
 		logging.S("File renaming complete!")

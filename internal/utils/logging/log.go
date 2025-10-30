@@ -48,7 +48,7 @@ const (
 	jLine     = "line"
 )
 
-// logLevel represents different logging levels
+// logLevel represents different logging levels.
 type logType int
 
 const (
@@ -75,13 +75,13 @@ func SetupLogging(targetDir string) error {
 		return err
 	}
 
-	// File logger using zerolog's efficient JSON logging
+	// File logger using zerolog's efficient JSON logging.
 	fileLogger = zerolog.New(logfile).With().Timestamp().Logger()
 	Loggable = true
 
 	b, ok := builderPool.Get().(*strings.Builder)
 	if !ok {
-		return fmt.Errorf("dev error: builderPool stored wrong variable type %T", b)
+		return fmt.Errorf("%s builderPool stored wrong variable type %T", consts.LogTagDevError, b)
 	}
 	b.Reset()
 	defer func() {
@@ -109,7 +109,7 @@ func writeToConsole(msg string) {
 	}
 }
 
-// callerInfo retrieves caller information for logging
+// callerInfo retrieves caller information for logging.
 type callerInfo struct {
 	funcName string
 	file     string
@@ -117,7 +117,7 @@ type callerInfo struct {
 	lineStr  string
 }
 
-// getCaller gets caller information from the call stack
+// getCaller gets caller information from the call stack.
 func getCaller(skip int) callerInfo {
 	pc, file, line, _ := runtime.Caller(skip)
 	return callerInfo{
@@ -128,11 +128,11 @@ func getCaller(skip int) callerInfo {
 	}
 }
 
-// buildLogMessage constructs a log message with optional caller info
+// buildLogMessage constructs a log message with optional caller info.
 func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 	b, ok := builderPool.Get().(*strings.Builder)
 	if !ok {
-		fmt.Printf("Dev error: builderPool stored wrong variable type %T", b)
+		fmt.Printf("%s builderPool stored wrong variable type %T", consts.LogTagDevError, b)
 		return ""
 	}
 
@@ -180,7 +180,7 @@ func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 	return b.String()
 }
 
-// logToFile logs to the file logger based on level
+// logToFile logs to the file logger based on level.
 func logToFile(level logType, msg string, caller *callerInfo) {
 	if !Loggable {
 		return
@@ -201,7 +201,7 @@ func logToFile(level logType, msg string, caller *callerInfo) {
 	}
 }
 
-// getZerologEvent returns the appropriate zerolog event for the level
+// getZerologEvent returns the appropriate zerolog event for the level.
 func getZerologEvent(level logType) *zerolog.Event {
 	switch level {
 	case logError:
@@ -215,7 +215,7 @@ func getZerologEvent(level logType) *zerolog.Event {
 	}
 }
 
-// log is the core logging function that handles all logging operations
+// log is the core logging function that handles all logging operations.
 func log(level logType, prefix, msg string, withCaller bool, args ...any) {
 	if len(args) > 0 {
 		msg = fmt.Sprintf(msg, args...)
@@ -232,35 +232,35 @@ func log(level logType, prefix, msg string, withCaller bool, args ...any) {
 	logToFile(level, msg, caller)
 }
 
-// E logs error messages
+// E logs error messages.
 func E(msg string, args ...any) {
-	log(logError, consts.ColorRedError, msg, true, args...)
+	log(logError, consts.LogTagError, msg, true, args...)
 }
 
-// S logs success messages
+// S logs success messages.
 func S(msg string, args ...any) {
-	log(logSuccess, consts.ColorGreenSuccess, msg, false, args...)
+	log(logSuccess, consts.LogTagSuccess, msg, false, args...)
 }
 
-// D logs debug messages
+// D logs debug messages.
 func D(l int, msg string, args ...any) {
 	if Level < l {
 		return
 	}
-	log(logDebug, consts.ColorYellowDebug, msg, true, args...)
+	log(logDebug, consts.LogTagDebug, msg, true, args...)
 }
 
-// W logs warning messages
+// W logs warning messages.
 func W(msg string, args ...any) {
-	log(logWarn, consts.ColorYellowWarning, msg, false, args...)
+	log(logWarn, consts.LogTagWarning, msg, false, args...)
 }
 
-// I logs info messages
+// I logs info messages.
 func I(msg string, args ...any) {
-	log(logInfo, consts.ColorBlueInfo, msg, false, args...)
+	log(logInfo, consts.LogTagInfo, msg, false, args...)
 }
 
-// P logs plain messages
+// P logs plain messages.
 func P(msg string, args ...any) {
 	log(logPrint, "", msg, false, args...)
 }
