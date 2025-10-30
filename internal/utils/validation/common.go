@@ -123,24 +123,30 @@ func ValidateBatchPairs(batchPairs []string) error {
 		if err != nil {
 			return err
 		}
-
-		switch vStat.IsDir() {
-		case true:
-			vDirs = append(vDirs, video)
-		case false:
-			vFiles = append(vFiles, video)
-		}
-
-		// Handle meta part
 		mStat, err := os.Stat(meta)
 		if err != nil {
 			return err
 		}
-		switch mStat.IsDir() {
-		case true:
-			mDirs = append(mDirs, meta)
-		case false:
-			mFiles = append(mFiles, meta)
+		vIsDir := vStat.IsDir()
+		mIsDir := mStat.IsDir()
+
+		// Check for mismatch
+		if vIsDir && !mIsDir || !vIsDir && mIsDir {
+			return fmt.Errorf("mismatch in batch entry types: video is dir? %v, meta is dir? %v", vIsDir, mIsDir)
+		}
+
+		// Add videos
+		if vIsDir {
+			vDirs = append(vDirs, video)
+		} else {
+			vFiles = append(vFiles, video)
+		}
+
+		// Add meta
+		if mIsDir {
+			mDirs = append(mDirs, video)
+		} else {
+			mFiles = append(mFiles, video)
 		}
 	}
 	viper.Set(keys.BatchPairs, models.BatchPairs{
