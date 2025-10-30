@@ -26,7 +26,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	defer muPrint.Unlock()
 
 	var b strings.Builder
-	b.Grow(20000)
+	b.Grow(5000)
 
 	// Helper function to add sections
 	addSection := func(title string, content string) {
@@ -137,7 +137,7 @@ func printStructFields(s any) string {
 	val := reflect.ValueOf(s)
 
 	// Dereference pointer
-	if val.Kind() == reflect.Ptr {
+	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
 
@@ -148,7 +148,7 @@ func printStructFields(s any) string {
 	typ := val.Type()
 
 	var b strings.Builder
-	b.Grow(val.NumField() * 1024)
+	b.Grow(val.NumField() * 512)
 
 	for i := 0; i < val.NumField(); i++ {
 		field := typ.Field(i)      // Get field metadata
