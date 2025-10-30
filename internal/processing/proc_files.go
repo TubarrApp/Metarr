@@ -66,11 +66,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
-
-	numWorkers := abstractions.GetInt(keys.Concurrency)
-	if numWorkers < 1 {
-		numWorkers = 1
-	}
+	numWorkers := max(abstractions.GetInt(keys.Concurrency), 1)
 
 	jobs := make(chan workItem, min(matchedCount, numWorkers*2))
 	results := make(chan *models.FileData, min(matchedCount, numWorkers*2))

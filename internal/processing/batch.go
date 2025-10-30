@@ -71,6 +71,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 
 	// Begin iteration...
 	skipVideos := abstractions.GetBool(keys.SkipVideos)
+	failCount := 0
 	for _, b := range batches {
 		var (
 			openVideo *os.File
@@ -89,6 +90,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		if !skipVideos {
 			if openVideo, err = os.Open(batch.Video); err != nil {
 				logging.E("Failed to open %s", batch.Video)
+				failCount++
 				continue
 			}
 		}
@@ -102,6 +104,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 					return allProcessedFiles, fmt.Errorf("failed to close failed video %q after JSON failure: %w", openVideo.Name(), err)
 				}
 			}
+			failCount++
 			continue
 		}
 
@@ -109,6 +112,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		processedFiles, err := processBatch(batch, core, openVideo, openJSON)
 		if err != nil {
 			logging.E("Batch with ID %d failed: %v", batch.bp.batchID, err)
+			failCount++
 			continue
 		}
 
@@ -139,6 +143,11 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		}
 		job++
 	}
+
+	if failCount == len(batches) {
+		return nil, fmt.Errorf("all batches failed")
+	}
+
 	logging.I("All batch tasks finished!")
 	return allProcessedFiles, nil
 }
