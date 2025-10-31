@@ -14,13 +14,3 @@ const (
 	ColorBrightBlack = "\x1b[90m"
 	ColorDimWhite    = "\x1b[2;37m"
 )
-
-// Tags
-const (
-	LogTagError    string = ColorRed + "[ERROR] " + ColorReset
-	LogTagSuccess  string = ColorGreen + "[Success] " + ColorReset
-	LogTagDebug    string = ColorYellow + "[Debug] " + ColorReset
-	LogTagWarning  string = ColorYellow + "[Warning] " + ColorReset
-	LogTagInfo     string = ColorCyan + "[Info] " + ColorReset
-	LogTagDevError string = ColorRed + "[ DEV ERROR! ]" + ColorReset
-)

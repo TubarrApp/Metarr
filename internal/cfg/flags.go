@@ -153,8 +153,8 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	rootCmd.PersistentFlags().String(keys.TranscodeCodec, "", "Codec to use for encoding/decoding")
-	if err := viper.BindPFlag(keys.TranscodeCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeCodec)); err != nil {
+	rootCmd.PersistentFlags().String(keys.TranscodeVideoCodec, "", "Codec to use for encoding/decoding")
+	if err := viper.BindPFlag(keys.TranscodeVideoCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoCodec)); err != nil {
 		return err
 	}
 

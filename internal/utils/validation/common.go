@@ -11,6 +11,7 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -291,22 +292,6 @@ func ValidatePurgeMetafiles(purgeType string) {
 	abstractions.Set(keys.MetaPurgeEnum, e)
 }
 
-// ValidateAudioCodec verifies the audio codec to use for transcode/encode operations.
-func ValidateAudioCodec(codec string) error {
-	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
-		return nil
-	}
-	codec = strings.ToLower(codec)
-
-	switch codec {
-	case "aac", "copy":
-		abstractions.Set(keys.TranscodeAudioCodec, codec)
-	default:
-		return fmt.Errorf("audio codec flag %q is not currently implemented in this program, aborting", codec)
-	}
-	return nil
-}
-
 // WarnMalformedKeys warns a user if a key in their config file is mixed casing.
 func WarnMalformedKeys() {
 	for _, key := range viper.AllKeys() {
@@ -398,28 +383,29 @@ func ValidateMaxFilesize(m string) (string, error) {
 // ValidateGPU validates the user input GPU selection.
 func ValidateGPU(g string) error {
 	g = strings.ToLower(g)
-
 	switch g {
-	case "qsv", "intel":
-		abstractions.Set(keys.UseGPU, "qsv")
+	case consts.AccelTypeQSV, "intel":
+		abstractions.Set(keys.UseGPU, consts.AccelTypeQSV)
 		if err := checkDriverDirExists(g); err != nil {
 			return err
 		}
-
-	case "amd", "radeon", "vaapi":
-		abstractions.Set(keys.UseGPU, "vaapi")
+	case consts.AccelTypeVAAPI:
+		abstractions.Set(keys.UseGPU, consts.AccelTypeVAAPI)
 		if err := checkDriverDirExists(g); err != nil {
 			return err
 		}
-
-	case "nvidia", "cuda":
-		abstractions.Set(keys.UseGPU, "cuda")
+	case consts.AccelTypeAMF, "amd", "radeon":
+		abstractions.Set(keys.UseGPU, consts.AccelTypeAMF)
 		if err := checkDriverDirExists(g); err != nil {
 			return err
 		}
-
-	case "auto", "automatic", "automate", "automated":
-		abstractions.Set(keys.UseGPU, "auto")
+	case consts.AccelTypeNVENC, "cuda", "nvidia":
+		abstractions.Set(keys.UseGPU, consts.AccelTypeNVENC)
+		if err := checkDriverDirExists(g); err != nil {
+			return err
+		}
+	case consts.AccelTypeAuto, "automatic", "automate", "automated":
+		abstractions.Set(keys.UseGPU, consts.AccelTypeAuto)
 	default:
 		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
 	}
@@ -442,20 +428,109 @@ func checkDriverDirExists(g string) error {
 	return nil
 }
 
-// ValidateTranscodeCodec validates the user input codec selection.
-func ValidateTranscodeCodec(c string) error {
-	c = strings.ToLower(c)
+// ValidateVideoCodec validates the user input codec selection.
+func ValidateVideoCodec(c string) error {
+	c = strings.ToLower(strings.TrimSpace(c))
 	c = strings.ReplaceAll(c, ".", "")
+	c = strings.ReplaceAll(c, "-", "")
 
+	// Retrieve GPU type
+	var gpuType string
+	if abstractions.IsSet(keys.UseGPU) {
+		gpuType = abstractions.GetString(keys.UseGPU)
+	}
+
+	// Direct match first
+	if slices.Contains(consts.ValidVideoCodecs, c) {
+		switch gpuType {
+		case consts.AccelTypeAMF:
+			if c == consts.VCodecMPEG2 || c == consts.VCodecVP8 || c == consts.VCodecVP9 {
+				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+				abstractions.Set(keys.UseGPU, "")
+			}
+		case consts.AccelTypeNVENC:
+			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
+				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+				abstractions.Set(keys.UseGPU, "")
+			}
+		case consts.AccelTypeQSV:
+			if c == consts.VCodecVP8 {
+				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+				abstractions.Set(keys.UseGPU, "")
+			}
+		case consts.AccelTypeVAAPI:
+			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
+				logging.W("%q does not (or does not reliably) support %q codec, will revert to software.", gpuType, c)
+				abstractions.Set(keys.UseGPU, "")
+			}
+		}
+		abstractions.Set(keys.TranscodeVideoCodec, c)
+		return nil
+	}
+
+	// Synonym and alias mapping
 	switch c {
-	case "h264", "hevc":
-		abstractions.Set(keys.TranscodeCodec, c)
-	case "x265", "h265":
-		abstractions.Set(keys.TranscodeCodec, "hevc")
-	case "x264", "avc":
-		abstractions.Set(keys.TranscodeCodec, "h264")
+	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
+		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecAV1)
+	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
+		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecH264)
+	case "x265", "h265", "hevc265", "libx265", "hevc":
+		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecHEVC)
+	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
+		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecMPEG2)
+	case "libvpx", "vp08", "vpx", "vpx8":
+		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecVP8)
+	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
+		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecVP9)
 	default:
-		return fmt.Errorf("entered codec %q not supported. Metarr supports h264 and HEVC (h265)", c)
+		return fmt.Errorf("video codec %q not supported. Supported codecs: %v", c, consts.ValidVideoCodecs)
+	}
+	return nil
+}
+
+// ValidateAudioCodec verifies the audio codec to use for transcode/encode operations.
+func ValidateAudioCodec(c string) error {
+	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
+		return nil
+	}
+	c = strings.ToLower(strings.TrimSpace(c))
+	c = strings.ReplaceAll(c, ".", "")
+	c = strings.ReplaceAll(c, "-", "")
+
+	// Search for exact matches
+	if slices.Contains(consts.ValidAudioCodecs, c) {
+		abstractions.Set(keys.TranscodeAudioCodec, c)
+		return nil
+	}
+
+	// Synonym and alias mapping
+	switch c {
+	case "m4a", "mp4a", "aac":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecAAC)
+	case "applelossless", "m4aalac":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecALAC)
+	case "dca", "dtshd", "dtsma", "dtsmahd":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecDTS)
+	case "dd+", "dolbydigitalplus", "ac3e", "ec3":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecEAC3)
+	case "fla", "losslessflac":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecFLAC)
+	case "mpeg2audio", "m2a":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecMP2)
+	case "mpeg3", "mpeg3audio", "mpg3":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecMP3)
+	case "oggopus", "webmopus":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecOpus)
+	case "wavpcm", "rawpcm", "pcm16", "pcms16le":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecPCM)
+	case "dolbytruehd", "thd":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecTrueHD)
+	case "oggvorbis", "webmvorbis", "vorb":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecVorbis)
+	case "wave", "waveform", "pcmwave":
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecWAV)
+	default:
+		return fmt.Errorf("audio codec %q not supported. Supported codecs: %v", c, consts.ValidAudioCodecs)
 	}
 	return nil
 }
@@ -471,7 +546,6 @@ func ValidateTranscodeQuality(q string) error {
 		abstractions.Set(keys.TranscodeQuality, q)
 		return nil
 	}
-
 	qNum, err := strconv.Atoi(q)
 	if err != nil {
 		return fmt.Errorf("input should be p1 to p7, validation of transcoder quality failed")

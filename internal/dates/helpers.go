@@ -54,7 +54,7 @@ func dayStringSwitch(day string) string {
 	return b.String()
 }
 
-// Convert a numerical month to a word.
+// monthStringSwitch converts a numerical month to a word.
 func monthStringSwitch(month string) string {
 	var monthStr string
 	switch month {
@@ -103,7 +103,7 @@ func joinNonEmpty(parts [3]string) string {
 	return strings.Join(nonEmpty, "-")
 }
 
-// getYear returns the year digits from the date string.
+// getYearMonthDay returns the year, month, and day digits from the date string.
 func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day string, err error) {
 	d = strings.ReplaceAll(d, "-", "")
 	d = strings.TrimSpace(d)
@@ -267,7 +267,6 @@ func StripDateTags(val string, loc enums.DateTagLocation) (dateStrs []string, re
 				return []string{dateStr}, strings.TrimLeft(val[closeTag+1:], " ")
 			}
 		}
-
 	case enums.DateTagLocSuffix:
 		openTag := strings.LastIndex(val, "[")
 		closeTag := strings.LastIndex(val, "]")
@@ -278,7 +277,6 @@ func StripDateTags(val string, loc enums.DateTagLocation) (dateStrs []string, re
 				return []string{dateStr}, strings.TrimSpace(val[:openTag])
 			}
 		}
-
 	case enums.DateTagLocAll:
 		return stripAllDateTags(val)
 	}

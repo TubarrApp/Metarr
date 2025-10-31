@@ -117,8 +117,8 @@ func execute() error {
 			return err
 		}
 	}
-	if viper.IsSet(keys.TranscodeCodec) {
-		if err := validation.ValidateTranscodeCodec(viper.GetString((keys.TranscodeCodec))); err != nil {
+	if viper.IsSet(keys.TranscodeVideoCodec) {
+		if err := validation.ValidateVideoCodec(viper.GetString((keys.TranscodeVideoCodec))); err != nil {
 			return err
 		}
 	}

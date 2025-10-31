@@ -13,18 +13,15 @@ import (
 
 // ParseWordDate parses and formats the inputted word date (e.g. Jan 2nd, 2006).
 func ParseWordDate(dateString string) (string, error) {
-
 	t, err := dateparse.ParseAny(dateString)
 	if err != nil {
 		return "", fmt.Errorf("unable to parse date: %s", dateString)
 	}
-
 	return t.Format("2006-01-02"), nil
 }
 
 // ParseNumDate parses and formats the inputted numerical date string.
 func ParseNumDate(dateNum string) (string, error) {
-
 	t, err := dateparse.ParseAny(dateNum)
 	if err != nil {
 		return "", fmt.Errorf("unable to parse date %q to word date", dateNum)
@@ -35,11 +32,9 @@ func ParseNumDate(dateNum string) (string, error) {
 	}
 
 	var day, month, year, dateStr string
-
 	if len(time) < 6 {
 		return dateNum, fmt.Errorf("unable to parse date, date %q is too short", time)
 	}
-
 	if len(time) >= 8 {
 		day = time[2:4]
 		month = time[:2]
@@ -49,7 +44,6 @@ func ParseNumDate(dateNum string) (string, error) {
 		month = time[:2]
 		year = time[4:6]
 	}
-
 	month = monthStringSwitch(month)
 	day = dayStringSwitch(day)
 

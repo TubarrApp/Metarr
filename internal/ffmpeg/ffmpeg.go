@@ -141,8 +141,8 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	logging.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
 
 	// Check codec mismatches
-	if abstractions.IsSet(keys.TranscodeCodec) {
-		desiredVCodec = abstractions.GetString(keys.TranscodeCodec)
+	if abstractions.IsSet(keys.TranscodeVideoCodec) {
+		desiredVCodec = abstractions.GetString(keys.TranscodeVideoCodec)
 	}
 	if abstractions.IsSet(keys.TranscodeAudioCodec) {
 		desiredACodec = abstractions.GetString(keys.TranscodeAudioCodec)

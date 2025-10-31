@@ -72,7 +72,6 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
 		return
 	}
-
 	codec := abstractions.GetString(keys.TranscodeAudioCodec)
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
@@ -81,6 +80,32 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 	switch codec {
 	case currentACodec, "":
 		b.audioCodec = consts.AudioCodecCopy[:] // Codecs match or user codec empty, use copy
+	case consts.ACodecAAC:
+		b.audioCodec = consts.AudioToAAC[:]
+	case consts.ACodecAC3:
+		b.audioCodec = consts.AudioToAC3[:]
+	case consts.ACodecALAC:
+		b.audioCodec = consts.AudioToALAC[:]
+	case consts.ACodecDTS:
+		b.audioCodec = consts.AudioToDTS[:]
+	case consts.ACodecEAC3:
+		b.audioCodec = consts.AudioToEAC3[:]
+	case consts.ACodecFLAC:
+		b.audioCodec = consts.AudioToFLAC[:]
+	case consts.ACodecMP2:
+		b.audioCodec = consts.AudioToMP2[:]
+	case consts.ACodecMP3:
+		b.audioCodec = consts.AudioToMP3[:]
+	case consts.ACodecOpus:
+		b.audioCodec = consts.AudioToOpus[:]
+	case consts.ACodecPCM:
+		b.audioCodec = consts.AudioToPCM[:]
+	case consts.ACodecVorbis:
+		b.audioCodec = consts.AudioToVorbis[:]
+	case consts.ACodecWAV:
+		b.audioCodec = consts.AudioToWAV[:]
+	case consts.ACodecTrueHD:
+		b.audioCodec = consts.AudioToTrueHD[:]
 	default:
 		b.audioCodec = []string{"-c:a", codec}
 	}
@@ -88,20 +113,27 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setVideoSoftwareCodec() {
-	if !abstractions.IsSet(keys.TranscodeCodec) {
+	if !abstractions.IsSet(keys.TranscodeVideoCodec) {
 		return
 	}
-
-	codec := abstractions.GetString(keys.TranscodeCodec)
+	codec := abstractions.GetString(keys.TranscodeVideoCodec)
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
 
 	switch codec {
-	case "h264", "x264", "avc":
+	case consts.VCodecAV1:
+		b.videoCodecSoftware = consts.VideoToAV1[:]
+	case consts.VCodecH264:
 		b.videoCodecSoftware = consts.VideoToH264[:]
-	case "hevc", "h265":
+	case consts.VCodecHEVC:
 		b.videoCodecSoftware = consts.VideoToH265[:]
+	case consts.VCodecMPEG2:
+		b.videoCodecSoftware = consts.VideoToMPEG2[:]
+	case consts.VCodecVP8:
+		b.videoCodecSoftware = consts.VideoToVP8[:]
+	case consts.VCodecVP9:
+		b.videoCodecSoftware = consts.VideoToVP9[:]
 	default:
 		b.videoCodecSoftware = nil
 	}
@@ -110,14 +142,17 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec() {
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 	switch gpuFlag {
-	case "auto":
-		b.gpuAccel = consts.AutoHWAccel[:]
-	case "nvenc":
-		b.gpuAccel = consts.NvidiaAccel[:]
-	case "qsv":
-		b.gpuAccel = consts.IntelAccel[:]
-	case "vaapi":
-		b.gpuAccel = consts.VaapiAccel[:]
+	case consts.AccelTypeAuto:
+		b.gpuAccel = consts.AccelFlagAuto[:]
+
+	case consts.AccelTypeNVENC:
+		b.gpuAccel = consts.AccelFlagNvidia[:]
+
+	case consts.AccelTypeQSV:
+		b.gpuAccel = consts.AccelFlagIntel[:]
+
+	case consts.AccelTypeVAAPI:
+		b.gpuAccel = consts.AccelFlagVAAPI[:]
 	default:
 		logging.E("Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
 		return
@@ -130,7 +165,6 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
 		return
 	}
-
 	sb := strings.Builder{}
 	sb.Grow(len(transcodeCodec) + 1 + len(gpuFlag))
 	sb.WriteString(transcodeCodec)
@@ -144,7 +178,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 }
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
-func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCodec string, useHWAccel bool) {
+func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeVideoCodec string, useHWAccel bool) {
 	// Should use GPU?
 	if !abstractions.IsSet(keys.UseGPU) {
 		return "", "", false
@@ -153,20 +187,19 @@ func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCod
 	// Check GPU flag
 	gpuFlag = abstractions.GetString(keys.UseGPU)
 	gpuFlag = strings.ToLower(gpuFlag)
-
 	if gpuFlag == "" {
 		logging.I("HW acceleration flags disabled, using software encode/decode")
 		return "", "", false
 	}
 
 	// Fetch transcode codec
-	if abstractions.IsSet(keys.TranscodeCodec) {
-		transcodeCodec = abstractions.GetString(keys.TranscodeCodec)
+	if abstractions.IsSet(keys.TranscodeVideoCodec) {
+		transcodeVideoCodec = abstractions.GetString(keys.TranscodeVideoCodec)
 	}
 
 	// GPU flag but no codec
-	if gpuFlag != "auto" && transcodeCodec == "" {
-		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeCodec)
+	if gpuFlag != consts.AccelTypeAuto && transcodeVideoCodec == "" {
+		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeVideoCodec)
 		return "", "", false
 	}
 
@@ -177,7 +210,7 @@ func (b *ffCommandBuilder) getHWAccelFlags(vCodec string) (gpuFlag, transcodeCod
 		}
 	}
 
-	return gpuFlag, transcodeCodec, true
+	return gpuFlag, transcodeVideoCodec, true
 }
 
 // setDefaultFormatFlags adds commands specific for the extension input and output.
@@ -274,7 +307,7 @@ func (b *ffCommandBuilder) buildFinalCommand(gpuFlag string, hwAccel bool) ([]st
 		switch {
 		case abstractions.IsSet(keys.TranscodeVideoFilter):
 			args = append(args, "-vf", abstractions.GetString(keys.TranscodeVideoFilter))
-		case gpuFlag == "vaapi":
+		case gpuFlag == consts.AccelTypeVAAPI:
 			args = append(args, consts.VaapiCompatibility...)
 		}
 	}
@@ -324,7 +357,7 @@ func (b *ffCommandBuilder) calculateCommandCapacity(gpuFlag string) int {
 	totalCapacity += len(b.gpuAccelCodec)
 	totalCapacity += len(b.formatFlags)
 
-	if gpuFlag == "vaapi" {
+	if gpuFlag == consts.AccelTypeVAAPI {
 		totalCapacity += len(consts.VaapiCompatibility)
 	}
 

@@ -1,6 +1,6 @@
 package consts
 
-// Video extensions
+// Video extensions.
 const (
 	Ext3GP  = ".3gp"
 	Ext3G2  = ".3g2"
@@ -25,7 +25,7 @@ const (
 	ExtWMV  = ".wmv"
 )
 
-// Metafile extensions
+// Metafile extensions.
 const (
 	MExtJSON = ".json"
 	MExtNFO  = ".nfo"

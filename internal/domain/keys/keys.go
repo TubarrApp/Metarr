@@ -42,10 +42,10 @@ const (
 
 	UseGPU               string = "hwaccel"
 	TranscodeDeviceDir   string = "transcode-gpu-directory"
-	TranscodeCodec       string = "transcode-codec"
+	TranscodeAudioCodec  string = "transcode-audio-codec"
+	TranscodeVideoCodec  string = "transcode-video-codec"
 	TranscodeQuality     string = "transcode-quality"
 	TranscodeVideoFilter string = "transcode-video-filter"
-	TranscodeAudioCodec  string = "transcode-audio-codec"
 
 	ExtraFFmpegArgs string = "extra-ffmpeg-args"
 )
