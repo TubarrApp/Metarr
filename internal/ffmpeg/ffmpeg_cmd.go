@@ -1,12 +1,14 @@
 package ffmpeg
 
 import (
+	"context"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -35,27 +37,25 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 }
 
 // buildCommand constructs the complete FFmpeg command.
-func (b *ffCommandBuilder) buildCommand(fd *models.FileData, outExt string) ([]string, error) {
+func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, outExt string) ([]string, error) {
 	if b.inputFile == "" || b.outputFile == "" {
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
-
 	// Grab current codecs
 	vCodec, aCodec, err := checkCodecs(b.inputFile)
 	if err != nil {
 		logging.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
-
 	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags(vCodec)
 
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
-		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec)
+		b.setGPUAccelerationCodec(ctx, gpuFlag, transcodeCodec)
 	}
 
 	// Get codecs
 	if b.gpuAccelCodec == nil {
-		b.setVideoSoftwareCodec()
+		b.setVideoSoftwareCodec(ctx)
 	}
 	b.setAudioCodec(aCodec)
 
@@ -112,7 +112,7 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 }
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setVideoSoftwareCodec() {
+func (b *ffCommandBuilder) setVideoSoftwareCodec(ctx context.Context) {
 	if !abstractions.IsSet(keys.TranscodeVideoCodec) {
 		return
 	}
@@ -135,6 +135,19 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec() {
 	case consts.VCodecVP9:
 		b.videoCodecSoftware = consts.VideoToVP9[:]
 	default:
+		b.videoCodecSoftware = nil
+	}
+
+	if len(b.videoCodecSoftware) == 2 {
+		cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
+		outBytes, err := cmd.Output()
+		result := strings.TrimSpace(string(outBytes))
+		if err != nil || !strings.Contains(result, b.videoCodecSoftware[1]) {
+			logging.W("Software Codec Failed: Desired encoder %q is not available in your FFmpeg build, using software.", b.videoCodecSoftware[1])
+			b.videoCodecSoftware = nil
+		}
+	} else if b.videoCodecSoftware != nil {
+		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
 }
@@ -160,7 +173,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 }
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
-func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec string) {
+func (b *ffCommandBuilder) setGPUAccelerationCodec(ctx context.Context, gpuFlag, transcodeCodec string) {
 	if gpuFlag == "auto" {
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
 		return
@@ -171,10 +184,24 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec strin
 	sb.WriteByte('_')
 	sb.WriteString(gpuFlag)
 
-	b.gpuAccelCodec = []string{"-c:v", sb.String()}
+	gpuCodecString := sb.String()
+	b.gpuAccelCodec = []string{"-c:v", gpuCodecString}
 
 	command := append(b.gpuAccel, b.gpuAccelCodec...)
-	logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
+
+	if sb.String() != "" {
+		cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
+		outBytes, err := cmd.Output()
+		result := strings.TrimSpace(string(outBytes))
+		if err != nil || !strings.Contains(result, gpuCodecString) {
+			logging.W("GPU Codec Failed: Desired encoder %q is not available in your FFmpeg build, using software.", gpuCodecString)
+			b.gpuAccelCodec = nil
+			b.gpuAccel = nil
+		}
+	}
+	if b.gpuAccel != nil && b.gpuAccelCodec != nil {
+		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
+	}
 }
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.

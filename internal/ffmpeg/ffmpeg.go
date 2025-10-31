@@ -64,7 +64,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Build FFmpeg command
 	builder := newFfCommandBuilder(fd, tmpOutPath)
-	args, err := builder.buildCommand(fd, outExt)
+	args, err := builder.buildCommand(ctx, fd, outExt)
 	if err != nil {
 		return err
 	}
