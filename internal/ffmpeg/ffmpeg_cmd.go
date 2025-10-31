@@ -116,7 +116,7 @@ func (b *ffCommandBuilder) setAudioCodec(ctx context.Context, currentACodec stri
 		}
 	} else if b.audioCodec != nil {
 		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.audioCodec)
-		b.audioCodec = nil
+		b.audioCodec = consts.AudioCodecCopy[:]
 	}
 }
 
