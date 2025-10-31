@@ -57,7 +57,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	if b.gpuAccelCodec == nil {
 		b.setVideoSoftwareCodec(ctx)
 	}
-	b.setAudioCodec(aCodec)
+	b.setAudioCodec(ctx, aCodec)
 
 	b.setDefaultFormatFlags(outExt)
 	b.setUserFormatFlags()
@@ -68,7 +68,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
+func (b *ffCommandBuilder) setAudioCodec(ctx context.Context, currentACodec string) {
 	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
 		return
 	}
@@ -107,7 +107,16 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec string) {
 	case consts.ACodecTrueHD:
 		b.audioCodec = consts.AudioToTrueHD[:]
 	default:
-		b.audioCodec = []string{"-c:a", codec}
+		b.audioCodec = consts.AudioCodecCopy[:]
+	}
+
+	if len(b.audioCodec) == 2 {
+		if !b.checkFFmpegCodecs(ctx, b.audioCodec[1]) {
+			b.audioCodec = nil
+		}
+	} else if b.audioCodec != nil {
+		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.audioCodec)
+		b.audioCodec = nil
 	}
 }
 
@@ -139,17 +148,25 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(ctx context.Context) {
 	}
 
 	if len(b.videoCodecSoftware) == 2 {
-		cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
-		outBytes, err := cmd.Output()
-		result := strings.TrimSpace(string(outBytes))
-		if err != nil || !strings.Contains(result, b.videoCodecSoftware[1]) {
-			logging.W("Software Codec Failed: Desired encoder %q is not available in your FFmpeg build, using software.", b.videoCodecSoftware[1])
+		if !b.checkFFmpegCodecs(ctx, b.videoCodecSoftware[1]) {
 			b.videoCodecSoftware = nil
 		}
 	} else if b.videoCodecSoftware != nil {
 		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
+}
+
+// checkFFmpegCodecs ensures the desired codec is available.
+func (b *ffCommandBuilder) checkFFmpegCodecs(ctx context.Context, codec string) (hasCodec bool) {
+	cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
+	outBytes, err := cmd.Output()
+	result := strings.TrimSpace(string(outBytes))
+	if err != nil || !strings.Contains(result, codec) {
+		logging.W("Software Codec Failed: Desired encoder %q is not available in your FFmpeg build, using software.", codec)
+		return false
+	}
+	return true
 }
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
@@ -174,7 +191,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(ctx context.Context, gpuFlag, transcodeCodec string) {
-	if gpuFlag == "auto" {
+	if gpuFlag == consts.AccelTypeAuto {
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
 		return
 	}
@@ -187,20 +204,15 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(ctx context.Context, gpuFlag,
 	gpuCodecString := sb.String()
 	b.gpuAccelCodec = []string{"-c:v", gpuCodecString}
 
-	command := append(b.gpuAccel, b.gpuAccelCodec...)
-
 	if sb.String() != "" {
-		cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
-		outBytes, err := cmd.Output()
-		result := strings.TrimSpace(string(outBytes))
-		if err != nil || !strings.Contains(result, gpuCodecString) {
-			logging.W("GPU Codec Failed: Desired encoder %q is not available in your FFmpeg build, using software.", gpuCodecString)
+		if !b.checkFFmpegCodecs(ctx, gpuCodecString) {
 			b.gpuAccelCodec = nil
 			b.gpuAccel = nil
 		}
 	}
 	if b.gpuAccel != nil && b.gpuAccelCodec != nil {
-		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nCommand: %v\n", gpuFlag, transcodeCodec, command)
+		command := append(b.gpuAccel, b.gpuAccelCodec...)
+		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nArguments: %v\n", gpuFlag, transcodeCodec, command)
 	}
 }
 
