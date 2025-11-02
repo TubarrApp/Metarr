@@ -73,10 +73,6 @@ type FileData struct {
 	MOther     *MetadataOtherData   `json:"meta_other_data" xml:"other"`
 	NFOData    *NFOData
 
-	// File writers
-	JSONFileRW JSONFileRW
-	NFOFileRW  NFOFileRW
-
 	// Meta transformations
 	MetaOps *MetaOps
 

@@ -11,6 +11,43 @@ import (
 	"github.com/araddon/dateparse"
 )
 
+// MakeDateTag attempts to create the date tag for files using metafile data.
+func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
+	if dateFmt == enums.DateFmtSkip {
+		logging.D(1, "Skip set, not making file date tag for %q", fd.OriginalVideoBaseName)
+		return "", nil
+	}
+
+	var (
+		date  string
+		found bool
+	)
+
+	if fd.MDates.FormattedDate == "" {
+		if date, found = extractDateFromMetadata(metadata); !found {
+			logging.E("No dates found in JSON file")
+			return "", nil
+		}
+	} else {
+		date = fd.MDates.FormattedDate
+	}
+
+	year, month, day, err := ParseDateComponents(date, dateFmt)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse date components: %w", err)
+	}
+
+	dateStr := FormatDateString(year, month, day, dateFmt)
+	if dateStr == "" {
+		logging.E("Failed to create date string")
+		return "", nil
+	}
+
+	dateTag := fmt.Sprintf("[%s]", dateStr)
+	logging.I("Made date tag %q from file '%v'", dateTag, fd.MetaFilePath)
+	return dateTag, nil
+}
+
 // ParseWordDate parses and formats the inputted word date (e.g. Jan 2nd, 2006).
 func ParseWordDate(dateString string) (string, error) {
 	t, err := dateparse.ParseAny(dateString)

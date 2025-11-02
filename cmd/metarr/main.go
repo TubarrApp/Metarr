@@ -101,7 +101,7 @@ func main() {
 	if len(fdArray) > 0 {
 		logging.I("Processing file renames for %d file(s)...", len(fdArray))
 
-		if err := transformations.RenameFiles(fdArray); err != nil {
+		if err := transformations.RenameFiles(ctx, fdArray); err != nil {
 			logging.E("Error during file renaming: %v", err)
 		}
 		logging.S("File renaming complete!")

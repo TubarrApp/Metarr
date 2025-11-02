@@ -3,7 +3,7 @@ package cfg
 import (
 	"fmt"
 	"metarr/internal/domain/keys"
-	"metarr/internal/utils/validation"
+	"metarr/internal/validation"
 	"os"
 	"strings"
 

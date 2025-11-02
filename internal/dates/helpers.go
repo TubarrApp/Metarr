@@ -2,6 +2,7 @@ package dates
 
 import (
 	"fmt"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/regex"
 	"metarr/internal/utils/logging"
@@ -304,4 +305,34 @@ func stripAllDateTags(val string) (tags []string, cleaned string) {
 	logging.D(3, "Final cleaned: %q", cleaned)
 
 	return tags, cleaned
+}
+
+// extractDateFromMetadata attempts to find a date in the metadata using predefined fields
+func extractDateFromMetadata(metadata map[string]any) (string, bool) {
+	preferredDateFields := []string{
+		consts.JReleaseDate,
+		"releasedate",
+		"released_on",
+		consts.JOriginallyAvailable,
+		"originally_available",
+		"originallyavailable",
+		consts.JDate,
+		consts.JUploadDate,
+		"uploaddate",
+		"uploaded_on",
+		consts.JCreationTime, // Last resort, may give false positives
+		"created_at",
+	}
+
+	for _, field := range preferredDateFields {
+		if value, found := metadata[field]; found {
+			if strVal, ok := value.(string); ok && strVal != "" && len(strVal) > 4 {
+				if date, _, found := strings.Cut(strVal, "T"); found {
+					return date, true
+				}
+				return strVal, true
+			}
+		}
+	}
+	return "", false
 }
