@@ -15,9 +15,9 @@ import (
 var nfoEditMutexMap sync.Map
 
 // processNFOFiles processes NFO files and sends data into the metadata model
-func processNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
+func processNFOFiles(ctx context.Context, fd *models.FileData) error {
 	if fd == nil {
-		return nil, errors.New("model passed in null")
+		return errors.New("model passed in null")
 	}
 
 	logging.D(2, "Beginning NFO file processing...")
@@ -26,7 +26,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 	value, _ := nfoEditMutexMap.LoadOrStore(filePath, &sync.Mutex{})
 	fileMutex, ok := value.(*sync.Mutex)
 	if !ok {
-		return nil, fmt.Errorf("internal error: mutex map corrupted for file %s", filePath)
+		return fmt.Errorf("internal error: mutex map corrupted for file %s", filePath)
 	}
 
 	fileMutex.Lock()
@@ -36,7 +36,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 	file, err := os.OpenFile(fd.MetaFilePath, os.O_RDWR, 0o644)
 	if err != nil {
 		logging.AddToErrorArray(err)
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
@@ -62,7 +62,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 		logging.D(2, "Refreshing NFO metadata after edits were made...")
 		data, err := nfoRW.RefreshMetadata()
 		if err != nil {
-			return nil, err
+			return err
 		}
 		fd.NFOData = data
 	}
@@ -71,5 +71,5 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) (*models.FileData
 	if ok := fieldsnfo.FillNFO(fd); !ok {
 		logging.E("No metadata filled from NFO file...")
 	}
-	return fd, nil
+	return nil
 }

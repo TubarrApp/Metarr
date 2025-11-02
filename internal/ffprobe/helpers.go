@@ -29,8 +29,8 @@ type ffprobeTags struct {
 // getDatePart safely extracts the date part before 'T' if it exists.
 func getDatePart(timeStr string) string {
 	timeStr = strings.TrimSpace(timeStr)
-	if parts := strings.Split(timeStr, "T"); len(parts) > 0 {
-		return parts[0]
+	if beforeT, _, _ := strings.Cut(timeStr, "T"); beforeT != "" {
+		return beforeT
 	}
 	return timeStr
 }

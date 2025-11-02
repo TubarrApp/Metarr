@@ -157,12 +157,11 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles 
 		switch fd.MetaFileType {
 		case consts.MExtJSON:
 			logging.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
-			fd, err = processJSONFile(ctx, fd)
+			err = processJSONFile(ctx, fd)
 		case consts.MExtNFO:
 			logging.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
-			fd, err = processNFOFiles(ctx, fd)
+			err = processNFOFiles(ctx, fd)
 		}
-
 		if err != nil {
 			logging.AddToErrorArray(err)
 			logging.E("Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)

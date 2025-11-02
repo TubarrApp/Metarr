@@ -46,18 +46,20 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	if err != nil {
 		logging.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
-	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags(vCodec)
+	availableCodecs := b.ffmpegCodecOutput(ctx)
 
+	// Get GPU flags/codecs
+	gpuFlag, transcodeCodec, useAccel := b.getHWAccelFlags(vCodec)
 	if useAccel {
 		b.setGPUAcceleration(gpuFlag)
-		b.setGPUAccelerationCodec(ctx, gpuFlag, transcodeCodec)
+		b.setGPUAccelerationCodec(gpuFlag, transcodeCodec, availableCodecs)
 	}
 
-	// Get codecs
+	// Get software codecs
 	if b.gpuAccelCodec == nil {
-		b.setVideoSoftwareCodec(ctx)
+		b.setVideoSoftwareCodec(availableCodecs)
 	}
-	b.setAudioCodec(ctx, aCodec)
+	b.setAudioCodec(aCodec, availableCodecs)
 
 	b.setDefaultFormatFlags(outExt)
 	b.setUserFormatFlags()
@@ -68,7 +70,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setAudioCodec(ctx context.Context, currentACodec string) {
+func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) {
 	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
 		return
 	}
@@ -111,7 +113,8 @@ func (b *ffCommandBuilder) setAudioCodec(ctx context.Context, currentACodec stri
 	}
 
 	if len(b.audioCodec) == 2 {
-		if !b.checkFFmpegCodecs(ctx, b.audioCodec[1]) {
+		if !strings.Contains(currentACodec, availableCodecs) {
+			logging.W("Audio codec %q not available in FFmpeg build, falling back to software.", currentACodec)
 			b.audioCodec = nil
 		}
 	} else if b.audioCodec != nil {
@@ -121,7 +124,7 @@ func (b *ffCommandBuilder) setAudioCodec(ctx context.Context, currentACodec stri
 }
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setVideoSoftwareCodec(ctx context.Context) {
+func (b *ffCommandBuilder) setVideoSoftwareCodec(availableCodecs string) {
 	if !abstractions.IsSet(keys.TranscodeVideoCodec) {
 		return
 	}
@@ -148,25 +151,26 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(ctx context.Context) {
 	}
 
 	if len(b.videoCodecSoftware) == 2 {
-		if !b.checkFFmpegCodecs(ctx, b.videoCodecSoftware[1]) {
-			b.videoCodecSoftware = nil
+		if !strings.Contains(b.videoCodecSoftware[1], availableCodecs) {
+			logging.W("Video codec %q not available in FFmpeg build, falling back to software.", b.videoCodecSoftware[1])
+			b.audioCodec = nil
 		}
 	} else if b.videoCodecSoftware != nil {
-		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
+		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware[1])
 		b.videoCodecSoftware = nil
 	}
 }
 
-// checkFFmpegCodecs ensures the desired codec is available.
-func (b *ffCommandBuilder) checkFFmpegCodecs(ctx context.Context, codec string) (hasCodec bool) {
+// ffmpegCodecOutput ensures the desired codec is available.
+func (b *ffCommandBuilder) ffmpegCodecOutput(ctx context.Context) (output string) {
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
 	outBytes, err := cmd.Output()
 	result := strings.TrimSpace(string(outBytes))
-	if err != nil || !strings.Contains(result, codec) {
-		logging.W("Software Codec Failed: Desired encoder %q is not available in your FFmpeg build, using software.", codec)
-		return false
+	if err != nil {
+		logging.E("Codec Grab Failed: %v", err)
+		return ""
 	}
-	return true
+	return result
 }
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
@@ -190,7 +194,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 }
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
-func (b *ffCommandBuilder) setGPUAccelerationCodec(ctx context.Context, gpuFlag, transcodeCodec string) {
+func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec, availableCodecs string) {
 	if gpuFlag == consts.AccelTypeAuto {
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
 		return
@@ -205,7 +209,8 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(ctx context.Context, gpuFlag,
 	b.gpuAccelCodec = []string{"-c:v", gpuCodecString}
 
 	if sb.String() != "" {
-		if !b.checkFFmpegCodecs(ctx, gpuCodecString) {
+		if !strings.Contains(gpuCodecString, availableCodecs) {
+			logging.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
 			b.gpuAccelCodec = nil
 			b.gpuAccel = nil
 		}

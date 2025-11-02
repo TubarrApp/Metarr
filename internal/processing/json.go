@@ -24,9 +24,9 @@ import (
 var jsonEditMutexMap sync.Map
 
 // processJSONFile opens and processes a JSON file.
-func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData, error) {
+func processJSONFile(ctx context.Context, fd *models.FileData) error {
 	if fd == nil {
-		return nil, errors.New("model passed in null")
+		return errors.New("model passed in null")
 	}
 	logging.D(2, "Beginning JSON file processing...")
 
@@ -34,7 +34,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	value, _ := jsonEditMutexMap.LoadOrStore(filePath, &sync.Mutex{})
 	fileMutex, ok := value.(*sync.Mutex)
 	if !ok {
-		return nil, fmt.Errorf("internal error: mutex map corrupted for file %s", filePath)
+		return fmt.Errorf("internal error: mutex map corrupted for file %s", filePath)
 	}
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
@@ -43,7 +43,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
 	if err != nil {
 		logging.AddToErrorArray(err)
-		return nil, fmt.Errorf("failed to open file: %w", err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
@@ -57,10 +57,10 @@ func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	// Decode metadata from file
 	data, err := jsonRW.DecodeJSON(file)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if data == nil {
-		return nil, fmt.Errorf("json decoded nil for file %q", file.Name())
+		return fmt.Errorf("json decoded nil for file %q", file.Name())
 	}
 	logging.I("Got metadata from file: %v", data)
 
@@ -77,11 +77,11 @@ func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 
 	// Make metadata adjustments per user selection or transformation preset
 	if edited, err := jsonRW.MakeJSONEdits(file, fd); err != nil {
-		return nil, err
+		return err
 	} else if edited {
 		logging.D(2, "Refreshing JSON metadata after edits were made...")
 		if data, err = jsonRW.RefreshJSON(); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
@@ -108,7 +108,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 	// Must refresh JSON again after further edits
 	data, err = jsonRW.RefreshJSON()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Fill other metafields
@@ -135,7 +135,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) (*models.FileData
 		logging.I("Metadata already exists in target file %q", fd.OriginalVideoBaseName)
 		fd.MetaAlreadyExists = true
 	}
-	return fd, nil
+	return nil
 }
 
 // filetypeMetaCheckSwitch checks metadata matches by file extension (different extensions store different fields).

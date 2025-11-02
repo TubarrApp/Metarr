@@ -116,14 +116,13 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 			if err != nil {
 				logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
 			} else if rtn != nil {
-
 				data = rtn
-				return data, true
+				return data, filled
 			}
 			logging.D(1, "No descriptions were grabbed from scrape, returning original data map")
 		}
 	}
-	return data, false
+	return data, filled
 }
 
 // fillEmptyDescriptions fills empty description fields by inference

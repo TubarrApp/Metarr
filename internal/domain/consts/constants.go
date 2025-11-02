@@ -72,7 +72,7 @@ const (
 // TimeSfx is used as a time suffix format in metadata.
 const TimeSfx = "T00:00:00Z"
 
-// All valid video codecs.
+// ValidVideoCodecs contains all valid video codecs.
 var ValidVideoCodecs = []string{
 	VCodecAV1,
 	VCodecH264,
@@ -82,7 +82,7 @@ var ValidVideoCodecs = []string{
 	VCodecVP9,
 }
 
-// All valid audio codecs.
+// ValidAudioCodecs contains all valid audio codecs.
 var ValidAudioCodecs = []string{
 	ACodecAAC,
 	ACodecALAC,
