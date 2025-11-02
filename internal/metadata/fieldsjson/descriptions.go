@@ -55,7 +55,6 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 			}
 		}
 	}
-
 	printMap := make(map[string]string, len(fieldMap))
 	if logging.Level > 1 {
 		defer func() {
@@ -63,18 +62,6 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 				printout.PrintGrabbedFields("descriptions", printMap)
 			}
 		}()
-	}
-
-	// Fill with by inference
-	var fillWith string
-	for _, ptr := range fieldMap {
-		if ptr == nil {
-			continue
-		}
-		if *ptr != "" {
-			fillWith = *ptr
-			break
-		}
 	}
 
 	// Attempt to fill empty description fields by inference
@@ -85,8 +72,9 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 		}
 
 		if *ptr == "" {
-			*ptr = fillWith
-			filled = true
+			if fillEmptyDescriptions(ptr, fd.MTitleDesc) {
+				filled = true
+			}
 			if logging.Level > 1 {
 				printMap[k] = *ptr
 			}
@@ -97,9 +85,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 			}
 		}
 	}
-
 	if filled {
-
 		rtn, err := jsonRW.WriteJSON(fieldMap)
 		if err != nil {
 			logging.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
@@ -109,76 +95,69 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 			logging.E("Length of return value is 0, returning original data from descriptions functions")
 			return data, true
 		}
-
 		data = rtn
 		return data, true
 	}
 
-	if w.WebpageURL == "" {
-		logging.I("Page URL not found in data, so cannot scrape for missing description in %q", fd.MetaFilePath)
-		return data, false
-	}
-
-	description := browser.ScrapeMeta(w, enums.WebclassDescription)
-
-	// Infer remaining fields from description
-	if description != "" {
-
-		for _, ptr := range fieldMap {
-			if ptr == nil {
-				logging.E("Unexpected nil in descriptions fieldMap")
-				continue
+	// Attempt to scrape description from the webpage
+	if w.WebpageURL != "" {
+		description := browser.ScrapeMeta(w, enums.WebclassDescription)
+		if description != "" {
+			for _, ptr := range fieldMap {
+				if ptr == nil {
+					continue
+				}
+				if *ptr == "" {
+					*ptr = description
+					filled = true
+				}
 			}
+			rtn, err := jsonRW.WriteJSON(fieldMap)
+			if err != nil {
+				logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
+			} else if rtn != nil {
 
-			if *ptr == "" {
-				*ptr = description
+				data = rtn
+				return data, true
 			}
+			logging.D(1, "No descriptions were grabbed from scrape, returning original data map")
 		}
-
-		// Insert new scraped fields into file
-		rtn, err := jsonRW.WriteJSON(fieldMap)
-		if err != nil {
-			logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
-		} else if rtn != nil {
-
-			data = rtn
-			return data, true
-		}
-		logging.D(1, "No descriptions were grabbed from scrape, returning original data map")
 	}
 	return data, false
 }
 
-// // fillEmptyDescriptions fills empty description fields by inference
-// func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
+// fillEmptyDescriptions fills empty description fields by inference
+func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
+	if s == nil || d == nil {
+		logging.E("%s entered description string nil or MetadataTitlesDescs nil", consts.LogTagDevError)
+		return false
+	}
 
-// 	// Nil check and empty value check should be done in caller
-// 	filled := false
-// 	switch {
-// 	case d.LongDescription != "":
-// 		*s = d.LongDescription
-// 		filled = true
+	// Nil check and empty value check
+	switch {
+	case d.LongDescription != "":
+		*s = d.LongDescription
+		return true
 
-// 	case d.Long_Description != "":
-// 		*s = d.Long_Description
-// 		filled = true
+	case d.LongUnderscoreDescription != "":
+		*s = d.LongUnderscoreDescription
+		return true
 
-// 	case d.Description != "":
-// 		*s = d.Description
-// 		filled = true
+	case d.Description != "":
+		*s = d.Description
+		return true
 
-// 	case d.Synopsis != "":
-// 		*s = d.Synopsis
-// 		filled = true
+	case d.Synopsis != "":
+		*s = d.Synopsis
+		return true
 
-// 	case d.Summary != "":
-// 		*s = d.Summary
-// 		filled = true
+	case d.Summary != "":
+		*s = d.Summary
+		return true
 
-// 	case d.Comment != "":
-// 		*s = d.Comment
-// 		filled = true
-// 	}
-
-// 	return filled
-// }
+	case d.Comment != "":
+		*s = d.Comment
+		return true
+	}
+	return false
+}
