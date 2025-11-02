@@ -381,36 +381,47 @@ func ValidateMaxFilesize(m string) (string, error) {
 }
 
 // ValidateGPU validates the user input GPU selection.
-func ValidateGPU(g string) error {
+func ValidateGPU(g string) (accelType string, err error) {
 	g = strings.ToLower(g)
+	logging.I("Checking acceleration type %q", g)
 	switch g {
 	case consts.AccelTypeQSV, "intel":
 		abstractions.Set(keys.UseGPU, consts.AccelTypeQSV)
 		if err := checkDriverDirExists(g); err != nil {
-			return err
+			return consts.AccelTypeQSV, err
 		}
+		accelType = consts.AccelTypeQSV
+
 	case consts.AccelTypeVAAPI:
 		abstractions.Set(keys.UseGPU, consts.AccelTypeVAAPI)
 		if err := checkDriverDirExists(g); err != nil {
-			return err
+			return consts.AccelTypeVAAPI, err
 		}
+		accelType = consts.AccelTypeVAAPI
+
 	case consts.AccelTypeAMF, "amd", "radeon":
 		abstractions.Set(keys.UseGPU, consts.AccelTypeAMF)
 		if err := checkDriverDirExists(g); err != nil {
-			return err
+			return consts.AccelTypeAMF, err
 		}
-	case consts.AccelTypeNVENC, "cuda", "nvidia":
-		abstractions.Set(keys.UseGPU, consts.AccelTypeNVENC)
+		accelType = consts.AccelTypeAMF
+
+	case consts.AccelTypeNvidia, "nvidia":
+		abstractions.Set(keys.UseGPU, consts.AccelTypeNvidia)
 		if err := checkDriverDirExists(g); err != nil {
-			return err
+			return consts.AccelTypeNvidia, err
 		}
+		accelType = consts.AccelTypeNvidia
+
 	case consts.AccelTypeAuto, "automatic", "automate", "automated":
 		abstractions.Set(keys.UseGPU, consts.AccelTypeAuto)
-	default:
-		return fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
+		accelType = consts.AccelTypeAuto
 	}
 
-	return nil
+	if accelType == "" {
+		return "", fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
+	}
+	return accelType, nil
 }
 
 // checkDriverDirExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
@@ -448,7 +459,7 @@ func ValidateVideoCodec(c string) error {
 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
 				abstractions.Set(keys.UseGPU, "")
 			}
-		case consts.AccelTypeNVENC:
+		case consts.AccelTypeNvidia:
 			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
 				abstractions.Set(keys.UseGPU, "")
@@ -573,33 +584,16 @@ func ValidateAudioCodec(c string) error {
 }
 
 // ValidateTranscodeQuality validates the transcode quality preset.
-func ValidateTranscodeQuality(q string) error {
+func ValidateTranscodeQuality(q string, accelType string) error {
 	q = strings.ToLower(q)
 	q = strings.ReplaceAll(q, " ", "")
-
-	switch q {
-	case "p1", "p2", "p3", "p4", "p5", "p6", "p7":
-		logging.I("Got transcode quality profile %q", q)
-		abstractions.Set(keys.TranscodeQuality, q)
-		return nil
-	}
-	qNum, err := strconv.Atoi(q)
+	qNum, err := strconv.ParseInt(q, 10, 64)
 	if err != nil {
-		return fmt.Errorf("input should be p1 to p7, validation of transcoder quality failed")
+		return fmt.Errorf("transcode quality input should be numerical")
 	}
+	qNum = min(max(qNum, 0), 51)
 
-	var qualProf string
-	switch {
-	case qNum < 0:
-		qualProf = "p1"
-	case qNum > 7:
-		qualProf = "p7"
-	default:
-		qualProf = "p" + strconv.Itoa(qNum)
-	}
-	logging.I("Got transcode quality profile %q", qualProf)
-
-	abstractions.Set(keys.TranscodeQuality, qualProf)
+	abstractions.Set(keys.TranscodeQuality, strconv.FormatInt(qNum, 10))
 	return nil
 }
 

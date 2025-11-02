@@ -2,55 +2,72 @@ package consts
 
 // AV codec copy.
 var (
-	AVCodecCopy = [...]string{"-c:v", "copy", "-c:a", "copy", "-c:s", "copy", "-c:d", "copy"}
+	AVCodecCopy = [...]string{FFmpegCV, "copy", FFmpegCA, "copy", FFmpegCS, "copy", FFmpegCD, "copy"}
 )
 
 // Audio flags.
-var (
-	AudioCodecCopy = [...]string{"-c:a", "copy"}
-	AudioToAAC     = [...]string{"-c:a", "aac"}
-	AudioToAC3     = [...]string{"-c:a", "ac3"}
-	AudioToALAC    = [...]string{"-c:a", "alac"}
-	AudioToDTS     = [...]string{"-c:a", "dts"}
-	AudioToEAC3    = [...]string{"-c:a", "eac3"}
-	AudioToFLAC    = [...]string{"-c:a", "flac"}
-	AudioToMP2     = [...]string{"-c:a", "mp2"}
-	AudioToMP3     = [...]string{"-c:a", "libmp3lame"}
-	AudioToOpus    = [...]string{"-c:a", "libopus"}
-	AudioToPCM     = [...]string{"-c:a", "pcm_s16le"}
-	AudioToTrueHD  = [...]string{"-c:a", "truehd"}
-	AudioToVorbis  = [...]string{"-c:a", "libvorbis"}
-	AudioToWAV     = [...]string{"-c:a", "pcm_s16le"}
+const (
+	AudioCodecCopy = "copy"
+	AudioToAAC     = "aac"
+	AudioToAC3     = "ac3"
+	AudioToALAC    = "alac"
+	AudioToDTS     = "dts"
+	AudioToEAC3    = "eac3"
+	AudioToFLAC    = "flac"
+	AudioToMP2     = "mp2"
+	AudioToMP3     = "libmp3lame"
+	AudioToOpus    = "libopus"
+	AudioToPCM     = "pcm_s16le"
+	AudioToTrueHD  = "truehd"
+	AudioToVorbis  = "libvorbis"
+	AudioToWAV     = "pcm_s16le"
 )
 
 // Video codecs.
-var (
-	VideoCodecCopy = [...]string{"-c:v", "copy"}
-	VideoToAV1     = [...]string{"-c:v", "libsvtav1"}
-	VideoToH264    = [...]string{"-c:v", "libx264"}
-	VideoToH265    = [...]string{"-c:v", "libx265"}
-	VideoToMPEG2   = [...]string{"-c:v", "mpeg2video"}
-	VideoToVP8     = [...]string{"-c:v", "libvpx"}
-	VideoToVP9     = [...]string{"-c:v", "libvpx-vp9"}
+const (
+	VideoCodecCopy = "copy"
+	VideoToAV1     = "libsvtav1"
+	VideoToH264    = "libx264"
+	VideoToH265    = "libx265"
+	VideoToMPEG2   = "mpeg2video"
+	VideoToVP8     = "libvpx"
+	VideoToVP9     = "libvpx-vp9"
 )
 
 // Video preset strings.
 var (
-	VideoToH264Balanced = [...]string{"-c:v", "libx264", "-profile:v", "main"}
-	CRFQuality          = [...]string{"-crf", "20", "-preset", "slow"}
+	VideoToH264Balanced = [...]string{FFmpegCV, "libx264", "-profile:v", "main"}
+	CRFQuality          = [...]string{FFmpegCRF, "20", "-preset", "slow"}
 	PixelFmtYuv420p     = [...]string{"-pix_fmt", "yuv420p"}
 )
 
-// GPU hardware flags.
-var (
-	AccelFlagAuto   = []string{"-hwaccel", "auto"}
-	AccelFlagAMF    = []string{"-hwaccel", "amf"}
-	AccelFlagNvidia = [...]string{"-hwaccel", "cuda"}
-	AccelFlagVAAPI  = [...]string{"-hwaccel", "vaapi"}
-	AccelFlagIntel  = [...]string{"-hwaccel", "qsv"}
+// Accel types.
+const (
+	AccelTypeAMF    = "amf"
+	AccelTypeAuto   = "auto"
+	AccelTypeNvidia = "cuda"
+	AccelTypeVAAPI  = "vaapi"
+	AccelTypeQSV    = "qsv"
 )
 
-// HW Accel Flags.
+// Command constants
+const (
+	FFmpegCA                  = "-c:a"
+	FFmpegCD                  = "-c:d"
+	FFmpegCS                  = "-c:s"
+	FFmpegCT                  = "-c:t"
+	FFmpegCV                  = "-c:v"
+	FFmpegHWAccel             = "-hwaccel"
+	FFmpegHWAccelOutputFormat = "-hwaccel_output_format"
+	FFmpegDeviceHW            = "-hwaccel_device"
+	FFmpegDeviceQSV           = "-qsv_device"
+	FFmpegDeviceVAAPI         = "-vaapi_device"
+	FFmpegVF                  = "-vf"
+	FFmpegCRF                 = "-crf"
+)
+
+// Compatability for HW acceleration types.
 var (
-	VaapiCompatibility = []string{"-vf", "format=nv12,hwupload"}
+	VAAPICompatability = []string{"format=nv12|vaapi,hwupload"}
+	CudaCompatability  = []string{"hwdownload,format=nv12,hwupload_cuda"}
 )

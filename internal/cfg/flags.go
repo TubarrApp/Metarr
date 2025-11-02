@@ -28,14 +28,14 @@ func initFilesDirs() error {
 		return err
 	}
 
-	// JSON
-	rootCmd.PersistentFlags().StringSliceP(keys.JSONDirs, "j", nil, "A directory containing JSON metadata files")
-	if err := viper.BindPFlag(keys.JSONDirs, rootCmd.PersistentFlags().Lookup(keys.JSONDirs)); err != nil {
+	// Metafiles
+	rootCmd.PersistentFlags().StringSliceP(keys.MetaDirs, "m", nil, "A directory containing metadata files")
+	if err := viper.BindPFlag(keys.MetaDirs, rootCmd.PersistentFlags().Lookup(keys.MetaDirs)); err != nil {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringSliceP(keys.JSONFiles, "J", nil, "A JSON metadata file")
-	if err := viper.BindPFlag(keys.JSONFiles, rootCmd.PersistentFlags().Lookup(keys.JSONFiles)); err != nil {
+	rootCmd.PersistentFlags().StringSliceP(keys.MetaFiles, "M", nil, "A metadata file")
+	if err := viper.BindPFlag(keys.MetaFiles, rootCmd.PersistentFlags().Lookup(keys.MetaFiles)); err != nil {
 		return err
 	}
 
@@ -62,7 +62,7 @@ func initResourceRelated() error {
 	}
 
 	// Min memory
-	rootCmd.PersistentFlags().StringP(keys.MinFreeMemInput, "m", "0", "Minimum free RAM to start process")
+	rootCmd.PersistentFlags().String(keys.MinFreeMemInput, "0", "Minimum free RAM to start process")
 	if err := viper.BindPFlag(keys.MinFreeMemInput, rootCmd.PersistentFlags().Lookup(keys.MinFreeMemInput)); err != nil {
 		return err
 	}

@@ -6,8 +6,8 @@ const (
 	BatchPairsInput string = "batch-pairs"
 	VideoDirs       string = "video-directory"
 	VideoFiles      string = "video-file"
-	JSONDirs        string = "json-directory"
-	JSONFiles       string = "json-file"
+	MetaDirs        string = "meta-directory"
+	MetaFiles       string = "meta-file"
 	MetaPurge       string = "purge-metafile"
 
 	ConfigPath string = "config-file"

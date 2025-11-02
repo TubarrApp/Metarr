@@ -21,18 +21,18 @@ var (
 )
 
 // getFileDirs returns files and directories entered by the user.
-func getFileDirs() (videoDirs, videoFiles, jsonDirs, jsonFiles []string, err error) {
+func getFileDirs() (videoDirs, videoFiles, metaDirs, metaFiles []string, err error) {
 	if abstractions.IsSet(keys.VideoFiles) {
 		videoFiles = abstractions.GetStringSlice(keys.VideoFiles)
 	}
 	if abstractions.IsSet(keys.VideoDirs) {
 		videoDirs = abstractions.GetStringSlice(keys.VideoDirs)
 	}
-	if abstractions.IsSet(keys.JSONFiles) {
-		jsonFiles = abstractions.GetStringSlice(keys.JSONFiles)
+	if abstractions.IsSet(keys.MetaFiles) {
+		metaFiles = abstractions.GetStringSlice(keys.MetaFiles)
 	}
-	if abstractions.IsSet(keys.JSONDirs) {
-		jsonDirs = abstractions.GetStringSlice(keys.JSONDirs)
+	if abstractions.IsSet(keys.MetaDirs) {
+		metaDirs = abstractions.GetStringSlice(keys.MetaDirs)
 	}
 
 	// Check batch pairs.
@@ -43,8 +43,8 @@ func getFileDirs() (videoDirs, videoFiles, jsonDirs, jsonFiles []string, err err
 		}
 		videoDirs = append(videoDirs, batchPairs.VideoDirs...)
 		videoFiles = append(videoFiles, batchPairs.VideoFiles...)
-		jsonDirs = append(jsonDirs, batchPairs.MetaDirs...)
-		jsonFiles = append(jsonFiles, batchPairs.MetaFiles...)
+		metaDirs = append(metaDirs, batchPairs.MetaDirs...)
+		metaFiles = append(metaFiles, batchPairs.MetaFiles...)
 	}
 
 	if err := ensureNoColons(videoDirs); err != nil {
@@ -53,15 +53,15 @@ func getFileDirs() (videoDirs, videoFiles, jsonDirs, jsonFiles []string, err err
 	if err := ensureNoColons(videoFiles); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := ensureNoColons(jsonDirs); err != nil {
+	if err := ensureNoColons(metaDirs); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := ensureNoColons(jsonFiles); err != nil {
+	if err := ensureNoColons(metaFiles); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	videoDirs, videoFiles, jsonDirs, jsonFiles = getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles)
-	return videoDirs, videoFiles, jsonDirs, jsonFiles, nil
+	videoDirs, videoFiles, metaDirs, metaFiles = getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles)
+	return videoDirs, videoFiles, metaDirs, metaFiles, nil
 }
 
 // ensureNoColons returns an error if any file or folder names in the slice contain colons, FFmpeg cannot handle them properly.
@@ -75,11 +75,11 @@ func ensureNoColons(slice []string) error {
 }
 
 // getValidFileDirs checks for validity of files and directories, with fallback handling.
-func getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles []string) (vDirs, vFiles, jDirs, jFiles []string) {
+func getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles []string) (vDirs, vFiles, mDirs, mFiles []string) {
 	vDirs, misplacedVFiles := validatePaths("video directory", videoDirs)
 	misplacedVDirs, vFiles := validatePaths("video file", videoFiles)
-	jDirs, misplacedJFiles := validatePaths("JSON directory", jsonDirs)
-	misplacedJDirs, jFiles := validatePaths("JSON file", jsonFiles)
+	mDirs, misplacedMFiles := validatePaths("Metadata directory", metaDirs)
+	misplacedMDirs, mFiles := validatePaths("Metadata file", metaFiles)
 
 	// Log and reassign misplaced entries
 	for _, f := range misplacedVFiles {
@@ -90,16 +90,15 @@ func getValidFileDirs(videoDirs, videoFiles, jsonDirs, jsonFiles []string) (vDir
 		logging.W("User entered directory %q as file, appending to video directories", d)
 		vDirs = append(vDirs, d)
 	}
-	for _, f := range misplacedJFiles {
-		logging.W("User entered file %q as directory, appending to valid JSON files", f)
-		jFiles = append(jFiles, f)
+	for _, f := range misplacedMFiles {
+		logging.W("User entered file %q as directory, appending to valid metadata files", f)
+		mFiles = append(mFiles, f)
 	}
-	for _, d := range misplacedJDirs {
-		logging.W("User entered directory %q as file, appending to valid JSON directories", d)
-		jDirs = append(jDirs, d)
+	for _, d := range misplacedMDirs {
+		logging.W("User entered directory %q as file, appending to valid metadata directories", d)
+		mDirs = append(mDirs, d)
 	}
-
-	return vDirs, vFiles, jDirs, jFiles
+	return vDirs, vFiles, mDirs, mFiles
 }
 
 // validatePaths checks whether each path in 'paths' is a directory or file.

@@ -60,15 +60,6 @@ const (
 	ACodecWAV    = "wav"
 )
 
-// Accel types.
-const (
-	AccelTypeAMF   = "amf"
-	AccelTypeAuto  = "auto"
-	AccelTypeNVENC = "nvenc"
-	AccelTypeVAAPI = "vaapi"
-	AccelTypeQSV   = "qsv"
-)
-
 // TimeSfx is used as a time suffix format in metadata.
 const TimeSfx = "T00:00:00Z"
 

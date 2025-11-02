@@ -2,12 +2,11 @@ package ffmpeg
 
 import (
 	"metarr/internal/domain/consts"
-	"metarr/internal/utils/logging"
 )
 
 // formatPreset holds a pre-calculated set of ffmpeg flags
 type formatPreset struct {
-	flags []string
+	flags map[string]string
 }
 
 var unsafeHardwareEncode = map[string]map[string]bool{
@@ -20,31 +19,46 @@ var unsafeHardwareEncode = map[string]map[string]bool{
 var (
 	// Direct copy preset
 	copyPreset = formatPreset{
-		flags: consts.AVCodecCopy[:],
+		flags: map[string]string{
+			consts.FFmpegCV: "copy",
+			consts.FFmpegCA: "copy",
+			consts.FFmpegCS: "copy",
+			consts.FFmpegCD: "copy",
+			consts.FFmpegCT: "copy",
+		},
 	}
 
 	// Standard h264 conversion
 	h264Preset = formatPreset{
-		flags: concat(
-			consts.VideoToH264[:],
-			consts.AudioToAAC[:],
-		),
+		flags: map[string]string{
+			consts.FFmpegCV: "libx264",
+			consts.FFmpegCA: "copy",
+			consts.FFmpegCS: "copy",
+			consts.FFmpegCD: "copy",
+			consts.FFmpegCT: "copy",
+		},
 	}
 
 	// Video copy with AAC audio
 	videoCopyAACPreset = formatPreset{
-		flags: concat(
-			consts.VideoCodecCopy[:],
-			consts.AudioToAAC[:],
-		),
+		flags: map[string]string{
+			consts.FFmpegCV: "copy",
+			consts.FFmpegCA: "aac",
+			consts.FFmpegCS: "copy",
+			consts.FFmpegCD: "copy",
+			consts.FFmpegCT: "copy",
+		},
 	}
 
 	// Full webm conversion preset
 	webmPreset = formatPreset{
-		flags: concat(
-			consts.VideoToH264[:],
-			consts.AudioToAAC[:],
-		),
+		flags: map[string]string{
+			consts.FFmpegCV: "libx264",
+			consts.FFmpegCA: "copy",
+			consts.FFmpegCS: "copy",
+			consts.FFmpegCD: "copy",
+			consts.FFmpegCT: "copy",
+		},
 	}
 )
 
@@ -75,20 +89,4 @@ var formatMap = map[string]map[string]formatPreset{
 		consts.ExtMP4:  copyPreset,
 		"*":            webmPreset,
 	},
-}
-
-// concat combines multiple string slices into one
-func concat(slices ...[]string) []string {
-	var totalLen int
-	for _, s := range slices {
-		totalLen += len(s)
-	}
-
-	result := make([]string, 0, totalLen)
-	for _, s := range slices {
-		result = append(result, s...)
-	}
-
-	logging.D(2, "Made format flag array %v", result)
-	return result
 }

@@ -123,8 +123,8 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	var (
-		desiredVCodec, desiredACodec           string
-		differentExt, metaExists, codecsDiffer bool
+		desiredVCodec, desiredACodec string
+		differentExt, codecsDiffer   bool
 	)
 
 	// Check for extension difference
@@ -157,13 +157,12 @@ func skipProcessing(fd *models.FileData, outExt string) bool {
 	}
 
 	// Check if metadata already exists
-	metaExists = fd.MetaAlreadyExists
-	if !metaExists {
+	if !fd.MetaAlreadyExists {
 		logging.D(2, "Metadata mismatch in file %q", fd.OriginalVideoPath)
 	}
 
 	// Final checks
-	if !codecsDiffer && !differentExt && metaExists {
+	if !codecsDiffer && !differentExt && fd.MetaAlreadyExists {
 
 		logging.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoPath)
 		origPath := fd.OriginalVideoPath

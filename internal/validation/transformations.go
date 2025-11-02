@@ -16,7 +16,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 	if len(metaOpsInput) == 0 {
 		return nil
 	}
-	const invalidWarning = "Removing invalid meta operation %q. (Correct format style: 'title:prefix:[DOG CLIPS] ', 'title:date-tag:prefix:ymd')"
+	const invalidWarning = "removing invalid meta operation %q. (Correct format style: 'title:prefix:[DOG CLIPS] ', 'title:date-tag:prefix:ymd')"
 
 	ops := models.NewMetaOps()
 	validOpsForPrintout := make([]string, 0, len(metaOpsInput))
@@ -24,8 +24,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 	for _, op := range metaOpsInput {
 		parts := EscapedSplit(op, ':')
 		if len(parts) < 3 || len(parts) > 4 {
-			logging.W(invalidWarning, op)
-			continue
+			return fmt.Errorf(invalidWarning, op)
 		}
 
 		field := parts[0]
@@ -109,8 +108,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				case "suffix":
 					dateTagLocation = enums.DateTagLocSuffix
 				default:
-					logging.E("date tag location must be prefix, or suffix, skipping op %v", op)
-					continue
+					return fmt.Errorf("date tag location must be prefix, or suffix, skipping op %v", op)
 				}
 				e, err := dateEnum(dateFmt)
 				if err != nil {
@@ -136,8 +134,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				case "all":
 					dateTagLocation = enums.DateTagLocAll
 				default:
-					logging.E("date tag location must be prefix, suffix, pr all. Skipping op %v", op)
-					continue
+					return fmt.Errorf("date tag location must be prefix, suffix, pr all. Skipping op %v", op)
 				}
 				e, err := dateEnum(dateFmt)
 				if err != nil {
@@ -174,12 +171,10 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
 
 			default:
-				logging.E(invalidWarning, op)
-				continue
+				return fmt.Errorf(invalidWarning, op)
 			}
 		default:
-			logging.E(invalidWarning, op)
-			continue
+			return fmt.Errorf(invalidWarning, op)
 		}
 	}
 	if len(validOpsForPrintout) == 0 {
@@ -198,7 +193,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 		logging.D(2, "No filename operations to add.")
 		return nil
 	}
-	const invalidWarning = "Removing invalid filename operation %q. (Correct format style: 'prefix:[COOL VIDEOS] ', 'date-tag:prefix:ymd')"
+	const invalidWarning = "removing invalid filename operation %q. (Correct format style: 'prefix:[COOL VIDEOS] ', 'date-tag:prefix:ymd')"
 
 	fOpModel := models.NewFilenameOps()
 	validOpsForPrintout := make([]string, 0, len(filenameOpsInput))
@@ -206,8 +201,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 	for _, op := range filenameOpsInput {
 		parts := EscapedSplit(op, ':')
 		if len(parts) < 2 || len(parts) > 3 {
-			logging.W(invalidWarning, op)
-			continue
+			return fmt.Errorf(invalidWarning, op)
 		}
 		operation := parts[0]
 		switch len(parts) {
@@ -230,8 +224,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 
 			case "set":
 				if fOpModel.Set.IsSet {
-					logging.E("Only one set operation can be run per batch. Skipping operation %q.", op)
-					continue
+					return fmt.Errorf("only one set operation can be run per batch. Skipping operation %q", op)
 				}
 				fOpModel.Set = models.FOpSet{
 					IsSet: true,
@@ -243,8 +236,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 			switch strings.ToLower(operation) {
 			case "date-tag":
 				if fOpModel.DateTag.DateFormat != enums.DateFmtSkip {
-					logging.W("Only one date tag accepted per run to prevent user error")
-					continue
+					return fmt.Errorf("only one date tag accepted per run to prevent user error")
 				}
 				tagLoc := parts[1]
 				dateFmt := parts[2]
@@ -255,13 +247,11 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				case "suffix":
 					tagLocEnum = enums.DateTagLocSuffix
 				default:
-					logging.E("Invalid filename date tag entry. Should be 'date-tag:prefix/suffix:ymd'")
-					continue
+					return fmt.Errorf("invalid filename date tag entry. Should be 'date-tag:prefix/suffix:ymd'")
 				}
 				e, err := dateEnum(dateFmt)
 				if err != nil {
-					logging.E("Invalid date format, should be 'ymd', 'Ydm' (etc)")
-					continue
+					return fmt.Errorf("invalid date format, should be 'ymd', 'Ydm' (etc)")
 				}
 				fOpModel.DateTag = models.FOpDateTag{
 					Loc:        tagLocEnum,
@@ -272,8 +262,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 
 			case "delete-date-tag":
 				if fOpModel.DeleteDateTags.DateFormat != enums.DateFmtSkip {
-					logging.W("Only one delete date tag accepted, try using 'all' to replace all instances")
-					continue
+					return fmt.Errorf("only one delete date tag accepted, try using 'all' to replace all instances")
 				}
 				tagLoc := parts[1]
 				dateFmt := parts[2]
@@ -286,13 +275,11 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				case "all":
 					tagLocEnum = enums.DateTagLocAll
 				default:
-					logging.E("Invalid filename delete-date-tag entry. Should be 'delete-date-tag:prefix/suffix/all:ymd'")
-					continue
+					return fmt.Errorf("invalid filename delete-date-tag entry. Should be 'delete-date-tag:prefix/suffix/all:ymd'")
 				}
 				e, err := dateEnum(dateFmt)
 				if err != nil {
-					logging.E("Invalid date format, should be 'ymd', 'Ydm' (etc)")
-					continue
+					return fmt.Errorf("invalid date format, should be 'ymd', 'Ydm' (etc)")
 				}
 				fOpModel.DeleteDateTags = models.FOpDeleteDateTag{
 					Loc:        tagLocEnum,
@@ -332,8 +319,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
 
 			default:
-				logging.E(invalidWarning, op)
-				continue
+				return fmt.Errorf(invalidWarning, op)
 			}
 		}
 	}

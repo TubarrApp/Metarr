@@ -53,7 +53,7 @@ func init() {
 }
 
 // execute more thoroughly handles settings created in the Viper init.
-func execute() error {
+func execute() (err error) {
 	// Batch pairs
 	if viper.IsSet(keys.BatchPairsInput) {
 		if err := validation.ValidateBatchPairs(viper.GetStringSlice(keys.BatchPairsInput)); err != nil {
@@ -112,8 +112,9 @@ func execute() error {
 	}
 
 	// Parse GPU settings and set commands
+	var accelType string
 	if viper.IsSet(keys.UseGPU) {
-		if err := validation.ValidateGPU(viper.GetString(keys.UseGPU)); err != nil {
+		if accelType, err = validation.ValidateGPU(viper.GetString(keys.UseGPU)); err != nil {
 			return err
 		}
 	}
@@ -123,7 +124,7 @@ func execute() error {
 		}
 	}
 	if viper.IsSet(keys.TranscodeQuality) {
-		if err := validation.ValidateTranscodeQuality(viper.GetString(keys.TranscodeQuality)); err != nil {
+		if err := validation.ValidateTranscodeQuality(viper.GetString(keys.TranscodeQuality), accelType); err != nil {
 			return err
 		}
 	}
