@@ -56,7 +56,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	// Get GPU flags/codecs
 	accelType, transcodeCodec, useHW := b.getHWAccelFlags()
 	if useHW {
-		b.setGPUAcceleration(accelType, transcodeCodec, currentVCodec)
+		b.setGPUAcceleration(accelType)
 		b.setGPUAccelerationCodec(accelType, transcodeCodec, availableCodecs)
 	}
 
@@ -182,14 +182,14 @@ func (b *ffCommandBuilder) ffmpegCodecOutput(ctx context.Context) (output string
 }
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
-func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag, transcodeCodec, currentVCodec string) {
+func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 	var transcodeDir string
 	if abstractions.IsSet(keys.TranscodeDeviceDir) {
 		transcodeDir = abstractions.GetString(keys.TranscodeDeviceDir)
 	}
 
-	logging.I("Got GPU flag: %q", gpuFlag)
-	switch gpuFlag {
+	logging.I("Got GPU flag: %q", accelType)
+	switch accelType {
 	case consts.AccelTypeAuto:
 		b.gpuAccel = []string{consts.FFmpegHWAccel, consts.AccelTypeAuto}
 
@@ -197,7 +197,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag, transcodeCodec, currentVC
 		if transcodeDir != "" {
 			b.gpuAccel = []string{
 				consts.FFmpegHWAccel, consts.AccelTypeNvidia,
-				consts.FFmpegHWAccelOutputFormat, "cuda",
+				consts.FFmpegHWAccelOutputFormat, consts.AccelTypeNvidia,
 			}
 			devNumber := strings.TrimPrefix(transcodeDir, "/dev/nvidia")
 			if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil
@@ -205,11 +205,8 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag, transcodeCodec, currentVC
 			} else {
 				logging.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
 			}
-
-			if transcodeCodec != currentVCodec {
-				b.gpuCompatability = append(b.gpuCompatability, consts.FFmpegVF)
-				b.gpuCompatability = append(b.gpuCompatability, consts.CudaCompatability...)
-			}
+			b.gpuCompatability = append(b.gpuCompatability, consts.FFmpegVF)
+			b.gpuCompatability = append(b.gpuCompatability, consts.CudaCompatability...)
 		}
 
 	case consts.AccelTypeQSV:
@@ -233,29 +230,27 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag, transcodeCodec, currentVC
 		}
 
 	default:
-		logging.E("Invalid hardware transcode flag %q, using software transcode...", gpuFlag)
+		logging.E("Invalid hardware transcode flag %q, using software transcode...", accelType)
 		return
 	}
 }
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, transcodeCodec, availableCodecs string) {
-	var useGPUflag string
-	switch accelType {
-	case consts.AccelTypeAuto:
+	if accelType == "" || accelType == consts.AccelTypeAuto {
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
 		return
-	case consts.AccelTypeNvidia:
-		useGPUflag = "nvenc"
-	default:
-		useGPUflag = accelType
 	}
 
 	sb := strings.Builder{}
-	sb.Grow(len(transcodeCodec) + 1 + len(useGPUflag))
+	sb.Grow(len(transcodeCodec) + 1 + len(accelType))
 	sb.WriteString(transcodeCodec)
 	sb.WriteByte('_')
-	sb.WriteString(useGPUflag)
+	if accelType == consts.AccelTypeNvidia {
+		sb.WriteString(consts.AccelFlagNvenc)
+	} else {
+		sb.WriteString(accelType)
+	}
 
 	gpuCodecString := sb.String()
 	b.gpuAccelCodec = []string{consts.FFmpegCV, gpuCodecString}

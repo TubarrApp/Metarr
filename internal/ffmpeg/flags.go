@@ -10,9 +10,9 @@ type formatPreset struct {
 }
 
 var unsafeHardwareEncode = map[string]map[string]bool{
-	"cuda":  {"mjpeg": true}, // hypothetical crashes
-	"vaapi": {"vp8": true, "vp9": true, "av1": true},
-	"qsv":   {"vp8": true, "vp9": true, "av1": true},
+	consts.AccelTypeNvidia: {"mjpeg": true}, // hypothetical crashes
+	consts.AccelTypeVAAPI:  {"vp8": true, "vp9": true, "av1": true},
+	consts.AccelTypeQSV:    {"vp8": true, "vp9": true, "av1": true},
 }
 
 // Presets for transcoding.

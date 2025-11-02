@@ -303,7 +303,6 @@ func WarnMalformedKeys() {
 
 // ValidateInputFiletypes checks that the inputted filetypes are accepted.
 func ValidateInputFiletypes(argsVInputExts, argsMInputExts []string) {
-	// Video extensions
 	inputVExts := make([]string, 0, len(argsVInputExts))
 	for _, data := range argsVInputExts {
 		// Normalize
@@ -406,7 +405,7 @@ func ValidateGPU(g string) (accelType string, err error) {
 		}
 		accelType = consts.AccelTypeAMF
 
-	case consts.AccelTypeNvidia, "nvidia":
+	case consts.AccelTypeNvidia, "nvidia", consts.AccelFlagNvenc:
 		abstractions.Set(keys.UseGPU, consts.AccelTypeNvidia)
 		if err := checkDriverDirExists(g); err != nil {
 			return consts.AccelTypeNvidia, err

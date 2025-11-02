@@ -50,6 +50,11 @@ const (
 	AccelTypeQSV    = "qsv"
 )
 
+// Accel flags.
+const (
+	AccelFlagNvenc = "nvenc"
+)
+
 // Command constants
 const (
 	FFmpegCA                  = "-c:a"

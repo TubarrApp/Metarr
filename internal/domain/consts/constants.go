@@ -35,6 +35,7 @@ const (
 
 // Video codecs.
 const (
+	VCodecCopy  = "copy"
 	VCodecAV1   = "av1"
 	VCodecH264  = "h264"
 	VCodecHEVC  = "hevc"
@@ -45,6 +46,7 @@ const (
 
 // Audio codecs.
 const (
+	ACodecCopy   = "copy"
 	ACodecAAC    = "aac"
 	ACodecAC3    = "ac3"
 	ACodecALAC   = "alac"
@@ -65,6 +67,7 @@ const TimeSfx = "T00:00:00Z"
 
 // ValidVideoCodecs contains all valid video codecs.
 var ValidVideoCodecs = []string{
+	VCodecCopy,
 	VCodecAV1,
 	VCodecH264,
 	VCodecHEVC,
@@ -75,6 +78,7 @@ var ValidVideoCodecs = []string{
 
 // ValidAudioCodecs contains all valid audio codecs.
 var ValidAudioCodecs = []string{
+	ACodecCopy,
 	ACodecAAC,
 	ACodecALAC,
 	ACodecDTS,
