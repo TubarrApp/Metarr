@@ -119,7 +119,7 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) 
 		}
 	} else if b.audioCodec != nil {
 		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.audioCodec)
-		b.audioCodec = consts.AudioCodecCopy[:]
+		b.audioCodec = nil
 	}
 }
 
@@ -146,7 +146,7 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 		b.videoCodecSoftware = consts.VideoToVP8[:]
 	case consts.VCodecVP9:
 		b.videoCodecSoftware = consts.VideoToVP9[:]
-	case currentVCodec:
+	case currentVCodec, "":
 		b.videoCodecSoftware = consts.VideoCodecCopy[:]
 	default:
 		b.videoCodecSoftware = nil
@@ -158,7 +158,7 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 			b.videoCodecSoftware = consts.VideoCodecCopy[:]
 		}
 	} else if b.videoCodecSoftware != nil {
-		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware[1])
+		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
 }
@@ -198,7 +198,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(gpuFlag string) {
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec, availableCodecs string) {
 	if gpuFlag == consts.AccelTypeAuto {
-		logging.D(2, "Using 'auto' HW acceleration, will use a standard codec (e.g. libx264 rather than guessing h264_vaapi)")
+		logging.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
 		return
 	}
 	sb := strings.Builder{}
@@ -210,12 +210,10 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(gpuFlag, transcodeCodec, avai
 	gpuCodecString := sb.String()
 	b.gpuAccelCodec = []string{"-c:v", gpuCodecString}
 
-	if sb.String() != "" {
-		if !strings.Contains(availableCodecs, gpuCodecString) {
-			logging.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
-			b.gpuAccelCodec = nil
-			b.gpuAccel = nil
-		}
+	if !strings.Contains(availableCodecs, gpuCodecString) {
+		logging.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
+		b.gpuAccelCodec = nil
+		b.gpuAccel = nil
 	}
 	if b.gpuAccel != nil && b.gpuAccelCodec != nil {
 		command := append(b.gpuAccel, b.gpuAccelCodec...)
@@ -245,21 +243,24 @@ func (b *ffCommandBuilder) getHWAccelFlags() (gpuFlag, vCodec string, useHWAccel
 
 	// GPU flag but no codec
 	if gpuFlag != consts.AccelTypeAuto && transcodeVideoCodec == "" {
-		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag, transcodeVideoCodec)
+		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", gpuFlag)
 		return "", "", false
 	}
 
 	if gpuMap, exists := unsafeHardwareEncode[gpuFlag]; exists {
 		if unsafe, ok := gpuMap[transcodeVideoCodec]; ok && unsafe {
-			logging.I("Codec in input file %v is %v, which is not reliably safe for hardware transcoding of type %v. Falling back to software transcode.", b.inputFile, vCodec, gpuFlag)
+			logging.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.", b.inputFile, transcodeVideoCodec, gpuFlag)
 			return "", "", false
 		}
 	}
 
-	if transcodeVideoCodec != "" {
+	switch {
+	case transcodeVideoCodec != "" && gpuFlag != "":
 		return gpuFlag, transcodeVideoCodec, true
-	} else {
-		return gpuFlag, "copy", true
+	case gpuFlag == consts.AccelTypeAuto:
+		return gpuFlag, "", true
+	default:
+		return "", "", false
 	}
 }
 
@@ -302,7 +303,7 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 		case "-c:v":
 			// HW Accel Case
 			if len(b.gpuAccelCodec) == 2 {
-				if len(b.formatFlags) >= i {
+				if len(b.formatFlags) > i {
 					logging.I("Replacing preset %q with user selected %q", b.formatFlags[i+1], b.gpuAccelCodec[1])
 					b.formatFlags[i+1] = b.gpuAccelCodec[1]
 
@@ -332,7 +333,7 @@ func (b *ffCommandBuilder) setUserFormatFlags() {
 			}
 		case "-c:a":
 			if len(b.audioCodec) == 2 {
-				if len(b.formatFlags) >= i {
+				if len(b.formatFlags) > i {
 					b.formatFlags[i+1] = b.audioCodec[1]
 				} else {
 					logging.E("Unexpected end of format flags, %s needs an argument", entry)
@@ -412,7 +413,7 @@ func (b *ffCommandBuilder) calculateCommandCapacity(gpuFlag string) int {
 	}
 
 	if abstractions.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 1 + len(abstractions.GetString(keys.TranscodeVideoFilter)) // "-vf" and flag
+		totalCapacity += 2 // "-vf" and flag
 	}
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
