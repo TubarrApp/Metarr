@@ -464,6 +464,7 @@ func ValidateVideoCodec(c string) error {
 				abstractions.Set(keys.UseGPU, "")
 			}
 		}
+		logging.I("Setting video codec type: %q", c)
 		abstractions.Set(keys.TranscodeVideoCodec, c)
 		return nil
 	}
@@ -471,17 +472,29 @@ func ValidateVideoCodec(c string) error {
 	// Synonym and alias mapping
 	switch c {
 	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
+		logging.I("Setting video codec type: %q", consts.VCodecAV1)
 		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecAV1)
+
 	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
+		logging.I("Setting video codec type: %q", consts.VCodecH264)
 		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecH264)
+
 	case "x265", "h265", "hevc265", "libx265", "hevc":
+		logging.I("Setting video codec type: %q", consts.VCodecHEVC)
 		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecHEVC)
+
 	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
+		logging.I("Setting video codec type: %q", consts.VCodecMPEG2)
 		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecMPEG2)
+
 	case "libvpx", "vp08", "vpx", "vpx8":
+		logging.I("Setting video codec type: %q", consts.VCodecVP8)
 		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecVP8)
+
 	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
+		logging.I("Setting video codec type: %q", consts.VCodecVP9)
 		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecVP9)
+
 	default:
 		return fmt.Errorf("video codec %q not supported. Supported codecs: %v", c, consts.ValidVideoCodecs)
 	}
@@ -499,35 +512,59 @@ func ValidateAudioCodec(c string) error {
 
 	// Search for exact matches
 	if slices.Contains(consts.ValidAudioCodecs, c) {
+		logging.I("Setting audio codec: %q", c)
 		abstractions.Set(keys.TranscodeAudioCodec, c)
 		return nil
 	}
 
 	// Synonym and alias mapping
 	switch c {
-	case "m4a", "mp4a", "aac":
+	case "m4a", "mp4a":
+		logging.I("Setting audio codec: %q", consts.ACodecAAC)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecAAC)
+
 	case "applelossless", "m4aalac":
+		logging.I("Setting audio codec: %q", consts.ACodecALAC)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecALAC)
+
 	case "dca", "dtshd", "dtsma", "dtsmahd":
+		logging.I("Setting audio codec: %q", consts.ACodecDTS)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecDTS)
+
 	case "dd+", "dolbydigitalplus", "ac3e", "ec3":
+		logging.I("Setting audio codec: %q", consts.ACodecEAC3)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecEAC3)
+
 	case "fla", "losslessflac":
+		logging.I("Setting audio codec: %q", consts.ACodecFLAC)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecFLAC)
+
 	case "mpeg2audio", "m2a":
+		logging.I("Setting audio codec: %q", consts.ACodecMP2)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecMP2)
+
 	case "mpeg3", "mpeg3audio", "mpg3":
+		logging.I("Setting audio codec: %q", consts.ACodecMP3)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecMP3)
+
 	case "oggopus", "webmopus":
+		logging.I("Setting audio codec: %q", consts.ACodecOpus)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecOpus)
+
 	case "wavpcm", "rawpcm", "pcm16", "pcms16le":
+		logging.I("Setting audio codec: %q", consts.ACodecPCM)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecPCM)
+
 	case "dolbytruehd", "thd":
+		logging.I("Setting audio codec: %q", consts.ACodecTrueHD)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecTrueHD)
+
 	case "oggvorbis", "webmvorbis", "vorb":
+		logging.I("Setting audio codec: %q", consts.ACodecVorbis)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecVorbis)
+
 	case "wave", "waveform", "pcmwave":
+		logging.I("Setting audio codec: %q", consts.ACodecWAV)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecWAV)
 	default:
 		return fmt.Errorf("audio codec %q not supported. Supported codecs: %v", c, consts.ValidAudioCodecs)

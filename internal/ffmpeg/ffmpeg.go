@@ -35,14 +35,10 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	} else {
 		outExt = origExt
 	}
-
 	if skipProcessing(fd, outExt) {
 		return nil
 	}
-
 	logging.I("Will execute video from extension %q → %q", origExt, outExt)
-
-	fmt.Printf("\nWriting metadata for file: %q\n", origPath)
 
 	dir := fd.VideoDirectory
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), origExt)
