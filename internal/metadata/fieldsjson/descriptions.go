@@ -16,7 +16,6 @@ import (
 
 // fillDescriptions grabs description data from JSON
 func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
-
 	d := fd.MTitleDesc
 	w := fd.MWebData
 	t := fd.MDates
@@ -105,6 +104,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 		if description != "" {
 			for _, ptr := range fieldMap {
 				if ptr == nil {
+					logging.E("Unexpected nil pointer in descriptions fieldMap")
 					continue
 				}
 				if *ptr == "" {
