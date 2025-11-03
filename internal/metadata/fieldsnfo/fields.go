@@ -30,7 +30,7 @@ func FillNFO(fd *models.FileData) (filled bool) {
 	return filled
 }
 
-// Clean up empty fields from fieldmap
+// Clean up empty fields from the field map.
 func cleanEmptyFields(fieldMap map[string]*string) {
 	for _, value := range fieldMap {
 		if strings.TrimSpace(*value) == "" {

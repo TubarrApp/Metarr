@@ -17,18 +17,31 @@ import (
 
 // ffCommandBuilder handles FFmpeg command construction
 type ffCommandBuilder struct {
-	inputFile          string
-	outputFile         string
-	formatFlags        map[string]string
-	gpuAccel           []string
-	gpuAccelCodec      []string
-	gpuDir             []string
-	gpuCompatability   []string
-	audioCodec         []string
+	// Files
+	inputFile  string
+	outputFile string
+
+	// Maps
+	formatFlagsMap map[string]string
+	metadataMap    map[string]string
+
+	// HW accel
+	gpuAccelFlags    []string
+	gpuDir           []string
+	gpuCompatability []string
+
+	// Video codecs
+	videoCodecGPU      []string
 	videoCodecSoftware []string
-	qualityParameter   []string
-	metadataMap        map[string]string
-	builder            *strings.Builder
+
+	// Audio codec
+	audioCodec []string
+
+	// Other parameters
+	qualityParameter []string
+
+	// Builder
+	builder *strings.Builder
 }
 
 // newFfCommandBuilder creates a new FFmpeg command builder.
@@ -61,7 +74,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	}
 
 	// Get software codecs
-	if b.gpuAccelCodec == nil {
+	if b.videoCodecGPU == nil {
 		b.setVideoSoftwareCodec(currentVCodec, availableCodecs)
 	}
 	b.setAudioCodec(currentACodec, availableCodecs)
@@ -191,11 +204,11 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 	logging.I("Got GPU flag: %q", accelType)
 	switch accelType {
 	case consts.AccelTypeAuto:
-		b.gpuAccel = []string{consts.FFmpegHWAccel, consts.AccelTypeAuto}
+		b.gpuAccelFlags = []string{consts.FFmpegHWAccel, consts.AccelTypeAuto}
 
 	case consts.AccelTypeNvidia:
 		if transcodeDir != "" {
-			b.gpuAccel = []string{
+			b.gpuAccelFlags = []string{
 				consts.FFmpegHWAccel, consts.AccelTypeNvidia,
 				consts.FFmpegHWAccelOutputFormat, consts.AccelTypeNvidia,
 			}
@@ -211,7 +224,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 
 	case consts.AccelTypeQSV:
 		if transcodeDir != "" {
-			b.gpuAccel = []string{
+			b.gpuAccelFlags = []string{
 				consts.FFmpegHWAccel, consts.AccelTypeQSV,
 				consts.FFmpegHWAccelOutputFormat, consts.AccelTypeQSV,
 			}
@@ -220,7 +233,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 
 	case consts.AccelTypeVAAPI:
 		if transcodeDir != "" {
-			b.gpuAccel = []string{
+			b.gpuAccelFlags = []string{
 				consts.FFmpegHWAccel, consts.AccelTypeVAAPI,
 				consts.FFmpegHWAccelOutputFormat, consts.AccelTypeVAAPI,
 			}
@@ -253,15 +266,15 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, transcodeCodec, av
 	}
 
 	gpuCodecString := sb.String()
-	b.gpuAccelCodec = []string{consts.FFmpegCV, gpuCodecString}
+	b.videoCodecGPU = []string{consts.FFmpegCV, gpuCodecString}
 
 	if !strings.Contains(availableCodecs, gpuCodecString) {
 		logging.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
-		b.gpuAccelCodec = nil
-		b.gpuAccel = nil
+		b.videoCodecGPU = nil
+		b.gpuAccelFlags = nil
 	}
-	if b.gpuAccel != nil && b.gpuAccelCodec != nil {
-		command := append(b.gpuAccel, b.gpuAccelCodec...)
+	if b.gpuAccelFlags != nil && b.videoCodecGPU != nil {
+		command := append(b.gpuAccelFlags, b.videoCodecGPU...)
 		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nArguments: %v\n", accelType, transcodeCodec, command)
 	}
 }
@@ -331,14 +344,14 @@ func (b *ffCommandBuilder) setTranscodeQuality(accelType string) {
 		b.qualityParameter = append(b.qualityParameter, "-qp_p", qNum)
 
 	case consts.AccelTypeNvidia:
-		// NVIDIA NVENC uses CQ
+		// Nvidia uses CQ
 		b.qualityParameter = append(b.qualityParameter,
 			"-rc", "vbr",
 			"-cq", qNum,
 		)
 
 	case consts.AccelTypeQSV:
-		// Intel QSV uses global_quality
+		// Intel uses QSV
 		b.qualityParameter = append(b.qualityParameter, "-global_quality", qNum)
 
 	case consts.AccelTypeVAAPI:
@@ -353,7 +366,7 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 	outExt = strings.ToLower(outExt)
 
 	if outExt == "" || strings.EqualFold(inExt, outExt) {
-		b.formatFlags = copyPreset.flags
+		b.formatFlagsMap = copyPreset.flags
 		return
 	}
 
@@ -364,17 +377,17 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 	if presets, exists := formatMap[outExt]; exists {
 		// Try exact input format match
 		if preset, exists := presets[inExt]; exists {
-			b.formatFlags = preset.flags
+			b.formatFlagsMap = preset.flags
 			return
 		}
 		// Fall back to default preset for this output format
 		if preset, exists := presets["*"]; exists {
-			b.formatFlags = preset.flags
+			b.formatFlagsMap = preset.flags
 			return
 		}
 	}
 	// Fall back to copy preset if no mapping found
-	b.formatFlags = copyPreset.flags
+	b.formatFlagsMap = copyPreset.flags
 	logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
 		inExt, outExt)
 }
@@ -392,33 +405,33 @@ func (b *ffCommandBuilder) setFormatFlags() (args []string) {
 	}
 
 	// Add video codec
-	if len(b.gpuAccelCodec) != 0 {
-		args = append(args, b.gpuAccelCodec...)
+	if len(b.videoCodecGPU) != 0 {
+		args = append(args, b.videoCodecGPU...)
 	} else if len(b.videoCodecSoftware) != 0 {
 		args = append(args, b.videoCodecSoftware...)
-	} else if vCodec, exists := b.formatFlags[consts.FFmpegCV]; exists {
+	} else if vCodec, exists := b.formatFlagsMap[consts.FFmpegCV]; exists {
 		args = append(args, consts.FFmpegCV, vCodec)
 	}
 
 	// Add audio codec
 	if len(b.audioCodec) != 0 {
 		args = append(args, b.audioCodec...)
-	} else if aCodec, exists := b.formatFlags[consts.FFmpegCA]; exists {
+	} else if aCodec, exists := b.formatFlagsMap[consts.FFmpegCA]; exists {
 		args = append(args, consts.FFmpegCA, aCodec)
 	}
 
 	// Add subtitle
-	if subtitle, exists := b.formatFlags[consts.FFmpegCS]; exists {
+	if subtitle, exists := b.formatFlagsMap[consts.FFmpegCS]; exists {
 		args = append(args, consts.FFmpegCS, subtitle)
 	}
 
 	// Add data stream
-	if subtitle, exists := b.formatFlags[consts.FFmpegCD]; exists {
+	if subtitle, exists := b.formatFlagsMap[consts.FFmpegCD]; exists {
 		args = append(args, consts.FFmpegCD, subtitle)
 	}
 
 	// Add attachment
-	if attachment, exists := b.formatFlags[consts.FFmpegCT]; exists {
+	if attachment, exists := b.formatFlagsMap[consts.FFmpegCT]; exists {
 		args = append(args, consts.FFmpegCT, attachment)
 	}
 
@@ -435,8 +448,8 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 
 	// Add HW acceleration flags
 	if useHW {
-		if len(b.gpuAccel) != 0 {
-			args = append(args, b.gpuAccel...)
+		if len(b.gpuAccelFlags) != 0 {
+			args = append(args, b.gpuAccelFlags...)
 		}
 		if len(b.gpuDir) != 0 {
 			args = append(args, b.gpuDir...)
@@ -475,23 +488,28 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	const (
 		base = 2 + // "-y", "-i"
 			1 + // <input file>
-			1 + // "--codec"
 			1 // <output file>
 
-		mapArgMultiply = 1 + // "-metadata" for each metadata entry
-			1 // "key=value" for each metadata entry
+		mapArgMultiply = 2 // "-metadata" + "key=value"
 	)
 
 	totalCapacity := base
-	totalCapacity += 2 // "-hwaccel" and type
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
-	totalCapacity += len(b.gpuAccel)
+	totalCapacity += len(b.gpuAccelFlags)
+	totalCapacity += len(b.gpuDir)
+	totalCapacity += len(b.gpuCompatability)
+	totalCapacity += len(b.videoCodecGPU)
 	totalCapacity += len(b.videoCodecSoftware)
-	totalCapacity += len(b.gpuAccelCodec)
-	totalCapacity += len(b.formatFlags)
+	totalCapacity += len(b.audioCodec)
+	totalCapacity += len(b.qualityParameter)
+	totalCapacity += len(b.formatFlagsMap)
 
 	if abstractions.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 2 // consts.FFmpegVF and flag
+		totalCapacity += 2 // -vf and flag
+	}
+
+	if abstractions.IsSet(keys.ExtraFFmpegArgs) {
+		totalCapacity += len(strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs)))
 	}
 
 	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)

@@ -11,11 +11,9 @@ import (
 	"strings"
 )
 
-// fillCredits fills in the metadator for credits (e.g. actor, director, uploader)
+// fillCredits fills in the metadator for credits (e.g. actor, director, uploader).
 func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
-	var (
-		filled, overidden bool
-	)
+	var filled, overidden bool
 
 	c := fd.MCredits
 	w := fd.MWebData
@@ -137,7 +135,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 	return json, false
 }
 
-// overrideAll makes override replacements if existent
+// overrideAll makes override replacements if existent.
 func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[string]string) (map[string]string, bool) {
 	logging.D(2, "Checking credits field overrides...")
 	if fieldMap == nil {

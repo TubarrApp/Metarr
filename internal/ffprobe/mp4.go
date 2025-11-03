@@ -100,6 +100,5 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 	if logging.Level > 0 {
 		printArray(ffContent)
 	}
-
 	return matches
 }

@@ -16,7 +16,7 @@ import (
 	"unicode"
 )
 
-// shouldRename determines if file rename operations are needed for this file
+// shouldRename determines if file rename operations are needed for this file.
 func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	rName := enums.RenamingSkip
 
@@ -46,6 +46,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 }
 
 // TryTransPresets checks if any URLs in the video metadata have a known match.
+//
 // Applies preset transformations for those which match.
 func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 	for _, url := range urls {
@@ -385,7 +386,7 @@ func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDele
 	return filename
 }
 
-// replaceLoneS performs replacements without regex
+// replaceLoneS performs replacements without regex.
 func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 	if style == enums.RenamingSkip {
 		return f

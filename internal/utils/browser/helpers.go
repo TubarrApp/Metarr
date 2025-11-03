@@ -8,7 +8,7 @@ import (
 	"golang.org/x/net/publicsuffix"
 )
 
-// ExtractDomainName extracts various forms of a domain from a URL
+// ExtractDomainName extracts various forms of a domain from a URL.
 func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort, noProtocolWithPort string) {
 	const (
 		https = "https://"
@@ -64,7 +64,7 @@ func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort,
 
 // Private /////////////////////////////////////////////
 
-// makeURLStrings builds the URL strings using strings.Builder
+// makeURLStrings builds the URL strings using strings.Builder.
 func makeURLStrings(proto, domain, port string) (withProtocol, noProtocol, withProtocolAndPort, noProtocolWithPort string) {
 	var b strings.Builder
 

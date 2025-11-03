@@ -10,9 +10,8 @@ import (
 	"metarr/internal/utils/printout"
 )
 
-// fillTitles grabs the fulltitle ("title")
+// fillTitles grabs titles, subtitles, etc, from JSON.
 func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
-
 	t := fd.MTitleDesc
 	w := fd.MWebData
 
@@ -61,6 +60,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 		}
 	}
 
+	// Infer empty fields
 	if t.Title == "" && t.Fulltitle != "" {
 		t.Title = t.Fulltitle
 	}

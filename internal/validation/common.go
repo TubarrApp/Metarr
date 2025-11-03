@@ -261,7 +261,7 @@ func ValidateOutputFiletype(o string) {
 	}
 }
 
-// ValidateMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid
+// ValidateMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid.
 func ValidateMetaOverwritePreserve(mOverwrite, mPreserve bool) {
 	if mOverwrite && mPreserve {
 		abstractions.Set(keys.MOverwrite, false)

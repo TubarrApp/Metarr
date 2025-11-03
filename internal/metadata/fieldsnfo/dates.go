@@ -135,6 +135,5 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 			dates.FormatAllDates(fd)
 		}
 	}
-
 	return true
 }

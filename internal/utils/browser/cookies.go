@@ -22,7 +22,7 @@ var (
 	allCookies []*http.Cookie
 )
 
-// initializeCookies initializes all browser cookie stores
+// initializeCookies initializes all browser cookie stores.
 func initializeCookies() {
 	allStores = kooky.FindAllCookieStores()
 	allCookies = []*http.Cookie{}
@@ -85,7 +85,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 	return allCookies, nil
 }
 
-// convertToHTTPCookies converts kooky cookies to http.Cookie format
+// convertToHTTPCookies converts kooky cookies to http.Cookie format.
 func convertToHTTPCookies(kookyCookies []*kooky.Cookie) []*http.Cookie {
 	httpCookies := make([]*http.Cookie, len(kookyCookies))
 	for i, c := range kookyCookies {
@@ -100,7 +100,7 @@ func convertToHTTPCookies(kookyCookies []*kooky.Cookie) []*http.Cookie {
 	return httpCookies
 }
 
-// extractBaseDomain parses a URL and extracts its base domain
+// extractBaseDomain parses a URL and extracts its base domain.
 func extractBaseDomain(urlString string) (string, error) {
 	parsedURL, err := url.Parse(urlString)
 	if err != nil {
@@ -114,7 +114,7 @@ func extractBaseDomain(urlString string) (string, error) {
 	return parsedURL.Hostname(), nil
 }
 
-// keysForMap helper function to get keys from a map
+// keysForMap helper function to get keys from a map.
 func keysFromMap(m map[string]bool) []string {
 	mapKeys := make([]string, 0, len(m))
 	for k := range m {
@@ -123,7 +123,7 @@ func keysFromMap(m map[string]bool) []string {
 	return mapKeys
 }
 
-// readCookieFile reads cookies from the specified cookie file
+// readCookieFile reads cookies from the specified cookie file.
 func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 	var store kooky.CookieStore
 	var err error
@@ -152,6 +152,5 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read cookies: %w", err)
 	}
-
 	return cookies, nil
 }

@@ -68,10 +68,8 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 	return true
 }
 
-// fillSingleCredits fills empty singular credits fields from
-// filled arrays
+// fillSingleCredits fills empty singular credits fields from filled arrays.
 func fillSingleCredits(entries []string, target *string) {
-
 	if target == nil {
 		logging.D(1, "Target string is nil, skipping...")
 		return

@@ -1,10 +1,5 @@
 package consts
 
-// AV codec copy.
-var (
-	AVCodecCopy = [...]string{FFmpegCV, "copy", FFmpegCA, "copy", FFmpegCS, "copy", FFmpegCD, "copy"}
-)
-
 // Audio flags.
 const (
 	AudioCodecCopy = "copy"
@@ -32,13 +27,6 @@ const (
 	VideoToMPEG2   = "mpeg2video"
 	VideoToVP8     = "libvpx"
 	VideoToVP9     = "libvpx-vp9"
-)
-
-// Video preset strings.
-var (
-	VideoToH264Balanced = [...]string{FFmpegCV, "libx264", "-profile:v", "main"}
-	CRFQuality          = [...]string{FFmpegCRF, "20", "-preset", "slow"}
-	PixelFmtYuv420p     = [...]string{"-pix_fmt", "yuv420p"}
 )
 
 // Accel types.

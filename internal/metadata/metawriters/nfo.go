@@ -40,39 +40,31 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
-	// Read the entire file content first
+	// Read entire file content
 	content, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	rtn := rw.ensureXMLStructure(string(content))
-	if rtn != "" {
-		content = []byte(rtn)
+	// Ensure XML structure exists
+	contentStr := rw.ensureXMLStructure(string(content))
+	content = []byte(contentStr)
+
+	// Decode into NFOData model
+	var input models.NFOData
+	if err := xml.Unmarshal(content, &input); err != nil {
+		return nil, fmt.Errorf("failed to decode XML: %w", err)
 	}
 
-	// Store the raw content
+	rw.Model = &input
 	rw.Meta = string(content)
 
-	// Reset file pointer
+	// Reset file pointer for future operations
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	// Single decode for the model
-	decoder := xml.NewDecoder(file)
-	var input *models.NFOData
-	var metaMap map[string]any
-	if err := decoder.Decode(&input); err != nil {
-		return nil, fmt.Errorf("failed to decode XML: %w", err)
-	}
-	if err := decoder.Decode(&metaMap); err != nil {
-		return nil, fmt.Errorf("failed to decode XML: %w", err)
-	}
-
-	rw.Model = input
-	logging.D(3, "Decoded metadata: %v", rw.Model)
-
+	logging.D(3, "Decoded metadata: %+v", rw.Model)
 	return rw.Model, nil
 }
 
@@ -81,19 +73,31 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
+	if rw.Model == nil {
+		return nil, errors.New("NFOFileRW's stored metadata map is empty or null, decode must be called first")
+	}
+
+	// Reset file pointer
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	// Decode metadata
-	decoder := xml.NewDecoder(rw.File)
-
-	if err := decoder.Decode(&rw.Model); err != nil {
-		return nil, fmt.Errorf("failed to decode xml: %w", err)
+	// Read file content
+	content, err := io.ReadAll(rw.File)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	logging.D(3, "Decoded metadata: %v", rw.Model)
+	// Decode XML into model
+	var input models.NFOData
+	if err := xml.Unmarshal(content, &input); err != nil {
+		return nil, fmt.Errorf("failed to decode XML: %w", err)
+	}
 
+	rw.Model = &input
+	rw.Meta = string(content)
+
+	logging.D(3, "Refreshed metadata: %+v", rw.Model)
 	return rw.Model, nil
 }
 
@@ -224,7 +228,6 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 	// Ensure XML declaration
 	if !strings.HasPrefix(content, "<?xml") {
-
 		content = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 %s`, content)
 	}
@@ -238,28 +241,42 @@ func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 	return content
 }
 
-// refreshMetadataInternal is a private metadata refresh function.
+// refreshMetadataInternal safely reloads the metadata from the file.
 func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
+	rw.mu.Lock()
+	defer rw.mu.Unlock()
 
+	// Seek to start
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	if rw.Model == nil {
-		return errors.New("NFOFileRW's stored metadata map is empty or null, did you forget to decode?")
+	// Read the full file content
+	content, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	decoder := xml.NewDecoder(file)
-	if err := decoder.Decode(&rw.Model); err != nil {
+	// If file is empty, initialize an empty model
+	if len(content) == 0 {
+		rw.Model = &models.NFOData{}
+		return nil
+	}
+
+	// Initialize Model if nil
+	if rw.Model == nil {
+		rw.Model = &models.NFOData{}
+	}
+
+	// Decode XML from content
+	if err := xml.Unmarshal(content, rw.Model); err != nil {
 		return fmt.Errorf("failed to decode xml: %w", err)
 	}
-
 	return nil
 }
 
 // writeMetadataToFile is a private metadata writing helper function.
 func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("truncate file: %w", err)
 	}
@@ -274,11 +291,16 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 		return fmt.Errorf("write content: %w", err)
 	}
 
+	// Flush **before** reading the file again
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("flush content: %w", err)
+	}
+
 	if err := rw.refreshMetadataInternal(file); err != nil {
 		return fmt.Errorf("failed to refresh metadata: %w", err)
 	}
 
-	return writer.Flush()
+	return nil
 }
 
 // replaceXML applies meta replacement to the fields in the xml data.

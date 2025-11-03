@@ -14,7 +14,7 @@ import (
 
 var nfoEditMutexMap sync.Map
 
-// processNFOFiles processes NFO files and sends data into the metadata model
+// processNFOFiles processes NFO files and sends data into the metadata model.
 func processNFOFiles(ctx context.Context, fd *models.FileData) error {
 	if fd == nil {
 		return errors.New("model passed in null")

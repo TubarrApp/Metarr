@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// ValidateSetMetaOps parses the meta transformation operations
+// ValidateSetMetaOps parses the meta transformation operations.
 func ValidateSetMetaOps(metaOpsInput []string) error {
 	logging.D(2, "Validating meta operations...")
 	if len(metaOpsInput) == 0 {
@@ -333,7 +333,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 	return nil
 }
 
-// dateEnum returns the date format enum type
+// dateEnum returns the date format enum type.
 func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 	if len(dateFmt) < 2 || len(dateFmt) > 3 {
 		return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)

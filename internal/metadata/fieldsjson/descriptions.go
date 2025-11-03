@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-// fillDescriptions grabs description data from JSON
+// fillDescriptions grabs description data from JSON.
 func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
 	d := fd.MTitleDesc
 	w := fd.MWebData
@@ -125,7 +125,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	return data, filled
 }
 
-// fillEmptyDescriptions fills empty description fields by inference
+// fillEmptyDescriptions fills empty description fields by inference.
 func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
 	if s == nil || d == nil {
 		logging.E("%s entered description string nil or MetadataTitlesDescs nil", consts.LogTagDevError)

@@ -30,7 +30,6 @@ type FSFileWriter struct {
 
 // NewFSFileWriter returns a file writer, used for writing changes to filenames etc.
 func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) {
-
 	inputVid := fd.FinalVideoPath
 	renamedVid := fd.RenamedVideoPath
 	inputMeta := fd.MetaFilePath
@@ -69,7 +68,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) 
 	}, nil
 }
 
-// WriteResults executes the final commands to write the transformed files
+// WriteResults executes the final commands to write the transformed files.
 func (fs *FSFileWriter) WriteResults() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
@@ -92,7 +91,7 @@ func (fs *FSFileWriter) WriteResults() error {
 	return nil
 }
 
-// MoveFile moves files to specified location
+// MoveFile moves files to specified location.
 func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
@@ -141,9 +140,8 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	return nil
 }
 
-// DeleteMetafile safely removes metadata files once file operations are complete
+// DeleteMetafile safely removes metadata files once file operations are complete.
 func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
-
 	if !abstractions.IsSet(keys.MetaPurgeEnum) {
 		return false, errors.New("meta purge enum not set")
 	}
@@ -195,7 +193,6 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 	if err := os.Remove(file); err != nil {
 		return false, fmt.Errorf("unable to delete meta file: %w", err)
 	}
-
 	logging.S("Successfully deleted metafile %q", file)
 
 	return true, nil

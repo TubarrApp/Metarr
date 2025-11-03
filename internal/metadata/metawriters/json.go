@@ -31,7 +31,7 @@ type JSONFileRW struct {
 	File *os.File
 }
 
-// NewJSONFileRW creates a new instance of the JSON file reader/writer
+// NewJSONFileRW creates a new instance of the JSON file reader/writer.
 func NewJSONFileRW(ctx context.Context, file *os.File) *JSONFileRW {
 	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &JSONFileRW{
@@ -41,7 +41,7 @@ func NewJSONFileRW(ctx context.Context, file *os.File) *JSONFileRW {
 	}
 }
 
-// DecodeJSON parses and stores JSON metadata into a map and returns it
+// DecodeJSON parses and stores JSON metadata into a map and returns it.
 func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	if file == nil {
 		return nil, errors.New("file passed in nil")
@@ -89,7 +89,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	}
 }
 
-// RefreshJSON reloads the metadata map from the file after updates
+// RefreshJSON reloads the metadata map from the file after updates.
 func (rw *JSONFileRW) RefreshJSON() (map[string]any, error) {
 	if rw.File == nil {
 		return nil, errors.New("file passed in nil")
@@ -97,7 +97,7 @@ func (rw *JSONFileRW) RefreshJSON() (map[string]any, error) {
 	return rw.DecodeJSON(rw.File)
 }
 
-// WriteJSON inserts metadata into the JSON file from a map
+// WriteJSON inserts metadata into the JSON file from a map.
 func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, error) {
 	if fieldMap == nil {
 		return nil, errors.New("field map passed in nil")
@@ -154,7 +154,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 	return currentMeta, nil
 }
 
-// MakeJSONEdits applies a series of transformations and writes the final result to the file
+// MakeJSONEdits applies a series of transformations and writes the final result to the file.
 func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	if file == nil {
 		return false, errors.New("file passed in nil")

@@ -34,7 +34,7 @@ var (
 	traceOutPath string
 )
 
-// CloseBenchmarking closes benchmark files if they exist
+// CloseBenchmarking closes benchmark files if they exist.
 func CloseBenchmarking() {
 	if BenchmarkFiles != nil {
 		CloseBenchFiles(BenchmarkFiles, fmt.Sprintf("Benchmark ended at %v", time.Now().Format(time.RFC1123Z)), nil)

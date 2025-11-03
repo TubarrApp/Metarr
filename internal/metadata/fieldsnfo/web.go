@@ -32,6 +32,5 @@ func fillNFOWebData(fd *models.FileData) (filled bool) {
 			printMap[consts.NURL] = w.WebpageURL
 		}
 	}
-
 	return true
 }

@@ -8,8 +8,7 @@ import (
 	"metarr/internal/utils/logging"
 )
 
-// CensoredTvTransformations adds preset transformations to
-// files for censored.tv videos.
+// CensoredTvTransformations adds preset transformations to files for censored.tv videos.
 func CensoredTvTransformations(fd *models.FileData) {
 	logging.I("Making preset censored.tv meta replacements")
 

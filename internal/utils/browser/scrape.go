@@ -22,7 +22,7 @@ const (
 	retryDelay = 5 * time.Second
 )
 
-// ScrapeMeta gets cookies for a given URL and returns a grabbed string
+// ScrapeMeta gets cookies for a given URL and returns a grabbed string.
 func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
 	var (
@@ -155,7 +155,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 	return result, nil
 }
 
-// setupPresetScraping applies specific scraping rules for known sites
+// setupPresetScraping applies specific scraping rules for known sites.
 func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[enums.WebClassTags][]models.SelectorRule, result *string, url string) {
 	if result == nil {
 		return
@@ -190,7 +190,7 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 	}
 }
 
-// setupGenericScraping defines a generic scraping approach for non-preset sites
+// setupGenericScraping defines a generic scraping approach for non-preset sites.
 func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *string, url string) {
 	if result == nil {
 		return
@@ -244,7 +244,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 	})
 }
 
-// jsonExtractor helps extract values from nested JSON structures
+// jsonExtractor helps extract values from nested JSON structures.
 func jsonExtractor(data []byte, path []string) (string, error) {
 	var result map[string]any
 	if err := json.Unmarshal(data, &result); err != nil {
@@ -264,7 +264,7 @@ func jsonExtractor(data []byte, path []string) (string, error) {
 	return "", fmt.Errorf("value at path %v is not a string, is type %T", path, path)
 }
 
-// looksLikeDate validates if the text appears to be a date
+// looksLikeDate validates if the text appears to be a date.
 func looksLikeDate(text string) bool {
 	text = strings.TrimSpace(strings.ToLower(text))
 

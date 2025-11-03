@@ -9,9 +9,7 @@ import (
 
 // FillWebpageDetails grabs details necessary to scrape the web for missing metafields.
 func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
-
 	var isFilled bool
-	w := fd.MWebData
 
 	priorityMap := [...]string{consts.JWebpageURL,
 		consts.JURL,
@@ -19,8 +17,8 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		consts.JWebpageDomain,
 		consts.JDomain}
 
-	if w.TryURLs == nil {
-		w.TryURLs = make([]string, 0, len(priorityMap))
+	if fd.MWebData.TryURLs == nil {
+		fd.MWebData.TryURLs = make([]string, 0, len(priorityMap))
 	}
 
 	printMap := make(map[string]string, len(priorityMap))
@@ -46,22 +44,22 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 
 		switch k {
 		case consts.JWebpageURL:
-			if webInfoFill(&w.WebpageURL, val, w) {
+			if webInfoFill(&fd.MWebData.WebpageURL, val, fd.MWebData) {
 				isFilled = true
 			}
 
 		case consts.JURL:
-			if webInfoFill(&w.VideoURL, val, w) {
+			if webInfoFill(&fd.MWebData.VideoURL, val, fd.MWebData) {
 				isFilled = true
 			}
 
 		case consts.JReferer:
-			if webInfoFill(&w.Referer, val, w) {
+			if webInfoFill(&fd.MWebData.Referer, val, fd.MWebData) {
 				isFilled = true
 			}
 
 		case consts.JWebpageDomain, consts.JDomain:
-			if webInfoFill(&w.Domain, val, w) {
+			if webInfoFill(&fd.MWebData.Domain, val, fd.MWebData) {
 				isFilled = true
 			}
 
@@ -74,7 +72,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		}
 
 	}
-	logging.D(2, "Stored URLs for scraping missing fields: %v", w.TryURLs)
+	logging.D(2, "Stored URLs for scraping missing fields: %v", fd.MWebData.TryURLs)
 
 	return isFilled
 }
