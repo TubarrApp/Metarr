@@ -291,11 +291,12 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 		return fmt.Errorf("write content: %w", err)
 	}
 
-	// Flush **before** reading the file again
+	// Flush before reading the file again
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("flush content: %w", err)
 	}
 
+	// Refresh metadata in struct
 	if err := rw.refreshMetadataInternal(file); err != nil {
 		return fmt.Errorf("failed to refresh metadata: %w", err)
 	}
