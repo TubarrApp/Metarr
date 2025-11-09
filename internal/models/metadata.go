@@ -258,6 +258,7 @@ type MetadataWebData struct {
 	VideoURL   string         `json:"url" xml:"url"`
 	Domain     string         `json:"webpage_url_domain" xml:"domain"`
 	Referer    string         `json:"referer" xml:"referer"`
+	Thumbnail  string         `json:"thumbnail" xml:"thumbnail"`
 	Cookies    []*http.Cookie `json:"-" xml:"-"`
 	TryURLs    []string       `json:"-"`
 }

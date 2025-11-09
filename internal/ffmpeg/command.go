@@ -3,11 +3,14 @@ package ffmpeg
 import (
 	"context"
 	"fmt"
+	"io"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
+	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -36,6 +39,9 @@ type ffCommandBuilder struct {
 
 	// Audio codec
 	audioCodec []string
+
+	// Thumbnail
+	thumbnail []string
 
 	// Other parameters
 	qualityParameter []string
@@ -83,9 +89,101 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	b.setDefaultFormatFlagMap(outExt)
 	args := b.setFormatFlags()
 	b.addAllMetadata(fd)
+	b.setThumbnail(fd.MWebData.Thumbnail, outExt)
 
 	// Return the fully appended argument string
 	return b.buildFinalCommand(args, useHW)
+}
+
+// setThumbnail sets the thumbnail image in the video metadata.
+func (b *ffCommandBuilder) setThumbnail(thumbnailURL, outExt string) {
+	if thumbnailURL == "" || outExt == "" {
+		return
+	}
+
+	// Download local thumbnail
+	thumbnail, err := downloadThumbnail(thumbnailURL)
+	if err != nil {
+		logging.E("Could not download thumbnail %q: %v", thumbnailURL, err)
+		return
+	}
+
+	ext := strings.ToLower(outExt)
+	mimeType := ""
+
+	switch {
+	case strings.HasSuffix(thumbnail, ".jpg"), strings.HasSuffix(thumbnail, ".jpeg"):
+		mimeType = "image/jpeg"
+	case strings.HasSuffix(thumbnail, ".png"):
+		mimeType = "image/png"
+	case strings.HasSuffix(thumbnail, ".webp"):
+		mimeType = "image/webp"
+	default:
+		// default to jpeg if unknown
+		mimeType = "image/jpeg"
+	}
+
+	switch ext {
+	case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
+		b.thumbnail = []string{
+			"-i", thumbnail, // add the thumbnail as a second input
+			"-map", "0", // map the video/audio
+			"-map", "1", // map the thumbnail
+			"-disposition:v:1", "attached_pic",
+		}
+
+	case consts.ExtMKV:
+		b.thumbnail = []string{
+			"-attach", thumbnail,
+			"-metadata:s:t", fmt.Sprintf("mimetype=%s", mimeType),
+			"-disposition:v:0", "attached_pic",
+		}
+
+	default:
+		logging.D(1, "Thumbnail embedding not supported for extension: %s", ext)
+	}
+}
+
+// downloadThumbnail downloads a thumbnail from a URL to a temporary file.
+//
+// Returns the local file path to use with FFmpeg -attach.
+func downloadThumbnail(urlStr string) (string, error) {
+	if urlStr == "" {
+		return "", nil
+	}
+
+	resp, err := http.Get(urlStr)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to download thumbnail: %s", resp.Status)
+	}
+
+	// Derive extension from the URL
+	ext := strings.ToLower(filepath.Ext(urlStr))
+	if ext == "" {
+		ext = ".jpg" // default fallback
+	}
+
+	tmpPath := filepath.Join(os.TempDir(), "thumb_"+filepath.Base(urlStr))
+	if !strings.HasSuffix(tmpPath, ext) {
+		tmpPath += ext
+	}
+
+	file, err := os.Create(tmpPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	if _, err := io.Copy(file, resp.Body); err != nil {
+		return "", err
+	}
+
+	return tmpPath, nil
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
@@ -456,18 +554,24 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 		}
 	}
 
-	// Add input file
+	// Add input file (main video)
 	args = append(args, "-y", "-i", b.inputFile)
+
+	// If thumbnail present, add it as an input (must appear before metadata)
+	if len(b.thumbnail) > 0 {
+		args = append(args, b.thumbnail...)
+	}
+
+	// Add format and codec flags
 	args = append(args, formatArgs...)
 
-	// Add all -metadata commands
+	// Add all -metadata arguments (these apply to the output file)
 	for key, value := range b.metadataMap {
 		b.builder.Reset()
 		b.builder.WriteString(key)
 		b.builder.WriteByte('=')
 		b.builder.WriteString(strings.TrimSpace(value))
 
-		// Write argument
 		logging.I("Adding metadata argument: '-metadata %s", b.builder.String())
 		args = append(args, "-metadata", b.builder.String())
 	}
@@ -477,7 +581,7 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 		args = append(args, strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs))...)
 	}
 
-	// Add output file
+	// Add output file last
 	args = append(args, b.outputFile)
 
 	return args, nil
@@ -503,6 +607,7 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity += len(b.audioCodec)
 	totalCapacity += len(b.qualityParameter)
 	totalCapacity += len(b.formatFlagsMap)
+	totalCapacity += len(b.thumbnail)
 
 	if abstractions.IsSet(keys.TranscodeVideoFilter) {
 		totalCapacity += 2 // -vf and flag

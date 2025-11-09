@@ -9,7 +9,6 @@ import (
 
 // FillJSONFields is the fills metafields before writing the data.
 func FillJSONFields(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
-
 	allFilled := true
 	if meta, ok := fillTitles(fd, json, jsonRW); !ok {
 		logging.I("No title metadata found")
@@ -36,7 +35,6 @@ func FillJSONFields(fd *models.FileData, json map[string]any, jsonRW *metawriter
 
 // unpackJSON decodes JSON for metafields.
 func unpackJSON(fmap map[string]*string, json map[string]any) bool {
-
 	filled := false
 	pmap := make(map[string]string, len(fmap))
 

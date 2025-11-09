@@ -178,6 +178,11 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	rootCmd.PersistentFlags().Bool(keys.ForceWriteThumbnails, false, "Force FFmpeg if a thumbnail exists, even when all metadata matches")
+	if err := viper.BindPFlag(keys.ForceWriteThumbnails, rootCmd.PersistentFlags().Lookup(keys.ForceWriteThumbnails)); err != nil {
+		return err
+	}
+
 	return nil
 }
 

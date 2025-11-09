@@ -47,7 +47,8 @@ const (
 	TranscodeQuality     string = "transcode-quality"
 	TranscodeVideoFilter string = "transcode-video-filter"
 
-	ExtraFFmpegArgs string = "extra-ffmpeg-args"
+	ExtraFFmpegArgs      string = "extra-ffmpeg-args"
+	ForceWriteThumbnails string = "force-write-thumbnail"
 )
 
 // Primary program

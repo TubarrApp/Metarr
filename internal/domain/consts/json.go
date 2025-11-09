@@ -50,4 +50,5 @@ const (
 	JURL           = "url"
 	JWebpageDomain = "webpage_url_domain"
 	JWebpageURL    = "webpage_url"
+	JThumbnailURL  = "thumbnail"
 )

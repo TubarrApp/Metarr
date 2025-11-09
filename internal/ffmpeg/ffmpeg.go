@@ -119,8 +119,16 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 }
 
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
-func skipProcessing(fd *models.FileData, outExt string) bool {
+func skipProcessing(fd *models.FileData, outExt string) (skipProcessing bool) {
 	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
+
+	// Write thumbnail
+	if abstractions.IsSet(keys.ForceWriteThumbnails) {
+		if abstractions.GetBool(keys.ForceWriteThumbnails) {
+			logging.I("Thumbnail URL detected. Will write to file.")
+			return false
+		}
+	}
 
 	var (
 		desiredVCodec, desiredACodec string

@@ -70,8 +70,14 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		if logging.Level > 1 && val != "" {
 			printMap[k] = val
 		}
-
 	}
+
+	thumb, ok := data[consts.JThumbnailURL].(string)
+	if ok {
+		fd.MWebData.Thumbnail = thumb
+		logging.I("Found thumbnail: %q", fd.MWebData.Thumbnail)
+	}
+
 	logging.D(2, "Stored URLs for scraping missing fields: %v", fd.MWebData.TryURLs)
 
 	return isFilled
