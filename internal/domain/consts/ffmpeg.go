@@ -49,7 +49,7 @@ const (
 	FFmpegCD                  = "-c:d"
 	FFmpegCS                  = "-c:s"
 	FFmpegCT                  = "-c:t"
-	FFmpegCV                  = "-c:v"
+	FFmpegCV0                 = "-c:v:0"
 	FFmpegHWAccel             = "-hwaccel"
 	FFmpegHWAccelOutputFormat = "-hwaccel_output_format"
 	FFmpegDeviceHW            = "-hwaccel_device"

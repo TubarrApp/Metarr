@@ -89,54 +89,56 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	b.setDefaultFormatFlagMap(outExt)
 	args := b.setFormatFlags()
 	b.addAllMetadata(fd)
-	b.setThumbnail(fd.MWebData.Thumbnail, outExt)
+
+	skipThumbnails := false
+	if abstractions.IsSet(keys.StripThumbnails) {
+		skipThumbnails = abstractions.GetBool(keys.StripThumbnails)
+	}
+	if !skipThumbnails {
+		b.setThumbnail(fd.MWebData.Thumbnail, fd.OriginalVideoBaseName, outExt)
+	}
 
 	// Return the fully appended argument string
 	return b.buildFinalCommand(args, useHW)
 }
 
 // setThumbnail sets the thumbnail image in the video metadata.
-func (b *ffCommandBuilder) setThumbnail(thumbnailURL, outExt string) {
+func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string) {
 	if thumbnailURL == "" || outExt == "" {
 		return
 	}
 
 	// Download local thumbnail
-	thumbnail, err := downloadThumbnail(thumbnailURL)
+	thumbnail, err := downloadThumbnail(thumbnailURL, videoBaseName)
 	if err != nil {
 		logging.E("Could not download thumbnail %q: %v", thumbnailURL, err)
 		return
 	}
 
-	ext := strings.ToLower(outExt)
-	mimeType := ""
-
-	switch {
-	case strings.HasSuffix(thumbnail, ".jpg"), strings.HasSuffix(thumbnail, ".jpeg"):
-		mimeType = "image/jpeg"
-	case strings.HasSuffix(thumbnail, ".png"):
-		mimeType = "image/png"
-	case strings.HasSuffix(thumbnail, ".webp"):
-		mimeType = "image/webp"
-	default:
-		// default to jpeg if unknown
-		mimeType = "image/jpeg"
+	// Ensure JPG
+	thumbExt := strings.ToLower(filepath.Ext(thumbnail))
+	if thumbExt != ".jpg" && thumbExt != ".jpeg" {
+		if thumbnail, err = convertToJPG(thumbnail); err != nil {
+			logging.E("Could not convert thumbnail %q to JPG: %v", thumbnail, err)
+			return
+		}
 	}
 
+	ext := strings.ToLower(outExt)
 	switch ext {
 	case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
 		b.thumbnail = []string{
 			"-i", thumbnail, // add the thumbnail as a second input
-			"-map", "0", // map the video/audio
-			"-map", "1", // map the thumbnail
-			"-disposition:v:1", "attached_pic",
+			"-map", "0", // map main video/audio/subs
+			"-map", "1", // map thumbnail
+			"-c:v:1", "mjpeg", // always use mjpeg codec for thumbnail
+			"-disposition:v:1", "attached_pic", // mark as cover art
 		}
 
 	case consts.ExtMKV:
 		b.thumbnail = []string{
 			"-attach", thumbnail,
-			"-metadata:s:t", fmt.Sprintf("mimetype=%s", mimeType),
-			"-disposition:v:0", "attached_pic",
+			"-metadata:s:t", "mimetype=image/jpeg",
 		}
 
 	default:
@@ -144,10 +146,20 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, outExt string) {
 	}
 }
 
+// convertToJPG converts an inputted file format to JPG for embedding.
+func convertToJPG(inputPath string) (string, error) {
+	outputPath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".jpg"
+	cmd := exec.Command("ffmpeg", "-y", "-i", inputPath, outputPath)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to convert webp to jpg: %w", err)
+	}
+	return outputPath, nil
+}
+
 // downloadThumbnail downloads a thumbnail from a URL to a temporary file.
 //
 // Returns the local file path to use with FFmpeg -attach.
-func downloadThumbnail(urlStr string) (string, error) {
+func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 	if urlStr == "" {
 		return "", nil
 	}
@@ -162,16 +174,30 @@ func downloadThumbnail(urlStr string) (string, error) {
 		return "", fmt.Errorf("failed to download thumbnail: %s", resp.Status)
 	}
 
-	// Derive extension from the URL
-	ext := strings.ToLower(filepath.Ext(urlStr))
+	// Remove query parameters and detect extension
+	base := strings.Split(strings.Split(urlStr, "?")[0], "#")[0]
+	ext := strings.ToLower(filepath.Ext(base))
 	if ext == "" {
-		ext = ".jpg" // default fallback
+		ext = ".jpg"
 	}
 
-	tmpPath := filepath.Join(os.TempDir(), "thumb_"+filepath.Base(urlStr))
-	if !strings.HasSuffix(tmpPath, ext) {
-		tmpPath += ext
+	// Remove illegal characters
+	cleanBase := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') ||
+			(r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') ||
+			r == '_' || r == '-' || r == '.' {
+			return r
+		}
+		return '_'
+	}, filepath.Base(base))
+
+	// Limit length to stay below filesystem limits
+	if len(cleanBase) > 50 {
+		cleanBase = cleanBase[:50]
 	}
+
+	tmpPath := filepath.Join(os.TempDir(), "thumb_"+videoBaseName+"_"+strings.TrimSuffix(cleanBase, ext)+ext)
 
 	file, err := os.Create(tmpPath)
 	if err != nil {
@@ -252,19 +278,19 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 
 	switch codec {
 	case consts.VCodecAV1:
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoToAV1}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToAV1}
 	case consts.VCodecH264:
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoToH264}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToH264}
 	case consts.VCodecHEVC:
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoToH265}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToH265}
 	case consts.VCodecMPEG2:
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoToMPEG2}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToMPEG2}
 	case consts.VCodecVP8:
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoToVP8}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToVP8}
 	case consts.VCodecVP9:
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoToVP9}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToVP9}
 	case currentVCodec, "":
-		b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoCodecCopy}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoCodecCopy}
 	default:
 		b.videoCodecSoftware = nil
 	}
@@ -272,7 +298,7 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 	if len(b.videoCodecSoftware) == 2 {
 		if !strings.Contains(availableCodecs, b.videoCodecSoftware[1]) {
 			logging.W("Video codec %q not available in FFmpeg build, falling back to software.", b.videoCodecSoftware[1])
-			b.videoCodecSoftware = []string{consts.FFmpegCV, consts.VideoCodecCopy}
+			b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoCodecCopy}
 		}
 	} else if b.videoCodecSoftware != nil {
 		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
@@ -364,7 +390,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, transcodeCodec, av
 	}
 
 	gpuCodecString := sb.String()
-	b.videoCodecGPU = []string{consts.FFmpegCV, gpuCodecString}
+	b.videoCodecGPU = []string{consts.FFmpegCV0, gpuCodecString}
 
 	if !strings.Contains(availableCodecs, gpuCodecString) {
 		logging.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
@@ -507,8 +533,8 @@ func (b *ffCommandBuilder) setFormatFlags() (args []string) {
 		args = append(args, b.videoCodecGPU...)
 	} else if len(b.videoCodecSoftware) != 0 {
 		args = append(args, b.videoCodecSoftware...)
-	} else if vCodec, exists := b.formatFlagsMap[consts.FFmpegCV]; exists {
-		args = append(args, consts.FFmpegCV, vCodec)
+	} else if vCodec, exists := b.formatFlagsMap[consts.FFmpegCV0]; exists {
+		args = append(args, consts.FFmpegCV0, vCodec)
 	}
 
 	// Add audio codec

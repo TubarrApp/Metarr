@@ -13,7 +13,8 @@ type ffprobeFormat struct {
 }
 
 type ffprobeOutput struct {
-	Format ffprobeFormat `json:"format"`
+	Streams []ffprobeStream `json:"streams"`
+	Format  ffprobeFormat   `json:"format"`
 }
 
 type ffprobeTags struct {
@@ -24,6 +25,15 @@ type ffprobeTags struct {
 	Date         string `json:"date"`
 	Artist       string `json:"artist"`
 	Composer     string `json:"composer"`
+}
+
+type ffprobeStream struct {
+	Index       int    `json:"index"`
+	CodecType   string `json:"codec_type"`
+	CodecName   string `json:"codec_name"`
+	Disposition struct {
+		AttachedPic int `json:"attached_pic"`
+	} `json:"disposition"`
 }
 
 // getDatePart safely extracts the date part before 'T' if it exists.

@@ -183,6 +183,11 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	rootCmd.PersistentFlags().Bool(keys.StripThumbnails, false, "Strip thumbnails from a video")
+	if err := viper.BindPFlag(keys.StripThumbnails, rootCmd.PersistentFlags().Lookup(keys.StripThumbnails)); err != nil {
+		return err
+	}
+
 	return nil
 }
 

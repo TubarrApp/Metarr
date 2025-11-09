@@ -165,6 +165,14 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 		return false
 	}
 
+	// Write thumbnail
+	if abstractions.IsSet(keys.ForceWriteThumbnails) {
+		if abstractions.GetBool(keys.ForceWriteThumbnails) && fd.MWebData.Thumbnail != "" {
+			logging.I("Skipping FFprobe, thumbnail enforcing write.")
+			return false
+		}
+	}
+
 	// Run metadata checks in all other cases
 	switch currentExt {
 	case consts.ExtMP4:

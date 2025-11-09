@@ -166,7 +166,7 @@ func skipProcessing(fd *models.FileData, outExt string) (skipProcessing bool) {
 
 	// Check if metadata already exists
 	if !fd.MetaAlreadyExists {
-		logging.D(2, "Metadata mismatch in file %q", fd.OriginalVideoPath)
+		logging.D(2, "Metadata or thumbnail mismatch in file %q", fd.OriginalVideoPath)
 	}
 
 	// Final checks

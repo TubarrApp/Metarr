@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/keys"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os/exec"
@@ -23,7 +25,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		"ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
-		"-show_format",
+		"-show_format", "-show_streams",
 		fd.OriginalVideoPath,
 	)
 
@@ -40,6 +42,31 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 
 	if err := json.Unmarshal(output, &ffData); err != nil {
 		logging.E("Error parsing FFprobe output: %v. Will not process video.", err)
+		return false
+	}
+
+	// Check if thumbnail is already present in file
+	hasThumbnail := false
+	for _, s := range ffData.Streams {
+		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
+			logging.I("Video %q has an embedded thumbnail", fd.OriginalVideoBaseName)
+			hasThumbnail = true
+			break
+		}
+	}
+
+	stripThumbnail := false
+	if abstractions.IsSet(keys.StripThumbnails) {
+		stripThumbnail = abstractions.GetBool(keys.StripThumbnails)
+	}
+
+	if hasThumbnail && stripThumbnail {
+		logging.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoBaseName)
+		return false
+	}
+
+	if !hasThumbnail && fd.MWebData.Thumbnail != "" {
+		logging.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoBaseName, fd.MWebData.Thumbnail)
 		return false
 	}
 

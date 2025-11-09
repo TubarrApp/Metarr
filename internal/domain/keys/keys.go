@@ -49,6 +49,7 @@ const (
 
 	ExtraFFmpegArgs      string = "extra-ffmpeg-args"
 	ForceWriteThumbnails string = "force-write-thumbnail"
+	StripThumbnails      string = "strip-thumbnail"
 )
 
 // Primary program

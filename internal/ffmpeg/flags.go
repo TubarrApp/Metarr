@@ -20,44 +20,44 @@ var (
 	// Direct copy preset
 	copyPreset = formatPreset{
 		flags: map[string]string{
-			consts.FFmpegCV: "copy",
-			consts.FFmpegCA: "copy",
-			consts.FFmpegCS: "copy",
-			consts.FFmpegCD: "copy",
-			consts.FFmpegCT: "copy",
+			consts.FFmpegCV0: "copy",
+			consts.FFmpegCA:  "copy",
+			consts.FFmpegCS:  "copy",
+			consts.FFmpegCD:  "copy",
+			consts.FFmpegCT:  "copy",
 		},
 	}
 
 	// Standard h264 conversion
 	h264Preset = formatPreset{
 		flags: map[string]string{
-			consts.FFmpegCV: "libx264",
-			consts.FFmpegCA: "copy",
-			consts.FFmpegCS: "copy",
-			consts.FFmpegCD: "copy",
-			consts.FFmpegCT: "copy",
+			consts.FFmpegCV0: "libx264",
+			consts.FFmpegCA:  "copy",
+			consts.FFmpegCS:  "copy",
+			consts.FFmpegCD:  "copy",
+			consts.FFmpegCT:  "copy",
 		},
 	}
 
 	// Video copy with AAC audio
 	videoCopyAACPreset = formatPreset{
 		flags: map[string]string{
-			consts.FFmpegCV: "copy",
-			consts.FFmpegCA: "aac",
-			consts.FFmpegCS: "copy",
-			consts.FFmpegCD: "copy",
-			consts.FFmpegCT: "copy",
+			consts.FFmpegCV0: "copy",
+			consts.FFmpegCA:  "aac",
+			consts.FFmpegCS:  "copy",
+			consts.FFmpegCD:  "copy",
+			consts.FFmpegCT:  "copy",
 		},
 	}
 
 	// Full webm conversion preset
 	webmPreset = formatPreset{
 		flags: map[string]string{
-			consts.FFmpegCV: "libx264",
-			consts.FFmpegCA: "copy",
-			consts.FFmpegCS: "copy",
-			consts.FFmpegCD: "copy",
-			consts.FFmpegCT: "copy",
+			consts.FFmpegCV0: "libx264",
+			consts.FFmpegCA:  "copy",
+			consts.FFmpegCS:  "copy",
+			consts.FFmpegCD:  "copy",
+			consts.FFmpegCT:  "copy",
 		},
 	}
 )

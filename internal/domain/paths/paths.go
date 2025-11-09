@@ -9,6 +9,7 @@ import (
 	"metarr/internal/domain/keys"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -40,7 +41,10 @@ func InitProgFilesDirs() error {
 	// Main files
 	logOutputDir := HomeMetarrDir
 	if abstractions.IsSet(keys.OutputDirectory) {
-		logOutputDir = abstractions.GetString(keys.OutputDirectory)
+		// Set if no templating elements
+		if !strings.Contains(logOutputDir, "{{") || !strings.Contains(logOutputDir, "}}") {
+			logOutputDir = abstractions.GetString(keys.OutputDirectory)
+		}
 	}
 	LogFilePath = filepath.Join(logOutputDir, logFile)
 
