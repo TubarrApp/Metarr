@@ -169,7 +169,7 @@ func sysResourceLoop(fileStr string) {
 func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
 
 	requiredMemory := abstractions.GetUint64(keys.MinFreeMem) // Default 0
-	maxCPUUsage := abstractions.GetFloat64(keys.MaxCPU)       // Default 101.0
+	maxCPUUsage := abstractions.GetFloat64(keys.MaxCPU)       // Default 100.0
 
 	vMem, err := mem.VirtualMemory()
 	if err != nil {

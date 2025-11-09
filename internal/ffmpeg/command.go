@@ -90,12 +90,12 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	args := b.setFormatFlags()
 	b.addAllMetadata(fd)
 
-	skipThumbnails := false
+	stripThumbnails := false
 	if abstractions.IsSet(keys.StripThumbnails) {
-		skipThumbnails = abstractions.GetBool(keys.StripThumbnails)
+		stripThumbnails = abstractions.GetBool(keys.StripThumbnails)
 	}
-	if !skipThumbnails {
-		b.setThumbnail(fd.MWebData.Thumbnail, fd.OriginalVideoBaseName, outExt)
+	if !stripThumbnails {
+		b.setThumbnail(fd.MWebData.Thumbnail, fd.OriginalVideoBaseName, outExt, fd.HasEmbeddedThumbnail)
 	}
 
 	// Return the fully appended argument string
@@ -103,9 +103,30 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 }
 
 // setThumbnail sets the thumbnail image in the video metadata.
-func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string) {
+func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string, hasEmbeddedThumbnail bool) {
 	if thumbnailURL == "" || outExt == "" {
-		return
+		if thumbnailURL == "" && hasEmbeddedThumbnail {
+			logging.I("Video %q has an embedded thumbnail. Will copy existing attached_pic.", b.inputFile)
+
+			switch strings.ToLower(outExt) {
+			case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
+				b.thumbnail = []string{
+					"-map", "0",
+					"-c:v:1", "copy",
+					"-disposition:v:1", "attached_pic",
+				}
+
+			case consts.ExtMKV:
+				b.thumbnail = []string{
+					"-map", "0",
+					"-c", "copy",
+				}
+
+			default:
+				logging.D(1, "Copying attached thumbnails not supported for extension: %s", outExt)
+			}
+			return
+		}
 	}
 
 	// Download local thumbnail

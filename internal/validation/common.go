@@ -220,21 +220,13 @@ func ValidateMinFreeMem(minFreeMem string) {
 
 // ValidateMaxCPU validates and sets the maximum CPU limit.
 func ValidateMaxCPU(maxCPU float64) {
-	if maxCPU == 101.0 {
+	if maxCPU >= 100.0 {
 		return
 	}
 
-	switch {
-	case maxCPU > 100.0:
-		maxCPU = 100.0
-		logging.E("Max CPU usage entered too high, setting to default max: %.2f%%", maxCPU)
-
-	case maxCPU <= 0.0:
-		maxCPU = 0.1
+	if maxCPU <= 0.0 {
+		maxCPU = 10.0
 		logging.E("Max CPU usage entered zero, setting to default lowest: %.2f%%", maxCPU)
-	}
-	if maxCPU != 100.0 {
-		logging.I("Max CPU usage: %.2f%%", maxCPU)
 	}
 	abstractions.Set(keys.MaxCPU, maxCPU)
 }

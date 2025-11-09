@@ -46,11 +46,15 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 	}
 
 	// Check if thumbnail is already present in file
-	hasThumbnail := false
 	for _, s := range ffData.Streams {
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
 			logging.I("Video %q has an embedded thumbnail", fd.OriginalVideoBaseName)
-			hasThumbnail = true
+			fd.HasEmbeddedThumbnail = true
+
+			// Thumbnail embedded in file, missing in metafile
+			if fd.MWebData.Thumbnail == "" {
+				return false
+			}
 			break
 		}
 	}
@@ -60,12 +64,14 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		stripThumbnail = abstractions.GetBool(keys.StripThumbnails)
 	}
 
-	if hasThumbnail && stripThumbnail {
+	// Thumbnail is in file but user wants to strip
+	if fd.HasEmbeddedThumbnail && stripThumbnail {
 		logging.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoBaseName)
 		return false
 	}
 
-	if !hasThumbnail && fd.MWebData.Thumbnail != "" {
+	// No thumbnail in file but thumbnail exists in metadata
+	if !fd.HasEmbeddedThumbnail && fd.MWebData.Thumbnail != "" {
 		logging.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoBaseName, fd.MWebData.Thumbnail)
 		return false
 	}

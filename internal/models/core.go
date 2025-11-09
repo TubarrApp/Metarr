@@ -80,8 +80,9 @@ type FileData struct {
 	FilenameOps *FilenameOps
 
 	// Misc
-	MetaAlreadyExists bool `json:"-" xml:"-"`
-	ModelMOverwrite   bool
+	MetaAlreadyExists    bool `json:"-" xml:"-"`
+	ModelMOverwrite      bool
+	HasEmbeddedThumbnail bool
 }
 
 // Core contains variables important to the program core.
