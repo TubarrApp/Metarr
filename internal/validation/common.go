@@ -224,9 +224,9 @@ func ValidateMaxCPU(maxCPU float64) {
 		return
 	}
 
-	if maxCPU <= 0.0 {
-		maxCPU = 10.0
-		logging.E("Max CPU usage entered zero, setting to default lowest: %.2f%%", maxCPU)
+	if maxCPU <= 5.0 {
+		maxCPU = 5.0
+		logging.E("Max CPU usage entered too low, setting to default lowest: %.2f%%", maxCPU)
 	}
 	abstractions.Set(keys.MaxCPU, maxCPU)
 }
