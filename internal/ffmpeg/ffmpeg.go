@@ -124,7 +124,7 @@ func skipProcessing(fd *models.FileData, outExt string) (skipProcessing bool) {
 
 	// Write thumbnail
 	if abstractions.IsSet(keys.ForceWriteThumbnails) {
-		if abstractions.GetBool(keys.ForceWriteThumbnails) {
+		if abstractions.GetBool(keys.ForceWriteThumbnails) && fd.MWebData.Thumbnail != "" {
 			logging.I("Thumbnail URL detected. Will write to file.")
 			return false
 		}
