@@ -220,9 +220,7 @@ func ValidateMinFreeMem(minFreeMem string) {
 
 // ValidateMaxCPU validates and sets the maximum CPU limit.
 func ValidateMaxCPU(maxCPU float64) {
-	if maxCPU >= 100.0 {
-		return
-	}
+	maxCPU = min(maxCPU, 101.0)
 
 	if maxCPU <= 5.0 {
 		maxCPU = 5.0
