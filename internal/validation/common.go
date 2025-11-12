@@ -11,7 +11,6 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -433,15 +432,30 @@ func ValidateVideoCodec(c string) error {
 	c = strings.ToLower(strings.TrimSpace(c))
 	c = strings.ReplaceAll(c, ".", "")
 	c = strings.ReplaceAll(c, "-", "")
+	c = strings.ReplaceAll(c, "_", "")
 
 	// Retrieve GPU type
 	var gpuType string
 	if abstractions.IsSet(keys.UseGPU) {
 		gpuType = abstractions.GetString(keys.UseGPU)
 	}
+	// Synonym and alias mapping
+	switch c {
+	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
+		c = consts.VCodecAV1
+	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
+		c = consts.VCodecH264
+	case "x265", "h265", "hevc265", "libx265", "hevc":
+		c = consts.VCodecHEVC
+	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
+		c = consts.VCodecMPEG2
+	case "libvpx", "vp08", "vpx", "vpx8":
+		c = consts.VCodecVP8
+	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
+		c = consts.VCodecVP9
+	}
 
-	// Direct match first
-	if slices.Contains(consts.ValidVideoCodecs, c) {
+	if consts.ValidVideoCodecs[c] {
 		switch gpuType {
 		case consts.AccelTypeAMF:
 			if c == consts.VCodecMPEG2 || c == consts.VCodecVP8 || c == consts.VCodecVP9 {
@@ -467,38 +481,9 @@ func ValidateVideoCodec(c string) error {
 		logging.I("Setting video codec type: %q", c)
 		abstractions.Set(keys.TranscodeVideoCodec, c)
 		return nil
-	}
-
-	// Synonym and alias mapping
-	switch c {
-	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
-		logging.I("Setting video codec type: %q", consts.VCodecAV1)
-		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecAV1)
-
-	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
-		logging.I("Setting video codec type: %q", consts.VCodecH264)
-		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecH264)
-
-	case "x265", "h265", "hevc265", "libx265", "hevc":
-		logging.I("Setting video codec type: %q", consts.VCodecHEVC)
-		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecHEVC)
-
-	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
-		logging.I("Setting video codec type: %q", consts.VCodecMPEG2)
-		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecMPEG2)
-
-	case "libvpx", "vp08", "vpx", "vpx8":
-		logging.I("Setting video codec type: %q", consts.VCodecVP8)
-		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecVP8)
-
-	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
-		logging.I("Setting video codec type: %q", consts.VCodecVP9)
-		abstractions.Set(keys.TranscodeVideoCodec, consts.VCodecVP9)
-
-	default:
+	} else {
 		return fmt.Errorf("video codec %q not supported. Supported codecs: %v", c, consts.ValidVideoCodecs)
 	}
-	return nil
 }
 
 // ValidateAudioCodec verifies the audio codec to use for transcode/encode operations.
@@ -509,9 +494,10 @@ func ValidateAudioCodec(c string) error {
 	c = strings.ToLower(strings.TrimSpace(c))
 	c = strings.ReplaceAll(c, ".", "")
 	c = strings.ReplaceAll(c, "-", "")
+	c = strings.ReplaceAll(c, "_", "")
 
 	// Search for exact matches
-	if slices.Contains(consts.ValidAudioCodecs, c) {
+	if consts.ValidAudioCodecs[c] {
 		logging.I("Setting audio codec: %q", c)
 		abstractions.Set(keys.TranscodeAudioCodec, c)
 		return nil
@@ -519,10 +505,6 @@ func ValidateAudioCodec(c string) error {
 
 	// Synonym and alias mapping
 	switch c {
-	case "ac-3", "ac_3":
-		logging.I("Setting audio codec: %q", consts.ACodecAC3)
-		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecAC3)
-
 	case "m4a", "mp4a":
 		logging.I("Setting audio codec: %q", consts.ACodecAAC)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecAAC)
@@ -535,7 +517,7 @@ func ValidateAudioCodec(c string) error {
 		logging.I("Setting audio codec: %q", consts.ACodecDTS)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecDTS)
 
-	case "dd+", "dolbydigitalplus", "ac3e", "ec3":
+	case "dd+", "dolbydigitalplus", "dolbydigital+", "ac3e", "ec3":
 		logging.I("Setting audio codec: %q", consts.ACodecEAC3)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecEAC3)
 

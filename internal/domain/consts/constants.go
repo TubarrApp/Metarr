@@ -66,32 +66,32 @@ const (
 const TimeSfx = "T00:00:00Z"
 
 // ValidVideoCodecs contains all valid video codecs.
-var ValidVideoCodecs = []string{
-	VCodecCopy,
-	VCodecAV1,
-	VCodecH264,
-	VCodecHEVC,
-	VCodecMPEG2,
-	VCodecVP8,
-	VCodecVP9,
+var ValidVideoCodecs = map[string]bool{
+	VCodecCopy:  true,
+	VCodecAV1:   true,
+	VCodecH264:  true,
+	VCodecHEVC:  true,
+	VCodecMPEG2: true,
+	VCodecVP8:   true,
+	VCodecVP9:   true,
 }
 
 // ValidAudioCodecs contains all valid audio codecs.
-var ValidAudioCodecs = []string{
-	ACodecCopy,
-	ACodecAAC,
-	ACodecAC3,
-	ACodecALAC,
-	ACodecDTS,
-	ACodecEAC3,
-	ACodecFLAC,
-	ACodecMP2,
-	ACodecMP3,
-	ACodecOpus,
-	ACodecPCM,
-	ACodecTrueHD,
-	ACodecVorbis,
-	ACodecWAV,
+var ValidAudioCodecs = map[string]bool{
+	ACodecCopy:   true,
+	ACodecAAC:    true,
+	ACodecAC3:    true,
+	ACodecALAC:   true,
+	ACodecDTS:    true,
+	ACodecEAC3:   true,
+	ACodecFLAC:   true,
+	ACodecMP2:    true,
+	ACodecMP3:    true,
+	ACodecOpus:   true,
+	ACodecPCM:    true,
+	ACodecTrueHD: true,
+	ACodecVorbis: true,
+	ACodecWAV:    true,
 }
 
 // Webpage tags
