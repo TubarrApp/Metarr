@@ -383,11 +383,11 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 			b.gpuCompatability = append(b.gpuCompatability, consts.CudaCompatability...)
 		}
 
-	case consts.AccelTypeQSV:
+	case consts.AccelTypeIntel:
 		if transcodeDir != "" {
 			b.gpuAccelFlags = []string{
-				consts.FFmpegHWAccel, consts.AccelTypeQSV,
-				consts.FFmpegHWAccelOutputFormat, consts.AccelTypeQSV,
+				consts.FFmpegHWAccel, consts.AccelTypeIntel,
+				consts.FFmpegHWAccelOutputFormat, consts.AccelTypeIntel,
 			}
 			b.gpuDir = []string{consts.FFmpegDeviceQSV, transcodeDir}
 		}
@@ -512,7 +512,7 @@ func (b *ffCommandBuilder) setTranscodeQuality(accelType string) {
 			"-cq", qNum,
 		)
 
-	case consts.AccelTypeQSV:
+	case consts.AccelTypeIntel:
 		// Intel uses QSV
 		b.qualityParameter = append(b.qualityParameter, "-global_quality", qNum)
 

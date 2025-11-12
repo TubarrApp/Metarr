@@ -62,37 +62,54 @@ const (
 	ACodecWAV    = "wav"
 )
 
+// Rename styles.
+const (
+	RenameSkip        = "skip"
+	RenameSpaces      = "spaces"
+	RenameUnderscores = "underscores"
+	RenameFixesOnly   = "fixes-only"
+)
+
 // TimeSfx is used as a time suffix format in metadata.
 const TimeSfx = "T00:00:00Z"
 
-// ValidVideoCodecs contains all valid video codecs.
-var ValidVideoCodecs = map[string]bool{
-	VCodecCopy:  true,
-	VCodecAV1:   true,
-	VCodecH264:  true,
-	VCodecHEVC:  true,
-	VCodecMPEG2: true,
-	VCodecVP8:   true,
-	VCodecVP9:   true,
-}
+// Valid maps contains all validation maps.
+var (
+	ValidVideoCodecs = map[string]bool{
+		VCodecCopy:  true,
+		VCodecAV1:   true,
+		VCodecH264:  true,
+		VCodecHEVC:  true,
+		VCodecMPEG2: true,
+		VCodecVP8:   true,
+		VCodecVP9:   true,
+	}
 
-// ValidAudioCodecs contains all valid audio codecs.
-var ValidAudioCodecs = map[string]bool{
-	ACodecCopy:   true,
-	ACodecAAC:    true,
-	ACodecAC3:    true,
-	ACodecALAC:   true,
-	ACodecDTS:    true,
-	ACodecEAC3:   true,
-	ACodecFLAC:   true,
-	ACodecMP2:    true,
-	ACodecMP3:    true,
-	ACodecOpus:   true,
-	ACodecPCM:    true,
-	ACodecTrueHD: true,
-	ACodecVorbis: true,
-	ACodecWAV:    true,
-}
+	ValidAudioCodecs = map[string]bool{
+		ACodecCopy:   true,
+		ACodecAAC:    true,
+		ACodecAC3:    true,
+		ACodecALAC:   true,
+		ACodecDTS:    true,
+		ACodecEAC3:   true,
+		ACodecFLAC:   true,
+		ACodecMP2:    true,
+		ACodecMP3:    true,
+		ACodecOpus:   true,
+		ACodecPCM:    true,
+		ACodecTrueHD: true,
+		ACodecVorbis: true,
+		ACodecWAV:    true,
+	}
+
+	ValidGPUAccelTypes = map[string]bool{
+		AccelTypeAuto:   true,
+		AccelTypeAMF:    true,
+		AccelTypeIntel:  true,
+		AccelTypeNvidia: true,
+		AccelTypeVAAPI:  true,
+	}
+)
 
 // Webpage tags
 var (

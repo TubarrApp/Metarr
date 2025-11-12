@@ -35,7 +35,7 @@ const (
 	AccelTypeAuto   = "auto"
 	AccelTypeNvidia = "cuda"
 	AccelTypeVAAPI  = "vaapi"
-	AccelTypeQSV    = "qsv"
+	AccelTypeIntel  = "qsv"
 )
 
 // Accel flags.

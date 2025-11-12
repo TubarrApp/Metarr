@@ -56,57 +56,57 @@ func init() {
 func execute() (err error) {
 	// Batch pairs
 	if viper.IsSet(keys.BatchPairsInput) {
-		if err := validation.ValidateBatchPairs(viper.GetStringSlice(keys.BatchPairsInput)); err != nil {
+		if err := validation.ValidateAndSetBatchPairs(viper.GetStringSlice(keys.BatchPairsInput)); err != nil {
 			return err
 		}
 	}
 
 	// Concurrency
-	validation.ValidateConcurrencyLimit(viper.GetInt(keys.Concurrency))
+	validation.ValidateAndSetConcurrencyLimit(viper.GetInt(keys.Concurrency))
 
 	// Resource usage limits (CPU and memory)
-	validation.ValidateMinFreeMem(viper.GetString(keys.MinFreeMem))
-	validation.ValidateMaxCPU(viper.GetFloat64(keys.MaxCPU))
+	validation.ValidateAndSetMinFreeMem(viper.GetString(keys.MinFreeMem))
+	validation.ValidateAndSetMaxCPU(viper.GetFloat64(keys.MaxCPU))
 
 	// File extension settings
-	validation.ValidateInputFiletypes(
+	validation.ValidateAndSetInputFiletypes(
 		viper.GetStringSlice(keys.InputVideoExts),
 		viper.GetStringSlice(keys.InputMetaExts),
 	)
 
 	// File filter settings
 	if viper.IsSet(keys.FilePrefixes) {
-		validation.ValidateSetFileFilters(keys.FilePrefixes, viper.GetStringSlice(keys.FilePrefixes))
+		validation.ValidateAndSetFileFilters(keys.FilePrefixes, viper.GetStringSlice(keys.FilePrefixes))
 	}
 	if viper.IsSet(keys.FileSuffixes) {
-		validation.ValidateSetFileFilters(keys.FileSuffixes, viper.GetStringSlice(keys.FileSuffixes))
+		validation.ValidateAndSetFileFilters(keys.FileSuffixes, viper.GetStringSlice(keys.FileSuffixes))
 	}
 	if viper.IsSet(keys.FileContains) {
-		validation.ValidateSetFileFilters(keys.FileContains, viper.GetStringSlice(keys.FileContains))
+		validation.ValidateAndSetFileFilters(keys.FileContains, viper.GetStringSlice(keys.FileContains))
 	}
 	if viper.IsSet(keys.FileOmits) {
-		validation.ValidateSetFileFilters(keys.FileOmits, viper.GetStringSlice(keys.FileOmits))
+		validation.ValidateAndSetFileFilters(keys.FileOmits, viper.GetStringSlice(keys.FileOmits))
 	}
 
 	// Filetype to output as
 	if viper.IsSet(keys.OutputDirectory) {
-		validation.ValidateOutputFiletype(viper.GetString(keys.OutputDirectory))
+		validation.ValidateAndSetOutputFiletype(viper.GetString(keys.OutputDirectory))
 	}
 
 	// Meta overwrite and preserve flags
-	validation.ValidateMetaOverwritePreserve(
+	validation.ValidateAndSetMetaOverwritePreserve(
 		viper.GetBool(keys.MOverwrite),
 		viper.GetBool(keys.MPreserve),
 	)
 
 	// Verify user metafile purge settings
 	if viper.IsSet(keys.MetaPurge) {
-		validation.ValidatePurgeMetafiles(viper.GetString(keys.MetaPurge))
+		validation.ValidateAndSetPurgeMetafiles(viper.GetString(keys.MetaPurge))
 	}
 
 	// Parse and verify the audio codec
 	if viper.IsSet(keys.TranscodeAudioCodec) {
-		if err := validation.ValidateAudioCodec(viper.GetString(keys.TranscodeAudioCodec)); err != nil {
+		if err := validation.ValidateAndSetAudioCodec(viper.GetString(keys.TranscodeAudioCodec)); err != nil {
 			return err
 		}
 	}
@@ -119,12 +119,12 @@ func execute() (err error) {
 		}
 	}
 	if viper.IsSet(keys.TranscodeVideoCodec) {
-		if err := validation.ValidateVideoCodec(viper.GetString((keys.TranscodeVideoCodec))); err != nil {
+		if err := validation.ValidateAndSetVideoCodec(viper.GetString((keys.TranscodeVideoCodec))); err != nil {
 			return err
 		}
 	}
 	if viper.IsSet(keys.TranscodeQuality) {
-		if err := validation.ValidateTranscodeQuality(viper.GetString(keys.TranscodeQuality), accelType); err != nil {
+		if err := validation.ValidateAndSetTranscodeQuality(viper.GetString(keys.TranscodeQuality), accelType); err != nil {
 			return err
 		}
 	}
@@ -139,18 +139,18 @@ func execute() (err error) {
 // initTransformations initializes text replacement flags.
 func initTransformations() error {
 	// Set rename flag
-	validation.ValidateRenameFlag(viper.GetString(keys.RenameStyle))
+	validation.ValidateAndSetRenameFlag(viper.GetString(keys.RenameStyle))
 
 	// Validate filename operations
 	if viper.IsSet(keys.FilenameOpsInput) {
-		if err := validation.ValidateSetFilenameOps(viper.GetStringSlice(keys.FilenameOpsInput)); err != nil {
+		if err := validation.ValidateAndSetFilenameOps(viper.GetStringSlice(keys.FilenameOpsInput)); err != nil {
 			return err
 		}
 	}
 
 	// Validate meta operations
 	if viper.IsSet(keys.MetaOpsInput) {
-		if err := validation.ValidateSetMetaOps(viper.GetStringSlice(keys.MetaOpsInput)); err != nil {
+		if err := validation.ValidateAndSetMetaOps(viper.GetStringSlice(keys.MetaOpsInput)); err != nil {
 			return err
 		}
 	}

@@ -6,12 +6,13 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/utils/logging"
 	"strings"
 )
 
-// ValidateSetMetaOps parses the meta transformation operations.
-func ValidateSetMetaOps(metaOpsInput []string) error {
+// ValidateAndSetMetaOps parses the meta transformation operations.
+func ValidateAndSetMetaOps(metaOpsInput []string) error {
 	logging.D(2, "Validating meta operations...")
 	if len(metaOpsInput) == 0 {
 		return nil
@@ -22,7 +23,7 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 	validOpsForPrintout := make([]string, 0, len(metaOpsInput))
 
 	for _, op := range metaOpsInput {
-		parts := EscapedSplit(op, ':')
+		parts := parsing.EscapedSplit(op, ':')
 		if len(parts) < 3 || len(parts) > 4 {
 			return fmt.Errorf(invalidWarning, op)
 		}
@@ -41,8 +42,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 					ops.SetOverrides[enums.OverrideMetaCredits] = value
 				}
 				newFieldModel := models.MetaSetField{
-					Field: UnescapeSplit(field, ":"),
-					Value: UnescapeSplit(value, ":"),
+					Field: parsing.UnescapeSplit(field, ":"),
+					Value: parsing.UnescapeSplit(value, ":"),
 				}
 				ops.SetFields = append(ops.SetFields, newFieldModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -50,8 +51,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "append":
 				apndModel := models.MetaAppend{
-					Field:  UnescapeSplit(field, ":"),
-					Append: UnescapeSplit(value, ":"),
+					Field:  parsing.UnescapeSplit(field, ":"),
+					Append: parsing.UnescapeSplit(value, ":"),
 				}
 				ops.Appends = append(ops.Appends, apndModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -59,8 +60,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "prefix":
 				pfxModel := models.MetaPrefix{
-					Field:  UnescapeSplit(field, ":"),
-					Prefix: UnescapeSplit(value, ":"),
+					Field:  parsing.UnescapeSplit(field, ":"),
+					Prefix: parsing.UnescapeSplit(value, ":"),
 				}
 				ops.Prefixes = append(ops.Prefixes, pfxModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -68,8 +69,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "copy-to":
 				c := models.CopyToField{
-					Field: UnescapeSplit(field, ":"),
-					Dest:  UnescapeSplit(value, ":"),
+					Field: parsing.UnescapeSplit(field, ":"),
+					Dest:  parsing.UnescapeSplit(value, ":"),
 				}
 				ops.CopyToFields = append(ops.CopyToFields, c)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -77,8 +78,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 
 			case "paste-from":
 				p := models.PasteFromField{
-					Field:  UnescapeSplit(field, ":"),
-					Origin: UnescapeSplit(value, ":"),
+					Field:  parsing.UnescapeSplit(field, ":"),
+					Origin: parsing.UnescapeSplit(value, ":"),
 				}
 				ops.PasteFromFields = append(ops.PasteFromFields, p)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -90,9 +91,9 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				findStr := parts[2]
 				replacement := parts[3]
 				rModel := models.MetaReplace{
-					Field:       UnescapeSplit(field, ":"),
-					Value:       UnescapeSplit(findStr, ":"),
-					Replacement: UnescapeSplit(replacement, ":"),
+					Field:       parsing.UnescapeSplit(field, ":"),
+					Value:       parsing.UnescapeSplit(findStr, ":"),
+					Replacement: parsing.UnescapeSplit(replacement, ":"),
 				}
 				ops.Replaces = append(ops.Replaces, rModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
@@ -152,9 +153,9 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				findSuffix := parts[2]
 				replaceStr := parts[3]
 				ops.ReplaceSuffixes = append(ops.ReplaceSuffixes, models.MetaReplaceSuffix{
-					Field:       UnescapeSplit(field, ":"),
-					Suffix:      UnescapeSplit(findSuffix, ":"),
-					Replacement: UnescapeSplit(replaceStr, ":"),
+					Field:       parsing.UnescapeSplit(field, ":"),
+					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
@@ -163,9 +164,9 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 				findPrefix := parts[2]
 				replaceStr := parts[3]
 				ops.ReplacePrefixes = append(ops.ReplacePrefixes, models.MetaReplacePrefix{
-					Field:       UnescapeSplit(field, ":"),
-					Prefix:      UnescapeSplit(findPrefix, ":"),
-					Replacement: UnescapeSplit(replaceStr, ":"),
+					Field:       parsing.UnescapeSplit(field, ":"),
+					Prefix:      parsing.UnescapeSplit(findPrefix, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
@@ -187,8 +188,8 @@ func ValidateSetMetaOps(metaOpsInput []string) error {
 	return nil
 }
 
-// ValidateSetFilenameOps checks and validates filename operations.
-func ValidateSetFilenameOps(filenameOpsInput []string) error {
+// ValidateAndSetFilenameOps checks and validates filename operations.
+func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	if len(filenameOpsInput) == 0 {
 		logging.D(2, "No filename operations to add.")
 		return nil
@@ -199,7 +200,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 	validOpsForPrintout := make([]string, 0, len(filenameOpsInput))
 
 	for _, op := range filenameOpsInput {
-		parts := EscapedSplit(op, ':')
+		parts := parsing.EscapedSplit(op, ':')
 		if len(parts) < 2 || len(parts) > 3 {
 			return fmt.Errorf(invalidWarning, op)
 		}
@@ -210,14 +211,14 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 			switch strings.ToLower(operation) {
 			case "prefix":
 				fOpModel.Prefixes = append(fOpModel.Prefixes, models.FOpPrefix{
-					Value: UnescapeSplit(opValue, ":"),
+					Value: parsing.UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new prefix operation:\nPrefix: %s\n", opValue)
 
 			case "append":
 				fOpModel.Appends = append(fOpModel.Appends, models.FOpAppend{
-					Value: UnescapeSplit(opValue, ":"),
+					Value: parsing.UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new append operation:\nAppend: %s\n", opValue)
@@ -292,8 +293,8 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				findStr := parts[1]
 				replaceStr := parts[2]
 				fOpModel.Replaces = append(fOpModel.Replaces, models.FOpReplace{
-					FindString:  UnescapeSplit(findStr, ":"),
-					Replacement: UnescapeSplit(replaceStr, ":"),
+					FindString:  parsing.UnescapeSplit(findStr, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new replace operation:\nFind Strings: %s\nReplace With: %s\n", findStr, replaceStr)
@@ -302,8 +303,8 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				findSuffix := parts[1]
 				replaceStr := parts[2]
 				fOpModel.ReplaceSuffixes = append(fOpModel.ReplaceSuffixes, models.FOpReplaceSuffix{
-					Suffix:      UnescapeSplit(findSuffix, ":"),
-					Replacement: UnescapeSplit(replaceStr, ":"),
+					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
@@ -312,8 +313,8 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 				findPrefix := parts[1]
 				replaceStr := parts[2]
 				fOpModel.ReplacePrefixes = append(fOpModel.ReplacePrefixes, models.FOpReplacePrefix{
-					Prefix:      UnescapeSplit(findPrefix, ":"),
-					Replacement: UnescapeSplit(replaceStr, ":"),
+					Prefix:      parsing.UnescapeSplit(findPrefix, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
@@ -333,6 +334,7 @@ func ValidateSetFilenameOps(filenameOpsInput []string) error {
 	return nil
 }
 
+// ---- Private ----------------------------------------------------------------------------------------------------
 // dateEnum returns the date format enum type.
 func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 	if len(dateFmt) < 2 || len(dateFmt) > 3 {
