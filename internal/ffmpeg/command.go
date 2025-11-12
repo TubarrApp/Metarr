@@ -16,6 +16,13 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
+)
+
+// availableCodecsCache caches the codecs in FFmpeg to avoid repeated calls.
+var (
+	availableCodecsCache     string
+	availableCodecsCacheOnce sync.Once
 )
 
 // ffCommandBuilder handles FFmpeg command construction
@@ -62,29 +69,35 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuild
 }
 
 // buildCommand constructs the complete FFmpeg command.
-func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, outExt string) ([]string, error) {
+func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, desiredVCodec, desiredACodec, outExt string) ([]string, error) {
 	if b.inputFile == "" || b.outputFile == "" {
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
+
 	// Grab current codecs
 	currentVCodec, currentACodec, err := checkCodecs(b.inputFile)
 	if err != nil {
 		logging.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
-	availableCodecs := b.ffmpegCodecOutput(ctx)
+	availableCodecsCacheOnce.Do(func() {
+		availableCodecsCache = b.ffmpegAvailableCodecs(ctx)
+	})
+	availableCodecs := availableCodecsCache
 
 	// Get GPU flags/codecs
-	accelType, transcodeCodec, useHW := b.getHWAccelFlags()
+	accelType, useTranscodeCodec, useHW := b.getHWAccelFlags(desiredVCodec)
 	if useHW {
 		b.setGPUAcceleration(accelType)
-		b.setGPUAccelerationCodec(accelType, transcodeCodec, availableCodecs)
+		b.setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs)
 	}
+
+	logging.D(1, "Transcoding to codec %q from current codec %q", useTranscodeCodec, currentVCodec)
 
 	// Get software codecs
 	if b.videoCodecGPU == nil {
-		b.setVideoSoftwareCodec(currentVCodec, availableCodecs)
+		b.setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs)
 	}
-	b.setAudioCodec(currentACodec, availableCodecs)
+	b.setAudioCodec(currentACodec, desiredACodec, availableCodecs)
 	b.setTranscodeQuality(accelType)
 
 	b.setDefaultFormatFlagMap(outExt)
@@ -108,8 +121,8 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 // NOTE: Uses -map to avoid accumulating thumbnails, if numerous functions need -map additions at some point,
 // it will be necessary to create something like a b.streamMapping field and setStreamMapping() function.
 func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string, hasEmbeddedThumbnail bool) {
-	if thumbnailURL == "" || outExt == "" {
-		if thumbnailURL == "" && hasEmbeddedThumbnail {
+	if thumbnailURL == "" {
+		if hasEmbeddedThumbnail {
 			logging.I("Video %q has an embedded thumbnail. Will copy existing attached_pic.", b.inputFile)
 
 			switch strings.ToLower(outExt) {
@@ -136,7 +149,10 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 			}
 			return
 		}
+		return
 	}
+
+	// Thumbnail URL not "" beyond here...
 
 	// Download local thumbnail
 	thumbnail, err := downloadThumbnail(thumbnailURL, videoBaseName)
@@ -182,10 +198,11 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 
 // convertToJPG converts an inputted file format to JPG for embedding.
 func convertToJPG(inputPath string) (string, error) {
-	outputPath := strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".jpg"
+	inputFileExt := filepath.Ext(inputPath)
+	outputPath := strings.TrimSuffix(inputPath, inputFileExt) + ".jpg"
 	cmd := exec.Command("ffmpeg", "-y", "-i", inputPath, outputPath)
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to convert webp to jpg: %w", err)
+		return "", fmt.Errorf("failed to convert %q to jpg: %w", inputFileExt, err)
 	}
 	return outputPath, nil
 }
@@ -247,16 +264,9 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) {
-	if !abstractions.IsSet(keys.TranscodeAudioCodec) {
-		return
-	}
-	codec := abstractions.GetString(keys.TranscodeAudioCodec)
-	codec = strings.ToLower(codec)
-	codec = strings.ReplaceAll(codec, " ", "")
-	codec = strings.ReplaceAll(codec, ".", "")
-
-	switch codec {
+func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, availableCodecs string) {
+	// Build command
+	switch desiredACodec {
 	case consts.ACodecAAC:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToAAC}
 	case consts.ACodecAC3:
@@ -286,8 +296,9 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) 
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToWAV}
 	case consts.ACodecTrueHD:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToTrueHD}
-	case currentACodec, "":
+	case consts.ACodecCopy, currentACodec, "":
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioCodecCopy} // Codecs match or user codec empty, use copy
+		return
 	default:
 		b.audioCodec = nil
 	}
@@ -304,16 +315,9 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) 
 }
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs string) {
-	if !abstractions.IsSet(keys.TranscodeVideoCodec) {
-		return
-	}
-	codec := abstractions.GetString(keys.TranscodeVideoCodec)
-	codec = strings.ToLower(codec)
-	codec = strings.ReplaceAll(codec, " ", "")
-	codec = strings.ReplaceAll(codec, ".", "")
-
-	switch codec {
+func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, outputVCodec, availableCodecs string) {
+	// Build transcode string
+	switch outputVCodec {
 	case consts.VCodecAV1:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToAV1}
 	case consts.VCodecH264:
@@ -326,8 +330,9 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToVP8}
 	case consts.VCodecVP9:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToVP9}
-	case currentVCodec, "":
+	case consts.VCodecCopy, currentVCodec, "":
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoCodecCopy}
+		return
 	default:
 		b.videoCodecSoftware = nil
 	}
@@ -343,8 +348,8 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 	}
 }
 
-// ffmpegCodecOutput ensures the desired codec is available.
-func (b *ffCommandBuilder) ffmpegCodecOutput(ctx context.Context) (output string) {
+// ffmpegAvailableCodecs lists codecs available in FFmpeg.
+func (b *ffCommandBuilder) ffmpegAvailableCodecs(ctx context.Context) (output string) {
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
 	outBytes, err := cmd.Output()
 	result := strings.TrimSpace(string(outBytes))
@@ -410,15 +415,15 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 }
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
-func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, transcodeCodec, availableCodecs string) {
+func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs string) {
 	if accelType == "" || accelType == consts.AccelTypeAuto {
 		logging.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
 		return
 	}
 
 	sb := strings.Builder{}
-	sb.Grow(len(transcodeCodec) + 1 + len(accelType))
-	sb.WriteString(transcodeCodec)
+	sb.Grow(len(useTranscodeCodec) + 1 + len(accelType))
+	sb.WriteString(useTranscodeCodec)
 	sb.WriteByte('_')
 	if accelType == consts.AccelTypeNvidia {
 		sb.WriteString(consts.AccelFlagNvenc)
@@ -436,12 +441,12 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, transcodeCodec, av
 	}
 	if b.gpuAccelFlags != nil && b.videoCodecGPU != nil {
 		command := append(b.gpuAccelFlags, b.videoCodecGPU...)
-		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nArguments: %v\n", accelType, transcodeCodec, command)
+		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nArguments: %v\n", accelType, useTranscodeCodec, command)
 	}
 }
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
-func (b *ffCommandBuilder) getHWAccelFlags() (accelType, vCodec string, useHW bool) {
+func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelType, vCodec string, useHW bool) {
 	if !abstractions.IsSet(keys.UseGPU) {
 		return "", "", false
 	}
@@ -452,12 +457,6 @@ func (b *ffCommandBuilder) getHWAccelFlags() (accelType, vCodec string, useHW bo
 	if accelType == "" {
 		logging.I("HW acceleration flags disabled, using software encode/decode")
 		return "", "", false
-	}
-
-	// Fetch transcode codec
-	var transcodeVideoCodec string
-	if abstractions.IsSet(keys.TranscodeVideoCodec) {
-		transcodeVideoCodec = abstractions.GetString(keys.TranscodeVideoCodec)
 	}
 
 	// Do not use HW on copy

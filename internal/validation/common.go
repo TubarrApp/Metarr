@@ -13,6 +13,7 @@ import (
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -184,7 +185,194 @@ func ValidateExtension(ext string) string {
 	return ext
 }
 
+// ValidateVideoCodec validates a video codec and returns if valid.
+func ValidateVideoCodec(c string) (validatedString string, err error) {
+	c = strings.ToLower(strings.TrimSpace(c))
+	c = strings.ReplaceAll(c, ".", "")
+	c = strings.ReplaceAll(c, "-", "")
+	c = strings.ReplaceAll(c, "_", "")
+
+	// Synonym and alias mapping before check
+	switch c {
+	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
+		c = consts.VCodecAV1
+	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
+		c = consts.VCodecH264
+	case "x265", "h265", "hevc265", "libx265", "hevc":
+		c = consts.VCodecHEVC
+	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
+		c = consts.VCodecMPEG2
+	case "libvpx", "vp08", "vpx", "vpx8":
+		c = consts.VCodecVP8
+	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
+		c = consts.VCodecVP9
+	}
+
+	if consts.ValidVideoCodecs[c] {
+		return c, nil
+	}
+
+	return "", fmt.Errorf("video codec %q is not valid", c)
+}
+
+// ValidateAudioCodec validates a video codec and returns if valid.
+func ValidateAudioCodec(a string) (validatedString string, err error) {
+	a = strings.ToLower(strings.TrimSpace(a))
+	a = strings.ReplaceAll(a, ".", "")
+	a = strings.ReplaceAll(a, "-", "")
+	a = strings.ReplaceAll(a, "_", "")
+
+	// Synonym and alias mapping before check
+	switch a {
+	case "aac", "aaclc", "m4a", "mp4a", "aaclowcomplexity":
+		a = consts.ACodecAAC
+	case "alac", "applelossless", "m4aalac":
+		a = consts.ACodecALAC
+	case "dca", "dts", "dtshd", "dtshdma", "dtsma", "dtsmahd", "dtscodec":
+		a = consts.ACodecDTS
+	case "ddplus", "dolbydigitalplus", "ac3e", "ec3", "eac3":
+		a = consts.ACodecEAC3
+	case "flac", "flaccodec", "fla", "losslessflac":
+		a = consts.ACodecFLAC
+	case "mp2", "mpa", "mpeg2audio", "mpeg2", "m2a", "mp2codec":
+		a = consts.ACodecMP2
+	case "mp3", "libmp3lame", "mpeg3", "mpeg3audio", "mpg3", "mp3codec":
+		a = consts.ACodecMP3
+	case "opus", "opuscodec", "oggopus", "webmopus":
+		a = consts.ACodecOpus
+	case "pcm", "wavpcm", "rawpcm", "pcm16", "pcms16le", "pcms24le", "pcmcodec":
+		a = consts.ACodecPCM
+	case "truehd", "dolbytruehd", "thd", "truehdcodec":
+		a = consts.ACodecTrueHD
+	case "vorbis", "oggvorbis", "webmvorbis", "vorbiscodec", "vorb":
+		a = consts.ACodecVorbis
+	case "wav", "wave", "waveform", "pcmwave", "wavcodec":
+		a = consts.ACodecWAV
+	}
+
+	if consts.ValidAudioCodecs[a] {
+		return a, nil
+	}
+
+	return "", fmt.Errorf("audio codec %q is not valid", a)
+}
+
 // ---- Validate And Set ------------------------------------------------------------------------------------------
+// ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
+func ValidateAndSetVideoCodec(pairs []string) error {
+	vCodecMap := map[string]string{
+		consts.VCodecAV1:   consts.VCodecCopy,
+		consts.VCodecH264:  consts.VCodecCopy,
+		consts.VCodecHEVC:  consts.VCodecCopy,
+		consts.VCodecMPEG2: consts.VCodecCopy,
+		consts.VCodecVP8:   consts.VCodecCopy,
+		consts.VCodecVP9:   consts.VCodecCopy,
+	}
+
+	// Deduplicate
+	dedupPairs := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		if p == "" {
+			continue
+		}
+		if !slices.Contains(dedupPairs, p) {
+			dedupPairs = append(dedupPairs, p)
+		}
+	}
+
+	// Iterate deduped pairs
+	for _, p := range dedupPairs {
+		split := strings.Split(p, ":")
+		input, err := ValidateVideoCodec(split[0]) // Safe (split returns non-empty 'p')
+		if err != nil {
+			return err
+		}
+
+		// Singular value, apply to every entry
+		if len(split) < 2 {
+			for k := range vCodecMap {
+				if input == k {
+					continue
+				}
+				vCodecMap[k] = input
+			}
+			continue
+		}
+
+		// Multi value entry, apply specific output to specific input
+		output := split[1]
+		output, err = ValidateVideoCodec(output)
+		if err != nil {
+			return err
+		}
+		vCodecMap[input] = output
+	}
+
+	abstractions.Set(keys.TranscodeVideoCodecMap, vCodecMap)
+	return nil
+}
+
+// ValidateAndSetAudioCodec sets mappings for audio codec inputs and transcode options.
+func ValidateAndSetAudioCodec(pairs []string) (err error) {
+	aCodecMap := map[string]string{
+		consts.ACodecAAC:    consts.ACodecCopy,
+		consts.ACodecAC3:    consts.ACodecCopy,
+		consts.ACodecALAC:   consts.ACodecCopy,
+		consts.ACodecDTS:    consts.ACodecCopy,
+		consts.ACodecEAC3:   consts.ACodecCopy,
+		consts.ACodecFLAC:   consts.ACodecCopy,
+		consts.ACodecMP2:    consts.ACodecCopy,
+		consts.ACodecMP3:    consts.ACodecCopy,
+		consts.ACodecOpus:   consts.ACodecCopy,
+		consts.ACodecPCM:    consts.ACodecCopy,
+		consts.ACodecTrueHD: consts.ACodecCopy,
+		consts.ACodecVorbis: consts.ACodecCopy,
+		consts.ACodecWAV:    consts.ACodecCopy,
+	}
+
+	// Deduplicate
+	dedupPairs := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		if p == "" {
+			continue
+		}
+		if !slices.Contains(dedupPairs, p) {
+			dedupPairs = append(dedupPairs, p)
+		}
+	}
+
+	// Iterate deduped pairs
+	for _, p := range dedupPairs {
+		split := strings.Split(p, ":")
+		input, err := ValidateAudioCodec(split[0]) // Safe (split returns non-empty 'p')
+		if err != nil {
+			return err
+		}
+
+		// Singular value, apply to every entry
+		if len(split) < 2 {
+			for k := range aCodecMap {
+				if input == k {
+					continue
+				}
+				aCodecMap[k] = input
+			}
+			continue
+		}
+
+		// Multi value entry, apply specific output to specific input
+		output := split[1]
+		output, err = ValidateAudioCodec(output)
+		if err != nil {
+			return err
+		}
+		aCodecMap[input] = output
+	}
+
+	abstractions.Set(keys.TranscodeAudioCodecMap, aCodecMap)
+	return nil
+}
+
 // ValidateAndSetBatchPairs retrieves valid files and directories from a batch pair entry.
 func ValidateAndSetBatchPairs(batchPairs []string) error {
 	var vDirs, vFiles, mDirs, mFiles []string
@@ -422,111 +610,111 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 	}
 }
 
-// ValidateAndSetVideoCodec validates the user input codec selection.
-func ValidateAndSetVideoCodec(c string) error {
-	c = strings.ToLower(strings.TrimSpace(c))
-	c = strings.ReplaceAll(c, ".", "")
-	c = strings.ReplaceAll(c, "-", "")
-	c = strings.ReplaceAll(c, "_", "")
+// // ValidateAndSetVideoCodec validates the user input codec selection.
+// func ValidateAndSetVideoCodec(c string) error {
+// 	c = strings.ToLower(strings.TrimSpace(c))
+// 	c = strings.ReplaceAll(c, ".", "")
+// 	c = strings.ReplaceAll(c, "-", "")
+// 	c = strings.ReplaceAll(c, "_", "")
 
-	// Synonym and alias mapping before acceleration compatability check
-	switch c {
-	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
-		c = consts.VCodecAV1
-	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
-		c = consts.VCodecH264
-	case "x265", "h265", "hevc265", "libx265", "hevc":
-		c = consts.VCodecHEVC
-	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
-		c = consts.VCodecMPEG2
-	case "libvpx", "vp08", "vpx", "vpx8":
-		c = consts.VCodecVP8
-	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
-		c = consts.VCodecVP9
-	}
+// 	// Synonym and alias mapping before acceleration compatability check
+// 	switch c {
+// 	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
+// 		c = consts.VCodecAV1
+// 	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
+// 		c = consts.VCodecH264
+// 	case "x265", "h265", "hevc265", "libx265", "hevc":
+// 		c = consts.VCodecHEVC
+// 	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
+// 		c = consts.VCodecMPEG2
+// 	case "libvpx", "vp08", "vpx", "vpx8":
+// 		c = consts.VCodecVP8
+// 	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
+// 		c = consts.VCodecVP9
+// 	}
 
-	// Check codec is in map and valid with set GPU acceleration type
-	var gpuType string
-	if abstractions.IsSet(keys.UseGPU) {
-		gpuType = abstractions.GetString(keys.UseGPU)
-	}
-	if consts.ValidVideoCodecs[c] {
-		switch gpuType {
-		case consts.AccelTypeAMF:
-			if c == consts.VCodecMPEG2 || c == consts.VCodecVP8 || c == consts.VCodecVP9 {
-				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
-				abstractions.Set(keys.UseGPU, "")
-			}
-		case consts.AccelTypeNvidia:
-			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
-				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
-				abstractions.Set(keys.UseGPU, "")
-			}
-		case consts.AccelTypeIntel:
-			if c == consts.VCodecVP8 {
-				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
-				abstractions.Set(keys.UseGPU, "")
-			}
-		case consts.AccelTypeVAAPI:
-			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
-				logging.W("%q does not (or does not reliably) support %q codec, will revert to software.", gpuType, c)
-				abstractions.Set(keys.UseGPU, "")
-			}
-		}
-		logging.I("Setting video codec type: %q", c)
-		abstractions.Set(keys.TranscodeVideoCodec, c)
-		return nil
-	}
-	return fmt.Errorf("video codec %q not supported. Supported codecs: %v", c, consts.ValidVideoCodecs)
-}
+// 	// Check codec is in map and valid with set GPU acceleration type
+// 	var gpuType string
+// 	if abstractions.IsSet(keys.UseGPU) {
+// 		gpuType = abstractions.GetString(keys.UseGPU)
+// 	}
+// 	if consts.ValidVideoCodecs[c] {
+// 		switch gpuType {
+// 		case consts.AccelTypeAMF:
+// 			if c == consts.VCodecMPEG2 || c == consts.VCodecVP8 || c == consts.VCodecVP9 {
+// 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+// 				abstractions.Set(keys.UseGPU, "")
+// 			}
+// 		case consts.AccelTypeNvidia:
+// 			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
+// 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+// 				abstractions.Set(keys.UseGPU, "")
+// 			}
+// 		case consts.AccelTypeIntel:
+// 			if c == consts.VCodecVP8 {
+// 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+// 				abstractions.Set(keys.UseGPU, "")
+// 			}
+// 		case consts.AccelTypeVAAPI:
+// 			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
+// 				logging.W("%q does not (or does not reliably) support %q codec, will revert to software.", gpuType, c)
+// 				abstractions.Set(keys.UseGPU, "")
+// 			}
+// 		}
+// 		logging.I("Setting video codec type: %q", c)
+// 		abstractions.Set(keys.TranscodeVideoCodec, c)
+// 		return nil
+// 	}
+// 	return fmt.Errorf("video codec %q not supported. Supported codecs: %v", c, consts.ValidVideoCodecs)
+// }
 
-// ValidateAndSetAudioCodec verifies the audio codec to use for transcode/encode operations.
-func ValidateAndSetAudioCodec(a string) error {
-	a = strings.ToLower(strings.TrimSpace(a))
-	a = strings.ReplaceAll(a, ".", "")
-	a = strings.ReplaceAll(a, "-", "")
-	a = strings.ReplaceAll(a, "_", "")
+// // ValidateAndSetAudioCodec verifies the audio codec to use for transcode/encode operations.
+// func ValidateAndSetAudioCodec(a string) error {
+// 	a = strings.ToLower(strings.TrimSpace(a))
+// 	a = strings.ReplaceAll(a, ".", "")
+// 	a = strings.ReplaceAll(a, "-", "")
+// 	a = strings.ReplaceAll(a, "_", "")
 
-	// Search for exact matches
-	if consts.ValidAudioCodecs[a] {
-		logging.I("Setting audio codec: %q", a)
-		abstractions.Set(keys.TranscodeAudioCodec, a)
-		return nil
-	}
+// 	// Search for exact matches
+// 	if consts.ValidAudioCodecs[a] {
+// 		logging.I("Setting audio codec: %q", a)
+// 		abstractions.Set(keys.TranscodeAudioCodec, a)
+// 		return nil
+// 	}
 
-	// Synonym and alias mapping
-	switch a {
-	case "aac", "aaclc", "m4a", "mp4a", "aaclowcomplexity":
-		a = consts.ACodecAAC
-	case "alac", "applelossless", "m4aalac":
-		a = consts.ACodecALAC
-	case "dca", "dts", "dtshd", "dtshdma", "dtsma", "dtsmahd", "dtscodec":
-		a = consts.ACodecDTS
-	case "ddplus", "dolbydigitalplus", "ac3e", "ec3", "eac3":
-		a = consts.ACodecEAC3
-	case "flac", "flaccodec", "fla", "losslessflac":
-		a = consts.ACodecFLAC
-	case "mp2", "mpa", "mpeg2audio", "mpeg2", "m2a", "mp2codec":
-		a = consts.ACodecMP2
-	case "mp3", "libmp3lame", "mpeg3", "mpeg3audio", "mpg3", "mp3codec":
-		a = consts.ACodecMP3
-	case "opus", "opuscodec", "oggopus", "webmopus":
-		a = consts.ACodecOpus
-	case "pcm", "wavpcm", "rawpcm", "pcm16", "pcms16le", "pcms24le", "pcmcodec":
-		a = consts.ACodecPCM
-	case "truehd", "dolbytruehd", "thd", "truehdcodec":
-		a = consts.ACodecTrueHD
-	case "vorbis", "oggvorbis", "webmvorbis", "vorbiscodec", "vorb":
-		a = consts.ACodecVorbis
-	case "wav", "wave", "waveform", "pcmwave", "wavcodec":
-		a = consts.ACodecWAV
-	default:
-		return fmt.Errorf("audio codec %q not supported. Supported codecs: %v", a, consts.ValidAudioCodecs)
-	}
+// 	// Synonym and alias mapping
+// 	switch a {
+// 	case "aac", "aaclc", "m4a", "mp4a", "aaclowcomplexity":
+// 		a = consts.ACodecAAC
+// 	case "alac", "applelossless", "m4aalac":
+// 		a = consts.ACodecALAC
+// 	case "dca", "dts", "dtshd", "dtshdma", "dtsma", "dtsmahd", "dtscodec":
+// 		a = consts.ACodecDTS
+// 	case "ddplus", "dolbydigitalplus", "ac3e", "ec3", "eac3":
+// 		a = consts.ACodecEAC3
+// 	case "flac", "flaccodec", "fla", "losslessflac":
+// 		a = consts.ACodecFLAC
+// 	case "mp2", "mpa", "mpeg2audio", "mpeg2", "m2a", "mp2codec":
+// 		a = consts.ACodecMP2
+// 	case "mp3", "libmp3lame", "mpeg3", "mpeg3audio", "mpg3", "mp3codec":
+// 		a = consts.ACodecMP3
+// 	case "opus", "opuscodec", "oggopus", "webmopus":
+// 		a = consts.ACodecOpus
+// 	case "pcm", "wavpcm", "rawpcm", "pcm16", "pcms16le", "pcms24le", "pcmcodec":
+// 		a = consts.ACodecPCM
+// 	case "truehd", "dolbytruehd", "thd", "truehdcodec":
+// 		a = consts.ACodecTrueHD
+// 	case "vorbis", "oggvorbis", "webmvorbis", "vorbiscodec", "vorb":
+// 		a = consts.ACodecVorbis
+// 	case "wav", "wave", "waveform", "pcmwave", "wavcodec":
+// 		a = consts.ACodecWAV
+// 	default:
+// 		return fmt.Errorf("audio codec %q not supported. Supported codecs: %v", a, consts.ValidAudioCodecs)
+// 	}
 
-	abstractions.Set(keys.TranscodeAudioCodec, a)
-	return nil
-}
+// 	abstractions.Set(keys.TranscodeAudioCodec, a)
+// 	return nil
+// }
 
 // ValidateAndSetTranscodeQuality validates the transcode quality preset.
 func ValidateAndSetTranscodeQuality(q string, accelType string) error {

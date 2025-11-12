@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -35,7 +36,25 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	} else {
 		outExt = origExt
 	}
-	if skipProcessing(fd, outExt) {
+
+	// Get current codecs
+	currentVCodec, currentACodec, err := checkCodecs(fd.OriginalVideoPath)
+	if err != nil {
+		logging.E("Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
+	}
+
+	// Check codec mismatches
+	desiredVCodec := getOutputVideoCodecString(currentVCodec)
+	desiredACodec := getOutputAudioCodecString(currentACodec)
+
+	// Check incompatibility with extension type
+	compatSlice := consts.IncompatibleCodecsForContainer[outExt]
+	if slices.Contains(compatSlice, desiredVCodec) {
+		logging.I("Desired codec %q is not compatible with video container %q, falling back to 'copy'.", desiredVCodec, outExt)
+		desiredVCodec = consts.VCodecCopy
+	}
+
+	if skipProcessing(fd, currentVCodec, desiredVCodec, currentACodec, desiredACodec, outExt) {
 		return nil
 	}
 	logging.I("Will execute video from extension %q → %q", origExt, outExt)
@@ -60,7 +79,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Build FFmpeg command
 	builder := newFfCommandBuilder(fd, tmpOutPath)
-	args, err := builder.buildCommand(ctx, fd, outExt)
+	args, err := builder.buildCommand(ctx, fd, desiredVCodec, desiredACodec, outExt)
 	if err != nil {
 		return err
 	}
@@ -119,7 +138,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 }
 
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
-func skipProcessing(fd *models.FileData, outExt string) (skipProcessing bool) {
+func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentACodec, desiredACodec, outExt string) (skipProcessing bool) {
 	logging.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	// Write thumbnail
@@ -131,8 +150,7 @@ func skipProcessing(fd *models.FileData, outExt string) (skipProcessing bool) {
 	}
 
 	var (
-		desiredVCodec, desiredACodec string
-		differentExt, codecsDiffer   bool
+		differentExt, codecsDiffer bool
 	)
 
 	// Check for extension difference
@@ -144,24 +162,11 @@ func skipProcessing(fd *models.FileData, outExt string) (skipProcessing bool) {
 
 	logging.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
 
-	// Check codec mismatches
-	if abstractions.IsSet(keys.TranscodeVideoCodec) {
-		desiredVCodec = abstractions.GetString(keys.TranscodeVideoCodec)
-	}
-	if abstractions.IsSet(keys.TranscodeAudioCodec) {
-		desiredACodec = abstractions.GetString(keys.TranscodeAudioCodec)
-	}
-
 	if desiredVCodec != "" || desiredACodec != "" {
-		vCodec, aCodec, err := checkCodecs(fd.OriginalVideoPath)
-		if err != nil {
-			logging.E("Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
-		}
-
-		if desiredVCodec != vCodec && desiredVCodec != "" || desiredACodec != aCodec && desiredACodec != "" {
+		if (desiredVCodec != currentVCodec && desiredVCodec != "") || (desiredACodec != currentACodec && desiredACodec != "") {
 			codecsDiffer = true
 		}
-		logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoPath, vCodec, aCodec, desiredVCodec, desiredACodec, codecsDiffer)
+		logging.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoPath, currentVCodec, currentACodec, desiredVCodec, desiredACodec, codecsDiffer)
 	}
 
 	// Check if metadata already exists

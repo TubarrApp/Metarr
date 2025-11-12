@@ -153,8 +153,13 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	rootCmd.PersistentFlags().String(keys.TranscodeVideoCodec, "", "Codec to use for encoding/decoding")
-	if err := viper.BindPFlag(keys.TranscodeVideoCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoCodec)); err != nil {
+	rootCmd.PersistentFlags().StringSlice(keys.TranscodeVideoCodecInput, nil, "Codec to use for encoding/decoding")
+	if err := viper.BindPFlag(keys.TranscodeVideoCodecInput, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoCodecInput)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().StringSlice(keys.TranscodeAudioCodecInput, nil, "Audio codec for encoding/decoding (e.g. 'aac', 'copy')")
+	if err := viper.BindPFlag(keys.TranscodeAudioCodecInput, rootCmd.PersistentFlags().Lookup(keys.TranscodeAudioCodecInput)); err != nil {
 		return err
 	}
 
@@ -165,11 +170,6 @@ func initVideoTransformers() error {
 
 	rootCmd.PersistentFlags().String(keys.TranscodeVideoFilter, "", "Transcoder video filter settings")
 	if err := viper.BindPFlag(keys.TranscodeVideoFilter, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoFilter)); err != nil {
-		return err
-	}
-
-	rootCmd.PersistentFlags().String(keys.TranscodeAudioCodec, "", "Audio codec for encoding/decoding (e.g. 'aac', 'copy')")
-	if err := viper.BindPFlag(keys.TranscodeAudioCodec, rootCmd.PersistentFlags().Lookup(keys.TranscodeAudioCodec)); err != nil {
 		return err
 	}
 

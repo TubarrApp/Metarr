@@ -40,12 +40,12 @@ const (
 	OutputDirectory string = "output-directory"
 	InputPreset     string = "preset"
 
-	UseGPU               string = "hwaccel"
-	TranscodeDeviceDir   string = "transcode-gpu-directory"
-	TranscodeAudioCodec  string = "transcode-audio-codec"
-	TranscodeVideoCodec  string = "transcode-video-codec"
-	TranscodeQuality     string = "transcode-quality"
-	TranscodeVideoFilter string = "transcode-video-filter"
+	UseGPU                   string = "hwaccel"
+	TranscodeDeviceDir       string = "transcode-gpu-directory"
+	TranscodeAudioCodecInput string = "transcode-audio-codecs"
+	TranscodeVideoCodecInput string = "transcode-video-codecs"
+	TranscodeQuality         string = "transcode-quality"
+	TranscodeVideoFilter     string = "transcode-video-filter"
 
 	ExtraFFmpegArgs      string = "extra-ffmpeg-args"
 	ForceWriteThumbnails string = "force-write-thumbnail"
@@ -91,7 +91,9 @@ const (
 
 // Internal filename operation keys. Not exposed to end user.
 const (
-	BatchPairs        string = "INTERNAL-batch-files"
-	FilenameOpsModels string = "INTERNAL-filename-ops"
-	MetaOpsModels     string = "INTERNAL-meta-ops"
+	BatchPairs             string = "INTERNAL-batch-files"
+	FilenameOpsModels      string = "INTERNAL-filename-ops"
+	MetaOpsModels          string = "INTERNAL-meta-ops"
+	TranscodeVideoCodecMap string = "INTERNAL-transcode-video-codec"
+	TranscodeAudioCodecMap string = "INTERNAL-transcode-audio-codec"
 )
