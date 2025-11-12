@@ -80,6 +80,7 @@ var ValidVideoCodecs = []string{
 var ValidAudioCodecs = []string{
 	ACodecCopy,
 	ACodecAAC,
+	ACodecAC3,
 	ACodecALAC,
 	ACodecDTS,
 	ACodecEAC3,

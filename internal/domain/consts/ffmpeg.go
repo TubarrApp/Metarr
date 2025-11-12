@@ -57,6 +57,13 @@ const (
 	FFmpegDeviceVAAPI         = "-vaapi_device"
 	FFmpegVF                  = "-vf"
 	FFmpegCRF                 = "-crf"
+	FFmpegBA                  = "-b:a"
+	FFmpegAR                  = "-ar"
+)
+
+// Audio rate values
+const (
+	AudioRate48khz = "48000"
 )
 
 // Compatability for HW acceleration types.

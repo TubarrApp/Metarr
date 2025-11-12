@@ -519,6 +519,10 @@ func ValidateAudioCodec(c string) error {
 
 	// Synonym and alias mapping
 	switch c {
+	case "ac-3", "ac_3":
+		logging.I("Setting audio codec: %q", consts.ACodecAC3)
+		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecAC3)
+
 	case "m4a", "mp4a":
 		logging.I("Setting audio codec: %q", consts.ACodecAAC)
 		abstractions.Set(keys.TranscodeAudioCodec, consts.ACodecAAC)

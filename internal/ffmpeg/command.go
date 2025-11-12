@@ -39,6 +39,7 @@ type ffCommandBuilder struct {
 
 	// Audio codec
 	audioCodec []string
+	audioRate  []string
 
 	// Thumbnail
 	thumbnail []string
@@ -103,6 +104,9 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 }
 
 // setThumbnail sets the thumbnail image in the video metadata.
+//
+// NOTE: Uses -map to avoid accumulating thumbnails, if numerous functions need -map additions at some point,
+// it will be necessary to create something like a b.streamMapping field and setStreamMapping() function.
 func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string, hasEmbeddedThumbnail bool) {
 	if thumbnailURL == "" || outExt == "" {
 		if thumbnailURL == "" && hasEmbeddedThumbnail {
@@ -111,8 +115,13 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 			switch strings.ToLower(outExt) {
 			case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
 				b.thumbnail = []string{
-					"-map", "0",
-					"-c:v:1", "copy",
+					"-map", "0:V", // Map only regular video streams (excludes existing attached_pic)
+					"-map", "0:a?", // Map audio streams if present
+					"-map", "0:s?", // Map subtitle streams if present
+					"-map", "0:d?", // Map data streams if present
+					"-map", "0:t?", // Map attachment streams if present
+					"-map", "0:v", // Now map attached_pic (will be only the first one found)
+					"-c", "copy",
 					"-disposition:v:1", "attached_pic",
 				}
 
@@ -150,8 +159,12 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 	case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
 		b.thumbnail = []string{
 			"-i", thumbnail, // add the thumbnail as a second input
-			"-map", "0", // map main video/audio/subs
-			"-map", "1", // map thumbnail
+			"-map", "0:V", // map only regular video streams (excludes any existing attached_pic)
+			"-map", "0:a?", // map audio streams if present
+			"-map", "0:s?", // map subtitle streams if present
+			"-map", "0:d?", // map data streams if present
+			"-map", "0:t?", // map attachment streams if present
+			"-map", "1", // map new thumbnail
 			"-c:v:1", "mjpeg", // always use mjpeg codec for thumbnail
 			"-disposition:v:1", "attached_pic", // mark as cover art
 		}
@@ -248,12 +261,15 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) 
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToAAC}
 	case consts.ACodecAC3:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToAC3}
+		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
 	case consts.ACodecALAC:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToALAC}
 	case consts.ACodecDTS:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToDTS}
+		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
 	case consts.ACodecEAC3:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToEAC3}
+		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
 	case consts.ACodecFLAC:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToFLAC}
 	case consts.ACodecMP2:
@@ -276,13 +292,13 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, availableCodecs string) 
 		b.audioCodec = nil
 	}
 
-	if len(b.audioCodec) == 2 {
+	if len(b.audioCodec) >= 2 {
 		if !strings.Contains(availableCodecs, b.audioCodec[1]) {
 			logging.W("Audio codec %q not available in FFmpeg build, falling back to software.", b.audioCodec[1])
 			b.audioCodec = []string{consts.FFmpegCA, consts.AudioCodecCopy}
 		}
 	} else if b.audioCodec != nil {
-		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.audioCodec)
+		logging.E("%s Strings expected to be at least parts, got %v", consts.LogTagDevError, b.audioCodec)
 		b.audioCodec = nil
 	}
 }
@@ -316,13 +332,13 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, availableCodecs 
 		b.videoCodecSoftware = nil
 	}
 
-	if len(b.videoCodecSoftware) == 2 {
+	if len(b.videoCodecSoftware) >= 2 {
 		if !strings.Contains(availableCodecs, b.videoCodecSoftware[1]) {
 			logging.W("Video codec %q not available in FFmpeg build, falling back to software.", b.videoCodecSoftware[1])
 			b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoCodecCopy}
 		}
 	} else if b.videoCodecSoftware != nil {
-		logging.E("%s Strings expected to be 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
+		logging.E("%s Strings expected to be at least 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
 }
@@ -450,12 +466,13 @@ func (b *ffCommandBuilder) getHWAccelFlags() (accelType, vCodec string, useHW bo
 		return "", "", false
 	}
 
-	// GPU flag but no codec
+	// Non-auto GPU flag but no codec
 	if accelType != consts.AccelTypeAuto && transcodeVideoCodec == "" {
 		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", accelType)
 		return "", "", false
 	}
 
+	// Check safe hardware encode for GPU type
 	if gpuMap, exists := unsafeHardwareEncode[accelType]; exists {
 		if unsafe, ok := gpuMap[transcodeVideoCodec]; ok && unsafe {
 			logging.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.", b.inputFile, transcodeVideoCodec, accelType)
@@ -563,6 +580,11 @@ func (b *ffCommandBuilder) setFormatFlags() (args []string) {
 		args = append(args, b.audioCodec...)
 	} else if aCodec, exists := b.formatFlagsMap[consts.FFmpegCA]; exists {
 		args = append(args, consts.FFmpegCA, aCodec)
+	}
+
+	// Add audio rate
+	if len(b.audioRate) != 0 {
+		args = append(args, b.audioRate...)
 	}
 
 	// Add subtitle
