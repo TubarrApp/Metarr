@@ -6,6 +6,7 @@ require (
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/browserutils/kooky v0.2.2
 	github.com/gocolly/colly v1.2.0
+	github.com/rs/zerolog v1.33.0
 	github.com/shirou/gopsutil v2.21.11+incompatible
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
@@ -42,7 +43,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
-	github.com/rs/zerolog v1.33.0 // indirect
 	github.com/sagikazarmark/locafero v0.6.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d // indirect

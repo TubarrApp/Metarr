@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 // Global logging variables.
@@ -66,17 +67,14 @@ func init() {
 
 // SetupLogging sets up logging for the application.
 func SetupLogging(targetDir string) error {
-	logfile, err := os.OpenFile(
-		filepath.Join(targetDir, metarrLogFile),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		consts.PermsLogFile,
-	)
-	if err != nil {
-		return err
-	}
-
 	// File logger using zerolog's efficient JSON logging.
-	fileLogger = zerolog.New(logfile).With().Timestamp().Logger()
+	fileLogger = zerolog.New(&lumberjack.Logger{
+		Filename:   filepath.Join(targetDir, metarrLogFile),
+		MaxSize:    1,
+		MaxBackups: 5,
+		LocalTime:  true,
+	}).With().Timestamp().Logger()
+
 	Loggable = true
 
 	b, ok := builderPool.Get().(*strings.Builder)
