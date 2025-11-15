@@ -1,4 +1,4 @@
-package fsread
+package file
 
 import (
 	"metarr/internal/domain/lookupmaps"

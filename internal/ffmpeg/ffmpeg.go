@@ -7,8 +7,8 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/file"
 	"metarr/internal/models"
-	"metarr/internal/utils/fs/backup"
 	"metarr/internal/utils/logging"
 	"metarr/internal/validation"
 	"os"
@@ -200,7 +200,7 @@ func makeBackup(origPath string) error {
 		return nil
 	}
 
-	backupPath, err := backup.RenameToBackup(origPath)
+	backupPath, err := file.RenameToBackup(origPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
 	}

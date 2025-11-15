@@ -1,4 +1,4 @@
-package fswrite
+package file
 
 import (
 	"bufio"

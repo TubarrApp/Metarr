@@ -1,5 +1,4 @@
-// Package fsread handles filesystem reads.
-package fsread
+package file
 
 import (
 	"fmt"

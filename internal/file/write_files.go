@@ -1,5 +1,4 @@
-// Package fswrite handles filesystem writes.
-package fswrite
+package file
 
 import (
 	"errors"

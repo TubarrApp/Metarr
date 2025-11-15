@@ -13,9 +13,9 @@ import (
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/utils/fs/backup"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
 	"os"
@@ -139,7 +139,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 
 	// Backup if option set
 	if abstractions.GetBool(keys.NoFileOverwrite) {
-		if err := backup.File(rw.File); err != nil {
+		if err := file.BackupFile(rw.File); err != nil {
 			return currentMeta, fmt.Errorf("failed to create backup: %w", err)
 		}
 	}

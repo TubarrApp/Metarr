@@ -1,5 +1,4 @@
-// Package backup handles the nacking up of files.
-package backup
+package file
 
 import (
 	"fmt"
@@ -16,8 +15,8 @@ var (
 	muBackup sync.Mutex
 )
 
-// File creates a backup copy of the original file before modifying it.
-func File(file *os.File) error {
+// BackupFile creates a backup copy of the original file before modifying it.
+func BackupFile(file *os.File) error {
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)

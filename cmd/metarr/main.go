@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/cfg"
+	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/processing"
 	"metarr/internal/transformations"
 	"metarr/internal/utils/benchmark"
-	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
 	"os"
@@ -74,7 +74,7 @@ func main() {
 	}
 
 	// Initialize cached variables
-	if err := fsread.InitFetchFilesVars(); err != nil {
+	if err := file.InitFetchFilesVars(); err != nil {
 		logging.E("Failed to initialize variables to fetch files. Exiting...")
 		cancel()
 		os.Exit(1)

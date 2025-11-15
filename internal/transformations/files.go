@@ -9,10 +9,10 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/file"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/utils/fs/fswrite"
 	"metarr/internal/utils/logging"
 	"metarr/internal/validation"
 	"os"
@@ -182,7 +182,7 @@ func (fp *fileProcessor) writeResult() error {
 		err         error
 		deletedMeta bool
 	)
-	fsWriter, err := fswrite.NewFSFileWriter(fp.fd, fp.skipVideos)
+	fsWriter, err := file.NewFSFileWriter(fp.fd, fp.skipVideos)
 	if err != nil {
 		return err
 	}

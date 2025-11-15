@@ -7,8 +7,8 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/ffmpeg"
+	"metarr/internal/file"
 	"metarr/internal/models"
-	"metarr/internal/utils/fs/fsread"
 	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
@@ -175,7 +175,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = fsread.GetMetadataFiles(openMeta)
+		metaMap, err = file.GetMetadataFiles(openMeta)
 		if err != nil {
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
@@ -185,7 +185,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 
 		if !skipVideos {
-			videoMap, err = fsread.GetVideoFiles(openVideo)
+			videoMap, err = file.GetVideoFiles(openVideo)
 			if err != nil {
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
@@ -196,7 +196,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 		// Batch is a file request...
 	} else if !batch.IsDirs {
-		metaMap, err = fsread.GetSingleMetadataFile(openMeta)
+		metaMap, err = file.GetSingleMetadataFile(openMeta)
 		if err != nil {
 			batch.bp.addFailure(failedVideo{
 				filename: openMeta.Name(),
@@ -206,7 +206,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 
 		if !skipVideos {
-			videoMap, err = fsread.GetSingleVideoFile(openVideo)
+			videoMap, err = file.GetSingleVideoFile(openVideo)
 			if err != nil {
 				batch.bp.addFailure(failedVideo{
 					filename: openVideo.Name(),
@@ -220,7 +220,7 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 	// Match video and metadata files
 	var matchedFiles map[string]*models.FileData // No need to assign length (just a placeholder var)
 	if !skipVideos {
-		matchedFiles, err = fsread.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
+		matchedFiles, err = file.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
 		if err != nil {
 			return fmt.Errorf("error matching videos with metadata: %w", err)
 		}
