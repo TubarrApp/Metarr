@@ -61,14 +61,14 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		for _, entry := range trimSfx {
 			entries = append(entries, "("+entry.Field+":", entry.Suffix+")")
 		}
-		logging.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoBaseName, entries)
+		logging.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoPath, entries)
 	}
 	fd.MetaOps.ReplaceSuffixes = trimSfx
 }
 
 // censoredTvFSuffixes adds filename suffix replacements.
 func censoredTvFSuffixes(fd *models.FileData) {
-	vBaseName := fd.OriginalVideoBaseName
+	vBaseName := fd.OriginalVideoPath
 	logging.D(3, "Retrieved file name: %s", vBaseName)
 
 	if len(vBaseName) > 1 {

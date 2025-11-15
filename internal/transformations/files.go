@@ -68,7 +68,7 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 		// Rename
 		if err := renameFile(ctx, fd, replaceStyle, skipVideos); err != nil {
 			logging.AddToErrorArray(err)
-			logging.E("Failed to rename file %q: %v", fd.OriginalVideoBaseName, err)
+			logging.E("Failed to rename file %q: %v", fd.OriginalVideoPath, err)
 			continue
 		}
 		// Track directory for success message
@@ -134,7 +134,7 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 	}
 
 	if err := fp.process(); err != nil {
-		return fmt.Errorf("error processing %s: %w", fileData.OriginalVideoBaseName, err)
+		return fmt.Errorf("error processing %s: %w", fileData.OriginalVideoPath, err)
 	}
 	return nil
 }
@@ -144,12 +144,18 @@ func (fp *fileProcessor) process() error {
 	rename, move := shouldRenameOrMove(fp.fd)
 
 	if !rename && !move {
-		logging.D(1, "Do not need to rename or move %q", fp.fd.FinalVideoPath)
+		logging.D(1, "Do not need to rename or move %q", fp.fd.PostFFmpegVideoPath)
+		// Set final paths since this is a terminal boundary (no rename/move operations)
+		fp.fd.SetFinalPaths(fp.fd.PostFFmpegVideoPath, fp.fd.MetaFilePath)
 		return nil
 	}
 
 	if !rename {
-		logging.D(1, "Do not need to rename %q, just moving...", fp.fd.FinalVideoPath)
+		logging.D(1, "Do not need to rename %q, just moving...", fp.fd.PostFFmpegVideoPath)
+		// Set renamed paths to current paths for move operation
+		fp.fd.RenamedVideoPath = fp.fd.PostFFmpegVideoPath
+		fp.fd.RenamedMetaPath = fp.fd.MetaFilePath
+
 		if err := fp.writeResult(); err != nil {
 			return err
 		}
@@ -188,21 +194,50 @@ func (fp *fileProcessor) writeResult() error {
 			return fmt.Errorf("failed to purge metafile: %w", err)
 		}
 	}
+
+	// Determine final paths based on whether files were moved
+	var finalVideoPath, finalMetaPath string
+
 	if abstractions.IsSet(keys.OutputDirectory) {
+		// Files will be moved to output directory
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
+
+		// Parse output directory to get final paths
+		prs := parsing.NewDirectoryParser(fp.fd)
+		dst, err := prs.ParseDirectory(abstractions.GetString(keys.OutputDirectory))
+		if err != nil {
+			return fmt.Errorf("failed to parse output directory for final paths: %w", err)
+		}
+
+		if fp.fd.RenamedVideoPath != "" {
+			finalVideoPath = filepath.Join(dst, filepath.Base(fp.fd.RenamedVideoPath))
+		}
+		if !deletedMeta && fp.fd.RenamedMetaPath != "" {
+			finalMetaPath = filepath.Join(dst, filepath.Base(fp.fd.RenamedMetaPath))
+		}
+	} else {
+		// Files remain in place after rename (no move operation)
+		finalVideoPath = fp.fd.RenamedVideoPath
+		if !deletedMeta {
+			finalMetaPath = fp.fd.RenamedMetaPath
+		}
 	}
+
+	// Set final paths at this terminal boundary
+	fp.fd.SetFinalPaths(finalVideoPath, finalMetaPath)
+
 	return nil
 }
 
 // handleRenaming processes the renaming operations.
 func (fp *fileProcessor) handleRenaming() error {
-	metaBase := fp.fd.MetaFileBaseName
+	metaBase := fp.fd.GetBaseNameWithoutExt(fp.fd.MetaFilePath)
 	metaDir := fp.fd.MetaDirectory
 	originalMPath := fp.fd.MetaFilePath
-	videoBase := fp.fd.FinalVideoBaseName
-	originalVPath := fp.fd.FinalVideoPath
+	videoBase := fp.fd.GetBaseNameWithoutExt(fp.fd.PostFFmpegVideoPath)
+	originalVPath := fp.fd.PostFFmpegVideoPath
 
 	// Get ext
 	vidExt := fp.determineVideoExtension(originalVPath)
@@ -214,7 +249,7 @@ func (fp *fileProcessor) handleRenaming() error {
 	}
 
 	// Fix contractions
-	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoBaseName, fp.style); err != nil {
+	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoPath, fp.style); err != nil {
 		return fmt.Errorf("failed to fix contractions for %s. error: %w", renamedVideo, err)
 	}
 
@@ -288,11 +323,11 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		}
 	}
 
-	// Handle final paths if they're set
-	if fp.fd.FinalVideoPath != "" && !filepath.IsAbs(fp.fd.FinalVideoPath) {
-		fp.fd.FinalVideoPath, err = filepath.Abs(fp.fd.FinalVideoPath)
+	// Handle post-FFmpeg paths if they're set
+	if fp.fd.PostFFmpegVideoPath != "" && !filepath.IsAbs(fp.fd.PostFFmpegVideoPath) {
+		fp.fd.PostFFmpegVideoPath, err = filepath.Abs(fp.fd.PostFFmpegVideoPath)
 		if err != nil {
-			return fmt.Errorf("failed to get absolute path for final video: %w", err)
+			return fmt.Errorf("failed to get absolute path for post-FFmpeg video: %w", err)
 		}
 	}
 
@@ -370,7 +405,7 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 	}
 
 	var dir, ext string
-	vExt := filepath.Ext(fp.fd.FinalVideoPath)
+	vExt := filepath.Ext(fp.fd.PostFFmpegVideoPath)
 	jExt := filepath.Ext(fp.fd.MetaFilePath)
 
 	if fp.fd.VideoDirectory != "" && vExt != "" {

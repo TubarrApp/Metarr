@@ -168,7 +168,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 1. Set fields first (establishes baseline values)
 	if len(ops.SetFields) > 0 {
-		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q applying new field additions", fd.OriginalVideoPath)
 		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, ops.SetFields, mtp); err != nil {
 			logging.E("Failed to set fields with %+v: %v", ops.SetFields, err)
 		} else if ok {
@@ -193,21 +193,21 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 3. Replace operations (modify existing content)
 	if len(ops.Replaces) > 0 {
-		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q making replacements", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSON(currentMeta, ops.Replaces, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.ReplacePrefixes) > 0 {
-		logging.I("Model for file %q replacing prefixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q replacing prefixes", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSONPrefix(currentMeta, ops.ReplacePrefixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.ReplaceSuffixes) > 0 {
-		logging.I("Model for file %q replacing suffixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q replacing suffixes", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSONSuffix(currentMeta, ops.ReplaceSuffixes, mtp); changesMade {
 			edited = true
 		}
@@ -215,14 +215,14 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 4. Add content (prefix/append)
 	if len(ops.Prefixes) > 0 {
-		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q adding prefixes", fd.OriginalVideoPath)
 		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.Appends) > 0 {
-		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q adding appends", fd.OriginalVideoPath)
 		if changesMade := rw.jsonAppend(currentMeta, filename, ops.Appends, mtp); changesMade {
 			edited = true
 		}
@@ -587,7 +587,7 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 	if fd == nil {
 		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
 	}
-	logging.D(2, "Adding metadata date tags for %q...", fd.MetaFileBaseName)
+	logging.D(2, "Adding metadata date tags for %q...", fd.MetaFilePath)
 
 	// Add date tags
 	for fld, d := range addDateTag {
@@ -646,7 +646,7 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 	if fd == nil {
 		return false, fmt.Errorf("jsonFieldDateTag called with null FileData model")
 	}
-	logging.D(2, "Deleting metadata date tags for %q...", fd.OriginalVideoBaseName)
+	logging.D(2, "Deleting metadata date tags for %q...", fd.OriginalVideoPath)
 
 	// Delete date tags:
 	for fld, d := range deleteDateTag {

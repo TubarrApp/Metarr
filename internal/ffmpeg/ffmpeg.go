@@ -40,7 +40,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	// Get current codecs
 	currentVCodec, currentACodec, err := checkCodecs(fd.OriginalVideoPath)
 	if err != nil {
-		logging.E("Failed to check input file %q codec: %v", fd.OriginalVideoBaseName, err)
+		logging.E("Failed to check input file %q codec: %v", fd.OriginalVideoPath, err)
 	}
 
 	// Check codec mismatches
@@ -59,16 +59,17 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}
 	logging.I("Will execute video from extension %q → %q", origExt, outExt)
 
-	dir := fd.VideoDirectory
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		dir = fd.VideoDirectory
+	}
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), origExt)
 
 	// Make temp output path
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
 	logging.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
 
-	// Add temp path to data struct
-	fd.TempOutputFilePath = tmpOutPath
-
+	// Remove temp file on function end
 	defer func() {
 		if _, err := os.Stat(tmpOutPath); err == nil {
 			if err := os.Remove(tmpOutPath); err != nil {
@@ -90,27 +91,27 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 
-	// Set final video path and base name in model
-	fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
-	fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
+	// Set post-FFmpeg video path in model
+	baseName := fd.GetBaseNameWithoutExt(origPath)
+	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outExt
 
-	logging.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nFinal Video Path: %s\n\nTemp Output Path: %s", origPath,
+	logging.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nPost-FFmpeg Video Path: %s\n\nTemp Output Path: %s", origPath,
 		fd.MetaFilePath,
-		fd.FinalVideoPath,
-		fd.TempOutputFilePath)
+		fd.PostFFmpegVideoPath,
+		tmpOutPath)
 
 	// Run the ffmpeg command
-	logging.P("%s!!! Starting FFmpeg command for %q...\n%s", consts.ColorCyan, fd.FinalVideoBaseName, consts.ColorReset)
+	logging.P("%s!!! Starting FFmpeg command for %q...\n%s", consts.ColorCyan, baseName, consts.ColorReset)
 	if err := command.Run(); err != nil {
 		logging.AddToErrorArray(err)
 		return fmt.Errorf("failed to run FFmpeg command: %w", err)
 	}
 
 	// Rename temporary file to overwrite the original video file
-	if filepath.Ext(origPath) != filepath.Ext(fd.FinalVideoPath) {
+	if filepath.Ext(origPath) != filepath.Ext(fd.PostFFmpegVideoPath) {
 		logging.I("Original file not type %s, removing %q", outExt, origPath)
 
-	} else if abstractions.GetBool(keys.NoFileOverwrite) && origPath == fd.FinalVideoPath {
+	} else if abstractions.GetBool(keys.NoFileOverwrite) && origPath == fd.PostFFmpegVideoPath {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
@@ -123,15 +124,15 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
 	}
 
-	// Move temp file to final video path
-	err = os.Rename(tmpOutPath, fd.FinalVideoPath)
+	// Move temp file to post-FFmpeg video path
+	err = os.Rename(tmpOutPath, fd.PostFFmpegVideoPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
 	fmt.Println()
 	logging.S("Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
-		fd.FinalVideoPath,
+		fd.PostFFmpegVideoPath,
 		fd.MTitleDesc.Title)
 
 	return nil
@@ -176,13 +177,14 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 
 	// Final checks
 	if !codecsDiffer && !differentExt && fd.MetaAlreadyExists {
-
+		// -- SKIP FURTHER PROCESSING --
 		logging.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoPath)
-		origPath := fd.OriginalVideoPath
-		fd.FinalVideoBaseName = strings.TrimSuffix(filepath.Base(origPath), filepath.Ext(origPath))
 
-		// Save final video path into model
-		fd.FinalVideoPath = filepath.Join(fd.VideoDirectory, fd.FinalVideoBaseName) + outExt
+		// Save 'post-FFmpeg' video path into model
+		fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, fd.GetBaseNameWithoutExt(fd.OriginalVideoPath)) + outExt
+
+		// Set final paths and end processing
+		fd.SetFinalPaths(fd.OriginalVideoPath, fd.MetaFilePath)
 		return true
 	}
 

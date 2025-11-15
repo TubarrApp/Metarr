@@ -130,7 +130,7 @@ func getCaller(skip int) callerInfo {
 func buildLogMessage(prefix, msg string, caller *callerInfo) string {
 	b, ok := builderPool.Get().(*strings.Builder)
 	if !ok {
-		fmt.Printf("%s builderPool stored wrong variable type %T", consts.LogTagDevError, b)
+		fmt.Fprintf(os.Stderr, "%s builderPool stored wrong variable type %T", consts.LogTagDevError, b)
 		return ""
 	}
 

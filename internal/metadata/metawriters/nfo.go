@@ -126,46 +126,46 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Initialize:
 	// Replacements
 	if len(fd.MetaOps.Replaces) > 0 {
-		logging.I("Model for file %q making replacements", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q making replacements", fd.MetaFilePath)
 		replace = fd.MetaOps.Replaces
 	}
 
 	// Field trim
 	if len(fd.MetaOps.ReplacePrefixes) > 0 {
-		logging.I("Model for file %q trimming prefixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q trimming prefixes", fd.MetaFilePath)
 		trimPfx = fd.MetaOps.ReplacePrefixes
 	}
 
 	if len(fd.MetaOps.ReplaceSuffixes) > 0 {
-		logging.I("Model for file %q trimming suffixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q trimming suffixes", fd.MetaFilePath)
 		trimSfx = fd.MetaOps.ReplaceSuffixes
 	}
 
 	// Append and prefix
 	if len(fd.MetaOps.Appends) > 0 {
-		logging.I("Model for file %q adding appends", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q adding appends", fd.MetaFilePath)
 		apnd = fd.MetaOps.Appends
 	}
 
 	if len(fd.MetaOps.Prefixes) > 0 {
-		logging.I("Model for file %q adding prefixes", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q adding prefixes", fd.MetaFilePath)
 		pfx = fd.MetaOps.Prefixes
 	}
 
 	// New fields
 	if len(fd.MetaOps.SetFields) > 0 {
-		logging.I("Model for file %q applying new field additions", fd.OriginalVideoBaseName)
+		logging.I("Model for file %q applying new field additions", fd.MetaFilePath)
 		newField = fd.MetaOps.SetFields
 	}
 
 	// Copy/paste
 	if len(fd.MetaOps.CopyToFields) > 0 {
-		logging.I("Model for file %q copying to fields", fd.MetaOps.CopyToFields)
+		logging.I("Model for file %q copying to fields", fd.MetaFilePath)
 		copyTo = fd.MetaOps.CopyToFields
 	}
 
 	if len(fd.MetaOps.PasteFromFields) > 0 {
-		logging.I("Model for file %q copying to fields", fd.MetaOps.PasteFromFields)
+		logging.I("Model for file %q copying to fields", fd.MetaFilePath)
 		pasteFrom = fd.MetaOps.PasteFromFields
 	}
 

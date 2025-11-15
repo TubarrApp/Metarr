@@ -48,7 +48,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 	// Check if thumbnail is already present in file
 	for _, s := range ffData.Streams {
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
-			logging.I("Video %q has an embedded thumbnail", fd.OriginalVideoBaseName)
+			logging.I("Video %q has an embedded thumbnail", fd.OriginalVideoPath)
 			fd.HasEmbeddedThumbnail = true
 
 			// Thumbnail embedded in file, missing in metafile
@@ -66,13 +66,13 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 
 	// Thumbnail is in file but user wants to strip
 	if fd.HasEmbeddedThumbnail && stripThumbnail {
-		logging.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoBaseName)
+		logging.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoPath)
 		return false
 	}
 
 	// No thumbnail in file but thumbnail exists in metadata
 	if !fd.HasEmbeddedThumbnail && fd.MWebData.Thumbnail != "" {
-		logging.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoBaseName, fd.MWebData.Thumbnail)
+		logging.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.MWebData.Thumbnail)
 		return false
 	}
 
@@ -122,7 +122,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 
 		if values.new != values.existing {
 			logging.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
-				fd.OriginalVideoBaseName, key, values.new, values.existing)
+				fd.MetaFilePath, key, values.new, values.existing)
 			matches = false
 		} else {
 			logging.D(2, "Detected key %q as being the same.\nFFprobe: %q\nMetafile: %q", key, values.existing, values.new)

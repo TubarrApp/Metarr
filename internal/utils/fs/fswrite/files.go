@@ -30,7 +30,7 @@ type FSFileWriter struct {
 
 // NewFSFileWriter returns a file writer, used for writing changes to filenames etc.
 func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) {
-	inputVid := fd.FinalVideoPath
+	inputVid := fd.PostFFmpegVideoPath
 	renamedVid := fd.RenamedVideoPath
 	inputMeta := fd.MetaFilePath
 	renamedMeta := fd.RenamedMetaPath

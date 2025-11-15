@@ -109,7 +109,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		stripThumbnails = abstractions.GetBool(keys.StripThumbnails)
 	}
 	if !stripThumbnails {
-		b.setThumbnail(fd.MWebData.Thumbnail, fd.OriginalVideoBaseName, outExt, fd.HasEmbeddedThumbnail)
+		b.setThumbnail(fd.MWebData.Thumbnail, fd.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
 	}
 
 	// Return the fully appended argument string

@@ -106,12 +106,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	close(results)
 	collectorWg.Wait()
 
-	// Handle temp files and cleanup
-	if err := cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
-		logging.AddToErrorArray(err)
-		logging.E("Failed to cleanup temp files: %v", err)
-	}
-
+	// Get errors
 	errArray := logging.GetErrorArray()
 	if errArray != nil {
 		batch.bp.logFailedVideos()
@@ -334,11 +329,6 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, muFaile
 
 		// Wait for workers to finish
 		wg.Wait()
-
-		// Clean up temp files
-		if err := cleanupTempFiles(batch.bp.syncMapToRegularMap(&batch.bp.files.video)); err != nil {
-			logging.E("Failed to cleanup temp files: %v", err)
-		}
 
 		// Log failed videos
 		muFailed.Lock()

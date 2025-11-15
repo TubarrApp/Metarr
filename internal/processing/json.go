@@ -70,7 +70,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 	}
 	if len(fd.MWebData.TryURLs) > 0 {
 		if match := transformations.TryTransPresets(fd.MWebData.TryURLs, fd); match == "" {
-			logging.D(1, "No presets found for video %q URLs %v", fd.OriginalVideoBaseName, fd.MWebData.TryURLs)
+			logging.D(1, "No presets found for video %q URLs %v", fd.OriginalVideoPath, fd.MWebData.TryURLs)
 		}
 	}
 
@@ -131,7 +131,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 
 	// Check if metadata is already existent in target file
 	if filetypeMetaCheckSwitch(ctx, fd) {
-		logging.I("Metadata already exists in target file %q", fd.OriginalVideoBaseName)
+		logging.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
 		fd.MetaAlreadyExists = true
 	}
 	return nil

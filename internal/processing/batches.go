@@ -148,6 +148,9 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		}
 
 		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
+		fmt.Fprintf(os.Stdout, "final video path: %s\n", batch.Video)
+		fmt.Fprintf(os.Stdout, "final json path: %s", batch.JSON)
+		fmt.Fprintf(os.Stderr, "\n")
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {

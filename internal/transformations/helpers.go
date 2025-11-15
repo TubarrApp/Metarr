@@ -12,6 +12,7 @@ import (
 	"metarr/internal/transformations/transpresets"
 	"metarr/internal/utils/browser"
 	"metarr/internal/utils/logging"
+	"os"
 	"strings"
 	"unicode"
 )
@@ -79,9 +80,9 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) 
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
-func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
+func fixContractions(videoBase, metaBase string, videoFilePath string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
 	if videoBase == "" || metaBase == "" {
-		return videoBase, metaBase, fmt.Errorf("empty input strings to fix contractions (file %q)", fdVideoRef)
+		return videoBase, metaBase, fmt.Errorf("empty input strings to fix contractions (file %q)", videoFilePath)
 	}
 	var contractionsMap map[string]models.ContractionPattern
 
@@ -99,7 +100,7 @@ func fixContractions(videoBase, metaBase string, fdVideoRef string, style enums.
 	videoBase = replaceLoneS(videoBase, style)
 	metaBase = replaceLoneS(metaBase, style)
 
-	fmt.Printf("After replacement - Video: %s, Meta: %s\n", videoBase, metaBase)
+	fmt.Fprintf(os.Stderr, "After replacement - Video: %s, Meta: %s\n", videoBase, metaBase)
 
 	// Function to replace contractions in a filename
 	replaceContractions := func(filename string) string {

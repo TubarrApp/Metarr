@@ -114,25 +114,25 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 		if d.Year != "" {
 			return d.Year, nil
 		}
-		return "", fmt.Errorf("templating: year empty for %q", dp.FD.OriginalVideoBaseName)
+		return "", fmt.Errorf("templating: year empty for %q", dp.FD.OriginalVideoPath)
 
 	case templates.Author:
 		if c.Author != "" {
 			return c.Author, nil
 		}
-		return "", fmt.Errorf("templating: author empty for %q", dp.FD.OriginalVideoBaseName)
+		return "", fmt.Errorf("templating: author empty for %q", dp.FD.OriginalVideoPath)
 
 	case templates.Director:
 		if c.Director != "" {
 			return c.Director, nil
 		}
-		return "", fmt.Errorf("templating: director empty for %q", dp.FD.OriginalVideoBaseName)
+		return "", fmt.Errorf("templating: director empty for %q", dp.FD.OriginalVideoPath)
 
 	case templates.Domain:
 		if w.Domain != "" {
 			return w.Domain, nil
 		}
-		return "", fmt.Errorf("templating: domain empty for %q", dp.FD.OriginalVideoBaseName)
+		return "", fmt.Errorf("templating: domain empty for %q", dp.FD.OriginalVideoPath)
 
 	default:
 		return "", fmt.Errorf("invalid template tag %q", tag)

@@ -103,14 +103,13 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 			m := models.NewFileData()
 
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
-			m.OriginalVideoBaseName = strings.TrimSuffix(videoFilenameBase, filepath.Ext(file.Name()))
 			m.VideoDirectory = videoDir.Name()
 
-			if !strings.Contains(m.OriginalVideoBaseName, consts.BackupTag) {
+			if !strings.Contains(m.GetBaseNameWithoutExt(m.OriginalVideoPath), consts.BackupTag) {
 				videoFiles[file.Name()] = m
 				logging.I("Added video to queue: %v", videoFilenameBase)
 			} else {
-				logging.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoBaseName, consts.BackupTag)
+				logging.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoPath, consts.BackupTag)
 			}
 		}
 	}
@@ -172,7 +171,6 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			if ext == k {
 				logging.D(1, "Detected %s file %q", strings.ToUpper(ext), file.Name())
 				m.MetaFilePath = filePath
-				m.MetaFileBaseName = baseName
 				m.MetaDirectory = metaDir.Name()
 				m.MetaFileType = ext
 			}
@@ -199,7 +197,6 @@ func GetSingleVideoFile(videoFile *os.File) (map[string]*models.FileData, error)
 
 	videoData := models.NewFileData()
 	videoData.OriginalVideoPath = videoFile.Name()
-	videoData.OriginalVideoBaseName = strings.TrimSuffix(videoBaseFilename, filepath.Ext(videoBaseFilename))
 	videoData.VideoDirectory = filepath.Dir(videoFile.Name())
 
 	logging.D(3, "Created video file data for single file: %s", videoBaseFilename)
@@ -215,7 +212,6 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	m := models.NewFileData()
 	ext := filepath.Ext(metaFile.Name())
 	filename := metaFile.Name()
-	baseName := strings.TrimSuffix(metaBaseFilename, ext)
 	dir := filepath.Dir(metaFile.Name())
 
 	// Check if valid metafile is present
@@ -223,7 +219,6 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 		if ext == k {
 			logging.D(1, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
 			m.MetaFilePath = filename
-			m.MetaFileBaseName = baseName
 			m.MetaDirectory = dir
 			m.MetaFileType = ext
 		}
@@ -258,7 +253,6 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, b
 		if fileData, exists := metaLookup[normalizedVideoBase]; exists && fileData != nil { // This checks if the key exists in the metaLookup map
 			matchedFiles[videoFilename] = videoData
 			matchedFiles[videoFilename].MetaFilePath = fileData.MetaFilePath
-			matchedFiles[videoFilename].MetaFileBaseName = fileData.MetaFileBaseName
 			matchedFiles[videoFilename].MetaDirectory = fileData.MetaDirectory
 			matchedFiles[videoFilename].MetaFileType = fileData.MetaFileType
 		}

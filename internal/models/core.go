@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -25,7 +28,7 @@ func NewFileData() *FileData {
 		if fOps, ok := abstractions.Get(keys.FilenameOpsModels).(*FilenameOps); ok {
 			fd.FilenameOps = fOps
 		} else {
-			fmt.Printf("Failed to retrieve FilenameOps from abstractions, got type %T", abstractions.Get(keys.FilenameOpsModels))
+			fmt.Fprintf(os.Stderr, "Failed to retrieve FilenameOps from abstractions, got type %T", abstractions.Get(keys.FilenameOpsModels))
 		}
 	}
 	fd.EnsureFilenameOps()
@@ -35,7 +38,7 @@ func NewFileData() *FileData {
 		if mOps, ok := abstractions.Get(keys.MetaOpsModels).(*MetaOps); ok {
 			fd.MetaOps = mOps
 		} else {
-			fmt.Printf("Failed to retrieve MetaOps from abstractions, got type %T", abstractions.Get(keys.MetaOpsModels))
+			fmt.Fprintf(os.Stderr, "Failed to retrieve MetaOps from abstractions, got type %T", abstractions.Get(keys.MetaOpsModels))
 		}
 	}
 	fd.EnsureMetaOps()
@@ -46,23 +49,23 @@ func NewFileData() *FileData {
 // FileData contains information about the file and how it should be handled.
 type FileData struct {
 	// Files & dirs
-	VideoDirectory        string `json:"-" xml:"-"`
-	OriginalVideoPath     string `json:"-" xml:"-"`
-	OriginalVideoBaseName string `json:"-" xml:"-"`
-	TempOutputFilePath    string `json:"-" xml:"-"`
-	FinalVideoPath        string `json:"-" xml:"-"`
-	FinalVideoBaseName    string `json:"-" xml:"-"`
+	VideoDirectory      string `json:"-" xml:"-"`
+	OriginalVideoPath   string `json:"-" xml:"-"`
+	PostFFmpegVideoPath string `json:"-" xml:"-"` // Video path after FFmpeg processing but before renaming
 
 	// Transformations
 	FilenameDateTag  string `json:"-" xml:"-"`
 	RenamedVideoPath string `json:"-" xml:"-"`
 	RenamedMetaPath  string `json:"-" xml:"-"`
 
+	// Final paths (set only at the final boundary after all operations complete)
+	FinalVideoPath string `json:"-" xml:"-"` // True final video path after all transformations
+	FinalMetaPath  string `json:"-" xml:"-"` // True final metadata path after all transformations
+
 	// Metafile paths
-	MetaDirectory    string `json:"-" xml:"-"`
-	MetaFilePath     string `json:"-" xml:"-"`
-	MetaFileBaseName string `json:"-" xml:"-"`
-	MetaFileType     string `json:"-" xml:"-"`
+	MetaDirectory string `json:"-" xml:"-"`
+	MetaFilePath  string `json:"-" xml:"-"`
+	MetaFileType  string `json:"-" xml:"-"`
 
 	// Metadata
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
@@ -83,6 +86,23 @@ type FileData struct {
 	MetaAlreadyExists    bool `json:"-" xml:"-"`
 	ModelMOverwrite      bool
 	HasEmbeddedThumbnail bool
+}
+
+// SetFinalPaths sets the final video and metadata paths after all transformations are complete.
+// This should only be called at the final boundary: after skipProcessing, or after all
+// rename/move operations have finished.
+func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
+	fd.FinalVideoPath = videoPath
+	fd.FinalMetaPath = metaPath
+}
+
+// GetBaseNameWithoutExt returns the base name (without extension) of any file path.
+func (fd *FileData) GetBaseNameWithoutExt(path string) string {
+	if path == "" {
+		return ""
+	}
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 // Core contains variables important to the program core.

@@ -49,34 +49,29 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	case *models.FileData:
 
 		var fileInfo = struct {
-			VideoDirectory        string
-			OriginalVideoPath     string
-			OriginalVideoBaseName string
-			TempOutputFilePath    string
-			FinalVideoPath        string
-			FinalVideoBaseName    string
-			FilenameMetaPrefix    string
-			FilenameDateTag       string
-			RenamedVideoPath      string
-			RenamedMetaPath       string
-			MetaDirectory         string
-			MetaFilePath          string
-			MetaBaseName          string
-			MetaFileType          string
+			VideoDirectory      string
+			OriginalVideoPath   string
+			PostFFmpegVideoPath string
+			FilenameDateTag     string
+			RenamedVideoPath    string
+			RenamedMetaPath     string
+			FinalVideoPath      string
+			FinalMetaPath       string
+			MetaDirectory       string
+			MetaFilePath        string
+			MetaFileType        string
 		}{
-			VideoDirectory:        m.VideoDirectory,
-			OriginalVideoPath:     m.OriginalVideoPath,
-			OriginalVideoBaseName: m.OriginalVideoBaseName,
-			TempOutputFilePath:    m.TempOutputFilePath,
-			FinalVideoPath:        m.FinalVideoPath,
-			FinalVideoBaseName:    m.FinalVideoBaseName,
-			FilenameDateTag:       m.FilenameDateTag,
-			RenamedVideoPath:      m.RenamedVideoPath,
-			RenamedMetaPath:       m.RenamedMetaPath,
-			MetaDirectory:         m.MetaDirectory,
-			MetaFilePath:          m.MetaFilePath,
-			MetaBaseName:          m.MetaFileBaseName,
-			MetaFileType:          m.MetaFileType,
+			VideoDirectory:      m.VideoDirectory,
+			OriginalVideoPath:   m.OriginalVideoPath,
+			PostFFmpegVideoPath: m.PostFFmpegVideoPath,
+			FilenameDateTag:     m.FilenameDateTag,
+			RenamedVideoPath:    m.RenamedVideoPath,
+			RenamedMetaPath:     m.RenamedMetaPath,
+			FinalVideoPath:      m.FinalVideoPath,
+			FinalMetaPath:       m.FinalMetaPath,
+			MetaDirectory:       m.MetaDirectory,
+			MetaFilePath:        m.MetaFilePath,
+			MetaFileType:        m.MetaFileType,
 		}
 
 		addSection("File Information", printStructFields(fileInfo))

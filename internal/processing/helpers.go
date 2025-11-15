@@ -184,39 +184,39 @@ func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, er
 	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCPUUsage), vMem.Available, cpuPct[0], nil
 }
 
-// cleanupTempFiles removes temporary files
-func cleanupTempFiles(files map[string]*models.FileData) error {
+// // cleanupTempFiles removes temporary files
+// func cleanupTempFiles(files map[string]*models.FileData) error {
 
-	var (
-		errReturn error
-		path      string
-	)
+// 	var (
+// 		errReturn error
+// 		path      string
+// 	)
 
-	if len(files) == 0 {
-		logging.D(3, "No temporary files to clean up")
-		return nil
-	}
+// 	if len(files) == 0 {
+// 		logging.D(3, "No temporary files to clean up")
+// 		return nil
+// 	}
 
-	for _, data := range files {
-		path = data.TempOutputFilePath
-		if _, err := os.Stat(path); err == nil {
-			fmt.Printf("Removing temp file: %s\n", path)
-			err = os.Remove(path)
-			if err != nil {
-				errReturn = fmt.Errorf("error removing temp file: %w", err)
-			}
-		}
-	}
-	return errReturn
-}
+// 	for _, data := range files {
+// 		path = data.TempOutputFilePath
+// 		if _, err := os.Stat(path); err == nil {
+// 			fmt.Fprintf(os.Stderr, "Removing temp file: %s\n", path)
+// 			err = os.Remove(path)
+// 			if err != nil {
+// 				errReturn = fmt.Errorf("error removing temp file: %w", err)
+// 			}
+// 		}
+// 	}
+// 	return errReturn
+// }
 
 // printProgress creates a printout of the current process completion status.
 func printProgress(fileType string, current, total int32, directory string) {
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
-	fmt.Printf("\n==============================================================\n")
-	fmt.Printf("    Processed %s file %d of %d\n", fileType, current, total)
-	fmt.Printf("    Remaining in %q: %d\n", directory, total-current)
-	fmt.Printf("==============================================================\n\n")
+	fmt.Fprintf(os.Stderr, "\n==============================================================\n")
+	fmt.Fprintf(os.Stderr, "    Processed %s file %d of %d\n", fileType, current, total)
+	fmt.Fprintf(os.Stderr, "    Remaining in %q: %d\n", directory, total-current)
+	fmt.Fprintf(os.Stderr, "==============================================================\n\n")
 }

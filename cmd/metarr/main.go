@@ -63,7 +63,7 @@ func main() {
 	initializeApplication()
 
 	// Setup context for cancellation
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer cancel()
 
 	// Setup waitgroup for goroutine coordination
