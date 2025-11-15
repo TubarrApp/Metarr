@@ -67,8 +67,8 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) 
 	}, nil
 }
 
-// WriteResults executes the final commands to write the transformed files.
-func (fs *FSFileWriter) WriteResults() error {
+// RenameFiles calls os.Rename on the video/meta files.
+func (fs *FSFileWriter) RenameFiles() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
@@ -78,6 +78,7 @@ func (fs *FSFileWriter) WriteResults() error {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputVideo, fs.RenamedVideo, err)
 		}
 		logging.S("Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
+		fs.Fd.RenamedVideoPath = fs.RenamedVideo
 	}
 
 	// Rename meta file
@@ -86,7 +87,9 @@ func (fs *FSFileWriter) WriteResults() error {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
 		logging.S("Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
+		fs.Fd.RenamedMetaPath = fs.RenamedMeta
 	}
+
 	return nil
 }
 

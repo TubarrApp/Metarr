@@ -62,7 +62,7 @@ var rootCmd = &cobra.Command{
 
 // Execute is the primary initializer of Viper.
 func Execute() error {
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 	if err := rootCmd.Execute(); err != nil {
 		logging.E("Failed to execute cobra")
 		return err

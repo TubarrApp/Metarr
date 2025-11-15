@@ -186,7 +186,7 @@ func (fp *fileProcessor) writeResult() error {
 	if err != nil {
 		return err
 	}
-	if err := fsWriter.WriteResults(); err != nil {
+	if err := fsWriter.RenameFiles(); err != nil {
 		return err
 	}
 	if abstractions.IsSet(keys.MetaPurge) {
@@ -199,16 +199,16 @@ func (fp *fileProcessor) writeResult() error {
 	var finalVideoPath, finalMetaPath string
 
 	if abstractions.IsSet(keys.OutputDirectory) {
-		// Files will be moved to output directory
-		if err := fsWriter.MoveFile(deletedMeta); err != nil {
-			return fmt.Errorf("failed to move to destination folder: %w", err)
-		}
-
 		// Parse output directory to get final paths
 		prs := parsing.NewDirectoryParser(fp.fd)
 		dst, err := prs.ParseDirectory(abstractions.GetString(keys.OutputDirectory))
 		if err != nil {
 			return fmt.Errorf("failed to parse output directory for final paths: %w", err)
+		}
+
+		// Files will be moved to output directory
+		if err := fsWriter.MoveFile(deletedMeta); err != nil {
+			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
 
 		if fp.fd.RenamedVideoPath != "" {

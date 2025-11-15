@@ -148,9 +148,6 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		}
 
 		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
-		fmt.Fprintf(os.Stdout, "final video path: %s\n", batch.Video)
-		fmt.Fprintf(os.Stdout, "final json path: %s", batch.JSON)
-		fmt.Fprintf(os.Stderr, "\n")
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {
@@ -336,7 +333,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 
 	errArray := logging.GetErrorArray()
 	if len(errArray) == 0 {
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "\n")
 		logging.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
 		return fdArray, nil
 	}
@@ -370,11 +367,11 @@ func (bp *batchProcessor) logFailedVideos() {
 		if i == 0 {
 			logging.E("Batch finished, but some errors were encountered:")
 		}
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "\n")
 		logging.P("Filename: %v", failed.filename)
 		logging.P("Error: %v", failed.err)
 	}
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 }
 
 // syncMapToRegularMap converts the sync map back to a regular map for further processing.

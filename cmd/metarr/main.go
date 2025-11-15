@@ -49,13 +49,13 @@ func main() {
 	// Parse configuration
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "\n")
 		os.Exit(1)
 	}
 
 	// Early exit if not executing
 	if !abstractions.GetBool("execute") {
-		fmt.Println()
+		fmt.Fprintf(os.Stderr, "\n")
 		return
 	}
 
@@ -116,7 +116,7 @@ func main() {
 
 	// End program run
 	endTime := time.Now()
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 	logging.I(endLogFormat, endTime.Format(timeFormat))
 	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
 }

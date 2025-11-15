@@ -89,11 +89,13 @@ type FileData struct {
 }
 
 // SetFinalPaths sets the final video and metadata paths after all transformations are complete.
-// This should only be called at the final boundary: after skipProcessing, or after all
-// rename/move operations have finished.
 func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 	fd.FinalVideoPath = videoPath
 	fd.FinalMetaPath = metaPath
+
+	fmt.Fprintf(os.Stdout, "final video path: %s\n", videoPath)
+	fmt.Fprintf(os.Stdout, "final json path: %s", metaPath)
+	fmt.Fprintf(os.Stderr, "\n")
 }
 
 // GetBaseNameWithoutExt returns the base name (without extension) of any file path.

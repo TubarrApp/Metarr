@@ -26,7 +26,6 @@ var (
 var (
 	fileLogger zerolog.Logger
 	errorArray = make([]error, 0, 8)
-	console    = os.Stdout
 
 	builderPool = sync.Pool{
 		New: func() any {
@@ -102,7 +101,7 @@ func SetupLogging(targetDir string) error {
 // writeToConsole writes messages to console without using zerolog (zerolog parses JSON, inefficient).
 func writeToConsole(msg string) {
 	timestamp := time.Now().Format(timeFormat)
-	if _, err := fmt.Fprintf(console, "%s%s%s %s", consts.ColorBrightBlack, timestamp, consts.ColorReset, msg); err != nil {
+	if _, err := fmt.Fprintf(os.Stderr, "%s%s%s %s", consts.ColorBrightBlack, timestamp, consts.ColorReset, msg); err != nil {
 		E("Encountered error writing to console: %v", err)
 	}
 }

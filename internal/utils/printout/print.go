@@ -6,6 +6,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"metarr/internal/utils/logging"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -170,7 +171,7 @@ func PrintGrabbedFields(fieldType string, p map[string]string) {
 	muPrint.Lock()
 	defer muPrint.Unlock()
 
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 	logging.I("Found and stored %s metadata fields from metafile:\n", fieldType)
 
 	for k, v := range p {
@@ -182,5 +183,5 @@ func PrintGrabbedFields(fieldType string, p map[string]string) {
 				v)
 		}
 	}
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 }

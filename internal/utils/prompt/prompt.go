@@ -44,7 +44,7 @@ func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, er
 		}
 	}
 
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 	logging.I("%s", promptMsg)
 
 	// Wait for user input

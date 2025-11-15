@@ -130,7 +130,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
-	fmt.Println()
+	fmt.Fprintf(os.Stderr, "\n")
 	logging.S("Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
 		fd.PostFFmpegVideoPath,
 		fd.MTitleDesc.Title)
