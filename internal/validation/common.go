@@ -555,29 +555,33 @@ func ValidateAndSetTranscodeQuality(q string, accelType string) error {
 }
 
 // ValidateAndSetRenameFlag sets the rename style to apply.
-func ValidateAndSetRenameFlag(argRenameFlag string) {
-	var renameFlag enums.ReplaceToStyle
+func ValidateAndSetRenameFlag(renameFlag string) {
+	var renameFlagEnum enums.ReplaceToStyle
 
-	argRenameFlag = strings.ToLower(strings.TrimSpace(argRenameFlag))
+	renameFlag = sharedvalidation.GetRenameFlag(renameFlag)
 
-	switch argRenameFlag {
-	case consts.RenameSpaces, "space":
-		renameFlag = enums.RenamingSpaces
-		logger.Pl.I("Rename style selected: %v", argRenameFlag)
+	switch renameFlag {
+	case sharedconsts.RenameSpaces:
+		renameFlagEnum = enums.RenamingSpaces
+		logger.Pl.I("Rename style selected: %v", renameFlag)
 
-	case consts.RenameUnderscores, "underscore":
-		renameFlag = enums.RenamingUnderscores
-		logger.Pl.I("Rename style selected: %v", argRenameFlag)
+	case sharedconsts.RenameUnderscores:
+		renameFlagEnum = enums.RenamingUnderscores
+		logger.Pl.I("Rename style selected: %v", renameFlag)
 
-	case consts.RenameFixesOnly, "fix", "fixes", "fixesonly":
-		renameFlag = enums.RenamingFixesOnly
-		logger.Pl.I("Rename style selected: %v", argRenameFlag)
+	case sharedconsts.RenameFixesOnly:
+		renameFlagEnum = enums.RenamingFixesOnly
+		logger.Pl.I("Rename style selected: %v", renameFlag)
+
+	case sharedconsts.RenameSkip:
+		renameFlagEnum = enums.RenamingSkip
+		logger.Pl.I("Rename style selected: %v", renameFlag)
 
 	default:
 		logger.Pl.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
-		renameFlag = enums.RenamingSkip
+		renameFlagEnum = enums.RenamingSkip
 	}
-	abstractions.Set(keys.Rename, renameFlag)
+	abstractions.Set(keys.Rename, renameFlagEnum)
 }
 
 // ---- Private ----------------------------------------------------------------------------------------------------

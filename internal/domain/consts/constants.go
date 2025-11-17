@@ -22,14 +22,6 @@ const (
 	GB = 1024 * 1024 * 1024
 )
 
-// Rename styles.
-const (
-	RenameSkip        = "skip"
-	RenameSpaces      = "spaces"
-	RenameUnderscores = "underscores"
-	RenameFixesOnly   = "fixes-only"
-)
-
 // Program.
 const (
 	TimeSfx        = "T00:00:00Z"
