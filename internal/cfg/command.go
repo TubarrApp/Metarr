@@ -4,10 +4,13 @@ package cfg
 import (
 	"fmt"
 	"metarr/internal/domain/keys"
-	"metarr/internal/utils/benchmark"
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
+	"metarr/internal/domain/paths"
+	"metarr/internal/domain/vars"
 	"os"
 
+	"github.com/TubarrApp/gocommon/benchmark"
+	"github.com/TubarrApp/gocommon/logging"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,7 +25,7 @@ var rootCmd = &cobra.Command{
 		// Setup benchmarking if flag is set
 		if viper.GetBool(keys.Benchmarking) {
 			var err error
-			benchmark.BenchmarkFiles, err = benchmark.SetupBenchmarking()
+			vars.BenchmarkFiles, err = benchmark.SetupBenchmarking(logger.Pl, paths.BenchmarkDir)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to setup benchmarking: %v\n", err)
 				return
@@ -64,7 +67,7 @@ var rootCmd = &cobra.Command{
 func Execute() error {
 	fmt.Fprintf(os.Stderr, "\n")
 	if err := rootCmd.Execute(); err != nil {
-		logging.E("Failed to execute cobra")
+		logger.Pl.E("Failed to execute cobra")
 		return err
 	}
 	return nil

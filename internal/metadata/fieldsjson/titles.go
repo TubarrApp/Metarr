@@ -3,11 +3,13 @@ package fieldsjson
 import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/utils/browser"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillTitles grabs titles, subtitles, etc, from JSON.
@@ -31,13 +33,13 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 	}
 
 	if filled := unpackJSON(fieldMap, json); filled {
-		logging.D(2, "Decoded titles JSON into field map")
+		logger.Pl.D(2, "Decoded titles JSON into field map")
 	}
 
 	// Fill fieldMap entries
 	for k, ptr := range fieldMap {
 		if ptr == nil {
-			logging.E("fieldMap entry pointer unexpectedly nil")
+			logger.Pl.E("fieldMap entry pointer unexpectedly nil")
 			continue
 		}
 
@@ -70,7 +72,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 	}
 
 	if t.Title == "" {
-		logging.I("Title is blank, scraping web for missing title data...")
+		logger.Pl.I("Title is blank, scraping web for missing title data...")
 
 		title := browser.ScrapeMeta(w, enums.WebclassTitle)
 		if title != "" {
@@ -80,7 +82,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 
 	data, err := jsonRW.WriteJSON(fieldMap)
 	if err != nil {
-		logging.E("Error writing JSON for file %q: %v", fd.MetaFilePath, err)
+		logger.Pl.E("Error writing JSON for file %q: %v", fd.MetaFilePath, err)
 		return data, false
 	}
 

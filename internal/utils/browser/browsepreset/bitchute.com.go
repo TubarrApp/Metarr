@@ -2,8 +2,8 @@ package browsepreset
 
 import (
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 	"time"
@@ -55,7 +55,7 @@ func BitchuteComParseDate(date string) string {
 	if len(dateSplit) >= 3 {
 		digit, err = strconv.Atoi(dateSplit[0])
 		if err != nil {
-			logging.E("Failed to convert string to digits: %v", err)
+			logger.Pl.E("Failed to convert string to digits: %v", err)
 		}
 		unit = strings.TrimSuffix(strings.ToLower(dateSplit[1]), "s") // handles both "hour" and "hours"
 
@@ -83,10 +83,10 @@ func BitchuteComParseDate(date string) string {
 		case "year":
 			return now.AddDate(-digit, 0, 0).Format(time.RFC3339)
 		default:
-			logging.E("Unknown time unit: %s", unit)
+			logger.Pl.E("Unknown time unit: %s", unit)
 			return ""
 		}
 	}
-	logging.E("Wrong date length passed in")
+	logger.Pl.E("Wrong date length passed in")
 	return ""
 }

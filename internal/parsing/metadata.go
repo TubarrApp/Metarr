@@ -1,7 +1,7 @@
 package parsing
 
 import (
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"strings"
 )
 
@@ -77,12 +77,12 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 		if k == template {
 			strVal, ok := v.(string)
 			if !ok || strVal == "" {
-				logging.E("JSON key %v does not contain a valid string value (variable is of type %T), not parsing (file %q)", template, v, mtp.jsonFileName)
+				logger.Pl.E("JSON key %v does not contain a valid string value (variable is of type %T), not parsing (file %q)", template, v, mtp.jsonFileName)
 				return "", false
 			}
 			return strVal, true
 		}
 	}
-	logging.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
+	logger.Pl.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
 	return "", false
 }

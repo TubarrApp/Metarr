@@ -2,10 +2,12 @@ package fieldsnfo
 
 import (
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillNFODescriptions attempts to fill in title info from NFO.
@@ -71,12 +73,12 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 // fillSingleCredits fills empty singular credits fields from filled arrays.
 func fillSingleCredits(entries []string, target *string) {
 	if target == nil {
-		logging.D(1, "Target string is nil, skipping...")
+		logger.Pl.D(1, "Target string is nil, skipping...")
 		return
 	}
 
 	if *target != "" {
-		logging.D(1, "Target string is not empty, skipping...")
+		logger.Pl.D(1, "Target string is not empty, skipping...")
 		return
 	}
 

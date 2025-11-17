@@ -9,8 +9,8 @@ import (
 	"io"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
 	"os"
 	"strings"
@@ -28,7 +28,7 @@ type NFOFileRW struct {
 
 // NewNFOFileRW creates a new instance of the NFO file reader/writer.
 func NewNFOFileRW(ctx context.Context, file *os.File) *NFOFileRW {
-	logging.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
+	logger.Pl.D(3, "Retrieving new meta writer/rewriter for file %q...", file.Name())
 	return &NFOFileRW{
 		ctx:  ctx,
 		File: file,
@@ -64,7 +64,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	logging.D(3, "Decoded metadata: %+v", rw.Model)
+	logger.Pl.D(3, "Decoded metadata: %+v", rw.Model)
 	return rw.Model, nil
 }
 
@@ -97,7 +97,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 	rw.Model = &input
 	rw.Meta = string(content)
 
-	logging.D(3, "Refreshed metadata: %+v", rw.Model)
+	logger.Pl.D(3, "Refreshed metadata: %+v", rw.Model)
 	return rw.Model, nil
 }
 
@@ -126,50 +126,50 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Initialize:
 	// Replacements
 	if len(fd.MetaOps.Replaces) > 0 {
-		logging.I("Model for file %q making replacements", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q making replacements", fd.MetaFilePath)
 		replace = fd.MetaOps.Replaces
 	}
 
 	// Field trim
 	if len(fd.MetaOps.ReplacePrefixes) > 0 {
-		logging.I("Model for file %q trimming prefixes", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q trimming prefixes", fd.MetaFilePath)
 		trimPfx = fd.MetaOps.ReplacePrefixes
 	}
 
 	if len(fd.MetaOps.ReplaceSuffixes) > 0 {
-		logging.I("Model for file %q trimming suffixes", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q trimming suffixes", fd.MetaFilePath)
 		trimSfx = fd.MetaOps.ReplaceSuffixes
 	}
 
 	// Append and prefix
 	if len(fd.MetaOps.Appends) > 0 {
-		logging.I("Model for file %q adding appends", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q adding appends", fd.MetaFilePath)
 		apnd = fd.MetaOps.Appends
 	}
 
 	if len(fd.MetaOps.Prefixes) > 0 {
-		logging.I("Model for file %q adding prefixes", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q adding prefixes", fd.MetaFilePath)
 		pfx = fd.MetaOps.Prefixes
 	}
 
 	// New fields
 	if len(fd.MetaOps.SetFields) > 0 {
-		logging.I("Model for file %q applying new field additions", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q applying new field additions", fd.MetaFilePath)
 		newField = fd.MetaOps.SetFields
 	}
 
 	// Copy/paste
 	if len(fd.MetaOps.CopyToFields) > 0 {
-		logging.I("Model for file %q copying to fields", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q copying to fields", fd.MetaFilePath)
 		copyTo = fd.MetaOps.CopyToFields
 	}
 
 	if len(fd.MetaOps.PasteFromFields) > 0 {
-		logging.I("Model for file %q copying to fields", fd.MetaFilePath)
+		logger.Pl.I("Model for file %q copying to fields", fd.MetaFilePath)
 		pasteFrom = fd.MetaOps.PasteFromFields
 	}
 
-	logging.W("Copy to %q and paste from %q not currently implemented.", copyTo, pasteFrom)
+	logger.Pl.W("Copy to %q and paste from %q not currently implemented.", copyTo, pasteFrom)
 
 	// Make edits:
 	// Replace
@@ -208,7 +208,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	// Add new
 	if len(newField) > 0 {
 		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, newField); err != nil {
-			logging.E("failed to add new XML fields with %+v: %v", newField, err)
+			logger.Pl.E("failed to add new XML fields with %+v: %v", newField, err)
 		} else if ok {
 			edited = true
 		}
@@ -306,7 +306,7 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 
 // replaceXML applies meta replacement to the fields in the xml data.
 func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (dataRtn string, edited bool) {
-	logging.D(5, "Entering replaceXml with data: %v", data)
+	logger.Pl.D(5, "Entering replaceXml with data: %v", data)
 
 	if len(replace) == 0 {
 		return data, false // No replacements to apply
@@ -329,19 +329,19 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.D(2, "Identified input xml field %q, replacing %q with %q", replacement.Field, replacement.Value, replacement.Replacement)
+		logger.Pl.D(2, "Identified input xml field %q, replacing %q with %q", replacement.Field, replacement.Value, replacement.Replacement)
 
 		content = strings.ReplaceAll(content, replacement.Value, replacement.Replacement)
 		data = data[:contentStart] + content + data[endIdx:]
 		edited = true
 	}
-	logging.D(5, "After meta replacements: %v", data)
+	logger.Pl.D(5, "After meta replacements: %v", data)
 	return data, edited
 }
 
 // trimXMLPrefix applies meta replacement to the fields in the XML data.
 func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePrefix) (dataRtn string, edited bool) {
-	logging.D(5, "Entering trimXmlPrefix with data: %v", data)
+	logger.Pl.D(5, "Entering trimXmlPrefix with data: %v", data)
 
 	if len(trimPfx) == 0 {
 		return data, false // No replacements to apply
@@ -364,19 +364,19 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePref
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.D(2, "Identified input xml field %q, trimming prefix %q", prefix.Field, prefix.Prefix)
+		logger.Pl.D(2, "Identified input xml field %q, trimming prefix %q", prefix.Field, prefix.Prefix)
 
 		content = strings.TrimPrefix(content, prefix.Prefix)
 		data = data[:contentStart] + content + data[endIdx:]
 		edited = true
 	}
-	logging.D(5, "After trimming prefixes: %v", data)
+	logger.Pl.D(5, "After trimming prefixes: %v", data)
 	return data, edited
 }
 
 // trimXMLSuffix trims specified.
 func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuffix) (dataRtn string, edited bool) {
-	logging.D(5, "Entering trimXmlSuffix with data: %v", data)
+	logger.Pl.D(5, "Entering trimXmlSuffix with data: %v", data)
 
 	if len(trimSfx) == 0 {
 		return data, false // No replacements to apply
@@ -399,20 +399,20 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.D(2, "Identified input xml field %q, trimming suffix %q", suffix.Field, suffix.Suffix)
+		logger.Pl.D(2, "Identified input xml field %q, trimming suffix %q", suffix.Field, suffix.Suffix)
 
 		content = strings.TrimSuffix(content, suffix.Suffix)
 		data = data[:contentStart] + content + data[endIdx:]
 		edited = true
 	}
-	logging.D(5, "After meta replacements: %v", data)
+	logger.Pl.D(5, "After meta replacements: %v", data)
 	return data, edited
 }
 
 // xmlPrefix applies meta replacement to the fields in the XML data.
 func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool) {
 
-	logging.D(5, "Entering xmlPrefix with data: %v", data)
+	logger.Pl.D(5, "Entering xmlPrefix with data: %v", data)
 
 	if len(pfx) == 0 {
 		return data, false // No replacements to apply
@@ -435,19 +435,19 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn st
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.D(2, "Identified input xml field %q, adding prefix %q", prefix.Field, prefix.Prefix)
+		logger.Pl.D(2, "Identified input xml field %q, adding prefix %q", prefix.Field, prefix.Prefix)
 
 		data = data[:contentStart] + prefix.Prefix + content + data[endIdx:]
 		edited = true
 	}
-	logging.D(5, "After trimming prefixes: %v", data)
+	logger.Pl.D(5, "After trimming prefixes: %v", data)
 	return data, edited
 }
 
 // xmlAppend appends elements to XML fields.
 func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn string, edited bool) {
 
-	logging.D(5, "Entering xmlAppend with data: %v", data)
+	logger.Pl.D(5, "Entering xmlAppend with data: %v", data)
 
 	if len(apnd) == 0 {
 		return data, false // No replacements to apply
@@ -470,12 +470,12 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 		contentStart := startIdx + len(startTag)
 		content := strings.TrimSpace(data[contentStart:endIdx])
 
-		logging.D(2, "Identified input xml field %q, appending suffix %q", append.Field, append.Append)
+		logger.Pl.D(2, "Identified input xml field %q, appending suffix %q", append.Field, append.Append)
 
 		data = data[:contentStart] + content + append.Append + data[endIdx:]
 		edited = true
 	}
-	logging.D(5, "After meta replacements: %v", data)
+	logger.Pl.D(5, "After meta replacements: %v", data)
 	return data, edited
 }
 
@@ -487,7 +487,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		metaPS bool
 	)
 
-	logging.D(5, "Entering addNewXmlFields with data: %v", data)
+	logger.Pl.D(5, "Entering addNewXmlFields with data: %v", data)
 
 	if len(newField) == 0 {
 		return data, false, nil // No replacements to apply
@@ -500,7 +500,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		metaPS = abstractions.GetBool(keys.MPreserve)
 	}
 
-	logging.D(3, "Retrieved additions for new field data: %v", newField)
+	logger.Pl.D(3, "Retrieved additions for new field data: %v", newField)
 
 	for _, addition := range newField {
 		if addition.Field == "" || addition.Value == "" {
@@ -514,7 +514,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 			actorNameCheck := fmt.Sprintf("<name>%s</name>", rw.flattenField(addition.Value))
 
 			if strings.Contains(flatData, actorNameCheck) {
-				logging.I("Actor %q is already inserted in the metadata, no need to add...", addition.Value)
+				logger.Pl.I("Actor %q is already inserted in the metadata, no need to add...", addition.Value)
 			} else {
 				if modified, ok := rw.addNewActorField(data, addition.Value); ok {
 					data = modified
@@ -557,7 +557,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 
 				reply, err := prompt.MetaReplace(rw.ctx, promptMsg, metaOW, metaPS)
 				if err != nil {
-					logging.E("Failed to retrieve reply from user prompt: %v", err)
+					logger.Pl.E("Failed to retrieve reply from user prompt: %v", err)
 				}
 
 				switch reply {
@@ -573,7 +573,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 					metaPS = true
 					fallthrough
 				case "n":
-					logging.D(2, "Skipping field: %s", addition.Field)
+					logger.Pl.D(2, "Skipping field: %s", addition.Field)
 				}
 			} else if metaOW {
 				data = data[:startContent] + addition.Value + data[endIdx:]
@@ -605,13 +605,13 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		// No cast tag exists, create new structure
 		movieStart := strings.Index(data, "<movie>")
 		if movieStart == -1 {
-			logging.E("Invalid XML structure: no movie tag found")
+			logger.Pl.E("Invalid XML structure: no movie tag found")
 			return data, false
 		}
 
 		movieEnd := strings.Index(data, "</movie>")
 		if movieEnd == -1 {
-			logging.E("Invalid XML structure: no closing movie tag found")
+			logger.Pl.E("Invalid XML structure: no closing movie tag found")
 			return data, false
 		}
 
@@ -621,7 +621,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		// Find the right spot to insert
 		contentStart := movieStart + len("<movie>")
 		if contentStart >= len(data) {
-			logging.E("Invalid XML structure: movie tag at end of data")
+			logger.Pl.E("Invalid XML structure: movie tag at end of data")
 			return data, false
 		}
 
@@ -630,7 +630,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 
 	// Cast exists, validate indices
 	if castStart == -1 || castEnd == -1 || castStart >= len(data) || castEnd > len(data) {
-		logging.E("Invalid XML structure: mismatched cast tags")
+		logger.Pl.E("Invalid XML structure: mismatched cast tags")
 		return data, false
 	}
 

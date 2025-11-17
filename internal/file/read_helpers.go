@@ -1,9 +1,9 @@
 package file
 
 import (
+	"metarr/internal/domain/logger"
 	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/domain/regex"
-	"metarr/internal/utils/logging"
 	"path/filepath"
 	"strings"
 )
@@ -11,7 +11,7 @@ import (
 // HasFileExtension checks if the file has a valid extension from a passed in map.
 func hasFileExtension(filename string, extensions map[string]bool) bool {
 	if extensions == nil {
-		logging.E("Extensions sent in nil.")
+		logger.Pl.E("Extensions sent in nil.")
 		return false
 	}
 	ext := strings.ToLower(filepath.Ext(filename))
@@ -19,10 +19,10 @@ func hasFileExtension(filename string, extensions map[string]bool) bool {
 		return false
 	}
 	if isSet := extensions[ext]; isSet {
-		logging.I("File %q has valid extension %q, processing...", filename, ext)
+		logger.Pl.I("File %q has valid extension %q, processing...", filename, ext)
 		return true
 	}
-	logging.D(3, "File %q does not appear to have an extension contained in the extensions map", filename)
+	logger.Pl.D(3, "File %q does not appear to have an extension contained in the extensions map", filename)
 	return false
 }
 

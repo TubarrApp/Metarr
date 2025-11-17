@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"sync"
@@ -78,7 +79,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		return nil, err
 	}
 	if len(batches) == 0 {
-		logging.I("No batches to process. Exiting.")
+		logger.Pl.I("No batches to process. Exiting.")
 		return nil, nil
 	}
 	job := 1
@@ -97,7 +98,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		)
 
 		batch := convertCfgToBatch(b)
-		logging.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
+		logger.Pl.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
 
 		if batch.SkipVideos {
 			skipVideos = true
@@ -106,7 +107,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		// Open video file if necessary
 		if !skipVideos {
 			if openVideo, err = os.Open(batch.Video); err != nil {
-				logging.E("Failed to open %s", batch.Video)
+				logger.Pl.E("Failed to open %s", batch.Video)
 				failCount++
 				continue
 			}
@@ -114,7 +115,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 
 		// Open JSON file
 		if openJSON, err = os.Open(batch.JSON); err != nil {
-			logging.E("Failed to open %s", batch.JSON)
+			logger.Pl.E("Failed to open %s", batch.JSON)
 			// Close accompanying video...
 			if openVideo != nil {
 				if err := openVideo.Close(); err != nil {
@@ -128,7 +129,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		// Initiate batch process
 		processedFiles, err := processBatch(batch, core, openVideo, openJSON)
 		if err != nil {
-			logging.E("Batch with ID %d failed: %v", batch.bp.batchID, err)
+			logger.Pl.E("Batch with ID %d failed: %v", batch.bp.batchID, err)
 			failCount++
 			continue
 		}
@@ -147,16 +148,16 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 			videoDoneMsg = fmt.Sprintf("Input Video %s: %q\n", fileOrDirMsg, batch.Video)
 		}
 
-		logging.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
+		logger.Pl.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
 
 		// Close files explicitly at the end of each iteration
 		if openVideo != nil {
 			if err := openVideo.Close(); err != nil {
-				logging.E("Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
+				logger.Pl.E("Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
 			}
 		}
 		if err := openJSON.Close(); err != nil {
-			logging.E("Failed to close JSON file %q after successful iteration: %v", openJSON.Name(), err)
+			logger.Pl.E("Failed to close JSON file %q after successful iteration: %v", openJSON.Name(), err)
 		}
 		job++
 	}
@@ -165,7 +166,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 		return nil, fmt.Errorf("all batches failed")
 	}
 
-	logging.I("All batch tasks finished!")
+	logger.Pl.I("All batch tasks finished!")
 	return allProcessedFiles, nil
 }
 
@@ -175,7 +176,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 	if err != nil {
 		return nil, err
 	}
-	logging.P("Finding video and JSON directories...")
+	logger.Pl.P("Finding video and JSON directories...")
 
 	// Make directory batches
 	vDirCount := 0
@@ -208,7 +209,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			vDirCount++
 		}
 	}
-	logging.I("Got %d directory pairs to process, %d singular JSON directories", vDirCount, len(jsonDirs)-vDirCount)
+	logger.Pl.I("Got %d directory pairs to process, %d singular JSON directories", vDirCount, len(jsonDirs)-vDirCount)
 
 	// Remnant JSON directories
 	if len(jsonDirs) > vDirCount {
@@ -234,13 +235,13 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			tasks = append(tasks, newBatchConfig)
 		}
 	}
-	logging.I("Finding video and JSON files...")
+	logger.Pl.I("Finding video and JSON files...")
 
 	// Make file batches
 	if len(videoFiles) > 0 {
 		for i := range videoFiles {
 			var newBatchConfig = models.BatchConfig{}
-			logging.D(3, "Checking video file %q ...", videoFiles[i])
+			logger.Pl.D(3, "Checking video file %q ...", videoFiles[i])
 
 			// Video files
 			vInfo, err := os.Stat(videoFiles[i])
@@ -254,7 +255,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 
 			// JSON files
 			if len(jsonFiles) > i {
-				logging.D(3, "Checking JSON file %q ...", jsonFiles[i])
+				logger.Pl.D(3, "Checking JSON file %q ...", jsonFiles[i])
 				jInfo, err := os.Stat(jsonFiles[i])
 				if err != nil {
 					return nil, err
@@ -272,7 +273,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			vFileCount++
 		}
 
-		logging.I("Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
+		logger.Pl.I("Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
 
 		// Remnant JSON files
 		if len(jsonFiles) > vFileCount {
@@ -299,7 +300,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			}
 		}
 	}
-	logging.I("Got %d batch jobs to perform.", len(tasks))
+	logger.Pl.I("Got %d batch jobs to perform.", len(tasks))
 	return tasks, nil
 }
 
@@ -331,10 +332,10 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return fdArray, err
 	}
 
-	errArray := logging.GetErrorArray()
+	errArray := vars.GetErrorArray()
 	if len(errArray) == 0 {
 		fmt.Fprintf(os.Stderr, "\n")
-		logging.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
+		logger.Pl.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
 		return fdArray, nil
 	}
 	return fdArray, nil
@@ -365,11 +366,11 @@ func (bp *batchProcessor) logFailedVideos() {
 
 	for i, failed := range bp.failures.items {
 		if i == 0 {
-			logging.E("Batch finished, but some errors were encountered:")
+			logger.Pl.E("Batch finished, but some errors were encountered:")
 		}
 		fmt.Fprintf(os.Stderr, "\n")
-		logging.P("Filename: %v", failed.filename)
-		logging.P("Error: %v", failed.err)
+		logger.Pl.P("Filename: %v", failed.filename)
+		logger.Pl.P("Error: %v", failed.err)
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 }

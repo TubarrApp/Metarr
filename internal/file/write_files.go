@@ -7,13 +7,15 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // FSFileWriter is a model granting access to file writer functions.
@@ -53,7 +55,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) 
 			differ++
 		}
 
-		logging.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+		logger.Pl.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
 			skipVids, inputVid, renamedVid, inputMeta, renamedMeta, differ)
 	}
 
@@ -77,7 +79,7 @@ func (fs *FSFileWriter) RenameFiles() error {
 		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputVideo, fs.RenamedVideo, err)
 		}
-		logging.S("Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
+		logger.Pl.S("Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
 		fs.Fd.RenamedVideoPath = fs.RenamedVideo
 	}
 
@@ -86,7 +88,7 @@ func (fs *FSFileWriter) RenameFiles() error {
 		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
-		logging.S("Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
+		logger.Pl.S("Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
 		fs.Fd.RenamedMetaPath = fs.RenamedMeta
 	}
 
@@ -103,7 +105,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	}
 
 	if fs.RenamedVideo == "" && fs.RenamedMeta == "" {
-		logging.D(1, "Skipping video or metadata renaming, as the renamed strings are empty")
+		logger.Pl.D(1, "Skipping video or metadata renaming, as the renamed strings are empty")
 		return nil
 	}
 
@@ -162,13 +164,13 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 
 	case enums.PurgeMetaJSON:
 		if ext != consts.MExtJSON {
-			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
+			logger.Pl.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return false, nil
 		}
 
 	case enums.PurgeMetaNFO:
 		if ext != consts.MExtNFO {
-			logging.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
+			logger.Pl.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return false, nil
 		}
 
@@ -195,7 +197,7 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 	if err := os.Remove(file); err != nil {
 		return false, fmt.Errorf("unable to delete meta file: %w", err)
 	}
-	logging.S("Successfully deleted metafile %q", file)
+	logger.Pl.S("Successfully deleted metafile %q", file)
 
 	return true, nil
 }

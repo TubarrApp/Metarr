@@ -2,9 +2,11 @@ package fieldsnfo
 
 import (
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillNFOTitles attempts to fill in titles from NFO.
@@ -28,7 +30,7 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 		}
 	}()
 
-	logging.I("Grab NFO metadata: %v", t)
+	logger.Pl.I("Grab NFO metadata: %v", t)
 
 	if n.Title.Main != "" {
 		if t.Title == "" {

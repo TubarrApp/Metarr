@@ -5,7 +5,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"os"
 	"strings"
 )
@@ -31,21 +31,21 @@ func InitUserInputReader() {
 // The option can be used to tell the program to overwrite all in the queue,
 // preserve all in the queue, or move through value by value.
 func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, error) {
-	logging.D(3, "Entering PromptUser dialogue...")
+	logger.Pl.D(3, "Entering PromptUser dialogue...")
 
 	if decisionMade {
 		// If overwriteAll, return "Y" without waiting
 		if ow {
-			logging.D(3, "Overwrite all is set...")
+			logger.Pl.D(3, "Overwrite all is set...")
 			return "Y", nil
 		} else if ps {
-			logging.D(3, "Preserve all is set...")
+			logger.Pl.D(3, "Preserve all is set...")
 			return "N", nil
 		}
 	}
 
 	fmt.Fprintf(os.Stderr, "\n")
-	logging.I("%s", promptMsg)
+	logger.Pl.I("%s", promptMsg)
 
 	// Wait for user input
 	select {

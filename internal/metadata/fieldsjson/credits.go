@@ -3,12 +3,14 @@ package fieldsjson
 import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/utils/browser"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader).
@@ -47,7 +49,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 	// Set using override will fill all values anyway
 	if len(fd.MetaOps.SetOverrides) == 0 {
 		if filled = unpackJSON(fieldMap, json); filled {
-			logging.D(2, "Decoded credits JSON into field map")
+			logger.Pl.D(2, "Decoded credits JSON into field map")
 		}
 
 		// Find highest priority filled element
@@ -64,7 +66,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		// Check if filled
 		for k, ptr := range fieldMap {
 			if ptr == nil {
-				logging.E("Unexpected nil pointer in credits fieldMap")
+				logger.Pl.E("Unexpected nil pointer in credits fieldMap")
 				continue
 			}
 			if *ptr != "" {
@@ -74,13 +76,13 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 				filled = true
 				continue
 			}
-			logging.D(2, "Value for %q is empty, attempting to fill by inference...", k)
+			logger.Pl.D(2, "Value for %q is empty, attempting to fill by inference...", k)
 
 			*ptr = fillWith
 			if logging.Level > 1 {
 				printMap[k] = *ptr
 			}
-			logging.D(2, "Set value to %q", *ptr)
+			logger.Pl.D(2, "Set value to %q", *ptr)
 		}
 	}
 
@@ -95,7 +97,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 	case filled:
 		rtn, err := jsonRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
+			logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
 			return json, true
 		}
 
@@ -105,7 +107,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		return json, true
 
 	case w.WebpageURL == "":
-		logging.I("Page URL not found in metadata, so cannot scrape for missing credits in %q", fd.MetaFilePath)
+		logger.Pl.I("Page URL not found in metadata, so cannot scrape for missing credits in %q", fd.MetaFilePath)
 		return json, false
 	}
 
@@ -123,7 +125,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 
 		rtn, err := jsonRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.MetaFilePath, err)
+			logger.Pl.E("Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.MetaFilePath, err)
 			return json, true
 		}
 
@@ -137,23 +139,23 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 
 // overrideAll makes override replacements if existent.
 func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[string]string) (map[string]string, bool) {
-	logging.D(2, "Checking credits field overrides...")
+	logger.Pl.D(2, "Checking credits field overrides...")
 	if fieldMap == nil {
-		logging.E("fieldMap passed in null")
+		logger.Pl.E("fieldMap passed in null")
 		return printMap, false
 	}
 
 	filled := false
 	// Note order of operations
 	if len(fd.MetaOps.ReplaceOverrides) > 0 {
-		logging.I("Overriding credits with text replacements...")
+		logger.Pl.I("Overriding credits with text replacements...")
 		if m, exists := fd.MetaOps.ReplaceOverrides[enums.OverrideMetaCredits]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E("Entry is nil in fieldMap %v", fieldMap)
+					logger.Pl.E("Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				logging.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
+				logger.Pl.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
 				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
 
 				if logging.Level > 1 {
@@ -166,14 +168,14 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 	}
 
 	if len(fd.MetaOps.SetOverrides) > 0 {
-		logging.I("Overriding credits with new values...")
+		logger.Pl.I("Overriding credits with new values...")
 		if val, exists := fd.MetaOps.SetOverrides[enums.OverrideMetaCredits]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E("Entry is nil in fieldMap %v", fieldMap)
+					logger.Pl.E("Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				logging.I("Overriding old %q → %q", *ptr, val)
+				logger.Pl.I("Overriding old %q → %q", *ptr, val)
 				*ptr = val
 
 				if logging.Level > 1 {
@@ -186,14 +188,14 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 	}
 
 	if len(fd.MetaOps.AppendOverrides) > 0 {
-		logging.I("Overriding credits with appends...")
+		logger.Pl.I("Overriding credits with appends...")
 		if val, exists := fd.MetaOps.AppendOverrides[enums.OverrideMetaCredits]; exists {
 			for k, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E("Entry is nil in fieldMap %v", fieldMap)
+					logger.Pl.E("Entry is nil in fieldMap %v", fieldMap)
 					continue
 				}
-				logging.I("Overriding old %q by appending it with %q", *ptr, val)
+				logger.Pl.I("Overriding old %q by appending it with %q", *ptr, val)
 				*ptr += val
 
 				if logging.Level > 1 {

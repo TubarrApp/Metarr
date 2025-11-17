@@ -1,8 +1,8 @@
 package transpresets
 
 import (
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 )
 
 // addFilenameReplacements adds suffix and prefix replacements to FileData without duplicates.
@@ -13,13 +13,13 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FOpReplaceSu
 		for _, existing := range fd.FilenameOps.ReplaceSuffixes {
 			if existing.Suffix == newSuffix.Suffix && existing.Replacement == newSuffix.Replacement {
 				exists = true
-				logging.D(3, "Suffix replacement %q -> %q already exists, skipping", newSuffix.Suffix, newSuffix.Replacement)
+				logger.Pl.D(3, "Suffix replacement %q -> %q already exists, skipping", newSuffix.Suffix, newSuffix.Replacement)
 				break
 			}
 		}
 		if !exists {
 			fd.FilenameOps.ReplaceSuffixes = append(fd.FilenameOps.ReplaceSuffixes, newSuffix)
-			logging.D(2, "Added suffix replacement: %q -> %q", newSuffix.Suffix, newSuffix.Replacement)
+			logger.Pl.D(2, "Added suffix replacement: %q -> %q", newSuffix.Suffix, newSuffix.Replacement)
 		}
 	}
 
@@ -29,13 +29,13 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FOpReplaceSu
 		for _, existing := range fd.FilenameOps.ReplacePrefixes {
 			if existing.Prefix == newPrefix.Prefix && existing.Replacement == newPrefix.Replacement {
 				exists = true
-				logging.D(3, "Prefix replacement %q -> %q already exists, skipping", newPrefix.Prefix, newPrefix.Replacement)
+				logger.Pl.D(3, "Prefix replacement %q -> %q already exists, skipping", newPrefix.Prefix, newPrefix.Replacement)
 				break
 			}
 		}
 		if !exists {
 			fd.FilenameOps.ReplacePrefixes = append(fd.FilenameOps.ReplacePrefixes, newPrefix)
-			logging.D(2, "Added prefix replacement: %q -> %q", newPrefix.Prefix, newPrefix.Replacement)
+			logger.Pl.D(2, "Added prefix replacement: %q -> %q", newPrefix.Prefix, newPrefix.Replacement)
 		}
 	}
 }

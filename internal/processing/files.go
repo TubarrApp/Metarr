@@ -6,10 +6,11 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/ffmpeg"
 	"metarr/internal/file"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -49,8 +50,8 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return nil, err
 	}
 
-	logging.I("Found %d file(s) to process", batch.bp.counts.totalMatched)
-	logging.D(3, "Matched metafiles: %d", batch.bp.counts.totalMatched)
+	logger.Pl.I("Found %d file(s) to process", batch.bp.counts.totalMatched)
+	logger.Pl.D(3, "Matched metafiles: %d", batch.bp.counts.totalMatched)
 
 	var (
 		muProcessed sync.Mutex
@@ -107,7 +108,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	collectorWg.Wait()
 
 	// Get errors
-	errArray := logging.GetErrorArray()
+	errArray := vars.GetErrorArray()
 	if errArray != nil {
 		batch.bp.logFailedVideos()
 	}
@@ -119,7 +120,7 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 	defer wg.Done()
 	defer func() {
 		if r := recover(); r != nil {
-			logging.E("Worker %d panicked: %v\n%s", id, r, debug.Stack())
+			logger.Pl.E("Worker %d panicked: %v\n%s", id, r, debug.Stack())
 		}
 	}()
 
@@ -130,14 +131,14 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 
 		select {
 		case <-ctx.Done():
-			logging.I("Worker %d stopping due to context cancellation", id)
+			logger.Pl.I("Worker %d stopping due to context cancellation", id)
 			return
 		default:
-			logging.D(1, "Worker %d processing file: %s", id, filename)
+			logger.Pl.D(1, "Worker %d processing file: %s", id, filename)
 
 			executed, err := executeFile(ctx, batch.bp, skipVideos, filename, job.fileData)
 			if err != nil {
-				logging.E("Worker %d error executing file %q: %v", id, filename, err)
+				logger.Pl.E("Worker %d error executing file %q: %v", id, filename, err)
 				continue
 			}
 			results <- executed
@@ -151,15 +152,15 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles 
 		var err error
 		switch fd.MetaFileType {
 		case consts.MExtJSON:
-			logging.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
+			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			err = processJSONFile(ctx, fd)
 		case consts.MExtNFO:
-			logging.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
+			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			err = processNFOFiles(ctx, fd)
 		}
 		if err != nil {
-			logging.AddToErrorArray(err)
-			logging.E("Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)
+			vars.AddToErrorArray(err)
+			logger.Pl.E("Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)
 
 			muFailed.Lock()
 			bp.logFailedVideos()
@@ -284,19 +285,19 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	printProgress(typeMeta, currentMeta, totalMeta, fd.MetaDirectory)
 
 	// System resource check
-	sysResourceLoop(filename)
+	sysResourceLoop(ctx, filename)
 
 	// Process file based on type
 	isVideoFile := fd.OriginalVideoPath != ""
 
 	if isVideoFile {
-		logging.I("Processing file: %s", filename)
+		logger.Pl.I("Processing file: %s", filename)
 		if !skipVideos {
 			if err := ffmpeg.ExecuteVideo(ctx, fd); err != nil {
 
 				errMsg := fmt.Errorf("failed to process video '%v': %w", filename, err)
-				logging.AddToErrorArray(errMsg)
-				logging.E("Failed to execute video %q: %v", fd.OriginalVideoPath, err)
+				vars.AddToErrorArray(errMsg)
+				logger.Pl.E("Failed to execute video %q: %v", fd.OriginalVideoPath, err)
 
 				bp.addFailure(failedVideo{
 					filename: filename,
@@ -305,11 +306,11 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 				return nil, errMsg
 			}
 			fmt.Fprintf(os.Stderr, "\n")
-			logging.S("Successfully processed video %s", filename)
+			logger.Pl.S("Successfully processed video %s", filename)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "\n")
-		logging.S("Successfully processed metadata for %s", filename)
+		logger.Pl.S("Successfully processed metadata for %s", filename)
 	}
 
 	// Print progress for video
@@ -325,7 +326,7 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, muFaile
 	go func() {
 		// Wait for context finish or cancellation
 		<-ctx.Done()
-		logging.D(2, "Context ended, performing cleanup for batch %d", batch.bp.batchID)
+		logger.Pl.D(2, "Context ended, performing cleanup for batch %d", batch.bp.batchID)
 
 		// Wait for workers to finish
 		wg.Wait()

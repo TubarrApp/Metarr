@@ -2,9 +2,11 @@ package fieldsjson
 
 import (
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // FillWebpageDetails grabs details necessary to scrape the web for missing metafields.
@@ -75,10 +77,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 	thumb, ok := data[consts.JThumbnailURL].(string)
 	if ok {
 		fd.MWebData.Thumbnail = thumb
-		logging.I("Found thumbnail: %q", fd.MWebData.Thumbnail)
+		logger.Pl.I("Found thumbnail: %q", fd.MWebData.Thumbnail)
 	}
 
-	logging.D(2, "Stored URLs for scraping missing fields: %v", fd.MWebData.TryURLs)
+	logger.Pl.D(2, "Stored URLs for scraping missing fields: %v", fd.MWebData.TryURLs)
 
 	return isFilled
 }
@@ -86,10 +88,10 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 // webInfoFill fills web info data into the model.
 func webInfoFill(s *string, val string, w *models.MetadataWebData) (filled bool) {
 	if s == nil {
-		logging.E("String passed in null")
+		logger.Pl.E("String passed in null")
 		return false
 	}
-	logging.D(3, "Got URL: %s", val)
+	logger.Pl.D(3, "Got URL: %s", val)
 	if *s == "" {
 		*s = val
 	}

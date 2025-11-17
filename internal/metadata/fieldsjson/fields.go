@@ -2,30 +2,32 @@
 package fieldsjson
 
 import (
+	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // FillJSONFields is the fills metafields before writing the data.
 func FillJSONFields(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
 	allFilled := true
 	if meta, ok := fillTitles(fd, json, jsonRW); !ok {
-		logging.I("No title metadata found")
+		logger.Pl.I("No title metadata found")
 		allFilled = false
 	} else if meta != nil {
 		json = meta
 	}
 
 	if meta, ok := fillCredits(fd, json, jsonRW); !ok {
-		logging.I("No credits metadata found")
+		logger.Pl.I("No credits metadata found")
 		allFilled = false
 	} else if meta != nil {
 		json = meta
 	}
 
 	if meta, ok := fillDescriptions(fd, json, jsonRW); !ok {
-		logging.I("No description metadata found")
+		logger.Pl.I("No description metadata found")
 		allFilled = false
 	} else if meta != nil {
 		json = meta
@@ -41,7 +43,7 @@ func unpackJSON(fmap map[string]*string, json map[string]any) bool {
 	// Match decoded JSON to field map
 	for k, ptr := range fmap {
 		if ptr == nil {
-			logging.E("fieldMap entry pointer unexpectedly nil")
+			logger.Pl.E("fieldMap entry pointer unexpectedly nil")
 			continue
 		}
 

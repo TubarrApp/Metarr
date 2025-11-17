@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/domain/consts"
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +35,7 @@ func moveOrCopyFile(src, dst string) error {
 
 		// Return with warning if no source hash calc
 		if srcHashErr != nil {
-			logging.W("Unable to calculate initial file hash due to error (%v)... Skipping move hash checks.\n\nAttempted move: %q → %q", srcHashErr, src, dst)
+			logger.Pl.W("Unable to calculate initial file hash due to error (%v)... Skipping move hash checks.\n\nAttempted move: %q → %q", srcHashErr, src, dst)
 			return nil
 		}
 
@@ -44,7 +44,7 @@ func moveOrCopyFile(src, dst string) error {
 
 		// Failed to get destination file hash
 		if dstHashErr != nil {
-			logging.W("Failed to calculate destination file hash, move may or may not have failed: %v\n\nAttempted move: %q → %q", dstHashErr, src, dst)
+			logger.Pl.W("Failed to calculate destination file hash, move may or may not have failed: %v\n\nAttempted move: %q → %q", dstHashErr, src, dst)
 			return nil
 		}
 
@@ -54,12 +54,12 @@ func moveOrCopyFile(src, dst string) error {
 			err = fmt.Errorf("hash mismatch (source: %x, destination: %x)\n\nAttempted move %q → %q", srcHash, dstHash, src, dst)
 
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
-				logging.E("Unable to remove failed moved file %q due to error: %v", dst, delErr)
+				logger.Pl.E("Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
 			// Do not return here, program will continue and attempt a copy
 
 		} else { // Hash match (SUCCESS)
-			logging.S("Moved file: %q → %q", src, dst)
+			logger.Pl.S("Moved file: %q → %q", src, dst)
 			return nil
 		}
 	}
@@ -67,14 +67,14 @@ func moveOrCopyFile(src, dst string) error {
 	// removed wrapper: "if strings.Contains(err.Error(), "invalid cross-device link")"
 	// around the following block... Successful move should return nil above.
 
-	logging.E("Move error: %v\n\nAttempting to copy %q to %q instead...", err, src, dst)
+	logger.Pl.E("Move error: %v\n\nAttempting to copy %q to %q instead...", err, src, dst)
 
 	// Copy the file
 	if err := copyFile(src, dst); err == nil { // If err IS nil (copy succeeded)
 
 		// Return with warning if no source hash calc
 		if srcHashErr != nil {
-			logging.W("Unable to calculate initial file hash due to error (%v)... Skipping copy hash checks.\n\nAttempted copy: %q → %q", srcHashErr, src, dst)
+			logger.Pl.W("Unable to calculate initial file hash due to error (%v)... Skipping copy hash checks.\n\nAttempted copy: %q → %q", srcHashErr, src, dst)
 			return nil
 		}
 
@@ -83,14 +83,14 @@ func moveOrCopyFile(src, dst string) error {
 
 		// Failed to verify destination file hash
 		if copyDstHashErr != nil {
-			logging.W("Failed to calculate destination file hash, copy may or may not have failed: %v\n\nAttempted copy: %q → %q", copyDstHashErr, src, dst)
+			logger.Pl.W("Failed to calculate destination file hash, copy may or may not have failed: %v\n\nAttempted copy: %q → %q", copyDstHashErr, src, dst)
 			return nil
 		}
 
 		// Hash comparison
 		if !bytes.Equal(srcHash, dstHash) { // Hash mismatch (FAIL)
 			if delErr := os.Remove(dst); delErr != nil && !os.IsNotExist(delErr) {
-				logging.E("Unable to remove failed moved file %q due to error: %v", dst, delErr)
+				logger.Pl.E("Unable to remove failed moved file %q due to error: %v", dst, delErr)
 			}
 			return fmt.Errorf("hash mismatch after copy (source: %x, destination: %x)\n\nAttempted copy %q → %q", srcHash, dstHash, src, dst)
 		}
@@ -99,16 +99,16 @@ func moveOrCopyFile(src, dst string) error {
 
 		// Remove source after successful copy and verification
 		if err := os.Remove(src); err != nil {
-			logging.W("Failed to remove source file after verified copy due to error: %v", err)
+			logger.Pl.W("Failed to remove source file after verified copy due to error: %v", err)
 			// Do not return error, user will simply need to manually delete the original
 		}
 
-		logging.S("Copied file and removed original: %q → %q", src, dst)
+		logger.Pl.S("Copied file and removed original: %q → %q", src, dst)
 		return nil
 	}
 
 	if err := os.Remove(dst); err != nil {
-		logging.E("Failed to remove failed copied file %q due to error: %v", dst, err)
+		logger.Pl.E("Failed to remove failed copied file %q due to error: %v", dst, err)
 	}
 	return fmt.Errorf("failed to copy file %q → %q: %w", src, dst, err)
 }
@@ -122,7 +122,7 @@ func copyFile(src, dst string) error {
 		return fmt.Errorf("entered source file %q and destination %q file as the same name and same path", src, dst)
 	}
 
-	logging.I("Copying:\n%q\nto\n%q...", src, dst)
+	logger.Pl.I("Copying:\n%q\nto\n%q...", src, dst)
 
 	// Validate source file
 	sourceInfo, err := os.Stat(src)
@@ -160,7 +160,7 @@ func copyFile(src, dst string) error {
 	}
 	defer func() {
 		if err := sourceFile.Close(); err != nil {
-			logging.E("Failed to close %q: %v", sourceFile.Name(), err)
+			logger.Pl.E("Failed to close %q: %v", sourceFile.Name(), err)
 		}
 	}()
 
@@ -172,25 +172,25 @@ func copyFile(src, dst string) error {
 	// Cleanup on function exit
 	defer func() {
 		if err := destFile.Close(); err != nil {
-			logging.E("Failed to close %q: %v", sourceFile.Name(), err)
+			logger.Pl.E("Failed to close %q: %v", sourceFile.Name(), err)
 		}
 		if err != nil {
 			if err := os.Remove(dst); err != nil {
-				logging.E("Failed to remove %q: %v", dst, err)
+				logger.Pl.E("Failed to remove %q: %v", dst, err)
 			}
 		}
 	}()
 
 	// Copy contents with buffer
-	bufferedSource := bufio.NewReaderSize(sourceFile, consts.Buffer4MB)
-	bufferedDest := bufio.NewWriterSize(destFile, consts.Buffer4MB)
+	bufferedSource := bufio.NewReaderSize(sourceFile, (4 * consts.MB))
+	bufferedDest := bufio.NewWriterSize(destFile, (4 * consts.MB))
 	defer func() {
 		if err := bufferedDest.Flush(); err != nil {
-			logging.E("failed to flush buffer for %q: %v", destFile.Name(), err)
+			logger.Pl.E("failed to flush buffer for %q: %v", destFile.Name(), err)
 		}
 	}()
 
-	buf := make([]byte, consts.Buffer4MB)
+	buf := make([]byte, (4 * consts.MB))
 
 	if _, err = io.CopyBuffer(bufferedDest, bufferedSource, buf); err != nil {
 		return fmt.Errorf("failed to copy file contents: %w", err)
@@ -203,7 +203,7 @@ func copyFile(src, dst string) error {
 
 	// Set same permissions as source
 	if err = os.Chmod(dst, sourceInfo.Mode()); err != nil {
-		logging.I("Failed to set file permissions, is destination folder remote? (%v)", err)
+		logger.Pl.I("Failed to set file permissions, is destination folder remote? (%v)", err)
 	}
 
 	// Verify destination file
@@ -222,19 +222,19 @@ func copyFile(src, dst string) error {
 func shouldProcess(src, dst string, isVid, skipVids bool) bool {
 	switch {
 	case skipVids && isVid:
-		logging.I("Not moving or renaming video files. Skip vids is %v", skipVids)
+		logger.Pl.I("Not moving or renaming video files. Skip vids is %v", skipVids)
 		return false
 
 	case strings.EqualFold(src, dst):
-		logging.I("Not moving or renaming files. Source and destination match: Src: %q, Dest: %q", src, dst)
+		logger.Pl.I("Not moving or renaming files. Source and destination match: Src: %q, Dest: %q", src, dst)
 		return false
 
 	case src == "", dst == "":
-		logging.I("Not moving or renaming files. Source or destination path empty: Src: %q, Dest: %q", src, dst)
+		logger.Pl.I("Not moving or renaming files. Source or destination path empty: Src: %q, Dest: %q", src, dst)
 		return false
 
 	default:
-		logging.I("Conducting move/rename file operations for %q", src)
+		logger.Pl.I("Conducting move/rename file operations for %q", src)
 		return true
 	}
 }
@@ -247,13 +247,13 @@ func calculateFileHash(fpath string) ([]byte, error) {
 	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			logging.E("Failed to close %q: %v", file.Name(), closeErr)
+			logger.Pl.E("Failed to close %q: %v", file.Name(), closeErr)
 		}
 	}()
 
 	hash := sha256.New()
-	buf := make([]byte, consts.Buffer4MB)
-	reader := bufio.NewReaderSize(file, consts.Buffer4MB)
+	buf := make([]byte, (4 * consts.MB))
+	reader := bufio.NewReaderSize(file, (4 * consts.MB))
 
 	for {
 		n, err := reader.Read(buf)

@@ -1,17 +1,7 @@
 // Package consts holds global unchanging constants and variables.
 package consts
 
-// Tags
-const (
-	LogTagError    string = ColorRed + "[ERROR] " + ColorReset
-	LogTagSuccess  string = ColorGreen + "[Success] " + ColorReset
-	LogTagDebug    string = ColorYellow + "[Debug] " + ColorReset
-	LogTagWarning  string = ColorYellow + "[Warning] " + ColorReset
-	LogTagInfo     string = ColorCyan + "[Info] " + ColorReset
-	LogTagDevError string = ColorRed + "[ DEV ERROR! ]" + ColorReset
-)
-
-// Browser name constants
+// Browser name constants.
 const (
 	BrowserChrome  = "chrome"
 	BrowserEdge    = "edge"
@@ -19,47 +9,17 @@ const (
 	BrowserSafari  = "safari"
 )
 
-// File prefix and suffix
+// File prefix and suffix.
 const (
 	BackupTag = "_metarrbackup"
 	TempTag   = "tmp_"
 )
 
-// Buffers
+// Bytes.
 const (
-	KB        = 1 * 1024
-	GB        = 1024 * 1024 * 1024
-	MB        = 1024 * 1024
-	Buffer4MB = 4 * 1024 * 1024
-)
-
-// Video codecs.
-const (
-	VCodecCopy  = "copy"
-	VCodecAV1   = "av1"
-	VCodecH264  = "h264"
-	VCodecHEVC  = "hevc"
-	VCodecMPEG2 = "mpeg2"
-	VCodecVP8   = "vp8"
-	VCodecVP9   = "vp9"
-)
-
-// Audio codecs.
-const (
-	ACodecCopy   = "copy"
-	ACodecAAC    = "aac"
-	ACodecAC3    = "ac3"
-	ACodecALAC   = "alac"
-	ACodecDTS    = "dts"
-	ACodecEAC3   = "eac3"
-	ACodecFLAC   = "flac"
-	ACodecMP2    = "mp2"
-	ACodecMP3    = "mp3"
-	ACodecOpus   = "opus"
-	ACodecPCM    = "pcm"
-	ACodecTrueHD = "truehd"
-	ACodecVorbis = "vorbis"
-	ACodecWAV    = "wav"
+	KB = 1024
+	MB = 1024 * 1024
+	GB = 1024 * 1024 * 1024
 )
 
 // Rename styles.
@@ -70,45 +30,10 @@ const (
 	RenameFixesOnly   = "fixes-only"
 )
 
-// TimeSfx is used as a time suffix format in metadata.
-const TimeSfx = "T00:00:00Z"
-
-// Valid maps contains all validation maps.
-var (
-	ValidVideoCodecs = map[string]bool{
-		VCodecCopy:  true,
-		VCodecAV1:   true,
-		VCodecH264:  true,
-		VCodecHEVC:  true,
-		VCodecMPEG2: true,
-		VCodecVP8:   true,
-		VCodecVP9:   true,
-	}
-
-	ValidAudioCodecs = map[string]bool{
-		ACodecCopy:   true,
-		ACodecAAC:    true,
-		ACodecAC3:    true,
-		ACodecALAC:   true,
-		ACodecDTS:    true,
-		ACodecEAC3:   true,
-		ACodecFLAC:   true,
-		ACodecMP2:    true,
-		ACodecMP3:    true,
-		ACodecOpus:   true,
-		ACodecPCM:    true,
-		ACodecTrueHD: true,
-		ACodecVorbis: true,
-		ACodecWAV:    true,
-	}
-
-	ValidGPUAccelTypes = map[string]bool{
-		AccelTypeAuto:   true,
-		AccelTypeAMF:    true,
-		AccelTypeIntel:  true,
-		AccelTypeNvidia: true,
-		AccelTypeVAAPI:  true,
-	}
+// Program.
+const (
+	TimeSfx        = "T00:00:00Z"
+	LogTagDevError = "DEV ERROR:"
 )
 
 // Webpage tags

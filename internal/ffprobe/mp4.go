@@ -7,10 +7,12 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"os/exec"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // MP4MetaMatches checks FFprobe captured metadata from the video against the metafile.
@@ -29,11 +31,11 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		fd.OriginalVideoPath,
 	)
 
-	logging.I("Made command for FFprobe:\n\n%v", command.String())
+	logger.Pl.I("Made command for FFprobe:\n\n%v", command.String())
 
 	output, err := command.Output()
 	if err != nil {
-		logging.E("Error running FFprobe command: %v. Will not process video.", err)
+		logger.Pl.E("Error running FFprobe command: %v. Will not process video.", err)
 		return false
 	}
 
@@ -41,14 +43,14 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 	var ffData ffprobeOutput
 
 	if err := json.Unmarshal(output, &ffData); err != nil {
-		logging.E("Error parsing FFprobe output: %v. Will not process video.", err)
+		logger.Pl.E("Error parsing FFprobe output: %v. Will not process video.", err)
 		return false
 	}
 
 	// Check if thumbnail is already present in file
 	for _, s := range ffData.Streams {
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
-			logging.I("Video %q has an embedded thumbnail", fd.OriginalVideoPath)
+			logger.Pl.I("Video %q has an embedded thumbnail", fd.OriginalVideoPath)
 			fd.HasEmbeddedThumbnail = true
 
 			// Thumbnail embedded in file, missing in metafile
@@ -66,13 +68,13 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 
 	// Thumbnail is in file but user wants to strip
 	if fd.HasEmbeddedThumbnail && stripThumbnail {
-		logging.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoPath)
+		logger.Pl.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoPath)
 		return false
 	}
 
 	// No thumbnail in file but thumbnail exists in metadata
 	if !fd.HasEmbeddedThumbnail && fd.MWebData.Thumbnail != "" {
-		logging.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.MWebData.Thumbnail)
+		logger.Pl.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.MWebData.Thumbnail)
 		return false
 	}
 
@@ -121,11 +123,11 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		ffContent = append(ffContent, printVals)
 
 		if values.new != values.existing {
-			logging.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
+			logger.Pl.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
 				fd.MetaFilePath, key, values.new, values.existing)
 			matches = false
 		} else {
-			logging.D(2, "Detected key %q as being the same.\nFFprobe: %q\nMetafile: %q", key, values.existing, values.new)
+			logger.Pl.D(2, "Detected key %q as being the same.\nFFprobe: %q\nMetafile: %q", key, values.existing, values.new)
 		}
 	}
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/domain/consts"
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +20,7 @@ func BackupFile(file *os.File) error {
 	originalFilePath := file.Name()
 
 	backupFilePath := generateBackupFilename(originalFilePath)
-	logging.D(3, "Creating backup of file %q as %q", originalFilePath, backupFilePath)
+	logger.Pl.D(3, "Creating backup of file %q as %q", originalFilePath, backupFilePath)
 
 	// Current position
 	currentPos, err := file.Seek(0, io.SeekCurrent)
@@ -29,7 +29,7 @@ func BackupFile(file *os.File) error {
 	}
 	defer func() {
 		if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-			logging.E("Failed to seek file %q: %v", file.Name(), err)
+			logger.Pl.E("Failed to seek file %q: %v", file.Name(), err)
 		}
 	}()
 
@@ -48,18 +48,18 @@ func BackupFile(file *os.File) error {
 	}
 	defer func() {
 		if err := backupFile.Close(); err != nil {
-			logging.E("Failed to close file %q: %v", backupFile.Name(), err)
+			logger.Pl.E("Failed to close file %q: %v", backupFile.Name(), err)
 		}
 	}()
 
 	// Copy the content of the original file to the backup file
-	buf := make([]byte, consts.Buffer4MB)
+	buf := make([]byte, (4 * consts.MB))
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
 		return fmt.Errorf("failed to copy content to backup file: %w", err)
 	}
 
-	logging.D(3, "Backup successfully created at %q", backupFilePath)
+	logger.Pl.D(3, "Backup successfully created at %q", backupFilePath)
 	return nil
 }
 
@@ -73,7 +73,7 @@ func generateBackupFilename(originalFilePath string) string {
 // RenameToBackup renames the passed in file to a backup version.
 func RenameToBackup(filename string) (backupName string, err error) {
 	if filename == "" {
-		logging.E("filename was passed in to backup empty")
+		logger.Pl.E("filename was passed in to backup empty")
 	}
 
 	backupName = generateBackupFilename(filename)

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/domain/regex"
-	"metarr/internal/utils/logging"
 	"strconv"
 	"strings"
 )
@@ -30,7 +30,7 @@ func dayStringSwitch(day string) string {
 
 	num, err := strconv.Atoi(day)
 	if err != nil {
-		logging.E("Failed to convert date string to number")
+		logger.Pl.E("Failed to convert date string to number")
 		return day
 	}
 
@@ -84,7 +84,7 @@ func monthStringSwitch(month string) string {
 	case "12":
 		monthStr = "Dec"
 	default:
-		logging.E("Failed to make month string from month number %q", month)
+		logger.Pl.E("Failed to make month string from month number %q", month)
 		monthStr = "Jan"
 	}
 	return monthStr
@@ -140,7 +140,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 		}
 
 		if (i == 20 || i == 19) && j > 12 { // First guess year
-			logging.I("Guessing date string %q as year", d)
+			logger.Pl.I("Guessing date string %q as year", d)
 			switch dateFmt {
 			case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
 				return d[2:4], "", "", nil
@@ -150,18 +150,18 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 		} else { // Second guess, month-date
 			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
 				if ddmm {
-					logging.I("Guessing date string %q as day-month", d)
+					logger.Pl.I("Guessing date string %q as day-month", d)
 					day = d[:2]
 					month = d[2:4]
 
 				} else if mmdd {
-					logging.I("Guessing date string %q as month-day", d)
+					logger.Pl.I("Guessing date string %q as month-day", d)
 					day = d[2:4]
 					month = d[:2]
 				}
 				return "", month, day, nil
 			} else if i == 20 || i == 19 { // Final guess year
-				logging.I("Guessing date string %q as year after failed day-month check", d)
+				logger.Pl.I("Guessing date string %q as year after failed day-month check", d)
 				switch dateFmt {
 				case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
 					return d[2:4], "", "", nil
@@ -286,23 +286,23 @@ func StripDateTags(val string, loc enums.DateTagLocation) (dateStrs []string, re
 
 // stripAllDateTags removes all date tags and returns them.
 func stripAllDateTags(val string) (tags []string, cleaned string) {
-	logging.D(3, "stripAllDateTags input: %q", val)
+	logger.Pl.D(3, "stripAllDateTags input: %q", val)
 
 	pattern := regex.DateTagWithBracketsCompile()
-	logging.D(3, "Pattern: %v", pattern.String())
+	logger.Pl.D(3, "Pattern: %v", pattern.String())
 
 	// Find all tags
 	tags = pattern.FindAllString(val, -1)
-	logging.D(3, "Found tags: %v (count: %d)", tags, len(tags))
+	logger.Pl.D(3, "Found tags: %v (count: %d)", tags, len(tags))
 
 	// Remove all tags
 	cleaned = pattern.ReplaceAllString(val, "")
-	logging.D(3, "After removal: %q", cleaned)
+	logger.Pl.D(3, "After removal: %q", cleaned)
 
 	// Clean up extra spaces
 	cleaned = strings.TrimSpace(cleaned)
 	cleaned = regex.DoubleSpacesCompile().ReplaceAllString(cleaned, " ")
-	logging.D(3, "Final cleaned: %q", cleaned)
+	logger.Pl.D(3, "Final cleaned: %q", cleaned)
 
 	return tags, cleaned
 }

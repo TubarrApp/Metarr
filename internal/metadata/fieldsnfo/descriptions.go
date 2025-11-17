@@ -3,8 +3,9 @@ package fieldsnfo
 import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillNFODescriptions attempts to fill in descriptions from NFO.

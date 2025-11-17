@@ -4,13 +4,15 @@ package transpresets
 import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // CensoredTvTransformations adds preset transformations to files for censored.tv videos.
 func CensoredTvTransformations(fd *models.FileData) {
-	logging.I("Making preset censored.tv meta replacements")
+	logger.Pl.I("Making preset censored.tv meta replacements")
 
 	censoredTvTrimSuffixes(fd)
 	censoredTvFSuffixes(fd)
@@ -25,7 +27,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	if abstractions.IsSet(keys.MTrimSuffix) {
 		if trimSfx, ok = abstractions.Get(keys.MTrimSuffix).([]models.MetaReplaceSuffix); !ok {
-			logging.E("Got type %T, may be null", trimSfx)
+			logger.Pl.E("Got type %T, may be null", trimSfx)
 		}
 	}
 
@@ -51,7 +53,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 
 	for _, newSuffix := range newSfx {
 		if !censoredSuffixExists(trimSfx, newSuffix.Field) {
-			logging.I("Adding new censored.tv meta suffix replacement: %v", newSuffix)
+			logger.Pl.I("Adding new censored.tv meta suffix replacement: %v", newSuffix)
 			trimSfx = append(trimSfx, newSuffix)
 		}
 	}
@@ -61,7 +63,7 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 		for _, entry := range trimSfx {
 			entries = append(entries, "("+entry.Field+":", entry.Suffix+")")
 		}
-		logging.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoPath, entries)
+		logger.Pl.I("After adding preset suffixes, suffixes to be trimmed for %q: %v", fd.OriginalVideoPath, entries)
 	}
 	fd.MetaOps.ReplaceSuffixes = trimSfx
 }
@@ -69,19 +71,19 @@ func censoredTvTrimSuffixes(fd *models.FileData) {
 // censoredTvFSuffixes adds filename suffix replacements.
 func censoredTvFSuffixes(fd *models.FileData) {
 	vBaseName := fd.OriginalVideoPath
-	logging.D(3, "Retrieved file name: %s", vBaseName)
+	logger.Pl.D(3, "Retrieved file name: %s", vBaseName)
 
 	if len(vBaseName) > 1 {
 		checkForSuffix := vBaseName[len(vBaseName)-2:]
-		logging.D(3, "Got last element of file name: %s", checkForSuffix)
+		logger.Pl.D(3, "Got last element of file name: %s", checkForSuffix)
 
 		switch checkForSuffix {
 		case " 1", "_1":
 			addSuffix(fd, checkForSuffix, "")
-			logging.I(`Added filename suffix replacement %q -> ""`, checkForSuffix)
+			logger.Pl.I(`Added filename suffix replacement %q -> ""`, checkForSuffix)
 		}
 	}
-	logging.I("Total filename suffix replacements: %d", len(fd.FilenameOps.ReplaceSuffixes))
+	logger.Pl.I("Total filename suffix replacements: %d", len(fd.FilenameOps.ReplaceSuffixes))
 }
 
 // censoredSuffixExists checks if the suffix exists.

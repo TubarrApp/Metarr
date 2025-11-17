@@ -3,13 +3,14 @@ package printout
 
 import (
 	"fmt"
-	"metarr/internal/domain/consts"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"os"
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 var muPrint sync.Mutex
@@ -19,7 +20,7 @@ var muPrint sync.Mutex
 // taskName allows you to enter your own identifier for this task which will display in terminal.
 func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	if model == nil {
-		logging.E("Model entered nil for taskname %q", taskName)
+		logger.Pl.E("Model entered nil for taskname %q", taskName)
 		return
 	}
 
@@ -31,19 +32,19 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 
 	// Helper function to add sections
 	addSection := func(title string, content string) {
-		b.WriteString(consts.ColorYellow + "\n" + title + ":\n" + consts.ColorReset)
+		b.WriteString(sharedconsts.ColorYellow + "\n" + title + ":\n" + sharedconsts.ColorReset)
 		b.WriteString(content)
 	}
 
 	// Header
 	b.WriteString("\n\n================= ")
-	b.WriteString(consts.ColorCyan + "Printing metadata fields for: " + consts.ColorReset)
-	b.WriteString("'" + consts.ColorReset + filename + "'")
+	b.WriteString(sharedconsts.ColorCyan + "Printing metadata fields for: " + sharedconsts.ColorReset)
+	b.WriteString("'" + sharedconsts.ColorReset + filename + "'")
 	b.WriteString(" =================\n")
 
 	if taskName != "" {
 		str := fmt.Sprintf("'%s'", fmt.Sprintf(taskName, args...))
-		b.WriteString("\n" + consts.ColorGreen + "Printing model at point of task " + consts.ColorReset + str + "\n")
+		b.WriteString("\n" + sharedconsts.ColorGreen + "Printing model at point of task " + sharedconsts.ColorReset + str + "\n")
 	}
 
 	switch m := model.(type) {
@@ -85,7 +86,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 
 	case *models.NFOData:
 		// Credits section
-		b.WriteString(consts.ColorYellow + "\nCredits:\n" + consts.ColorReset)
+		b.WriteString(sharedconsts.ColorYellow + "\nCredits:\n" + sharedconsts.ColorReset)
 
 		// Handle each slice type separately
 		for _, actor := range m.Actors {
@@ -121,11 +122,11 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 
 	// Footer
 	b.WriteString("\n\n================= ")
-	b.WriteString(consts.ColorYellow + "End metadata fields for: " + consts.ColorReset)
+	b.WriteString(sharedconsts.ColorYellow + "End metadata fields for: " + sharedconsts.ColorReset)
 	b.WriteString("'" + filename + "'")
 	b.WriteString(" =================\n\n")
 
-	logging.P("%s", b.String())
+	logger.Pl.P("%s", b.String())
 }
 
 // printStructFields prints the fields of a struct using reflection. Only on high debug levels.
@@ -152,7 +153,7 @@ func printStructFields(s any) string {
 
 		// Skip zero or empty fields
 		if fieldValue.IsZero() {
-			b.WriteString(field.Name + consts.ColorRed + " [empty]\n" + consts.ColorReset)
+			b.WriteString(field.Name + sharedconsts.ColorRed + " [empty]\n" + sharedconsts.ColorReset)
 			continue
 		}
 
@@ -172,14 +173,14 @@ func PrintGrabbedFields(fieldType string, p map[string]string) {
 	defer muPrint.Unlock()
 
 	fmt.Fprintf(os.Stderr, "\n")
-	logging.I("Found and stored %s metadata fields from metafile:\n", fieldType)
+	logger.Pl.I("Found and stored %s metadata fields from metafile:\n", fieldType)
 
 	for k, v := range p {
 		if k != "" && v != "" {
-			logging.P("%sKey:%s %s\n%sValue:%s %s\n",
-				consts.ColorGreen, consts.ColorReset,
+			logger.Pl.P("%sKey:%s %s\n%sValue:%s %s\n",
+				sharedconsts.ColorGreen, sharedconsts.ColorReset,
 				k,
-				consts.ColorYellow, consts.ColorReset,
+				sharedconsts.ColorYellow, sharedconsts.ColorReset,
 				v)
 		}
 	}

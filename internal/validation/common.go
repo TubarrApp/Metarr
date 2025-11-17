@@ -2,21 +2,21 @@
 package validation
 
 import (
-	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 	"github.com/shirou/gopsutil/mem"
 )
 
@@ -32,130 +32,20 @@ func ValidateMetarrOutputDirs(urlDirs []string) error {
 
 	// Validate directories
 	for _, dir := range urlDirs {
-		if _, err := ValidateDirectory(dir, false); err != nil {
+		if _, err := sharedvalidation.ValidateDirectory(dir, false); err != nil {
 			return err
 		}
 		validatedDirs[dir] = true
 	}
 
-	logging.D(1, "Metarr output directories: %+v", outDirMap)
+	logger.Pl.D(1, "Metarr output directories: %+v", outDirMap)
 	return nil
-}
-
-// ValidateDirectory validates that the directory exists, else creates it if desired.
-func ValidateDirectory(dir string, createIfNotFound bool) (os.FileInfo, error) {
-	logging.D(3, "Statting directory %q...", dir)
-	dir = filepath.Clean(dir)
-
-	// Stat path
-	info, err := os.Stat(dir)
-	if err == nil { // Err IS nil
-		if !info.IsDir() {
-			return nil, fmt.Errorf("path %q is a file, not a directory", dir)
-		}
-		return info, nil
-	}
-
-	// Error other than non-existence
-	if !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("failed to stat directory %q: %w", dir, err)
-	}
-
-	// Does not exist, should not create
-	if !createIfNotFound {
-		return nil, fmt.Errorf("directory %q does not exist", dir)
-	}
-
-	// Generate new directories
-	logging.D(3, "Directory %q does not exist, creating it...", dir)
-	if err := os.MkdirAll(dir, consts.PermsGenericDir); err != nil {
-		return nil, fmt.Errorf("directory %q does not exist and failed to create: %w", dir, err)
-	}
-
-	// Stat newly generated directory
-	info, err = os.Stat(dir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat %q", dir)
-	}
-	return info, nil
-}
-
-// ValidateFile validates that the file exists, else creates it if desired.
-func ValidateFile(path string, createIfNotFound bool) (os.FileInfo, error) {
-	logging.D(3, "Statting file %q...", path)
-	path = filepath.Clean(path)
-
-	// Stat path
-	info, err := os.Stat(path)
-	if err == nil { // Err IS nil
-		if info.IsDir() {
-			return nil, fmt.Errorf("path %q is a directory, not a file", path)
-		}
-		return info, nil
-	}
-
-	// Error other than non-existence
-	if !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("failed to stat file %q: %w", path, err)
-	}
-
-	// Does not exist, should not create
-	if !createIfNotFound {
-		return nil, fmt.Errorf("file %q does not exist", path)
-	}
-
-	// Generate new file (must close after os.Create())
-	logging.D(3, "File %q does not exist, creating it...", path)
-	file, err := os.Create(path)
-	if err != nil {
-		return nil, fmt.Errorf("file %q does not exist and failed to create: %w", path, err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			logging.E("Failed to close file %q: %v", file.Name(), closeErr)
-		}
-	}()
-
-	// Stat newly generated file
-	info, err = os.Stat(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to stat created file %q: %w", path, err)
-	}
-	return info, nil
-}
-
-// ValidateMaxFilesize checks the max filesize setting.
-func ValidateMaxFilesize(m string) (string, error) {
-	m = strings.ToUpper(m)
-	switch {
-	case strings.HasSuffix(m, "B"), strings.HasSuffix(m, "K"), strings.HasSuffix(m, "M"), strings.HasSuffix(m, "G"):
-		return strings.TrimSuffix(m, "B"), nil
-	default:
-		if _, err := strconv.Atoi(m); err != nil {
-			return "", err
-		}
-	}
-	return m, nil
 }
 
 // ValidateGPU validates the user input GPU selection.
 func ValidateGPU(g string) (accelType string, err error) {
-	g = strings.ToLower(g)
-	logging.I("Checking acceleration type %q", g)
-
-	if !consts.ValidGPUAccelTypes[g] {
-		switch g {
-		case "amd", "radeon":
-			g = consts.AccelTypeAMF
-		case "intel":
-			g = consts.AccelTypeIntel
-		case "nvidia", consts.AccelFlagNvenc:
-			g = consts.AccelTypeNvidia
-		case "automatic", "automate", "automated":
-			g = consts.AccelTypeAuto
-		default:
-			return "", fmt.Errorf("hardware acceleration flag %q is invalid, aborting", g)
-		}
+	if g, err = sharedvalidation.ValidateGPUAccelType(g); err != nil {
+		return "", err
 	}
 
 	if err := checkDriverDirExists(g); err != nil {
@@ -185,88 +75,16 @@ func ValidateExtension(ext string) string {
 	return ext
 }
 
-// ValidateVideoCodec validates a video codec and returns if valid.
-func ValidateVideoCodec(c string) (validatedString string, err error) {
-	c = strings.ToLower(strings.TrimSpace(c))
-	c = strings.ReplaceAll(c, ".", "")
-	c = strings.ReplaceAll(c, "-", "")
-	c = strings.ReplaceAll(c, "_", "")
-
-	// Synonym and alias mapping before check
-	switch c {
-	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
-		c = consts.VCodecAV1
-	case "x264", "avc", "h264avc", "mpeg4avc", "h264mpeg4", "libx264":
-		c = consts.VCodecH264
-	case "x265", "h265", "hevc265", "libx265", "hevc":
-		c = consts.VCodecHEVC
-	case "mpg2", "mpeg2video", "mpeg2v", "mpg", "mpeg", "mpeg2":
-		c = consts.VCodecMPEG2
-	case "libvpx", "vp08", "vpx", "vpx8":
-		c = consts.VCodecVP8
-	case "libvpxvp9", "libvpx9", "vpx9", "vp09", "vpxvp9":
-		c = consts.VCodecVP9
-	}
-
-	if consts.ValidVideoCodecs[c] {
-		return c, nil
-	}
-
-	return "", fmt.Errorf("video codec %q is not valid", c)
-}
-
-// ValidateAudioCodec validates a video codec and returns if valid.
-func ValidateAudioCodec(a string) (validatedString string, err error) {
-	a = strings.ToLower(strings.TrimSpace(a))
-	a = strings.ReplaceAll(a, ".", "")
-	a = strings.ReplaceAll(a, "-", "")
-	a = strings.ReplaceAll(a, "_", "")
-
-	// Synonym and alias mapping before check
-	switch a {
-	case "aac", "aaclc", "m4a", "mp4a", "aaclowcomplexity":
-		a = consts.ACodecAAC
-	case "alac", "applelossless", "m4aalac":
-		a = consts.ACodecALAC
-	case "dca", "dts", "dtshd", "dtshdma", "dtsma", "dtsmahd", "dtscodec":
-		a = consts.ACodecDTS
-	case "ddplus", "dolbydigitalplus", "ac3e", "ec3", "eac3":
-		a = consts.ACodecEAC3
-	case "flac", "flaccodec", "fla", "losslessflac":
-		a = consts.ACodecFLAC
-	case "mp2", "mpa", "mpeg2audio", "mpeg2", "m2a", "mp2codec":
-		a = consts.ACodecMP2
-	case "mp3", "libmp3lame", "mpeg3", "mpeg3audio", "mpg3", "mp3codec":
-		a = consts.ACodecMP3
-	case "opus", "opuscodec", "oggopus", "webmopus":
-		a = consts.ACodecOpus
-	case "pcm", "wavpcm", "rawpcm", "pcm16", "pcms16le", "pcms24le", "pcmcodec":
-		a = consts.ACodecPCM
-	case "truehd", "dolbytruehd", "thd", "truehdcodec":
-		a = consts.ACodecTrueHD
-	case "vorbis", "oggvorbis", "webmvorbis", "vorbiscodec", "vorb":
-		a = consts.ACodecVorbis
-	case "wav", "wave", "waveform", "pcmwave", "wavcodec":
-		a = consts.ACodecWAV
-	}
-
-	if consts.ValidAudioCodecs[a] {
-		return a, nil
-	}
-
-	return "", fmt.Errorf("audio codec %q is not valid", a)
-}
-
 // ---- Validate And Set ------------------------------------------------------------------------------------------
 // ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
 func ValidateAndSetVideoCodec(pairs []string) error {
 	vCodecMap := map[string]string{
-		consts.VCodecAV1:   consts.VCodecCopy,
-		consts.VCodecH264:  consts.VCodecCopy,
-		consts.VCodecHEVC:  consts.VCodecCopy,
-		consts.VCodecMPEG2: consts.VCodecCopy,
-		consts.VCodecVP8:   consts.VCodecCopy,
-		consts.VCodecVP9:   consts.VCodecCopy,
+		sharedconsts.VCodecAV1:   sharedconsts.VCodecCopy,
+		sharedconsts.VCodecH264:  sharedconsts.VCodecCopy,
+		sharedconsts.VCodecHEVC:  sharedconsts.VCodecCopy,
+		sharedconsts.VCodecMPEG2: sharedconsts.VCodecCopy,
+		sharedconsts.VCodecVP8:   sharedconsts.VCodecCopy,
+		sharedconsts.VCodecVP9:   sharedconsts.VCodecCopy,
 	}
 
 	// Deduplicate
@@ -283,7 +101,7 @@ func ValidateAndSetVideoCodec(pairs []string) error {
 	// Iterate deduped pairs
 	for _, p := range dedupPairs {
 		split := strings.Split(p, ":")
-		input, err := ValidateVideoCodec(split[0]) // Safe (split returns non-empty 'p')
+		input, err := sharedvalidation.ValidateVideoCodec(split[0]) // Safe (split returns non-empty 'p')
 		if err != nil {
 			return err
 		}
@@ -301,7 +119,7 @@ func ValidateAndSetVideoCodec(pairs []string) error {
 
 		// Multi value entry, apply specific output to specific input
 		output := split[1]
-		output, err = ValidateVideoCodec(output)
+		output, err = sharedvalidation.ValidateVideoCodec(output)
 		if err != nil {
 			return err
 		}
@@ -315,19 +133,19 @@ func ValidateAndSetVideoCodec(pairs []string) error {
 // ValidateAndSetAudioCodec sets mappings for audio codec inputs and transcode options.
 func ValidateAndSetAudioCodec(pairs []string) (err error) {
 	aCodecMap := map[string]string{
-		consts.ACodecAAC:    consts.ACodecCopy,
-		consts.ACodecAC3:    consts.ACodecCopy,
-		consts.ACodecALAC:   consts.ACodecCopy,
-		consts.ACodecDTS:    consts.ACodecCopy,
-		consts.ACodecEAC3:   consts.ACodecCopy,
-		consts.ACodecFLAC:   consts.ACodecCopy,
-		consts.ACodecMP2:    consts.ACodecCopy,
-		consts.ACodecMP3:    consts.ACodecCopy,
-		consts.ACodecOpus:   consts.ACodecCopy,
-		consts.ACodecPCM:    consts.ACodecCopy,
-		consts.ACodecTrueHD: consts.ACodecCopy,
-		consts.ACodecVorbis: consts.ACodecCopy,
-		consts.ACodecWAV:    consts.ACodecCopy,
+		sharedconsts.ACodecAAC:    sharedconsts.ACodecCopy,
+		sharedconsts.ACodecAC3:    sharedconsts.ACodecCopy,
+		sharedconsts.ACodecALAC:   sharedconsts.ACodecCopy,
+		sharedconsts.ACodecDTS:    sharedconsts.ACodecCopy,
+		sharedconsts.ACodecEAC3:   sharedconsts.ACodecCopy,
+		sharedconsts.ACodecFLAC:   sharedconsts.ACodecCopy,
+		sharedconsts.ACodecMP2:    sharedconsts.ACodecCopy,
+		sharedconsts.ACodecMP3:    sharedconsts.ACodecCopy,
+		sharedconsts.ACodecOpus:   sharedconsts.ACodecCopy,
+		sharedconsts.ACodecPCM:    sharedconsts.ACodecCopy,
+		sharedconsts.ACodecTrueHD: sharedconsts.ACodecCopy,
+		sharedconsts.ACodecVorbis: sharedconsts.ACodecCopy,
+		sharedconsts.ACodecWAV:    sharedconsts.ACodecCopy,
 	}
 
 	// Deduplicate
@@ -344,7 +162,7 @@ func ValidateAndSetAudioCodec(pairs []string) (err error) {
 	// Iterate deduped pairs
 	for _, p := range dedupPairs {
 		split := strings.Split(p, ":")
-		input, err := ValidateAudioCodec(split[0]) // Safe (split returns non-empty 'p')
+		input, err := sharedvalidation.ValidateAudioCodec(split[0]) // Safe (split returns non-empty 'p')
 		if err != nil {
 			return err
 		}
@@ -362,7 +180,7 @@ func ValidateAndSetAudioCodec(pairs []string) (err error) {
 
 		// Multi value entry, apply specific output to specific input
 		output := split[1]
-		output, err = ValidateAudioCodec(output)
+		output, err = sharedvalidation.ValidateAudioCodec(output)
 		if err != nil {
 			return err
 		}
@@ -379,7 +197,7 @@ func ValidateAndSetBatchPairs(batchPairs []string) error {
 	for _, pair := range batchPairs {
 		split := strings.SplitN(pair, ":", 2)
 		if len(split) < 2 {
-			logging.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'")
+			logger.Pl.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'")
 			continue
 		}
 		video := split[0]
@@ -432,7 +250,7 @@ func ValidateAndSetBatchPairs(batchPairs []string) error {
 
 // ValidateAndSetConcurrencyLimit checks and ensures correct concurrency limit input.
 func ValidateAndSetConcurrencyLimit(c int) int {
-	c = max(c, 1)
+	c = sharedvalidation.ValidateConcurrencyLimit(c)
 	abstractions.Set(keys.Concurrency, c)
 	return c
 }
@@ -443,9 +261,13 @@ func ValidateAndSetMinFreeMem(minFreeMem string) {
 		return
 	}
 
-	minFreeMem = strings.ToUpper(strings.TrimSuffix(minFreeMem, "B"))
-	multiplyFactor := uint64(1) // Default (bytes)
+	var err error
+	if minFreeMem, err = sharedvalidation.ValidateMinFreeMem(minFreeMem); err != nil {
+		logger.Pl.E("Invalid min free memory setting %q: %v", minFreeMem, err)
+	}
 
+	// Strip to base number, set multiply factor
+	multiplyFactor := uint64(1) // Default (bytes)
 	switch {
 	case strings.HasSuffix(minFreeMem, "G"):
 		minFreeMem = strings.TrimSuffix(minFreeMem, "G")
@@ -458,39 +280,40 @@ func ValidateAndSetMinFreeMem(minFreeMem string) {
 		multiplyFactor = consts.KB
 	}
 
+	// Retrieve system RAM
 	currentAvailableMem, err := mem.VirtualMemory()
 	if currentAvailableMem == nil {
 		currentAvailableMem = &mem.VirtualMemoryStat{}
 	}
 
 	if err != nil {
-		logging.E("Could not get system memory, using default max RAM requirements: %v", err)
-		currentAvailableMem.Available = consts.GB // Guess 1 gig (conservative)
+		logger.Pl.E("Could not get system memory, using default max RAM requirements: %v", err)
+		currentAvailableMem.Available = consts.GB // Guess 1 GB (conservative)
 	}
 
 	minFreeMemInt, err := strconv.Atoi(minFreeMem)
 	if err != nil {
-		logging.E("Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
+		logger.Pl.E("Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
 		currentAvailableMem.Available = consts.GB
 	}
 
-	parsedMinFree := min(uint64(minFreeMemInt)*multiplyFactor, currentAvailableMem.Available)
+	ninetyPercent := currentAvailableMem.Available * 9 / 10
+	parsedMinFree := min(uint64(minFreeMemInt)*multiplyFactor, ninetyPercent)
 
 	if parsedMinFree > 0 {
-		logging.I("Min RAM to spawn process: %v", parsedMinFree)
+		logger.Pl.I("Min RAM to spawn process: %v", parsedMinFree)
 	}
 	abstractions.Set(keys.MinFreeMem, parsedMinFree)
 }
 
 // ValidateAndSetMaxCPU validates and sets the maximum CPU limit.
 func ValidateAndSetMaxCPU(maxCPU float64) {
-	maxCPU = min(maxCPU, 101.0)
-
 	if maxCPU <= 5.0 {
 		maxCPU = 5.0
-		logging.E("Max CPU usage entered too low, setting to default lowest: %.2f%%", maxCPU)
+		logger.Pl.E("Max CPU usage entered too low, setting to default lowest: %.2f%%", maxCPU)
 	}
-	abstractions.Set(keys.MaxCPU, maxCPU)
+
+	abstractions.Set(keys.MaxCPU, sharedvalidation.ValidateMaxCPU(maxCPU, false))
 }
 
 // ValidateAndSetOutputFiletype verifies the output filetype is valid for FFmpeg.
@@ -511,7 +334,7 @@ func ValidateAndSetOutputFiletype(o string) {
 
 	if valid {
 		abstractions.Set(keys.OutputFiletype, o)
-		logging.I("Outputting files as %s", o)
+		logger.Pl.I("Outputting files as %s", o)
 	}
 }
 
@@ -573,7 +396,7 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
 	if len(inputVExts) == 0 {
 		inputVExts = append(inputVExts, "all")
 	}
-	logging.D(2, "Received video input extension filters: %v", inputVExts)
+	logger.Pl.D(2, "Received video input extension filters: %v", inputVExts)
 	abstractions.Set(keys.InputVExts, inputVExts)
 
 	// Metadata extensions
@@ -589,7 +412,7 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
 	if len(inputMExts) == 0 {
 		inputMExts = append(inputMExts, "all")
 	}
-	logging.D(2, "Received meta input extension filter: %v", inputMExts)
+	logger.Pl.D(2, "Received meta input extension filter: %v", inputMExts)
 	abstractions.Set(keys.InputMExts, inputMExts)
 }
 
@@ -642,26 +465,26 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 // 		switch gpuType {
 // 		case consts.AccelTypeAMF:
 // 			if c == consts.VCodecMPEG2 || c == consts.VCodecVP8 || c == consts.VCodecVP9 {
-// 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+// 				logger.Pl.W("%q does not support %q codec, will revert to software.", gpuType, c)
 // 				abstractions.Set(keys.UseGPU, "")
 // 			}
 // 		case consts.AccelTypeNvidia:
 // 			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
-// 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+// 				logger.Pl.W("%q does not support %q codec, will revert to software.", gpuType, c)
 // 				abstractions.Set(keys.UseGPU, "")
 // 			}
 // 		case consts.AccelTypeIntel:
 // 			if c == consts.VCodecVP8 {
-// 				logging.W("%q does not support %q codec, will revert to software.", gpuType, c)
+// 				logger.Pl.W("%q does not support %q codec, will revert to software.", gpuType, c)
 // 				abstractions.Set(keys.UseGPU, "")
 // 			}
 // 		case consts.AccelTypeVAAPI:
 // 			if c == consts.VCodecVP8 || c == consts.VCodecVP9 {
-// 				logging.W("%q does not (or does not reliably) support %q codec, will revert to software.", gpuType, c)
+// 				logger.Pl.W("%q does not (or does not reliably) support %q codec, will revert to software.", gpuType, c)
 // 				abstractions.Set(keys.UseGPU, "")
 // 			}
 // 		}
-// 		logging.I("Setting video codec type: %q", c)
+// 		logger.Pl.I("Setting video codec type: %q", c)
 // 		abstractions.Set(keys.TranscodeVideoCodec, c)
 // 		return nil
 // 	}
@@ -677,7 +500,7 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 
 // 	// Search for exact matches
 // 	if consts.ValidAudioCodecs[a] {
-// 		logging.I("Setting audio codec: %q", a)
+// 		logger.Pl.I("Setting audio codec: %q", a)
 // 		abstractions.Set(keys.TranscodeAudioCodec, a)
 // 		return nil
 // 	}
@@ -718,15 +541,16 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 
 // ValidateAndSetTranscodeQuality validates the transcode quality preset.
 func ValidateAndSetTranscodeQuality(q string, accelType string) error {
-	q = strings.ToLower(q)
-	q = strings.ReplaceAll(q, " ", "")
-	qNum, err := strconv.ParseInt(q, 10, 64)
-	if err != nil {
-		return fmt.Errorf("transcode quality input should be numerical")
+	if q == "" {
+		return nil
 	}
-	qNum = min(max(qNum, 0), 51)
 
-	abstractions.Set(keys.TranscodeQuality, strconv.FormatInt(qNum, 10))
+	var err error
+	if q, err = sharedvalidation.ValidateTranscodeQuality(q); err != nil {
+		return err
+	}
+
+	abstractions.Set(keys.TranscodeQuality, q)
 	return nil
 }
 
@@ -739,18 +563,18 @@ func ValidateAndSetRenameFlag(argRenameFlag string) {
 	switch argRenameFlag {
 	case consts.RenameSpaces, "space":
 		renameFlag = enums.RenamingSpaces
-		logging.I("Rename style selected: %v", argRenameFlag)
+		logger.Pl.I("Rename style selected: %v", argRenameFlag)
 
 	case consts.RenameUnderscores, "underscore":
 		renameFlag = enums.RenamingUnderscores
-		logging.I("Rename style selected: %v", argRenameFlag)
+		logger.Pl.I("Rename style selected: %v", argRenameFlag)
 
 	case consts.RenameFixesOnly, "fix", "fixes", "fixesonly":
 		renameFlag = enums.RenamingFixesOnly
-		logging.I("Rename style selected: %v", argRenameFlag)
+		logger.Pl.I("Rename style selected: %v", argRenameFlag)
 
 	default:
-		logging.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
+		logger.Pl.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
 		renameFlag = enums.RenamingSkip
 	}
 	abstractions.Set(keys.Rename, renameFlag)

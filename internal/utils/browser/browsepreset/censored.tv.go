@@ -3,8 +3,8 @@ package browsepreset
 
 import (
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -30,7 +30,7 @@ var CensoredTvRules = map[enums.WebClassTags][]models.SelectorRule{
 // CensoredTvChannelName gets the channel name from the URL string.
 func CensoredTvChannelName(url string) string {
 	if url == "" {
-		logging.E("url passed in empty")
+		logger.Pl.E("url passed in empty")
 		return ""
 	}
 	urlSplit := strings.Split(url, "/")
@@ -43,7 +43,7 @@ func CensoredTvChannelName(url string) string {
 	}
 
 	if channel == "" {
-		logging.E("failed to fill channel name from url, out of bounds?")
+		logger.Pl.E("failed to fill channel name from url, out of bounds?")
 	}
 	channel = strings.ReplaceAll(channel, "-", " ")
 

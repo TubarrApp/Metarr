@@ -1,7 +1,7 @@
 package browser
 
 import (
-	logging "metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"net/url"
 	"strings"
 
@@ -91,7 +91,7 @@ func makeURLStrings(proto, domain, port string) (withProtocol, noProtocol, withP
 	b.WriteString(port)
 	noProtocolWithPort = b.String()
 
-	logging.D(1, "Made URL strings:\n\nWith protocol: %q\nNo protocol: %q\nProtocol + port: %q\nNo protocol + port: %q\n",
+	logger.Pl.D(1, "Made URL strings:\n\nWith protocol: %q\nNo protocol: %q\nProtocol + port: %q\nNo protocol + port: %q\n",
 		withProtocol,
 		noProtocol,
 		withProtocolAndPort,

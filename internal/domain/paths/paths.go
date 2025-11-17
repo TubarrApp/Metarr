@@ -19,9 +19,9 @@ const (
 
 // File and directory path strings.
 var (
-	HomeMetarrDir string
-	LogFilePath   string
-	BenchmarkDir  string
+	HomeMetarrDir     string
+	MetarrLogFilePath string
+	BenchmarkDir      string
 )
 
 // InitProgFilesDirs initializes necessary program directories and filepaths.
@@ -38,7 +38,8 @@ func InitProgFilesDirs() error {
 	}
 
 	// Main files
-	LogFilePath = filepath.Join(HomeMetarrDir, logFile)
+	MetarrLogFilePath = filepath.Join(HomeMetarrDir, logFile)
+	fmt.Fprintf(os.Stderr, "Metarr log file path: %q\n", MetarrLogFilePath)
 
 	// Benchmark directory
 	if abstractions.IsSet(keys.Benchmarking) {

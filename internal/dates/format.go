@@ -4,8 +4,8 @@ package dates
 import (
 	"fmt"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"strings"
 
 	"github.com/araddon/dateparse"
@@ -14,7 +14,7 @@ import (
 // MakeDateTag attempts to create the date tag for files using metafile data.
 func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.DateFormat) (string, error) {
 	if dateFmt == enums.DateFmtSkip {
-		logging.D(1, "Skip set, not making file date tag for %q", fd.OriginalVideoPath)
+		logger.Pl.D(1, "Skip set, not making file date tag for %q", fd.OriginalVideoPath)
 		return "", nil
 	}
 
@@ -25,7 +25,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 
 	if fd.MDates.FormattedDate == "" {
 		if date, found = extractDateFromMetadata(metadata); !found {
-			logging.E("No dates found in JSON file")
+			logger.Pl.E("No dates found in JSON file")
 			return "", nil
 		}
 	} else {
@@ -39,12 +39,12 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt enums.Dat
 
 	dateStr := FormatDateString(year, month, day, dateFmt)
 	if dateStr == "" {
-		logging.E("Failed to create date string")
+		logger.Pl.E("Failed to create date string")
 		return "", nil
 	}
 
 	dateTag := fmt.Sprintf("[%s]", dateStr)
-	logging.I("Made date tag %q from file '%v'", dateTag, fd.MetaFilePath)
+	logger.Pl.I("Made date tag %q from file '%v'", dateTag, fd.MetaFilePath)
 	return dateTag, nil
 }
 
@@ -85,7 +85,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	day = dayStringSwitch(day)
 
 	dateStr = fmt.Sprintf("%s %s, %s", month, day, year)
-	logging.S("Made string form date: %q", dateStr)
+	logger.Pl.S("Made string form date: %q", dateStr)
 
 	return dateStr, nil
 }
@@ -100,15 +100,15 @@ func YmdFromMeta(date string) (t string, madeDate bool) {
 
 	if len(date) >= 8 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", date[:4], date[4:6], date[6:8], t)
-		logging.D(3, "Made date %s", formatted)
+		logger.Pl.D(3, "Made date %s", formatted)
 		return formatted, true
 
 	} else if len(date) >= 6 {
 		formatted := fmt.Sprintf("%s-%s-%s%s", date[:2], date[2:4], date[4:6], t)
-		logging.D(3, "Made date %s", formatted)
+		logger.Pl.D(3, "Made date %s", formatted)
 		return formatted, true
 	}
-	logging.D(3, "Returning empty or short date element (%s) without formatting", date)
+	logger.Pl.D(3, "Returning empty or short date element (%s) without formatting", date)
 	return date, false
 }
 
@@ -147,20 +147,20 @@ func FormatAllDates(fd *models.FileData) (result string) {
 
 	for _, field := range fields {
 		if field != "" {
-			logging.D(2, "Attempting to format %+v", field)
+			logger.Pl.D(2, "Attempting to format %+v", field)
 
 			if result, ok = YmdFromMeta(field); ok {
 				d.FormattedDate = result
-				logging.D(2, "Got formatted date %q", result)
+				logger.Pl.D(2, "Got formatted date %q", result)
 
 				if d.StringDate, err = ParseNumDate(d.FormattedDate); err != nil {
-					logging.E("Failed to parse date %q: %v", d.FormattedDate, err)
+					logger.Pl.E("Failed to parse date %q: %v", d.FormattedDate, err)
 				}
-				logging.D(2, "Got string date %q", d.StringDate)
+				logger.Pl.D(2, "Got string date %q", d.StringDate)
 				return result
 			}
 		}
 	}
-	logging.E("Failed to format dates")
+	logger.Pl.E("Failed to format dates")
 	return ""
 }

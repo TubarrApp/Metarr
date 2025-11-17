@@ -3,7 +3,7 @@ package cfg
 import (
 	"fmt"
 	"metarr/internal/domain/keys"
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"os"
 
 	"github.com/spf13/viper"
@@ -266,7 +266,7 @@ func initOrExit(err error, failMsg string) {
 
 // loadConfigFile loads in the preset configuration file.
 func loadConfigFile(file string) error {
-	logging.I("Using configuration file %q", file)
+	logger.Pl.I("Using configuration file %q", file)
 	viper.SetConfigFile(file)
 	if err := viper.ReadInConfig(); err != nil {
 		return err

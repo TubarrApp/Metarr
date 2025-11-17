@@ -5,15 +5,15 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/utils/logging"
 	"strings"
 )
 
 // ValidateAndSetMetaOps parses the meta transformation operations.
 func ValidateAndSetMetaOps(metaOpsInput []string) error {
-	logging.D(2, "Validating meta operations...")
+	logger.Pl.D(2, "Validating meta operations...")
 	if len(metaOpsInput) == 0 {
 		return nil
 	}
@@ -47,7 +47,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				}
 				ops.SetFields = append(ops.SetFields, newFieldModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
+				logger.Pl.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
 
 			case "append":
 				apndModel := models.MetaAppend{
@@ -56,7 +56,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				}
 				ops.Appends = append(ops.Appends, apndModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Append)
+				logger.Pl.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Append)
 
 			case "prefix":
 				pfxModel := models.MetaPrefix{
@@ -65,7 +65,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				}
 				ops.Prefixes = append(ops.Prefixes, pfxModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
+				logger.Pl.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
 
 			case "copy-to":
 				c := models.CopyToField{
@@ -74,7 +74,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				}
 				ops.CopyToFields = append(ops.CopyToFields, c)
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
+				logger.Pl.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
 
 			case "paste-from":
 				p := models.PasteFromField{
@@ -83,7 +83,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				}
 				ops.PasteFromFields = append(ops.PasteFromFields, p)
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
+				logger.Pl.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
 			}
 		case 4:
 			switch strings.ToLower(operation) {
@@ -97,7 +97,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				}
 				ops.Replaces = append(ops.Replaces, rModel)
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
+				logger.Pl.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
 
 			case "date-tag":
 				loc := parts[2]
@@ -121,7 +121,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 					Format: e,
 				}
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, loc, dateFmt)
+				logger.Pl.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, loc, dateFmt)
 
 			case "delete-date-tag":
 				loc := parts[2]
@@ -147,7 +147,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 					Format: e,
 				}
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, loc, dateFmt)
+				logger.Pl.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, loc, dateFmt)
 
 			case "replace-suffix":
 				findSuffix := parts[2]
@@ -158,7 +158,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
+				logger.Pl.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
 
 			case "replace-prefix":
 				findPrefix := parts[2]
@@ -169,7 +169,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
+				logger.Pl.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
 
 			default:
 				return fmt.Errorf(invalidWarning, op)
@@ -181,7 +181,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 	if len(validOpsForPrintout) == 0 {
 		return fmt.Errorf("no valid meta operations were entered. Got: %v", metaOpsInput)
 	}
-	logging.I("Added %d meta operations: %v", len(validOpsForPrintout), validOpsForPrintout)
+	logger.Pl.I("Added %d meta operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 
 	// Set values into Viper
 	abstractions.Set(keys.MetaOpsModels, ops)
@@ -191,7 +191,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 // ValidateAndSetFilenameOps checks and validates filename operations.
 func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	if len(filenameOpsInput) == 0 {
-		logging.D(2, "No filename operations to add.")
+		logger.Pl.D(2, "No filename operations to add.")
 		return nil
 	}
 	const invalidWarning = "removing invalid filename operation %q. (Correct format style: 'prefix:[COOL VIDEOS] ', 'date-tag:prefix:ymd')"
@@ -214,14 +214,14 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 					Value: parsing.UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new prefix operation:\nPrefix: %s\n", opValue)
+				logger.Pl.D(3, "Added new prefix operation:\nPrefix: %s\n", opValue)
 
 			case "append":
 				fOpModel.Appends = append(fOpModel.Appends, models.FOpAppend{
 					Value: parsing.UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new append operation:\nAppend: %s\n", opValue)
+				logger.Pl.D(3, "Added new append operation:\nAppend: %s\n", opValue)
 
 			case "set":
 				if fOpModel.Set.IsSet {
@@ -259,7 +259,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 					DateFormat: e,
 				}
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
+				logger.Pl.D(3, "Added date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
 
 			case "delete-date-tag":
 				if fOpModel.DeleteDateTags.DateFormat != enums.DateFmtSkip {
@@ -287,7 +287,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 					DateFormat: e,
 				}
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added delete date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
+				logger.Pl.D(3, "Added delete date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
 
 			case "replace":
 				findStr := parts[1]
@@ -297,7 +297,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new replace operation:\nFind Strings: %s\nReplace With: %s\n", findStr, replaceStr)
+				logger.Pl.D(3, "Added new replace operation:\nFind Strings: %s\nReplace With: %s\n", findStr, replaceStr)
 
 			case "replace-suffix":
 				findSuffix := parts[1]
@@ -307,7 +307,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
+				logger.Pl.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
 
 			case "replace-prefix":
 				findPrefix := parts[1]
@@ -317,7 +317,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
-				logging.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
+				logger.Pl.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
 
 			default:
 				return fmt.Errorf(invalidWarning, op)
@@ -327,7 +327,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	if len(validOpsForPrintout) == 0 {
 		return fmt.Errorf("no valid filename operations were entered. Got: %v", filenameOpsInput)
 	}
-	logging.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
+	logger.Pl.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 
 	// Set values into Viper
 	abstractions.Set(keys.FilenameOpsModels, fOpModel)

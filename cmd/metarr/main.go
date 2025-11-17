@@ -6,19 +6,24 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/cfg"
+	"metarr/internal/domain/logger"
+	"metarr/internal/domain/paths"
+	"metarr/internal/domain/vars"
 	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/processing"
 	"metarr/internal/transformations"
-	"metarr/internal/utils/benchmark"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/prompt"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/TubarrApp/gocommon/benchmark"
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // Main program string constants.
@@ -29,28 +34,52 @@ const (
 	elapsedFormat  = "Time elapsed: %.2f seconds\n"
 )
 
+// init before program run.
+func init() {
+	if err := paths.InitProgFilesDirs(); err != nil {
+		fmt.Fprintf(os.Stderr, "Metarr exiting with error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
 // main is the program entrypoint.
 func main() {
 	startTime := time.Now()
-	logging.I(startLogFormat, startTime.Format(timeFormat))
+	// Setup logging
+	logConfig := logging.LoggingConfig{
+		LogFilePath: paths.MetarrLogFilePath,
+		MaxSizeMB:   1,
+		MaxBackups:  3,
+		Console:     os.Stderr,
+		Program:     "Metarr",
+	}
+
+	pl, err := logging.SetupLogging(logConfig)
+	if err != nil {
+		fmt.Printf("Tubarr exiting with error: %v\n", err)
+		return
+	}
+	logger.Pl = pl
+
+	logger.Pl.I(startLogFormat, startTime.Format(timeFormat))
 
 	// Panic recovery with proper cleanup
 	defer func() {
 		if r := recover(); r != nil {
-			logging.E("Panic recovered: %v", r)
-			logging.E("Stack trace:\n\n%s", debug.Stack())
+			logger.Pl.E("Panic recovered: %v", r)
+			logger.Pl.E("Stack trace:\n\n%s", debug.Stack())
 			os.Exit(1)
 		}
 	}()
 
 	// Ensure benchmarking is closed on all exit paths
-	defer benchmark.CloseBenchmarking()
+	defer benchmark.CloseBenchFiles(logger.Pl, vars.BenchmarkFiles, "", nil)
 
 	// Parse configuration
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintf(os.Stderr, "\n")
-		os.Exit(1)
+		return
 	}
 
 	// Early exit if not executing
@@ -59,35 +88,43 @@ func main() {
 		return
 	}
 
-	// Initialize application
-	initializeApplication()
-
 	// Setup context for cancellation
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer cancel()
+	go func() {
+		http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
+			pl, _ := logging.GetProgramLogger("Metarr")
+			logs := pl.GetRecentLogs()
 
-	// Setup waitgroup for goroutine coordination
-	wg := new(sync.WaitGroup)
-	core := &models.Core{
-		Ctx: ctx,
-		Wg:  wg,
-	}
+			w.Header().Set("Content-Type", "text/plain")
+			for _, l := range logs {
+				w.Write(l)
+			}
+		})
+		http.ListenAndServe("127.0.0.1:6387", nil)
+	}()
 
 	// Initialize cached variables
 	if err := file.InitFetchFilesVars(); err != nil {
-		logging.E("Failed to initialize variables to fetch files. Exiting...")
+		logger.Pl.E("Failed to initialize variables to fetch files. Exiting...")
 		cancel()
-		os.Exit(1)
+		return
 	}
 
 	// Initialize user input reader (used for prompting the user during program run)
 	prompt.InitUserInputReader()
 
 	// Process batches
+	wg := new(sync.WaitGroup)
+	core := &models.Core{
+		Ctx: ctx,
+		Wg:  wg,
+	}
+
 	fdArray := []*models.FileData{}
 	fdArrayResult, err := processing.ProcessBatches(core)
 	if err != nil {
-		logging.E("error during batch loop: %v", err)
+		logger.Pl.E("error during batch loop: %v", err)
 		cancel()
 		wg.Wait()
 		os.Exit(1)
@@ -99,24 +136,24 @@ func main() {
 
 	// Process renames
 	if len(fdArray) > 0 {
-		logging.I("Processing file renames for %d file(s)...", len(fdArray))
+		logger.Pl.I("Processing file renames for %d file(s)...", len(fdArray))
 
 		if err := transformations.RenameFiles(ctx, fdArray); err != nil {
-			logging.E("Error during file renaming: %v", err)
+			logger.Pl.E("Error during file renaming: %v", err)
 		}
-		logging.S("File renaming complete!")
+		logger.Pl.S("File renaming complete!")
 	}
 
 	// Check if shutdown was triggered by signal
 	select {
 	case <-ctx.Done():
-		logging.I("Shutdown was triggered by signal")
+		logger.Pl.I("Shutdown was triggered by signal")
 	default:
 	}
 
 	// End program run
 	endTime := time.Now()
 	fmt.Fprintf(os.Stderr, "\n")
-	logging.I(endLogFormat, endTime.Format(timeFormat))
-	logging.I(elapsedFormat, endTime.Sub(startTime).Seconds())
+	logger.Pl.I(endLogFormat, endTime.Format(timeFormat))
+	logger.Pl.I(elapsedFormat, endTime.Sub(startTime).Seconds())
 }

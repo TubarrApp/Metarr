@@ -4,7 +4,7 @@
 package ffprobe
 
 import (
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"strings"
 )
 
@@ -48,5 +48,5 @@ func getDatePart(timeStr string) string {
 // printArray provides a simple print of metadata captured by FFprobe.
 func printArray(s []string) {
 	str := strings.Join(s, ", ")
-	logging.I("FFprobe captured %s", str)
+	logger.Pl.I("FFprobe captured %s", str)
 }

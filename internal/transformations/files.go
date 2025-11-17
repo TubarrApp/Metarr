@@ -9,11 +9,12 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/file"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/utils/logging"
 	"metarr/internal/validation"
 	"os"
 	"path/filepath"
@@ -43,7 +44,7 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 	if abstractions.IsSet(keys.Rename) {
 		if style, ok := abstractions.Get(keys.Rename).(enums.ReplaceToStyle); ok {
 			replaceStyle = style
-			logging.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
+			logger.Pl.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
 		} else {
 			return fmt.Errorf("%s invalid rename style type %T", consts.LogTagDevError, replaceStyle)
 		}
@@ -67,8 +68,8 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 		}
 		// Rename
 		if err := renameFile(ctx, fd, replaceStyle, skipVideos); err != nil {
-			logging.AddToErrorArray(err)
-			logging.E("Failed to rename file %q: %v", fd.OriginalVideoPath, err)
+			vars.AddToErrorArray(err)
+			logger.Pl.E("Failed to rename file %q: %v", fd.OriginalVideoPath, err)
 			continue
 		}
 		// Track directory for success message
@@ -84,7 +85,7 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 	}
 	// Log success per directory
 	for dir := range processedDirs {
-		logging.S("Successfully formatted file names in directory: %s", dir)
+		logger.Pl.S("Successfully formatted file names in directory: %s", dir)
 	}
 	return nil
 }
@@ -104,7 +105,7 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 	}
 	defer func() {
 		if err := metaFile.Close(); err != nil {
-			logging.E("Error closing file %q: %v", metaFile.Name(), err)
+			logger.Pl.E("Error closing file %q: %v", metaFile.Name(), err)
 		}
 	}()
 
@@ -144,14 +145,14 @@ func (fp *fileProcessor) process() error {
 	rename, move := shouldRenameOrMove(fp.fd)
 
 	if !rename && !move {
-		logging.D(1, "Do not need to rename or move %q", fp.fd.PostFFmpegVideoPath)
+		logger.Pl.D(1, "Do not need to rename or move %q", fp.fd.PostFFmpegVideoPath)
 		// Set final paths since this is a terminal boundary (no rename/move operations)
 		fp.fd.SetFinalPaths(fp.fd.PostFFmpegVideoPath, fp.fd.MetaFilePath)
 		return nil
 	}
 
 	if !rename {
-		logging.D(1, "Do not need to rename %q, just moving...", fp.fd.PostFFmpegVideoPath)
+		logger.Pl.D(1, "Do not need to rename %q, just moving...", fp.fd.PostFFmpegVideoPath)
 		// Set renamed paths to current paths for move operation
 		fp.fd.RenamedVideoPath = fp.fd.PostFFmpegVideoPath
 		fp.fd.RenamedMetaPath = fp.fd.MetaFilePath
@@ -169,7 +170,7 @@ func (fp *fileProcessor) process() error {
 	}
 
 	// Write changes and handle final operations
-	logging.I("Writing final file transformations to filesystem...")
+	logger.Pl.I("Writing final file transformations to filesystem...")
 	if err := fp.writeResult(); err != nil {
 		return err
 	}
@@ -257,7 +258,7 @@ func (fp *fileProcessor) handleRenaming() error {
 	renamedVideo = strings.TrimSpace(renamedVideo)
 	renamedMeta = strings.TrimSpace(renamedMeta)
 
-	logging.D(2, "Rename replacements:\nVideo: %v\nMetafile: %v", renamedVideo, renamedMeta)
+	logger.Pl.D(2, "Rename replacements:\nVideo: %v\nMetafile: %v", renamedVideo, renamedMeta)
 
 	// Construct and validate final paths
 	if err := fp.constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, filepath.Ext(originalMPath)); err != nil {
@@ -287,13 +288,13 @@ func (fp *fileProcessor) processRenames(videoBase, metaBase string) (renamedVide
 			return videoBase, metaBase, err
 		}
 		renamedMeta = renamedVideo // Video name as meta base (if possible) for better consistency
-		logging.D(2, "Renamed video to %q", renamedVideo)
+		logger.Pl.D(2, "Renamed video to %q", renamedVideo)
 	} else {
 		renamedMeta, err = fp.constructNewNames(metaBase, fp.style, fp.fd)
 		if err != nil {
 			return videoBase, metaBase, err
 		}
-		logging.D(3, "Renamed meta now %q", renamedMeta)
+		logger.Pl.D(3, "Renamed meta now %q", renamedMeta)
 	}
 	return renamedVideo, renamedMeta, nil
 }
@@ -303,7 +304,7 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	renamedVPath := filepath.Join(fp.fd.VideoDirectory, renamedVideo+vidExt)
 	renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
 
-	logging.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
+	logger.Pl.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
 	if filepath.IsAbs(renamedVPath) {
 		fp.fd.RenamedVideoPath = renamedVPath
@@ -337,13 +338,13 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
 	}
-	logging.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
+	logger.Pl.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
 	return nil
 }
 
 // constructNewNames constructs the new file names and ensures uniqueness.
 func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) (newName string, err error) {
-	logging.D(2, "Processing metafile base name: %q", fileBase)
+	logger.Pl.D(2, "Processing metafile base name: %q", fileBase)
 	fOps := fd.FilenameOps
 	set := fOps.Set
 	initialBase := fileBase
@@ -353,7 +354,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Appends) == 0 &&
 		fOps.DateTag.DateFormat == enums.DateFmtSkip && fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
 		style == enums.RenamingSkip {
-		logging.D(1, "No filename operations or naming style to apply")
+		logger.Pl.D(1, "No filename operations or naming style to apply")
 		return fileBase, nil
 	}
 
@@ -450,6 +451,6 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 			return candidate, nil
 		}
 
-		logging.D(2, "File %s already exists, trying next number", targetPath)
+		logger.Pl.D(2, "File %s already exists, trying next number", targetPath)
 	}
 }

@@ -5,10 +5,12 @@ import (
 	"metarr/internal/dates"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/browser"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillNFOTimestamps fills empty date fields from existing date metafields.
@@ -74,26 +76,26 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 
 		var err error
 
-		logging.D(3, "Got a relevant date, proceeding...")
+		logger.Pl.D(3, "Got a relevant date, proceeding...")
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)
 		} else {
 			t.StringDate, err = dates.ParseNumDate(t.FormattedDate)
 			if err != nil {
-				logging.E("Error parsing date %q: %v", t.FormattedDate, err)
+				logger.Pl.E("Error parsing date %q: %v", t.FormattedDate, err)
 			}
 		}
 
 	case w.WebpageURL == "":
 
-		logging.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.MetaFilePath)
+		logger.Pl.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.MetaFilePath)
 		return false
 	}
 
 	scrapedDate := browser.ScrapeMeta(w, enums.WebclassDate)
-	logging.D(1, "Scraped date: %s", scrapedDate)
+	logger.Pl.D(1, "Scraped date: %s", scrapedDate)
 
-	logging.D(3, "Passed web scrape attempt for date.")
+	logger.Pl.D(3, "Passed web scrape attempt for date.")
 
 	var (
 		date string
@@ -101,7 +103,7 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 	)
 	if scrapedDate != "" {
 		if date, err = dates.ParseWordDate(scrapedDate); err != nil || date == "" {
-			logging.E("Failed to parse date %q: %v", scrapedDate, err)
+			logger.Pl.E("Failed to parse date %q: %v", scrapedDate, err)
 			return false
 		}
 

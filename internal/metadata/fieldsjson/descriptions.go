@@ -6,12 +6,14 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/utils/browser"
-	"metarr/internal/utils/logging"
 	"metarr/internal/utils/printout"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/logging"
 )
 
 // fillDescriptions grabs description data from JSON.
@@ -36,12 +38,12 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	if (datePfx || dateSfx) && t.StringDate != "" {
 		for _, ptr := range fieldMap {
 			if ptr == nil {
-				logging.E("Unexpected nil pointer in descriptions fieldMap")
+				logger.Pl.E("Unexpected nil pointer in descriptions fieldMap")
 				continue
 			}
 
 			if !datePfx && !dateSfx {
-				logging.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *ptr)
+				logger.Pl.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *ptr)
 				continue
 			}
 
@@ -66,7 +68,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	// Attempt to fill empty description fields by inference
 	for k, ptr := range fieldMap {
 		if ptr == nil {
-			logging.E("Unexpected nil pointer in descriptions fieldMap")
+			logger.Pl.E("Unexpected nil pointer in descriptions fieldMap")
 			continue
 		}
 
@@ -87,11 +89,11 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	if filled {
 		rtn, err := jsonRW.WriteJSON(fieldMap)
 		if err != nil {
-			logging.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
+			logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
 		}
 
 		if len(rtn) == 0 {
-			logging.E("Length of return value is 0, returning original data from descriptions functions")
+			logger.Pl.E("Length of return value is 0, returning original data from descriptions functions")
 			return data, true
 		}
 		data = rtn
@@ -104,7 +106,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 		if description != "" {
 			for _, ptr := range fieldMap {
 				if ptr == nil {
-					logging.E("Unexpected nil pointer in descriptions fieldMap")
+					logger.Pl.E("Unexpected nil pointer in descriptions fieldMap")
 					continue
 				}
 				if *ptr == "" {
@@ -114,12 +116,12 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 			}
 			rtn, err := jsonRW.WriteJSON(fieldMap)
 			if err != nil {
-				logging.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
+				logger.Pl.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
 			} else if rtn != nil {
 				data = rtn
 				return data, filled
 			}
-			logging.D(1, "No descriptions were grabbed from scrape, returning original data map")
+			logger.Pl.D(1, "No descriptions were grabbed from scrape, returning original data map")
 		}
 	}
 	return data, filled
@@ -128,7 +130,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 // fillEmptyDescriptions fills empty description fields by inference.
 func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
 	if s == nil || d == nil {
-		logging.E("%s entered description string nil or MetadataTitlesDescs nil", consts.LogTagDevError)
+		logger.Pl.E("%s entered description string nil or MetadataTitlesDescs nil", consts.LogTagDevError)
 		return false
 	}
 

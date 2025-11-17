@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/browser/browsepreset"
-	"metarr/internal/utils/logging"
 	"net/http"
 	"regexp"
 	"strings"
@@ -32,12 +32,12 @@ func ScrapeMeta(w *models.MetadataWebData, find enums.WebClassTags) string {
 
 	w.Cookies, err = getBrowserCookies(w.WebpageURL)
 	if err != nil {
-		logging.E("Was unable to grab browser cookies: %v", err)
+		logger.Pl.E("Was unable to grab browser cookies: %v", err)
 	}
 	for _, try := range w.TryURLs {
 		data, err = scrape(try, w.Cookies, find, false)
 		if err != nil {
-			logging.E("Failed to scrape %q for requested metadata: %v", try, err)
+			logger.Pl.E("Failed to scrape %q for requested metadata: %v", try, err)
 		} else {
 			break
 		}
@@ -56,11 +56,11 @@ func scrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, skipPres
 		}
 
 		lastErr = err
-		logging.E("Scrape attempt %d/%d failed for %s: %v",
+		logger.Pl.E("Scrape attempt %d/%d failed for %s: %v",
 			attempt, maxRetries, url, err)
 
 		if attempt < maxRetries {
-			logging.I("Waiting %v before retry...", retryDelay)
+			logger.Pl.I("Waiting %v before retry...", retryDelay)
 			time.Sleep(retryDelay)
 		}
 	}
@@ -97,13 +97,13 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 	case strings.Contains(url, "bitchute.com") && !skipPresets:
 
 		custom = true
-		logging.I("Using bitchute.com preset scraper")
+		logger.Pl.I("Using bitchute.com preset scraper")
 		setupPresetScraping(c, tag, browsepreset.BitchuteComRules, &result, url)
 
 	case strings.Contains(url, "censored.tv") && !skipPresets:
 
 		custom = true
-		logging.I("Using censored.tv preset scraper")
+		logger.Pl.I("Using censored.tv preset scraper")
 		if tag == enums.WebclassCredits {
 			return browsepreset.CensoredTvChannelName(url), nil
 		}
@@ -112,17 +112,17 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 	case strings.Contains(url, "rumble.com") && !skipPresets:
 
 		custom = true
-		logging.I("Using rumble.com preset scraper")
+		logger.Pl.I("Using rumble.com preset scraper")
 		setupPresetScraping(c, tag, browsepreset.RumbleComRules, &result, url)
 
 	case strings.Contains(url, "odysee.com") && !skipPresets:
 
 		custom = true
-		logging.I("Using odysee.com preset scraper")
+		logger.Pl.I("Using odysee.com preset scraper")
 		setupPresetScraping(c, tag, browsepreset.OdyseeComRules, &result, url)
 
 	default:
-		logging.I("Generic scrape attempt...")
+		logger.Pl.I("Generic scrape attempt...")
 		setupGenericScraping(c, tag, &result, url)
 	}
 
@@ -142,7 +142,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 		case "":
 			return "", scrapeError
 		default:
-			logging.E("Error during scrape (%v) but got result anyway. Returning result %q...", scrapeError, result)
+			logger.Pl.E("Error during scrape (%v) but got result anyway. Returning result %q...", scrapeError, result)
 			return result, nil
 		}
 	}
@@ -182,7 +182,7 @@ func setupPresetScraping(c *colly.Collector, tag enums.WebClassTags, rules map[e
 				}
 
 				if value != "" {
-					logging.S("Grabbed value %q for URL %q using preset scraper", value, url)
+					logger.Pl.S("Grabbed value %q for URL %q using preset scraper", value, url)
 					*result = rule.Process(value)
 				}
 			})
@@ -223,7 +223,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 		text := strings.TrimSpace(e.Text)
 
 		if classAttr != "" {
-			logging.D(2, "Checking element with class: %q", classAttr)
+			logger.Pl.D(2, "Checking element with class: %q", classAttr)
 		}
 
 		for _, t := range tags {
@@ -236,7 +236,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 				}
 
 				*result = text
-				logging.I("Found %q in element with class %q and id %q for URL %q",
+				logger.Pl.I("Found %q in element with class %q and id %q for URL %q",
 					*result, classAttr, idAttr, url)
 				return
 			}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
-	"metarr/internal/utils/logging"
+	"metarr/internal/domain/logger"
 	"net/http"
 	"net/url"
 	"strings"
@@ -39,7 +39,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 
 	// If a cookie file path is provided, use it
 	if cookieFilePath != "" {
-		logging.D(2, "Reading cookies from specified file: %s", cookieFilePath)
+		logger.Pl.D(2, "Reading cookies from specified file: %s", cookieFilePath)
 		kookyCookies, err := readCookieFile(cookieFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read cookies from file: %w", err)
@@ -56,30 +56,30 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 
 	for _, store := range allStores {
 		browserName := store.Browser()
-		logging.D(2, "Attempting to read cookies from %s", browserName)
+		logger.Pl.D(2, "Attempting to read cookies from %s", browserName)
 		attemptedBrowsers[browserName] = true
 
 		cookies, err := store.ReadCookies(kooky.Valid, kooky.Domain(baseURL))
 		if err != nil {
-			logging.D(2, "Failed to read cookies from %s: %v", browserName, err)
+			logger.Pl.D(2, "Failed to read cookies from %s: %v", browserName, err)
 			continue
 		}
 
 		if len(cookies) > 0 {
-			logging.I("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
+			logger.Pl.I("Successfully read %d cookies from %s for domain %s", len(cookies), browserName, baseURL)
 			allCookies = append(allCookies, convertToHTTPCookies(cookies)...)
 		} else {
-			logging.D(2, "No cookies found for %s", browserName)
+			logger.Pl.D(2, "No cookies found for %s", browserName)
 		}
 	}
 
 	// Log summary of attempted browsers
-	logging.I("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
+	logger.Pl.I("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
 
 	if len(allCookies) == 0 {
-		logging.I("No cookies found for %q, proceeding without cookies", u)
+		logger.Pl.I("No cookies found for %q, proceeding without cookies", u)
 	} else {
-		logging.I("Found a total of %d cookies for %q", len(allCookies), u)
+		logger.Pl.I("Found a total of %d cookies for %q", len(allCookies), u)
 	}
 
 	return allCookies, nil

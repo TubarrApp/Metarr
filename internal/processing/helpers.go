@@ -1,12 +1,14 @@
 package processing
 
 import (
+	"context"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"os"
 	"strings"
 	"sync"
@@ -83,19 +85,19 @@ func getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles []string) (vDir
 
 	// Log and reassign misplaced entries
 	for _, f := range misplacedVFiles {
-		logging.W("User entered file %q as directory, appending to video files", f)
+		logger.Pl.W("User entered file %q as directory, appending to video files", f)
 		vFiles = append(vFiles, f)
 	}
 	for _, d := range misplacedVDirs {
-		logging.W("User entered directory %q as file, appending to video directories", d)
+		logger.Pl.W("User entered directory %q as file, appending to video directories", d)
 		vDirs = append(vDirs, d)
 	}
 	for _, f := range misplacedMFiles {
-		logging.W("User entered file %q as directory, appending to valid metadata files", f)
+		logger.Pl.W("User entered file %q as directory, appending to valid metadata files", f)
 		mFiles = append(mFiles, f)
 	}
 	for _, d := range misplacedMDirs {
-		logging.W("User entered directory %q as file, appending to valid metadata directories", d)
+		logger.Pl.W("User entered directory %q as file, appending to valid metadata directories", d)
 		mDirs = append(mDirs, d)
 	}
 	return vDirs, vFiles, mDirs, mFiles
@@ -108,7 +110,7 @@ func validatePaths(kind string, paths []string) (dirs, files []string) {
 	for _, p := range paths {
 		info, err := os.Stat(p)
 		if err != nil {
-			logging.E("Failed to stat %s path %q: %v", kind, p, err)
+			logger.Pl.E("Failed to stat %s path %q: %v", kind, p, err)
 			continue
 		}
 		if info.IsDir() {
@@ -121,7 +123,7 @@ func validatePaths(kind string, paths []string) (dirs, files []string) {
 }
 
 // sysResourceLoop checks the system resources, staying in the loop until resources meet the set criteria.
-func sysResourceLoop(fileStr string) {
+func sysResourceLoop(ctx context.Context, fileStr string) {
 	var (
 		resourceMsg bool
 		backoff     = time.Second
@@ -129,14 +131,19 @@ func sysResourceLoop(fileStr string) {
 	)
 
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		// Fetch system resources and determine if processing can proceed
 		muResource.Lock()
 		proceed, availableMemory, CPUUsage, err := checkSysResources()
 		muResource.Unlock()
 
 		if err != nil {
-			logging.AddToErrorArray(err)
-			logging.E("Error checking system resources: %v", err)
+			vars.AddToErrorArray(err)
+			logger.Pl.E("Error checking system resources: %v", err)
 
 			time.Sleep(backoff)
 			backoff *= 2
@@ -152,8 +159,8 @@ func sysResourceLoop(fileStr string) {
 
 		// Log resource info only once when insufficient resources are detected
 		if !resourceMsg {
-			logging.I("Not enough system resources to process %s, waiting...", fileStr)
-			logging.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(consts.MB), CPUUsage)
+			logger.Pl.I("Not enough system resources to process %s, waiting...", fileStr)
+			logger.Pl.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(consts.MB), CPUUsage)
 			resourceMsg = true
 		}
 
@@ -167,7 +174,6 @@ func sysResourceLoop(fileStr string) {
 
 // checkAvailableMemory checks if enough memory is available (at least the threshold).
 func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
-
 	requiredMemory := abstractions.GetUint64(keys.MinFreeMem) // Default 0
 	maxCPUUsage := abstractions.GetFloat64(keys.MaxCPU)       // Default 101.0
 
@@ -193,7 +199,7 @@ func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, er
 // 	)
 
 // 	if len(files) == 0 {
-// 		logging.D(3, "No temporary files to clean up")
+// 		logger.Pl.D(3, "No temporary files to clean up")
 // 		return nil
 // 	}
 

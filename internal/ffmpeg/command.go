@@ -7,8 +7,8 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/utils/logging"
 	"net/http"
 	"os"
 	"os/exec"
@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // availableCodecsCache caches the codecs in FFmpeg to avoid repeated calls.
@@ -77,7 +79,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	// Grab current codecs
 	currentVCodec, currentACodec, err := checkCodecs(b.inputFile)
 	if err != nil {
-		logging.E("Failed to check codecs in file %q: %v", b.inputFile, err)
+		logger.Pl.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
 	availableCodecsCacheOnce.Do(func() {
 		availableCodecsCache = b.ffmpegAvailableCodecs(ctx)
@@ -91,7 +93,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		b.setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs)
 	}
 
-	logging.D(1, "Transcoding to codec %q from current codec %q", useTranscodeCodec, currentVCodec)
+	logger.Pl.D(1, "Transcoding to codec %q from current codec %q", useTranscodeCodec, currentVCodec)
 
 	// Get software codecs
 	if b.videoCodecGPU == nil {
@@ -123,7 +125,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string, hasEmbeddedThumbnail bool) {
 	if thumbnailURL == "" {
 		if hasEmbeddedThumbnail {
-			logging.I("Video %q has an embedded thumbnail. Will copy existing attached_pic.", b.inputFile)
+			logger.Pl.I("Video %q has an embedded thumbnail. Will copy existing attached_pic.", b.inputFile)
 
 			switch strings.ToLower(outExt) {
 			case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
@@ -145,7 +147,7 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 				}
 
 			default:
-				logging.D(1, "Copying attached thumbnails not supported for extension: %s", outExt)
+				logger.Pl.D(1, "Copying attached thumbnails not supported for extension: %s", outExt)
 			}
 			return
 		}
@@ -157,7 +159,7 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 	// Download local thumbnail
 	thumbnail, err := downloadThumbnail(thumbnailURL, videoBaseName)
 	if err != nil {
-		logging.E("Could not download thumbnail %q: %v", thumbnailURL, err)
+		logger.Pl.E("Could not download thumbnail %q: %v", thumbnailURL, err)
 		return
 	}
 
@@ -165,7 +167,7 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 	thumbExt := strings.ToLower(filepath.Ext(thumbnail))
 	if thumbExt != ".jpg" && thumbExt != ".jpeg" {
 		if thumbnail, err = convertToJPG(thumbnail); err != nil {
-			logging.E("Could not convert thumbnail %q to JPG: %v", thumbnail, err)
+			logger.Pl.E("Could not convert thumbnail %q to JPG: %v", thumbnail, err)
 			return
 		}
 	}
@@ -192,7 +194,7 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 		}
 
 	default:
-		logging.D(1, "Thumbnail embedding not supported for extension: %s", ext)
+		logger.Pl.D(1, "Thumbnail embedding not supported for extension: %s", ext)
 	}
 }
 
@@ -267,36 +269,36 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, availableCodecs string) {
 	// Build command
 	switch desiredACodec {
-	case consts.ACodecAAC:
+	case sharedconsts.ACodecAAC:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToAAC}
-	case consts.ACodecAC3:
+	case sharedconsts.ACodecAC3:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToAC3}
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
-	case consts.ACodecALAC:
+	case sharedconsts.ACodecALAC:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToALAC}
-	case consts.ACodecDTS:
+	case sharedconsts.ACodecDTS:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToDTS}
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
-	case consts.ACodecEAC3:
+	case sharedconsts.ACodecEAC3:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToEAC3}
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
-	case consts.ACodecFLAC:
+	case sharedconsts.ACodecFLAC:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToFLAC}
-	case consts.ACodecMP2:
+	case sharedconsts.ACodecMP2:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToMP2}
-	case consts.ACodecMP3:
+	case sharedconsts.ACodecMP3:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToMP3}
-	case consts.ACodecOpus:
+	case sharedconsts.ACodecOpus:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToOpus}
-	case consts.ACodecPCM:
+	case sharedconsts.ACodecPCM:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToPCM}
-	case consts.ACodecVorbis:
+	case sharedconsts.ACodecVorbis:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToVorbis}
-	case consts.ACodecWAV:
+	case sharedconsts.ACodecWAV:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToWAV}
-	case consts.ACodecTrueHD:
+	case sharedconsts.ACodecTrueHD:
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioToTrueHD}
-	case consts.ACodecCopy, currentACodec, "":
+	case sharedconsts.ACodecCopy, currentACodec, "":
 		b.audioCodec = []string{consts.FFmpegCA, consts.AudioCodecCopy} // Codecs match or user codec empty, use copy
 		return
 	default:
@@ -305,11 +307,11 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 
 	if len(b.audioCodec) >= 2 {
 		if !strings.Contains(availableCodecs, b.audioCodec[1]) {
-			logging.W("Audio codec %q not available in FFmpeg build, falling back to software.", b.audioCodec[1])
+			logger.Pl.W("Audio codec %q not available in FFmpeg build, falling back to software.", b.audioCodec[1])
 			b.audioCodec = []string{consts.FFmpegCA, consts.AudioCodecCopy}
 		}
 	} else if b.audioCodec != nil {
-		logging.E("%s Strings expected to be at least parts, got %v", consts.LogTagDevError, b.audioCodec)
+		logger.Pl.E("%s Strings expected to be at least parts, got %v", consts.LogTagDevError, b.audioCodec)
 		b.audioCodec = nil
 	}
 }
@@ -318,19 +320,19 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, outputVCodec, availableCodecs string) {
 	// Build transcode string
 	switch outputVCodec {
-	case consts.VCodecAV1:
+	case sharedconsts.VCodecAV1:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToAV1}
-	case consts.VCodecH264:
+	case sharedconsts.VCodecH264:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToH264}
-	case consts.VCodecHEVC:
+	case sharedconsts.VCodecHEVC:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToH265}
-	case consts.VCodecMPEG2:
+	case sharedconsts.VCodecMPEG2:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToMPEG2}
-	case consts.VCodecVP8:
+	case sharedconsts.VCodecVP8:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToVP8}
-	case consts.VCodecVP9:
+	case sharedconsts.VCodecVP9:
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoToVP9}
-	case consts.VCodecCopy, currentVCodec, "":
+	case sharedconsts.VCodecCopy, currentVCodec, "":
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoCodecCopy}
 		return
 	default:
@@ -339,11 +341,11 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, outputVCodec, av
 
 	if len(b.videoCodecSoftware) >= 2 {
 		if !strings.Contains(availableCodecs, b.videoCodecSoftware[1]) {
-			logging.W("Video codec %q not available in FFmpeg build, falling back to software.", b.videoCodecSoftware[1])
+			logger.Pl.W("Video codec %q not available in FFmpeg build, falling back to software.", b.videoCodecSoftware[1])
 			b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VideoCodecCopy}
 		}
 	} else if b.videoCodecSoftware != nil {
-		logging.E("%s Strings expected to be at least 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
+		logger.Pl.E("%s Strings expected to be at least 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
 }
@@ -354,7 +356,7 @@ func (b *ffCommandBuilder) ffmpegAvailableCodecs(ctx context.Context) (output st
 	outBytes, err := cmd.Output()
 	result := strings.TrimSpace(string(outBytes))
 	if err != nil {
-		logging.E("Codec Grab Failed: %v", err)
+		logger.Pl.E("Codec Grab Failed: %v", err)
 		return ""
 	}
 	return result
@@ -367,7 +369,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 		transcodeDir = abstractions.GetString(keys.TranscodeDeviceDir)
 	}
 
-	logging.I("Got GPU flag: %q", accelType)
+	logger.Pl.I("Got GPU flag: %q", accelType)
 	switch accelType {
 	case consts.AccelTypeAuto:
 		b.gpuAccelFlags = []string{consts.FFmpegHWAccel, consts.AccelTypeAuto}
@@ -382,7 +384,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 			if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil
 				b.gpuDir = []string{consts.FFmpegDeviceHW, devNumber}
 			} else {
-				logging.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
+				logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
 			}
 			b.gpuCompatability = append(b.gpuCompatability, consts.FFmpegVF)
 			b.gpuCompatability = append(b.gpuCompatability, consts.CudaCompatability...)
@@ -409,7 +411,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 		}
 
 	default:
-		logging.E("Invalid hardware transcode flag %q, using software transcode...", accelType)
+		logger.Pl.E("Invalid hardware transcode flag %q, using software transcode...", accelType)
 		return
 	}
 }
@@ -417,7 +419,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs string) {
 	if accelType == "" || accelType == consts.AccelTypeAuto {
-		logging.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
+		logger.Pl.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
 		return
 	}
 
@@ -435,13 +437,13 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec,
 	b.videoCodecGPU = []string{consts.FFmpegCV0, gpuCodecString}
 
 	if !strings.Contains(availableCodecs, gpuCodecString) {
-		logging.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
+		logger.Pl.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
 		b.videoCodecGPU = nil
 		b.gpuAccelFlags = nil
 	}
 	if b.gpuAccelFlags != nil && b.videoCodecGPU != nil {
 		command := append(b.gpuAccelFlags, b.videoCodecGPU...)
-		logging.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nArguments: %v\n", accelType, useTranscodeCodec, command)
+		logger.Pl.I("Using hardware acceleration:\n\nType: %s\nCodec: %s\nArguments: %v\n", accelType, useTranscodeCodec, command)
 	}
 }
 
@@ -455,26 +457,26 @@ func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelTyp
 	accelType = abstractions.GetString(keys.UseGPU)
 	accelType = strings.ToLower(accelType)
 	if accelType == "" {
-		logging.I("HW acceleration flags disabled, using software encode/decode")
+		logger.Pl.I("HW acceleration flags disabled, using software encode/decode")
 		return "", "", false
 	}
 
 	// Do not use HW on copy
 	if transcodeVideoCodec == "copy" {
-		logging.I("Video codec is 'copy', hardware acceleration not needed")
+		logger.Pl.I("Video codec is 'copy', hardware acceleration not needed")
 		return "", "", false
 	}
 
 	// Non-auto GPU flag but no codec
 	if accelType != consts.AccelTypeAuto && transcodeVideoCodec == "" {
-		logging.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", accelType)
+		logger.Pl.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", accelType)
 		return "", "", false
 	}
 
 	// Check safe hardware encode for GPU type
 	if gpuMap, exists := unsafeHardwareEncode[accelType]; exists {
 		if unsafe, ok := gpuMap[transcodeVideoCodec]; ok && unsafe {
-			logging.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.", b.inputFile, transcodeVideoCodec, accelType)
+			logger.Pl.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.", b.inputFile, transcodeVideoCodec, accelType)
 			return "", "", false
 		}
 	}
@@ -531,7 +533,7 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 		return
 	}
 
-	logging.D(2, "Making default format map for input extension: %q, output extension: %q. (File: %q)",
+	logger.Pl.D(2, "Making default format map for input extension: %q, output extension: %q. (File: %q)",
 		inExt, outExt, b.inputFile)
 
 	// Get format preset from map
@@ -549,7 +551,7 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 	}
 	// Fall back to copy preset if no mapping found
 	b.formatFlagsMap = copyPreset.flags
-	logging.D(1, "No format mapping found for %s to %s conversion, using copy preset",
+	logger.Pl.D(1, "No format mapping found for %s to %s conversion, using copy preset",
 		inExt, outExt)
 }
 
@@ -640,7 +642,7 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 		b.builder.WriteByte('=')
 		b.builder.WriteString(strings.TrimSpace(value))
 
-		logging.I("Adding metadata argument: '-metadata %s", b.builder.String())
+		logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
 		args = append(args, "-metadata", b.builder.String())
 	}
 
@@ -685,6 +687,6 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 		totalCapacity += len(strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs)))
 	}
 
-	logging.D(3, "Total command capacity calculated as: %d", totalCapacity)
+	logger.Pl.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
 }
