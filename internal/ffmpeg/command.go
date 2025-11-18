@@ -449,12 +449,12 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec,
 
 // getHWAccelFlags checks and returns the flags for HW acceleration.
 func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelType, vCodec string, useHW bool) {
-	if !abstractions.IsSet(keys.UseGPU) {
+	if !abstractions.IsSet(keys.TranscodeGPU) {
 		return "", "", false
 	}
 
 	// Check GPU flag
-	accelType = abstractions.GetString(keys.UseGPU)
+	accelType = abstractions.GetString(keys.TranscodeGPU)
 	accelType = strings.ToLower(accelType)
 	if accelType == "" {
 		logger.Pl.I("HW acceleration flags disabled, using software encode/decode")

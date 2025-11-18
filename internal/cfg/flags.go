@@ -105,17 +105,6 @@ func initMetaTransformers() error {
 		return err
 	}
 
-	// Prefix or append description fields with dates
-	rootCmd.PersistentFlags().Bool(keys.MDescDatePfx, false, "Adds the date to the start of the description field.")
-	if err := viper.BindPFlag(keys.MDescDatePfx, rootCmd.PersistentFlags().Lookup(keys.MDescDatePfx)); err != nil {
-		return err
-	}
-
-	rootCmd.PersistentFlags().Bool(keys.MDescDateSfx, false, "Adds the date to the end of the description field.")
-	if err := viper.BindPFlag(keys.MDescDateSfx, rootCmd.PersistentFlags().Lookup(keys.MDescDateSfx)); err != nil {
-		return err
-	}
-
 	// Overwrite or preserve metafields
 	rootCmd.PersistentFlags().Bool(keys.MOverwrite, false, "When adding new metadata fields, automatically overwrite existing fields with your new values")
 	if err := viper.BindPFlag(keys.MOverwrite, rootCmd.PersistentFlags().Lookup(keys.MOverwrite)); err != nil {
@@ -143,8 +132,8 @@ func initVideoTransformers() error {
 	}
 
 	// HW acceleration
-	rootCmd.PersistentFlags().String(keys.UseGPU, "", "Use hardware for accelerated encoding/decoding")
-	if err := viper.BindPFlag(keys.UseGPU, rootCmd.PersistentFlags().Lookup(keys.UseGPU)); err != nil {
+	rootCmd.PersistentFlags().String(keys.TranscodeGPU, "", "Use hardware for accelerated encoding/decoding")
+	if err := viper.BindPFlag(keys.TranscodeGPU, rootCmd.PersistentFlags().Lookup(keys.TranscodeGPU)); err != nil {
 		return err
 	}
 

@@ -113,8 +113,8 @@ func execute() (err error) {
 
 	// Parse GPU settings and set commands
 	var accelType string
-	if viper.IsSet(keys.UseGPU) {
-		if accelType, err = validation.ValidateGPU(viper.GetString(keys.UseGPU)); err != nil {
+	if viper.IsSet(keys.TranscodeGPU) {
+		if accelType, err = validation.ValidateGPU(viper.GetString(keys.TranscodeGPU)); err != nil {
 			return err
 		}
 	}

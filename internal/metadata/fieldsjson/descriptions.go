@@ -1,17 +1,13 @@
 package fieldsjson
 
 import (
-	"fmt"
-	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
-	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/utils/browser"
 	"metarr/internal/utils/printout"
-	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
 )
@@ -20,7 +16,6 @@ import (
 func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
 	d := fd.MTitleDesc
 	w := fd.MWebData
-	t := fd.MDates
 
 	fieldMap := map[string]*string{ // Order by importance
 		consts.JLongDesc:           &d.LongDescription,
@@ -32,30 +27,6 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	}
 	filled := unpackJSON(fieldMap, data)
 
-	datePfx := abstractions.GetBool(keys.MDescDatePfx)
-	dateSfx := abstractions.GetBool(keys.MDescDateSfx)
-
-	if (datePfx || dateSfx) && t.StringDate != "" {
-		for _, ptr := range fieldMap {
-			if ptr == nil {
-				logger.Pl.E("Unexpected nil pointer in descriptions fieldMap")
-				continue
-			}
-
-			if !datePfx && !dateSfx {
-				logger.Pl.D(1, "Unknown issue appending date to description. Condition should be impossible? (reached: %s)", *ptr)
-				continue
-			}
-
-			if datePfx && !strings.HasPrefix(*ptr, t.StringDate) {
-				*ptr = fmt.Sprintf("%s\n\n%s", t.StringDate, *ptr) // Prefix string date
-			}
-
-			if dateSfx && !strings.HasSuffix(*ptr, t.StringDate) {
-				*ptr = fmt.Sprintf("%s\n\n%s", *ptr, t.StringDate) // Suffix string date
-			}
-		}
-	}
 	printMap := make(map[string]string, len(fieldMap))
 	if logging.Level > 1 {
 		defer func() {

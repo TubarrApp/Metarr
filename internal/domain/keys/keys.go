@@ -28,8 +28,6 @@ const (
 	RenameStyle      string = "rename-style"
 
 	MetaOpsInput string = "meta-ops"
-	MDescDatePfx string = "desc-date-prefix"
-	MDescDateSfx string = "desc-date-suffix"
 
 	DebugLevel      string = "debug"
 	SkipVideos      string = "skip-videos"
@@ -40,7 +38,7 @@ const (
 	OutputDirectory string = "output-directory"
 	InputPreset     string = "preset"
 
-	UseGPU                   string = "hwaccel"
+	TranscodeGPU             string = "transcode-gpu"
 	TranscodeDeviceDir       string = "transcode-gpu-directory"
 	TranscodeAudioCodecInput string = "transcode-audio-codecs"
 	TranscodeVideoCodecInput string = "transcode-video-codecs"
