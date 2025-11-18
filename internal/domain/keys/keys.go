@@ -36,7 +36,6 @@ const (
 	Benchmarking    string = "benchmark"
 	OutputFiletype  string = "output-ext"
 	OutputDirectory string = "output-directory"
-	InputPreset     string = "preset"
 
 	TranscodeGPU             string = "transcode-gpu"
 	TranscodeDeviceDir       string = "transcode-gpu-directory"
