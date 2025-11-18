@@ -231,12 +231,6 @@ func initProgramFunctions() error {
 		return err
 	}
 
-	// Preset configurations for sites
-	rootCmd.PersistentFlags().String(keys.InputPreset, "", "Use a preset configuration (e.g. censoredtv)")
-	if err := viper.BindPFlag(keys.InputPreset, rootCmd.PersistentFlags().Lookup(keys.InputPreset)); err != nil {
-		return err
-	}
-
 	// Output benchmarking files
 	rootCmd.PersistentFlags().Bool(keys.Benchmarking, false, "Benchmarks the program")
 	if err := viper.BindPFlag(keys.Benchmarking, rootCmd.PersistentFlags().Lookup(keys.Benchmarking)); err != nil {
