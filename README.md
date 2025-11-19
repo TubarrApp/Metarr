@@ -16,7 +16,7 @@ Metarr is a Go-based command line tool for pairing video files with their JSON/N
 
 - FFmpeg and FFprobe available on your `PATH`
 - (Optional) GPU drivers/device nodes when using hardware acceleration
-- (Optional) Browser cookie stores or a cookie file for authenticated metadata scraping (`--cookie-dir`)
+- (Optional) Browser cookie stores or a cookie file for authenticated metadata scraping (`--cookie-file`)
 
 ## Install
 
@@ -111,7 +111,7 @@ Each entry follows `field:operation:value[:value]`. Values are colon-escaped int
 | `date-tag`       | `title:date-tag:prefix:ymd`                   | Insert a date tag using one of the supported `ymd`/`Ymd` styles. |
 | `delete-date-tag`| `title:delete-date-tag:prefix:ymd`            | Strip generated date tags. |
 
-Metarr will also attempt to infer missing descriptions from sibling fields and, if allowed, scrape metadata from the source website using browser cookies (`--cookie-dir` or auto-discovered Chrome/Firefox/Safari stores).
+Metarr will also attempt to infer missing descriptions from sibling fields and, if allowed, scrape metadata from the source website using browser cookies (`--cookie-file` or auto-discovered Chrome/Firefox/Safari stores).
 
 ## Filename Operations (`--filename-ops`)
 
