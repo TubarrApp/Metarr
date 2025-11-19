@@ -9,7 +9,6 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"os/exec"
-	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
 )
@@ -33,7 +32,6 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 	)
 
 	logger.Pl.I("Made command for FFprobe:\n\n%v", command.String())
-
 	output, err := command.Output()
 	if err != nil {
 		logger.Pl.E("Error running FFprobe command: %v. Will not process video.", err)
@@ -95,7 +93,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		printVals := fmt.Sprintf("Currently in video: Key=%s, Value=%s, New Value=%s", key, values.existing, values.new)
 		ffContent = append(ffContent, printVals)
 
-		if !strings.EqualFold(values.new, values.existing) {
+		if values.new != values.existing { // Maintain case sensitivity (avoid strings.EqualFold).
 			logger.Pl.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
 				fd.MetaFilePath, key, values.new, values.existing)
 			matches = false
