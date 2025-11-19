@@ -4,6 +4,7 @@ package vars
 import "github.com/TubarrApp/gocommon/benchmark"
 
 var (
+	// BenchmarkFiles holds the reference to the program's benchmarking files.
 	BenchmarkFiles *benchmark.BenchFiles
 	errorArray     = make([]error, 0)
 )

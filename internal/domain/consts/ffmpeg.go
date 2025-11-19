@@ -2,42 +2,20 @@ package consts
 
 import "github.com/TubarrApp/gocommon/sharedconsts"
 
-// Audio flags.
-const (
-	AudioCodecCopy = "copy"
-	AudioToAAC     = "aac"
-	AudioToAC3     = "ac3"
-	AudioToALAC    = "alac"
-	AudioToDTS     = "dts"
-	AudioToEAC3    = "eac3"
-	AudioToFLAC    = "flac"
-	AudioToMP2     = "mp2"
-	AudioToMP3     = "libmp3lame"
-	AudioToOpus    = "libopus"
-	AudioToPCM     = "pcm_s16le"
-	AudioToTrueHD  = "truehd"
-	AudioToVorbis  = "libvorbis"
-	AudioToWAV     = "pcm_s16le"
-)
-
 // Video codecs.
 const (
-	VideoCodecCopy = "copy"
-	VideoToAV1     = "libsvtav1"
-	VideoToH264    = "libx264"
-	VideoToH265    = "libx265"
-	VideoToMPEG2   = "mpeg2video"
-	VideoToVP8     = "libvpx"
-	VideoToVP9     = "libvpx-vp9"
+	FFVCodecKeyCopy  = "copy"
+	FFVCodecKeyAV1   = "libsvtav1"
+	FFVCodecKeyH264  = "libx264"
+	FFVCodecKeyH265  = "libx265"
+	FFVCodecKeyMPEG2 = "mpeg2video"
+	FFVCodecKeyVP8   = "libvpx"
+	FFVCodecKeyVP9   = "libvpx-vp9"
 )
 
 // Accel types.
 const (
-	AccelTypeAMF    = "amf"
-	AccelTypeAuto   = "auto"
-	AccelTypeNvidia = "cuda"
-	AccelTypeVAAPI  = "vaapi"
-	AccelTypeIntel  = "qsv"
+	AaccelTypeAMF = "amf"
 )
 
 // Accel flags.
@@ -45,7 +23,7 @@ const (
 	AccelFlagNvenc = "nvenc"
 )
 
-// Command constants
+// Command constants.
 const (
 	FFmpegCA                  = "-c:a"
 	FFmpegCD                  = "-c:d"
@@ -63,25 +41,32 @@ const (
 	FFmpegAR                  = "-ar"
 )
 
-// Audio rate values
+// Audio rate values.
 const (
 	AudioRate48khz = "48000"
 )
 
-// Compatability for HW acceleration types.
+// Audio rate for audio type.
 var (
-	VAAPICompatability = []string{"format=nv12|vaapi,hwupload"}
-	CudaCompatability  = []string{"hwdownload,format=nv12,hwupload_cuda"}
+	AudioRateForType = map[string]string{
+		sharedconsts.ACodecAC3:  AudioRate48khz,
+		sharedconsts.ACodecDTS:  AudioRate48khz,
+		sharedconsts.ACodecEAC3: AudioRate48khz,
+	}
+)
+
+// compatibility for HW acceleration types.
+var (
+	VAAPIcompatibility = []string{"format=nv12|vaapi,hwupload"}
+	Cudacompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
 )
 
 // Incompatible codecs by container/extension.
-//
-// WARNING: This was grabbed by AI, needs human intervention!
 var IncompatibleCodecsForContainer = map[string][]string{
 	// ISO BMFF family
 	ExtMP4: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // AV1, H.264, HEVC OK
 	ExtM4V: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // same as MP4
-	ExtMOV: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecAV1},   // H.264, HEVC widely OK; MPEG-2 often OK
+	ExtMOV: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecAV1},   // H.264, HEVC widely OK, MPEG-2 often OK
 
 	// WebM / Matroska
 	ExtWEBM: {sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2}, // WebM only supports VP8, VP9, AV1
@@ -93,7 +78,7 @@ var IncompatibleCodecsForContainer = map[string][]string{
 	ExtF4V: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // Flash MP4 variant; H.264 only
 
 	// Mobile-era
-	Ext3GP: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // supports H.263, MPEG-4 Part 2, H.264
+	Ext3GP: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // supports H.264, MPEG-4, H.264
 	Ext3G2: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
 
 	// Ogg family

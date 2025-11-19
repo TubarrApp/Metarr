@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/dates"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -166,7 +165,7 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 		return false
 	}
 
-	// Write thumbnail
+	// Write thumbnail.
 	if abstractions.IsSet(keys.ForceWriteThumbnails) {
 		if abstractions.GetBool(keys.ForceWriteThumbnails) && fd.MWebData.Thumbnail != "" {
 			logger.Pl.I("Skipping FFprobe, thumbnail enforcing write.")
@@ -174,12 +173,6 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 		}
 	}
 
-	// Run metadata checks in all other cases
-	switch currentExt {
-	case consts.ExtMP4:
-		return ffprobe.MP4MetaMatches(ctx, fd)
-	default:
-		logger.Pl.I("Checks not currently implemented for this filetype")
-		return false
-	}
+	// Run metadata checks in all other cases.
+	return ffprobe.CheckMetaMatches(ctx, currentExt, fd)
 }

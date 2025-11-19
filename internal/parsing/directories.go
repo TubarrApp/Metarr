@@ -4,10 +4,11 @@ package parsing
 import (
 	"errors"
 	"fmt"
-	"metarr/internal/domain/templates"
 	"metarr/internal/models"
 	"path/filepath"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedtemplates"
 )
 
 // DirectoryParser is used to access and use directory parsing elements.
@@ -110,25 +111,25 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 	w := dp.FD.MWebData
 
 	switch strings.ToLower(tag) {
-	case templates.Year:
+	case sharedtemplates.MetYear:
 		if d.Year != "" {
 			return d.Year, nil
 		}
 		return "", fmt.Errorf("templating: year empty for %q", dp.FD.OriginalVideoPath)
 
-	case templates.Author:
+	case sharedtemplates.MetAuthor:
 		if c.Author != "" {
 			return c.Author, nil
 		}
 		return "", fmt.Errorf("templating: author empty for %q", dp.FD.OriginalVideoPath)
 
-	case templates.Director:
+	case sharedtemplates.MetDirector:
 		if c.Director != "" {
 			return c.Director, nil
 		}
 		return "", fmt.Errorf("templating: director empty for %q", dp.FD.OriginalVideoPath)
 
-	case templates.Domain:
+	case sharedtemplates.MetDomain:
 		if w.Domain != "" {
 			return w.Domain, nil
 		}

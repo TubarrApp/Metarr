@@ -30,7 +30,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	origPath := fd.OriginalVideoPath
 	origExt := filepath.Ext(origPath)
 
-	// Extension validation - now checks length and format immediately
+	// Extension validation.
 	if abstractions.IsSet(keys.OutputFiletype) {
 		if outExt = validation.ValidateExtension(abstractions.GetString(keys.OutputFiletype)); outExt == "" {
 			logger.Pl.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
@@ -40,39 +40,41 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		outExt = origExt
 	}
 
-	// Get current codecs
+	// Get current codecs.
 	currentVCodec, currentACodec, err := checkCodecs(fd.OriginalVideoPath)
 	if err != nil {
 		logger.Pl.E("Failed to check input file %q codec: %v", fd.OriginalVideoPath, err)
 	}
 
-	// Check codec mismatches
+	// Check codec mismatches.
 	desiredVCodec := getOutputVideoCodecString(currentVCodec)
 	desiredACodec := getOutputAudioCodecString(currentACodec)
 
-	// Check incompatibility with extension type
+	// Check incompatibility with extension type.
 	compatSlice := consts.IncompatibleCodecsForContainer[outExt]
 	if slices.Contains(compatSlice, desiredVCodec) {
 		logger.Pl.I("Desired codec %q is not compatible with video container %q, falling back to 'copy'.", desiredVCodec, outExt)
 		desiredVCodec = sharedconsts.VCodecCopy
 	}
 
+	// Return early if no processing is needed.
 	if skipProcessing(fd, currentVCodec, desiredVCodec, currentACodec, desiredACodec, outExt) {
 		return nil
 	}
 	logger.Pl.I("Will execute video from extension %q → %q", origExt, outExt)
 
+	// Get user cache dir for temp file.
 	dir, err := os.UserCacheDir()
 	if err != nil {
 		dir = fd.VideoDirectory
 	}
 	fileBase := strings.TrimSuffix(filepath.Base(origPath), origExt)
 
-	// Make temp output path
+	// Make cache output path.
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
 	logger.Pl.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
 
-	// Remove temp file on function end
+	// Remove temp file on function end.
 	defer func() {
 		if _, err := os.Stat(tmpOutPath); err == nil {
 			if err := os.Remove(tmpOutPath); err != nil {
@@ -81,20 +83,20 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		}
 	}()
 
-	// Build FFmpeg command
+	// Build FFmpeg command.
 	builder := newFfCommandBuilder(fd, tmpOutPath)
 	args, err := builder.buildCommand(ctx, fd, desiredVCodec, desiredACodec, outExt)
 	if err != nil {
 		return err
 	}
-
 	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	logger.Pl.I("%sConstructed FFmpeg command for%s %q:\n\n%v\n", sharedconsts.ColorCyan, sharedconsts.ColorReset, fd.OriginalVideoPath, command.String())
 
+	// Set command output to stdout/stderr.
 	command.Stdout = os.Stdout
 	command.Stderr = os.Stderr
 
-	// Set post-FFmpeg video path in model
+	// Set post-FFmpeg video path in model.
 	baseName := fd.GetBaseNameWithoutExt(origPath)
 	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outExt
 
@@ -103,36 +105,36 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		fd.PostFFmpegVideoPath,
 		tmpOutPath)
 
-	// Run the ffmpeg command
+	// Run the ffmpeg command.
 	logger.Pl.P("%s!!! Starting FFmpeg command for %q...\n%s", sharedconsts.ColorCyan, baseName, sharedconsts.ColorReset)
 	if err := command.Run(); err != nil {
 		vars.AddToErrorArray(err)
 		return fmt.Errorf("failed to run FFmpeg command: %w", err)
 	}
 
-	// Rename temporary file to overwrite the original video file
+	// Rename temporary file to overwrite the original video file, make backup if needed.
 	if filepath.Ext(origPath) != filepath.Ext(fd.PostFFmpegVideoPath) {
 		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
-
 	} else if abstractions.GetBool(keys.NoFileOverwrite) && origPath == fd.PostFFmpegVideoPath {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
 	}
 
-	// Delete original after potential backup ops
+	// Delete original after potential backup ops.
 	err = os.Remove(origPath)
 	if err != nil {
 		vars.AddToErrorArray(err)
 		return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
 	}
 
-	// Move temp file to post-FFmpeg video path
+	// Move temp file to post-FFmpeg video path.
 	err = os.Rename(tmpOutPath, fd.PostFFmpegVideoPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
+	// Log success.
 	fmt.Fprintf(os.Stderr, "\n")
 	logger.Pl.S("Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
 		fd.PostFFmpegVideoPath,
@@ -145,7 +147,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentACodec, desiredACodec, outExt string) (skipProcessing bool) {
 	logger.Pl.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
-	// Write thumbnail
+	// Write thumbnail.
 	if abstractions.IsSet(keys.ForceWriteThumbnails) {
 		if abstractions.GetBool(keys.ForceWriteThumbnails) && fd.MWebData.Thumbnail != "" {
 			logger.Pl.I("Thumbnail URL detected. Will write to file.")
@@ -157,7 +159,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 		differentExt, codecsDiffer bool
 	)
 
-	// Check for extension difference
+	// Check for extension difference.
 	currentExt := strings.ToLower(filepath.Ext(fd.OriginalVideoPath))
 
 	if currentExt != outExt && outExt != "" {
@@ -173,20 +175,20 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 		logger.Pl.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoPath, currentVCodec, currentACodec, desiredVCodec, desiredACodec, codecsDiffer)
 	}
 
-	// Check if metadata already exists
+	// Check if metadata already exists.
 	if !fd.MetaAlreadyExists {
 		logger.Pl.D(2, "Metadata or thumbnail mismatch in file %q", fd.OriginalVideoPath)
 	}
 
-	// Final checks
+	// Final checks.
 	if !codecsDiffer && !differentExt && fd.MetaAlreadyExists {
-		// -- SKIP FURTHER PROCESSING --
+		// -- SKIP FURTHER PROCESSING. --
 		logger.Pl.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoPath)
 
-		// Save 'post-FFmpeg' video path into model
+		// Save 'post-FFmpeg' video path into model.
 		fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, fd.GetBaseNameWithoutExt(fd.OriginalVideoPath)) + outExt
 
-		// Set final paths and end processing
+		// Set final paths and end processing.
 		fd.SetFinalPaths(fd.OriginalVideoPath, fd.MetaFilePath)
 		return true
 	}
@@ -203,16 +205,17 @@ func makeBackup(origPath string) error {
 		return nil
 	}
 
+	// Rename original to backup.
 	backupPath, err := file.RenameToBackup(origPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
 	}
 
+	// Verify backup exists and matches size.
 	backInfo, err := os.Stat(backupPath)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("backup file %q was not created, aborting", backupPath)
 	}
-
 	if (origInfo != nil && backInfo != nil) && (origInfo.Size() != backInfo.Size()) {
 		return fmt.Errorf("backup file size %d does not match original %d, aborting", origInfo.Size(), backInfo.Size())
 	}
@@ -226,35 +229,39 @@ func checkCodecs(inputFile string) (videoCodec, audioCodec string, err error) {
 		return "", "", fmt.Errorf("input file is empty, cannot check codecs")
 	}
 
+	// FFprobe for video codec.
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
-		"-select_streams", "v:0", // first video stream index is 0
+		"-select_streams", "v:0", // first video stream index is 0.
 		"-show_entries", "stream=codec_name",
 		"-of", "default=noprint_wrappers=1:nokey=1",
 		inputFile,
 	)
 
+	// Read video codec.
 	videoCodecBytes, err := cmd.Output()
 	if err != nil {
 		return "", "", fmt.Errorf("cannot read video codec: %w", err)
 	}
 	videoCodec = strings.TrimSpace(string(videoCodecBytes))
 
+	// FFprobe for audio codec.
 	cmd = exec.Command("ffprobe",
 		"-v", "error",
-		"-select_streams", "a:0", // first audio stream index is 0
+		"-select_streams", "a:0", // first audio stream index is 0.
 		"-show_entries", "stream=codec_name",
 		"-of", "default=noprint_wrappers=1:nokey=1",
 		inputFile,
 	)
 
+	// Read audio codec.
 	audioCodecBytes, err := cmd.Output()
 	if err != nil {
 		return "", "", fmt.Errorf("cannot read audio codec: %w", err)
 	}
 	audioCodec = strings.TrimSpace(string(audioCodecBytes))
 
+	// Log and return detected codecs.
 	logger.Pl.D(1, "Detected codecs - video: %s, audio: %s", videoCodec, audioCodec)
-
 	return videoCodec, audioCodec, nil
 }

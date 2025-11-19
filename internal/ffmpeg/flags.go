@@ -2,6 +2,8 @@ package ffmpeg
 
 import (
 	"metarr/internal/domain/consts"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // formatPreset holds a pre-calculated set of ffmpeg flags
@@ -10,9 +12,9 @@ type formatPreset struct {
 }
 
 var unsafeHardwareEncode = map[string]map[string]bool{
-	consts.AccelTypeNvidia: {"mjpeg": true}, // hypothetical crashes
-	consts.AccelTypeVAAPI:  {"vp8": true, "vp9": true, "av1": true},
-	consts.AccelTypeIntel:  {"vp8": true, "vp9": true, "av1": true},
+	sharedconsts.AccelTypeNvidia: {"mjpeg": true}, // hypothetical crashes
+	sharedconsts.AccelTypeVAAPI:  {"vp8": true, "vp9": true, "av1": true},
+	sharedconsts.AccelTypeIntel:  {"vp8": true, "vp9": true, "av1": true},
 }
 
 // Presets for transcoding.

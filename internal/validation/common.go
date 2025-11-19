@@ -20,35 +20,14 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-// ValidateMetarrOutputDirs validates the output directories for Metarr.
-func ValidateMetarrOutputDirs(urlDirs []string) error {
-	if len(urlDirs) == 0 {
-		return nil
-	}
-
-	// Initialize map and fill from existing
-	outDirMap := make(map[string]string)
-	validatedDirs := make(map[string]bool, len(urlDirs))
-
-	// Validate directories
-	for _, dir := range urlDirs {
-		if _, err := sharedvalidation.ValidateDirectory(dir, false); err != nil {
-			return err
-		}
-		validatedDirs[dir] = true
-	}
-
-	logger.Pl.D(1, "Metarr output directories: %+v", outDirMap)
-	return nil
-}
-
 // ValidateGPU validates the user input GPU selection.
 func ValidateGPU(g string) (accelType string, err error) {
 	if g, err = sharedvalidation.ValidateGPUAccelType(g); err != nil {
 		return "", err
 	}
 
-	if err := checkDriverDirExists(g); err != nil {
+	// Check device exists.
+	if err := checkDriverNodeExists(g); err != nil {
 		return g, err
 	}
 	return g, nil
@@ -76,6 +55,7 @@ func ValidateExtension(ext string) string {
 }
 
 // ---- Validate And Set ------------------------------------------------------------------------------------------
+
 // ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
 func ValidateAndSetVideoCodec(pairs []string) error {
 	vCodecMap := map[string]string{
@@ -440,7 +420,7 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 // 	c = strings.ReplaceAll(c, "-", "")
 // 	c = strings.ReplaceAll(c, "_", "")
 
-// 	// Synonym and alias mapping before acceleration compatability check
+// 	// Synonym and alias mapping before acceleration compatibility check
 // 	switch c {
 // 	case "aom", "libaom", "libaomav1", "av01", "svtav1", "libsvtav1":
 // 		c = consts.VCodecAV1
@@ -540,7 +520,7 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 // }
 
 // ValidateAndSetTranscodeQuality validates the transcode quality preset.
-func ValidateAndSetTranscodeQuality(q string, accelType string) error {
+func ValidateAndSetTranscodeQuality(q string) error {
 	if q == "" {
 		return nil
 	}
@@ -585,9 +565,10 @@ func ValidateAndSetRenameFlag(renameFlag string) {
 }
 
 // ---- Private ----------------------------------------------------------------------------------------------------
-// checkDriverDirExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
-func checkDriverDirExists(g string) error {
-	if g == consts.AccelTypeAuto {
+
+// checkDriverNodeExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
+func checkDriverNodeExists(g string) error {
+	if g == sharedconsts.AccelTypeAuto || g == sharedconsts.AccelTypeAMF {
 		return nil // No directory required
 	}
 

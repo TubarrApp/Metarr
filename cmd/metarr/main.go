@@ -92,16 +92,20 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer cancel()
 	go func() {
-		http.HandleFunc("/logs", func(w http.ResponseWriter, r *http.Request) {
+		http.HandleFunc("/logs", func(w http.ResponseWriter, _ *http.Request) {
 			pl, _ := logging.GetProgramLogger("Metarr")
 			logs := pl.GetRecentLogs()
 
 			w.Header().Set("Content-Type", "text/plain")
 			for _, l := range logs {
-				w.Write(l)
+				if _, err := w.Write(l); err != nil {
+					logger.Pl.E("Could not write log line %v: %v", l, err)
+				}
 			}
 		})
-		http.ListenAndServe("127.0.0.1:6387", nil)
+		if err := http.ListenAndServe("127.0.0.1:6387", nil); err != nil {
+			logger.Pl.E("Could not start server for Metarr logs, logs will be inaccessible from Tubarr.")
+		}
 	}()
 
 	// Initialize cached variables

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
@@ -15,13 +14,15 @@ import (
 	"github.com/TubarrApp/gocommon/logging"
 )
 
-// MP4MetaMatches checks FFprobe captured metadata from the video against the metafile.
-func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bool) {
-	c := fd.MCredits
-	d := fd.MDates
-	t := fd.MTitleDesc
+type tagDiff struct {
+	existing string
+	new      string
+}
 
-	// FFprobe command fetches metadata from the video file
+type tagDiffMap map[string]tagDiff
+
+// CheckMetaMatches checks FFprobe captured metadata from the video against the metafile.
+func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData) (allMetaMatches bool) {
 	command := exec.CommandContext(
 		ctx,
 		"ffprobe",
@@ -39,21 +40,20 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		return false
 	}
 
-	// Parse JSON output
+	// Parse JSON output.
 	var ffData ffprobeOutput
-
 	if err := json.Unmarshal(output, &ffData); err != nil {
 		logger.Pl.E("Error parsing FFprobe output: %v. Will not process video.", err)
 		return false
 	}
 
-	// Check if thumbnail is already present in file
+	// Check if thumbnail is already present in file.
 	for _, s := range ffData.Streams {
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
 			logger.Pl.I("Video %q has an embedded thumbnail", fd.OriginalVideoPath)
 			fd.HasEmbeddedThumbnail = true
 
-			// Thumbnail embedded in file, missing in metafile
+			// Thumbnail embedded in file, missing in metafile.
 			if fd.MWebData.Thumbnail == "" {
 				return false
 			}
@@ -61,68 +61,41 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		}
 	}
 
+	// Get strip thumbnail bool.
 	stripThumbnail := false
 	if abstractions.IsSet(keys.StripThumbnails) {
 		stripThumbnail = abstractions.GetBool(keys.StripThumbnails)
 	}
 
-	// Thumbnail is in file but user wants to strip
+	// Thumbnail is in file but user wants to strip.
 	if fd.HasEmbeddedThumbnail && stripThumbnail {
 		logger.Pl.I("Thumbnail exists in video %q, set to be stripped", fd.OriginalVideoPath)
 		return false
 	}
 
-	// No thumbnail in file but thumbnail exists in metadata
+	// No thumbnail in file but thumbnail exists in metadata.
 	if !fd.HasEmbeddedThumbnail && fd.MWebData.Thumbnail != "" {
 		logger.Pl.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.MWebData.Thumbnail)
 		return false
 	}
 
-	// Map of metadata to check
-	metaCheckMap := map[string]struct {
-		existing string
-		new      string
-	}{
-		consts.JDescription: {
-			existing: strings.TrimSpace(ffData.Format.Tags.Description),
-			new:      strings.TrimSpace(t.Description),
-		},
-		consts.JSynopsis: {
-			existing: strings.TrimSpace(ffData.Format.Tags.Synopsis),
-			new:      strings.TrimSpace(t.Synopsis),
-		},
-		consts.JTitle: {
-			existing: strings.TrimSpace(ffData.Format.Tags.Title),
-			new:      strings.TrimSpace(t.Title),
-		},
-		consts.JCreationTime: {
-			existing: getDatePart(ffData.Format.Tags.CreationTime),
-			new:      getDatePart(d.CreationTime),
-		},
-		consts.JDate: {
-			existing: strings.TrimSpace(ffData.Format.Tags.Date),
-			new:      strings.TrimSpace(d.Date),
-		},
-		consts.JArtist: {
-			existing: strings.TrimSpace(ffData.Format.Tags.Artist),
-			new:      strings.TrimSpace(c.Artist),
-		},
-		consts.JComposer: {
-			existing: strings.TrimSpace(ffData.Format.Tags.Composer),
-			new:      strings.TrimSpace(c.Composer),
-		},
+	// Map of metadata to check.
+	metaCheckMap, exists := getDiffMapForFiletype(extension, fd, ffData)
+	if !exists {
+		logger.Pl.W("FFprobe metadata key map not available for filetype %s", extension)
+		return false
 	}
 
-	// Collect all metadata for logging
+	// Collect all metadata for logging.
 	ffContent := make([]string, 0, len(metaCheckMap))
 	matches := true
 
-	// Check each field
+	// Check each field.
 	for key, values := range metaCheckMap {
 		printVals := fmt.Sprintf("Currently in video: Key=%s, Value=%s, New Value=%s", key, values.existing, values.new)
 		ffContent = append(ffContent, printVals)
 
-		if values.new != values.existing {
+		if !strings.EqualFold(values.new, values.existing) {
 			logger.Pl.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
 				fd.MetaFilePath, key, values.new, values.existing)
 			matches = false
@@ -131,7 +104,7 @@ func MP4MetaMatches(ctx context.Context, fd *models.FileData) (allMetaMatches bo
 		}
 	}
 
-	// Print all captured metadata
+	// Print all captured metadata.
 	if logging.Level > 0 {
 		printArray(ffContent)
 	}

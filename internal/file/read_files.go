@@ -1,3 +1,4 @@
+// Package file handles operations related to reading and writing files.
 package file
 
 import (

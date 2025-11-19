@@ -2,7 +2,7 @@ package parsing
 
 import "strings"
 
-// parsing.EscapedSplit allows users to escape separator characters without messing up 'strings.Split' logic.
+// EscapedSplit allows users to escape separator characters without messing up 'strings.Split' logic.
 func EscapedSplit(s string, desiredSeparator rune) []string {
 	var parts []string
 	var buf strings.Builder
@@ -35,7 +35,7 @@ func EscapedSplit(s string, desiredSeparator rune) []string {
 	return parts
 }
 
-// parsing.UnescapeSplit reverts string elements back to unescaped versions.
+// UnescapeSplit reverts string elements back to unescaped versions.
 func UnescapeSplit(s string, separatorUsed string) string {
 	return strings.ReplaceAll(s, `\`+separatorUsed, separatorUsed)
 }

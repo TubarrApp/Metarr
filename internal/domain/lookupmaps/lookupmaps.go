@@ -5,7 +5,7 @@ package lookupmaps
 
 import "metarr/internal/domain/consts"
 
-// AllVidExtensions is a map of found video extensions.
+// AllVidExtensions is a map of found video extensions (defaults 'false', sets 'true' if found).
 var (
 	AllVidExtensions = map[string]bool{
 		consts.Ext3G2: false, consts.Ext3GP: false, consts.ExtAVI: false, consts.ExtF4V: false, consts.ExtFLV: false,

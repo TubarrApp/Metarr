@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/TubarrApp/gocommon/sharedtemplates"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 	"github.com/spf13/viper"
 )
 
@@ -54,27 +56,27 @@ func init() {
 
 // execute more thoroughly handles settings created in the Viper init.
 func execute() (err error) {
-	// Batch pairs
+	// Batch pairs.
 	if viper.IsSet(keys.BatchPairsInput) {
 		if err := validation.ValidateAndSetBatchPairs(viper.GetStringSlice(keys.BatchPairsInput)); err != nil {
 			return err
 		}
 	}
 
-	// Concurrency
+	// Concurrency.
 	validation.ValidateAndSetConcurrencyLimit(viper.GetInt(keys.Concurrency))
 
-	// Resource usage limits (CPU and memory)
+	// Resource usage limits (CPU and memory).
 	validation.ValidateAndSetMinFreeMem(viper.GetString(keys.MinFreeMem))
 	validation.ValidateAndSetMaxCPU(viper.GetFloat64(keys.MaxCPU))
 
-	// File extension settings
+	// File extension settings.
 	validation.ValidateAndSetInputFiletypes(
 		viper.GetStringSlice(keys.InputVideoExts),
 		viper.GetStringSlice(keys.InputMetaExts),
 	)
 
-	// File filter settings
+	// File filter settings.
 	if viper.IsSet(keys.FilePrefixes) {
 		validation.ValidateAndSetFileFilters(keys.FilePrefixes, viper.GetStringSlice(keys.FilePrefixes))
 	}
@@ -88,33 +90,39 @@ func execute() (err error) {
 		validation.ValidateAndSetFileFilters(keys.FileOmits, viper.GetStringSlice(keys.FileOmits))
 	}
 
-	// Filetype to output as
+	// Output directory.
 	if viper.IsSet(keys.OutputDirectory) {
-		validation.ValidateAndSetOutputFiletype(viper.GetString(keys.OutputDirectory))
+		if _, _, err := sharedvalidation.ValidateDirectory(viper.GetString(keys.OutputDirectory), true, sharedtemplates.MetarrTemplateTags); err != nil {
+			return err
+		}
 	}
 
-	// Meta overwrite and preserve flags
+	// Filetype to output as.
+	if viper.IsSet(keys.OutputFiletype) {
+		validation.ValidateAndSetOutputFiletype(viper.GetString(keys.OutputFiletype))
+	}
+
+	// Meta overwrite and preserve flags.
 	validation.ValidateAndSetMetaOverwritePreserve(
 		viper.GetBool(keys.MOverwrite),
 		viper.GetBool(keys.MPreserve),
 	)
 
-	// Verify user metafile purge settings
+	// Verify user metafile purge settings.
 	if viper.IsSet(keys.MetaPurge) {
 		validation.ValidateAndSetPurgeMetafiles(viper.GetString(keys.MetaPurge))
 	}
 
-	// Parse and verify the audio codec
+	// Parse and verify the audio codec.
 	if viper.IsSet(keys.TranscodeAudioCodecInput) {
 		if err := validation.ValidateAndSetAudioCodec(viper.GetStringSlice(keys.TranscodeAudioCodecInput)); err != nil {
 			return err
 		}
 	}
 
-	// Parse GPU settings and set commands
-	var accelType string
+	// Parse GPU settings and set commands.
 	if viper.IsSet(keys.TranscodeGPU) {
-		if accelType, err = validation.ValidateGPU(viper.GetString(keys.TranscodeGPU)); err != nil {
+		if _, err = validation.ValidateGPU(viper.GetString(keys.TranscodeGPU)); err != nil {
 			return err
 		}
 	}
@@ -124,12 +132,12 @@ func execute() (err error) {
 		}
 	}
 	if viper.IsSet(keys.TranscodeQuality) {
-		if err := validation.ValidateAndSetTranscodeQuality(viper.GetString(keys.TranscodeQuality), accelType); err != nil {
+		if err := validation.ValidateAndSetTranscodeQuality(viper.GetString(keys.TranscodeQuality)); err != nil {
 			return err
 		}
 	}
 
-	// Get meta operations and other transformations
+	// Get meta operations and other transformations.
 	if err := initTransformations(); err != nil {
 		return err
 	}
@@ -141,14 +149,14 @@ func initTransformations() error {
 	// Set rename flag
 	validation.ValidateAndSetRenameFlag(viper.GetString(keys.RenameStyle))
 
-	// Validate filename operations
+	// Validate filename operations.
 	if viper.IsSet(keys.FilenameOpsInput) {
 		if err := validation.ValidateAndSetFilenameOps(viper.GetStringSlice(keys.FilenameOpsInput)); err != nil {
 			return err
 		}
 	}
 
-	// Validate meta operations
+	// Validate meta operations.
 	if viper.IsSet(keys.MetaOpsInput) {
 		if err := validation.ValidateAndSetMetaOps(viper.GetStringSlice(keys.MetaOpsInput)); err != nil {
 			return err
