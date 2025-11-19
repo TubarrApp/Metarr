@@ -21,7 +21,6 @@ Metarr is a Go-based command line tool for pairing video files with their JSON/N
 ## Install
 
 ```bash
-# Clone or unpack the repository, then:
 git clone https://github.com/TubarrApp/Metarr.git
 cd Metarr
 sudo mv metarr /usr/local/bin/metarr
