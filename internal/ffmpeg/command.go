@@ -221,14 +221,22 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	if resp == nil {
+		return "", fmt.Errorf("got nil resp in downloadThumbnail()")
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			logger.Pl.E("Failed to close response body due to error: %v", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("failed to download thumbnail: %s", resp.Status)
 	}
 
 	// Remove query parameters and detect extension
-	base := strings.Split(strings.Split(urlStr, "?")[0], "#")[0]
+	base, _, _ := strings.Cut(urlStr, "?")
+	base, _, _ = strings.Cut(base, "#")
 	ext := strings.ToLower(filepath.Ext(base))
 	if ext == "" {
 		ext = ".jpg"
@@ -256,7 +264,11 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); closeErr != nil {
+			logger.Pl.E("Failed to close file %q due to error: %v", file.Name(), closeErr)
+		}
+	}()
 
 	if _, err := io.Copy(file, resp.Body); err != nil {
 		return "", err
@@ -636,14 +648,23 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 	args = append(args, formatArgs...)
 
 	// Add all -metadata arguments (these apply to the output file).
-	for key, value := range b.metadataMap {
-		b.builder.Reset()
-		b.builder.WriteString(key)
-		b.builder.WriteByte('=')
-		b.builder.WriteString(strings.TrimSpace(value))
+	// Get output file extension for container-specific tag mapping.
+	outputExt := filepath.Ext(b.outputFile)
 
-		logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
-		args = append(args, "-metadata", b.builder.String())
+	for key, value := range b.metadataMap {
+		// Get all valid container-specific tag names for this canonical key.
+		containerKeys := getContainerKeys(key, outputExt)
+
+		// Write metadata to all aliases for maximum compatibility.
+		for _, containerKey := range containerKeys {
+			b.builder.Reset()
+			b.builder.WriteString(containerKey)
+			b.builder.WriteByte('=')
+			b.builder.WriteString(strings.TrimSpace(value))
+
+			logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
+			args = append(args, "-metadata", b.builder.String())
+		}
 	}
 
 	// Extra FFmpeg arguments.

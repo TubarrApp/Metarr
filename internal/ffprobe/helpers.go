@@ -44,31 +44,31 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 
 		return tagDiffMap{
 			consts.JArtist: { // FFprobe access key.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("artist")), // FFprobe value.
-				new:      strings.TrimSpace(fd.MCredits.Artist),               // Desired new value.
+				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JArtist)), // FFprobe value.
+				new:      strings.TrimSpace(fd.MCredits.Artist),                     // Desired new value.
 			},
 			consts.JComposer: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("composer")),
+				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JComposer)),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
 			consts.JCreationTime: {
-				existing: getDatePart(ffData.Format.Tags.get("creation_time")),
+				existing: getDatePart(ffData.Format.Tags.get(consts.JCreationTime)),
 				new:      getDatePart(fd.MDates.CreationTime),
 			},
 			consts.JDate: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("date")),
-				new:      strings.TrimSpace(fd.MDates.Date),
+				existing: getDatePart(ffData.Format.Tags.get(consts.JDate)),
+				new:      getDatePart(fd.MDates.Date),
 			},
 			consts.JDescription: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("description")),
+				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JDescription)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
 			consts.JSynopsis: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("synopsis")),
+				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JSynopsis)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
 			},
 			consts.JTitle: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("title")),
+				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JTitle)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},
 		}, true
@@ -77,8 +77,12 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		consts.ExtWEBM:
 
 		return tagDiffMap{
-			"ARTIST/LEAD_PERFORMER": {
+			"ARTIST": {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ARTIST")),
+				new:      strings.TrimSpace(fd.MCredits.Artist),
+			},
+			"LEAD_PERFORMER": {
+				existing: strings.TrimSpace(ffData.Format.Tags.get("LEAD_PERFORMER")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
 			"COMPOSER": {
@@ -89,11 +93,19 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 				existing: getDatePart(ffData.Format.Tags.get("DATE_RELEASED")),
 				new:      getDatePart(fd.MDates.Date),
 			},
-			"DESCRIPTION/SUMMARY": {
+			"DESCRIPTION": {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			"SUBJECT/KEYWORDS": {
+			"SUMMARY": {
+				existing: strings.TrimSpace(ffData.Format.Tags.get("SUMMARY")),
+				new:      strings.TrimSpace(fd.MTitleDesc.Description),
+			},
+			"SUBJECT": {
+				existing: strings.TrimSpace(ffData.Format.Tags.get("SUBJECT")),
+				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
+			},
+			"KEYWORDS": {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("KEYWORDS")),
 				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
 			},
@@ -149,8 +161,12 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		consts.ExtOGV:
 
 		return tagDiffMap{
-			"ARTIST/PERFORMER": {
+			"ARTIST": {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ARTIST")),
+				new:      strings.TrimSpace(fd.MCredits.Artist),
+			},
+			"PERFORMER": {
+				existing: strings.TrimSpace(ffData.Format.Tags.get("PERFORMER")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
 			"COMPOSER": {
@@ -165,8 +181,8 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			"DESCRIPTION/SUMMARY": {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
+			"SUMMARY": {
+				existing: strings.TrimSpace(ffData.Format.Tags.get("SUMMARY")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
 			},
 		}, true

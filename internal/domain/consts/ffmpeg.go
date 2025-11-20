@@ -61,7 +61,7 @@ var (
 	Cudacompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
 )
 
-// Incompatible codecs by container/extension.
+// IncompatibleCodecsForContainer by container/extension.
 var IncompatibleCodecsForContainer = map[string][]string{
 	// ISO BMFF family
 	ExtMP4: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // AV1, H.264, HEVC OK

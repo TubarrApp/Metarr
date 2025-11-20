@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,9 +94,15 @@ func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 	fd.FinalVideoPath = videoPath
 	fd.FinalMetaPath = metaPath
 
-	fmt.Fprintf(os.Stdout, "final video path: %s\n", videoPath)
-	fmt.Fprintf(os.Stdout, "final json path: %s", metaPath)
-	fmt.Fprintf(os.Stderr, "\n")
+	if _, err := fmt.Fprintf(os.Stdout, "final video path: %s\n", videoPath); err != nil {
+		logger.Pl.E("Failed to output final video path for %q due to error: %v", videoPath, err)
+	}
+	if _, err := fmt.Fprintf(os.Stdout, "final json path: %s", metaPath); err != nil {
+		logger.Pl.E("Failed to output final JSON path for %q due to error: %v", metaPath, err)
+	}
+	if _, err := fmt.Fprintf(os.Stderr, "\n"); err != nil {
+		logger.Pl.E("Failed to write final newline: %v", err)
+	}
 }
 
 // GetBaseNameWithoutExt returns the base name (without extension) of any file path.

@@ -81,6 +81,9 @@ func ValidateAndSetVideoCodec(pairs []string) error {
 	// Iterate deduped pairs
 	for _, p := range dedupPairs {
 		split := strings.Split(p, ":")
+		if len(split) < 1 {
+			return fmt.Errorf("impossible condition splitting %q", p)
+		}
 		input, err := sharedvalidation.ValidateVideoCodec(split[0]) // Safe (split returns non-empty 'p')
 		if err != nil {
 			return err
@@ -142,6 +145,9 @@ func ValidateAndSetAudioCodec(pairs []string) (err error) {
 	// Iterate deduped pairs
 	for _, p := range dedupPairs {
 		split := strings.Split(p, ":")
+		if len(split) < 1 {
+			return fmt.Errorf("impossible condition splitting %q", p)
+		}
 		input, err := sharedvalidation.ValidateAudioCodec(split[0]) // Safe (split returns non-empty 'p')
 		if err != nil {
 			return err
