@@ -83,7 +83,7 @@ func getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles []string) (vDir
 	mDirs, misplacedMFiles := validatePaths("Metadata directory", metaDirs)
 	misplacedMDirs, mFiles := validatePaths("Metadata file", metaFiles)
 
-	// Log and reassign misplaced entries
+	// Log and reassign misplaced entries.
 	for _, f := range misplacedVFiles {
 		logger.Pl.W("User entered file %q as directory, appending to video files", f)
 		vFiles = append(vFiles, f)
@@ -136,7 +136,7 @@ func sysResourceLoop(ctx context.Context, fileStr string) {
 			return
 		default:
 		}
-		// Fetch system resources and determine if processing can proceed
+		// Fetch system resources and determine if processing can proceed.
 		muResource.Lock()
 		proceed, availableMemory, CPUUsage, err := checkSysResources()
 		muResource.Unlock()
@@ -157,7 +157,7 @@ func sysResourceLoop(ctx context.Context, fileStr string) {
 			break
 		}
 
-		// Log resource info only once when insufficient resources are detected
+		// Log resource info only once when insufficient resources are detected.
 		if !resourceMsg {
 			logger.Pl.I("Not enough system resources to process %s, waiting...", fileStr)
 			logger.Pl.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(consts.MB), CPUUsage)
@@ -174,47 +174,21 @@ func sysResourceLoop(ctx context.Context, fileStr string) {
 
 // checkAvailableMemory checks if enough memory is available (at least the threshold).
 func checkSysResources() (proceed bool, availMem uint64, cpuUsagePct float64, err error) {
-	requiredMemory := abstractions.GetUint64(keys.MinFreeMem) // Default 0
-	maxCPUUsage := abstractions.GetFloat64(keys.MaxCPU)       // Default 101.0
+	requiredMemory := abstractions.GetUint64(keys.MinFreeMem) // Default 0.
+	maxCPUUsage := abstractions.GetFloat64(keys.MaxCPU)       // Default 101.0.
 
 	vMem, err := mem.VirtualMemory()
 	if err != nil {
 		return false, 0, 0, err
 	}
 
-	cpuPct, err := cpu.Percent(0, false) // "false" outputs average across all cores
+	cpuPct, err := cpu.Percent(0, false) // "false" outputs average across all cores.
 	if err != nil {
 		return false, 0, 0, err
 	}
 
 	return (vMem.Available >= requiredMemory && cpuPct[0] <= maxCPUUsage), vMem.Available, cpuPct[0], nil
 }
-
-// // cleanupTempFiles removes temporary files
-// func cleanupTempFiles(files map[string]*models.FileData) error {
-
-// 	var (
-// 		errReturn error
-// 		path      string
-// 	)
-
-// 	if len(files) == 0 {
-// 		logger.Pl.D(3, "No temporary files to clean up")
-// 		return nil
-// 	}
-
-// 	for _, data := range files {
-// 		path = data.TempOutputFilePath
-// 		if _, err := os.Stat(path); err == nil {
-// 			fmt.Fprintf(os.Stderr, "Removing temp file: %s\n", path)
-// 			err = os.Remove(path)
-// 			if err != nil {
-// 				errReturn = fmt.Errorf("error removing temp file: %w", err)
-// 			}
-// 		}
-// 	}
-// 	return errReturn
-// }
 
 // printProgress creates a printout of the current process completion status.
 func printProgress(fileType string, current, total int32, directory string) {

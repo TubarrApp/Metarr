@@ -17,7 +17,7 @@ func fillNFOWebData(fd *models.FileData) (filled bool) {
 		consts.NURL: &w.WebpageURL,
 	}
 
-	// Post-unmarshal clean
+	// Post-unmarshal clean.
 	cleanEmptyFields(fieldMap)
 	printMap := make(map[string]string, len(fieldMap))
 

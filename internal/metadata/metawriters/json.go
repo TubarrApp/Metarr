@@ -60,12 +60,12 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 		}
 	}()
 
-	// Seek start
+	// Seek start.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	// Decode to map
+	// Decode to map.
 	decoder := json.NewDecoder(file)
 	poolData := metaMapPool.Get().(map[string]any)
 	clear(poolData)
@@ -103,11 +103,11 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 		return nil, errors.New("field map passed in nil")
 	}
 
-	// Create a copy of the current metadata
+	// Create a copy of the current metadata.
 	currentMeta := rw.copyMeta()
 	logger.Pl.D(4, "Entering WriteMetadata for file %q", rw.File.Name())
 
-	// Update metadata with new fields
+	// Update metadata with new fields.
 	updated := false
 	for k, ptr := range fieldMap {
 		if ptr == nil {
@@ -131,20 +131,20 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 		}
 	}
 
-	// Return if no updates
+	// Return if no updates.
 	if !updated {
 		logger.Pl.D(2, "No fields were updated")
 		return currentMeta, nil
 	}
 
-	// Backup if option set
+	// Backup if option set.
 	if abstractions.GetBool(keys.NoFileOverwrite) {
 		if err := file.BackupFile(rw.File); err != nil {
 			return currentMeta, fmt.Errorf("failed to create backup: %w", err)
 		}
 	}
 
-	// Write file
+	// Write file.
 	if err := rw.writeJSONToFile(rw.File, currentMeta); err != nil {
 		return currentMeta, err
 	}
@@ -166,7 +166,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 	mtp := parsing.NewMetaTemplateParser(file.Name())
 	ops := fd.MetaOps
 
-	// 1. Set fields first (establishes baseline values)
+	// 1. Set fields first (establishes baseline values).
 	if len(ops.SetFields) > 0 {
 		logger.Pl.I("Model for file %q applying new field additions", fd.OriginalVideoPath)
 		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, ops.SetFields, mtp); err != nil {
@@ -176,7 +176,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
-	// 2. Copy/Paste operations (move data between fields)
+	// 2. Copy/Paste operations (move data between fields).
 	if len(ops.CopyToFields) > 0 {
 		logger.Pl.I("Model for file %q copying to fields", ops.CopyToFields)
 		if changesMade := rw.copyToField(currentMeta, ops.CopyToFields); changesMade {
@@ -191,7 +191,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
-	// 3. Replace operations (modify existing content)
+	// 3. Replace operations (modify existing content).
 	if len(ops.Replaces) > 0 {
 		logger.Pl.I("Model for file %q making replacements", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSON(currentMeta, ops.Replaces, mtp); changesMade {
@@ -213,7 +213,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
-	// 4. Add content (prefix/append)
+	// 4. Add content (prefix/append).
 	if len(ops.Prefixes) > 0 {
 		logger.Pl.I("Model for file %q adding prefixes", fd.OriginalVideoPath)
 		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes, mtp); changesMade {
@@ -233,12 +233,12 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		return false, nil
 	}
 
-	// Write new metadata to file
+	// Write new metadata to file.
 	if err := rw.writeJSONToFile(file, currentMeta); err != nil {
 		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
 	}
 
-	// Save the meta back into the model
+	// Save the meta back into the model.
 	rw.updateMeta(currentMeta)
 	logger.Pl.S("Successfully applied metadata edits to: %v", file.Name())
 
@@ -256,7 +256,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	logger.Pl.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
 
-	// Delete date tag first, user's may want to delete and re-build
+	// Delete date tag first, user's may want to delete and re-build.
 	if len(fd.MetaOps.DeleteDateTags) > 0 {
 		logger.Pl.I("Stripping metafield date tags (User entered: %v)", fd.MetaOps.DeleteDateTags)
 
@@ -267,7 +267,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 		}
 	}
 
-	// Add date tag
+	// Add date tag.
 	if len(fd.MetaOps.DateTags) > 0 {
 		logger.Pl.I("Adding metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
 
@@ -283,7 +283,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 		return false, nil
 	}
 
-	// Write back to file
+	// Write back to file.
 	if err = rw.writeJSONToFile(file, currentMeta); err != nil {
 		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
 	}
@@ -308,14 +308,14 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 		}
 		if val, exists := j[r.Field]; exists {
 			if strVal, ok := val.(string); ok {
-				// Fill tag
+				// Fill tag.
 				result, isTemplate := mtp.FillMetaTemplateTag(r.Replacement, j)
 				if result == r.Replacement && isTemplate {
 					continue
 				}
 				r.Replacement = result
 
-				// Process
+				// Process.
 				logger.Pl.D(3, "Identified field %q, replacing %q with %q", r.Field, r.Value, r.Replacement)
 				j[r.Field] = strings.ReplaceAll(strVal, r.Value, r.Replacement)
 				edited = true
@@ -340,14 +340,14 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaRepl
 		}
 		if val, exists := j[rp.Field]; exists {
 			if strVal, ok := val.(string); ok {
-				// Fill tag
+				// Fill tag.
 				result, isTemplate := mtp.FillMetaTemplateTag(rp.Prefix, j)
 				if result == rp.Prefix && isTemplate {
 					continue
 				}
 				rp.Prefix = result
 
-				// Process
+				// Process.
 				if !strings.HasPrefix(strVal, rp.Prefix) {
 					logger.Pl.D(3, "Metafield %q does not contain prefix %q, not making replacement", strVal, rp.Prefix)
 					continue
@@ -376,14 +376,14 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaRepl
 		}
 		if val, exists := j[rs.Field]; exists {
 			if strVal, ok := val.(string); ok {
-				// Fill tag
+				// Fill tag.
 				result, isTemplate := mtp.FillMetaTemplateTag(rs.Suffix, j)
 				if result == rs.Suffix && isTemplate {
 					continue
 				}
 				rs.Suffix = result
 
-				// Process
+				// Process.
 				if !strings.HasSuffix(strVal, rs.Suffix) {
 					logger.Pl.D(3, "Metafield %q does not contain suffix %q, not making replacement", strVal, rs.Suffix)
 					continue
@@ -404,7 +404,7 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 
 	if len(apnd) == 0 {
 		logger.Pl.E("No new suffixes to append for file %q", file)
-		return false // No replacements to apply
+		return false // No replacements to apply.
 	}
 	for _, a := range apnd {
 		if a.Field == "" || a.Append == "" {
@@ -412,14 +412,14 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 		}
 		if value, exists := j[a.Field]; exists {
 			if strVal, ok := value.(string); ok {
-				// Fill tag
+				// Fill tag.
 				result, isTemplate := mtp.FillMetaTemplateTag(a.Append, j)
 				if result == a.Append && isTemplate {
 					continue
 				}
 				a.Append = result
 
-				// Process
+				// Process.
 				logger.Pl.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
 				strVal += a.Append
 				j[a.Field] = strVal
@@ -437,7 +437,7 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 
 	if len(pfx) == 0 {
 		logger.Pl.E("No new prefix replacements found for file %q", file)
-		return false // No replacements to apply
+		return false // No replacements to apply.
 	}
 	for _, p := range pfx {
 		if p.Field == "" || p.Prefix == "" {
@@ -445,14 +445,14 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 		}
 		if value, found := j[p.Field]; found {
 			if strVal, ok := value.(string); ok {
-				// Fill tag
+				// Fill tag.
 				result, isTemplate := mtp.FillMetaTemplateTag(p.Prefix, j)
 				if result == p.Prefix && isTemplate {
 					continue
 				}
 				p.Prefix = result
 
-				// Process
+				// Process.
 				logger.Pl.D(3, "Identified input JSON field '%v', adding prefix '%v'", p.Field, p.Prefix)
 				strVal = p.Prefix + strVal
 				j[p.Field] = strVal
@@ -495,7 +495,7 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 		}
 		n.Value, _ = mtp.FillMetaTemplateTag(n.Value, j)
 
-		// If field doesn't exist at all, add it
+		// If field doesn't exist at all, add it.
 		if _, exists := j[n.Field]; !exists {
 			j[n.Field] = n.Value
 			processedFields[n.Field] = true
@@ -503,10 +503,10 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 			continue
 		}
 
-		// Field already exists, check with user
+		// Field already exists, check with user.
 		if !metaOW {
 
-			// Check for cancellation
+			// Check for cancellation.
 			select {
 			case <-rw.ctx.Done():
 				return false, fmt.Errorf("operation canceled: %w", rw.ctx.Err())
@@ -559,17 +559,17 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 				}
 
 				switch {
-				case metaOW: // EXISTS and FieldOverwrite is set
+				case metaOW: // EXISTS and FieldOverwrite is set.
 					j[n.Field] = n.Value
 					processedFields[n.Field] = true
 					newAddition = true
 
-				case metaPS: // EXISTS and FieldPreserve is set
+				case metaPS: // EXISTS and FieldPreserve is set.
 					continue
 				}
 			}
 		} else {
-			// Field does not exist or overwrite is true
+			// Field does not exist or overwrite is true.
 			j[n.Field] = n.Value
 			processedFields[n.Field] = true
 			newAddition = true
@@ -589,7 +589,7 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 	}
 	logger.Pl.D(2, "Adding metadata date tags for %q...", fd.MetaFilePath)
 
-	// Add date tags
+	// Add date tags.
 	for fld, d := range addDateTag {
 		val, exists := j[fld]
 		if !exists {
@@ -602,7 +602,7 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 			continue
 		}
 
-		// Generate the date tag
+		// Generate the date tag.
 		tag, err := dates.MakeDateTag(j, fd, d.Format)
 		if err != nil {
 			return false, fmt.Errorf("failed to generate date tag for field %q: %w", fld, err)
@@ -612,13 +612,13 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 			continue
 		}
 
-		// Check if tag already exists
+		// Check if tag already exists.
 		if strings.Contains(strVal, tag) {
 			logger.Pl.I("Tag %q already exists in field %q", tag, strVal)
 			continue
 		}
 
-		// Apply the tag based on location
+		// Apply the tag based on location.
 		var result string
 		switch d.Loc {
 		case enums.DateTagLocPrefix:
@@ -730,14 +730,14 @@ func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromF
 // Map buffer.
 var metaMapPool = sync.Pool{
 	New: func() any {
-		return make(map[string]any, 81) // 81 objects in tested JSON file received from yt-dlp
+		return make(map[string]any, 81) // 81 objects in tested JSON file received from yt-dlp.
 	},
 }
 
 // JSON pool buffer.
 var jsonBufferPool = sync.Pool{
 	New: func() any {
-		return bytes.NewBuffer(make([]byte, 0, 4096)) // i.e. 4KiB
+		return bytes.NewBuffer(make([]byte, 0, 4096)) // i.e. 4KiB.
 	},
 }
 
@@ -750,21 +750,21 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 		return errors.New("JSON metadata passed in nil")
 	}
 
-	// Get buffer from pool
+	// Get buffer from pool.
 	buf := jsonBufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer jsonBufferPool.Put(buf)
 
-	// Create encoder each time (cheap operation)
+	// Create encoder each time (cheap operation).
 	encoder := json.NewEncoder(buf)
 	encoder.SetIndent("", "  ")
 
-	// Marshal data
+	// Marshal data.
 	if err := encoder.Encode(j); err != nil {
 		return fmt.Errorf("marshal error: %w", err)
 	}
 
-	// Begin file ops
+	// Begin file ops.
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
@@ -782,12 +782,12 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 		}
 	}()
 
-	// Seek file start
+	// Seek file start.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek to beginning of file: %w", err)
 	}
 
-	// File ops
+	// File ops.
 	if err := file.Truncate(0); err != nil {
 		return fmt.Errorf("failed to truncate file: %w", err)
 	}
@@ -796,7 +796,7 @@ func (rw *JSONFileRW) writeJSONToFile(file *os.File, j map[string]any) error {
 		return fmt.Errorf("failed to write to file: %w", err)
 	}
 
-	// Ensure changes are persisted
+	// Ensure changes are persisted.
 	if err := file.Sync(); err != nil {
 		return fmt.Errorf("failed to sync file: %w", err)
 	}

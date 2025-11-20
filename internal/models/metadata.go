@@ -27,7 +27,7 @@ type MetaOps struct {
 // This ensures all map fields are non-nil and ready to use.
 func NewMetaOps() *MetaOps {
 	return &MetaOps{
-		// Initialize all maps to prevent nil map panics
+		// Initialize all maps to prevent nil map panics.
 		SetOverrides:     make(map[enums.OverrideMetaType]string),
 		ReplaceOverrides: make(map[enums.OverrideMetaType]MOverrideReplacePair),
 		AppendOverrides:  make(map[enums.OverrideMetaType]string),

@@ -163,12 +163,12 @@ func (fp *fileProcessor) process() error {
 		return nil
 	}
 
-	// Handle renaming
+	// Handle renaming.
 	if err := fp.handleRenaming(); err != nil {
 		return err
 	}
 
-	// Write changes and handle final operations
+	// Write changes and handle final operations.
 	logger.Pl.I("Writing final file transformations to filesystem...")
 	if err := fp.writeResult(); err != nil {
 		return err
@@ -195,18 +195,18 @@ func (fp *fileProcessor) writeResult() error {
 		}
 	}
 
-	// Determine final paths based on whether files were moved
+	// Determine final paths based on whether files were moved.
 	var finalVideoPath, finalMetaPath string
 
 	if abstractions.IsSet(keys.OutputDirectory) {
-		// Parse output directory to get final paths
+		// Parse output directory to get final paths.
 		prs := parsing.NewDirectoryParser(fp.fd)
 		dst, err := prs.ParseDirectory(abstractions.GetString(keys.OutputDirectory))
 		if err != nil {
 			return fmt.Errorf("failed to parse output directory for final paths: %w", err)
 		}
 
-		// Files will be moved to output directory
+		// Files will be moved to output directory.
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
@@ -218,14 +218,14 @@ func (fp *fileProcessor) writeResult() error {
 			finalMetaPath = filepath.Join(dst, filepath.Base(fp.fd.RenamedMetaPath))
 		}
 	} else {
-		// Files remain in place after rename (no move operation)
+		// Files remain in place after rename (no move operation).
 		finalVideoPath = fp.fd.RenamedVideoPath
 		if !deletedMeta {
 			finalMetaPath = fp.fd.RenamedMetaPath
 		}
 	}
 
-	// Set final paths at this terminal boundary
+	// Set final paths at this terminal boundary.
 	fp.fd.SetFinalPaths(finalVideoPath, finalMetaPath)
 
 	return nil
@@ -239,27 +239,27 @@ func (fp *fileProcessor) handleRenaming() error {
 	videoBase := parsing.GetBaseNameWithoutExt(fp.fd.PostFFmpegVideoPath)
 	originalVPath := fp.fd.PostFFmpegVideoPath
 
-	// Get ext
+	// Get ext.
 	vidExt := fp.determineVideoExtension(originalVPath)
 
-	// Rename
+	// Rename.
 	renamedVideo, renamedMeta, err := fp.processRenames(videoBase, metaBase)
 	if err != nil {
 		return err
 	}
 
-	// Fix contractions
+	// Fix contractions.
 	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoPath, fp.style); err != nil {
 		return fmt.Errorf("failed to fix contractions for %s. error: %w", renamedVideo, err)
 	}
 
-	// Add tags and trim
+	// Add tags and trim.
 	renamedVideo = strings.TrimSpace(renamedVideo)
 	renamedMeta = strings.TrimSpace(renamedMeta)
 
 	logger.Pl.D(2, "Rename replacements:\nVideo: %v\nMetafile: %v", renamedVideo, renamedMeta)
 
-	// Construct and validate final paths
+	// Construct and validate final paths.
 	if err := fp.constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, filepath.Ext(originalMPath)); err != nil {
 		return err
 	}
@@ -286,7 +286,7 @@ func (fp *fileProcessor) processRenames(videoBase, metaBase string) (renamedVide
 		if err != nil {
 			return videoBase, metaBase, err
 		}
-		renamedMeta = renamedVideo // Video name as meta base (if possible) for better consistency
+		renamedMeta = renamedVideo // Video name as meta base (if possible) for better consistency.
 		logger.Pl.D(2, "Renamed video to %q", renamedVideo)
 	} else {
 		renamedMeta, err = fp.constructNewNames(metaBase, fp.style, fp.fd)
@@ -323,7 +323,7 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		}
 	}
 
-	// Handle post-FFmpeg paths if they're set
+	// Handle post-FFmpeg paths if they're set.
 	if fp.fd.PostFFmpegVideoPath != "" && !filepath.IsAbs(fp.fd.PostFFmpegVideoPath) {
 		fp.fd.PostFFmpegVideoPath, err = filepath.Abs(fp.fd.PostFFmpegVideoPath)
 		if err != nil {
@@ -394,7 +394,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		fileBase = fp.addDateTag(fileBase, fOps.DateTag, fd.FilenameDateTag)
 	}
 
-	// Ensure uniqueness
+	// Ensure uniqueness.
 	return fp.getUniqueFilename(fileBase, initialBase)
 }
 
@@ -433,7 +433,7 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 		candidate := newBase
 		targetPath := filepath.Join(dir, candidate+ext)
 
-		// Check if target exists
+		// Check if target exists.
 		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
 			return candidate, nil
 		}
@@ -441,11 +441,11 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 		n := counter.(*atomic.Int32).Add(1)
 		candidate = fmt.Sprintf("%s (%d)", newBase, n)
 
-		// If target is the current name, use it (can overwrite self)
+		// If target is the current name, use it (can overwrite self).
 		currentPath := filepath.Join(dir, oldBase+ext)
 		newTargetPath := filepath.Join(dir, candidate+ext)
 
-		// Check if target exists
+		// Check if target exists.
 		if _, err := os.Stat(newTargetPath); os.IsNotExist(err) || newTargetPath == currentPath {
 			return candidate, nil
 		}

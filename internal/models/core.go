@@ -22,7 +22,7 @@ func NewFileData() *FileData {
 		MOther:     &MetadataOtherData{},
 	}
 
-	// Filename Ops
+	// Filename Ops.
 	if abstractions.IsSet(keys.FilenameOpsModels) {
 		if fOps, ok := abstractions.Get(keys.FilenameOpsModels).(*FilenameOps); ok {
 			fd.FilenameOps = fOps
@@ -32,7 +32,7 @@ func NewFileData() *FileData {
 	}
 	fd.EnsureFilenameOps()
 
-	// Meta Ops
+	// Meta Ops.
 	if abstractions.IsSet(keys.MetaOpsModels) {
 		if mOps, ok := abstractions.Get(keys.MetaOpsModels).(*MetaOps); ok {
 			fd.MetaOps = mOps
@@ -47,26 +47,26 @@ func NewFileData() *FileData {
 
 // FileData contains information about the file and how it should be handled.
 type FileData struct {
-	// Files & dirs
+	// Files & dirs.
 	VideoDirectory      string `json:"-" xml:"-"`
 	OriginalVideoPath   string `json:"-" xml:"-"`
-	PostFFmpegVideoPath string `json:"-" xml:"-"` // Video path after FFmpeg processing but before renaming
+	PostFFmpegVideoPath string `json:"-" xml:"-"` // Video path after FFmpeg processing but before renaming.
 
-	// Transformations
+	// Transformations.
 	FilenameDateTag  string `json:"-" xml:"-"`
 	RenamedVideoPath string `json:"-" xml:"-"`
 	RenamedMetaPath  string `json:"-" xml:"-"`
 
-	// Final paths (set only at the final boundary after all operations complete)
-	FinalVideoPath string `json:"-" xml:"-"` // True final video path after all transformations
-	FinalMetaPath  string `json:"-" xml:"-"` // True final metadata path after all transformations
+	// Final paths (set only at the final boundary after all operations complete).
+	FinalVideoPath string `json:"-" xml:"-"` // True final video path after all transformations.
+	FinalMetaPath  string `json:"-" xml:"-"` // True final metadata path after all transformations.
 
-	// Metafile paths
+	// Metafile paths.
 	MetaDirectory string `json:"-" xml:"-"`
 	MetaFilePath  string `json:"-" xml:"-"`
 	MetaFileType  string `json:"-" xml:"-"`
 
-	// Metadata
+	// Metadata.
 	MCredits   *MetadataCredits     `json:"meta_credits" xml:"credits"`
 	MTitleDesc *MetadataTitlesDescs `json:"meta_title_description" xml:"titles"`
 	MDates     *MetadataDates       `json:"meta_dates" xml:"dates"`
@@ -75,13 +75,13 @@ type FileData struct {
 	MOther     *MetadataOtherData   `json:"meta_other_data" xml:"other"`
 	NFOData    *NFOData
 
-	// Meta transformations
+	// Meta transformations.
 	MetaOps *MetaOps
 
-	// File transformations
+	// File transformations.
 	FilenameOps *FilenameOps
 
-	// Misc
+	// Misc.
 	MetaAlreadyExists    bool `json:"-" xml:"-"`
 	ModelMOverwrite      bool
 	HasEmbeddedThumbnail bool

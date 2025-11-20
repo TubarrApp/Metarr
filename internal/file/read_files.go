@@ -18,11 +18,11 @@ import (
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops.
 func InitFetchFilesVars() (err error) {
-	// Handle video extension input
+	// Handle video extension input.
 	inVExts := abstractions.GetStringSlice(keys.InputVExts)
 	inMExts := abstractions.GetStringSlice(keys.InputMExts)
 
-	// Check slice for "all"
+	// Check slice for "all".
 	allV := false
 	allM := false
 	if slices.Contains(inVExts, "all") {
@@ -32,14 +32,14 @@ func InitFetchFilesVars() (err error) {
 		allM = true
 	}
 
-	// Set video map
+	// Set video map.
 	for k := range lookupmaps.AllVidExtensions {
-		// Set all true
+		// Set all true.
 		if allV {
 			lookupmaps.AllVidExtensions[k] = true
 			continue
 		}
-		// Selective set
+		// Selective set.
 		for _, ve := range inVExts {
 			if k == ve {
 				lookupmaps.AllVidExtensions[k] = true
@@ -47,14 +47,14 @@ func InitFetchFilesVars() (err error) {
 		}
 	}
 
-	// Set meta map
+	// Set meta map.
 	for k := range lookupmaps.AllMetaExtensions {
-		// Set all true
+		// Set all true.
 		if allM {
 			lookupmaps.AllMetaExtensions[k] = true
 			continue
 		}
-		// Selective set
+		// Selective set.
 		for _, me := range inMExts {
 			if k == me {
 				lookupmaps.AllMetaExtensions[k] = true
@@ -72,7 +72,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	}
 	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), lookupmaps.AllVidExtensions)
 
-	// Iterate over video files in directory
+	// Iterate over video files in directory.
 	videoFiles := make(map[string]*models.FileData, len(files))
 	for _, file := range files {
 		// Text filters
@@ -97,7 +97,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 			}
 		}
 
-		// Other checks (is not a directory, has a video extension, is not a Metarr backup)
+		// Other checks (is not a directory, has a video extension, is not a Metarr backup).
 		if !file.IsDir() && hasFileExtension(file.Name(), lookupmaps.AllVidExtensions) {
 			videoFilenameBase := filepath.Base(file.Name())
 
@@ -128,13 +128,13 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	}
 	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", metaDir.Name(), lookupmaps.AllMetaExtensions)
 
-	// Iterate over metadata files in directory
+	// Iterate over metadata files in directory.
 	metaFiles := make(map[string]*models.FileData, len(files))
 	for _, file := range files {
 		ext := filepath.Ext(file.Name())
 		logger.Pl.D(3, "Checking file %q with extension %q", file.Name(), ext)
 
-		// Text filters
+		// Text filters.
 		if abstractions.IsSet(keys.FilePrefixes) {
 			if !matchesFilenameFilter(file.Name(), abstractions.GetStringSlice(keys.FilePrefixes), strings.HasPrefix) {
 				continue
@@ -161,14 +161,14 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			continue
 		}
 
-		// Check extensions
+		// Check extensions.
 		m := models.NewFileData()
 		metaFilenameBase := filepath.Base(file.Name())
 		metaBaseName := parsing.GetBaseNameWithoutExt(metaFilenameBase)
 
 		filePath := filepath.Join(metaDir.Name(), file.Name())
 
-		// Check if valid metafile is present
+		// Check if valid metafile is present.
 		for k := range lookupmaps.AllMetaExtensions {
 			if ext == k {
 				logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), file.Name())
@@ -178,7 +178,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 			}
 		}
 
-		// Skip if it's a Metarr-generated backup file
+		// Skip if it's a Metarr-generated backup file.
 		if !strings.Contains(metaBaseName, consts.BackupTag) {
 			metaFiles[file.Name()] = m
 		} else {
@@ -216,7 +216,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	filename := metaFile.Name()
 	dir := filepath.Dir(metaFile.Name())
 
-	// Check if valid metafile is present
+	// Check if valid metafile is present.
 	for k := range lookupmaps.AllMetaExtensions {
 		if ext == k {
 			logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
@@ -234,14 +234,14 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, batchID int64) (map[string]*models.FileData, error) {
 	logger.Pl.D(3, "Entering metadata and video file matching loop...")
 
-	// Pre-process metaFiles into a lookup map
+	// Pre-process metaFiles into a lookup map.
 	metaLookup := make(map[string]*models.FileData, len(metaFiles))
 	for metaFilename, metaFileData := range metaFiles {
 		baseKey := NormalizeFilename(TrimMetafileSuffixes(metaFilename, ""))
 		metaLookup[baseKey] = metaFileData
 	}
 
-	// Find metadata file matches for video files
+	// Find metadata file matches for video files.
 	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
 	for videoFilename := range videoFiles {
 		videoData := videoFiles[videoFilename]
@@ -252,7 +252,7 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, b
 		videoBase := parsing.GetBaseNameWithoutExt(videoFilename)
 		normalizedVideoBase := NormalizeFilename(videoBase)
 
-		if fileData, exists := metaLookup[normalizedVideoBase]; exists && fileData != nil { // This checks if the key exists in the metaLookup map
+		if fileData, exists := metaLookup[normalizedVideoBase]; exists && fileData != nil { // This checks if the key exists in the metaLookup map.
 			matchedFiles[videoFilename] = videoData
 			matchedFiles[videoFilename].MetaFilePath = fileData.MetaFilePath
 			matchedFiles[videoFilename].MetaDirectory = fileData.MetaDirectory

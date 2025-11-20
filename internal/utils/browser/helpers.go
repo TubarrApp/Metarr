@@ -20,7 +20,7 @@ func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort,
 		port  string
 	)
 
-	// Detect and remove protocol if present
+	// Detect and remove protocol if present.
 	switch {
 	case strings.HasPrefix(u, https):
 		u = strings.TrimPrefix(u, https)
@@ -30,7 +30,7 @@ func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort,
 		proto = http
 	}
 
-	// Extract port if present and remove from main URL
+	// Extract port if present and remove from main URL.
 	if colIdx := strings.Index(u, ":"); colIdx != -1 {
 		portPart := u[colIdx:]
 		parts := strings.SplitN(portPart, "/", 2)
@@ -40,19 +40,19 @@ func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort,
 		u = u[:colIdx]
 	}
 
-	// Prepare URL for parsing
+	// Prepare URL for parsing.
 	parseProto := proto
 	if parseProto == "" {
 		parseProto = https
 	}
 
-	// Parse the URL
+	// Parse the URL.
 	parsedURL, err := url.Parse(parseProto + u)
 	if err != nil {
 		return makeURLStrings(proto, u, port)
 	}
 
-	// Get the host and extract domain
+	// Get the host and extract domain.
 	host := parsedURL.Hostname()
 	domain, err := publicsuffix.EffectiveTLDPlusOne(host)
 	if err != nil {
@@ -62,32 +62,32 @@ func ExtractDomainName(u string) (withProtocol, noProtocol, withProtocolAndPort,
 	return makeURLStrings(proto, domain, port)
 }
 
-// Private /////////////////////////////////////////////
+// ** Private ************************************************************************************************************************************
 
 // makeURLStrings builds the URL strings using strings.Builder.
 func makeURLStrings(proto, domain, port string) (withProtocol, noProtocol, withProtocolAndPort, noProtocolWithPort string) {
 	var b strings.Builder
 
-	// Calculate maximum capacity needed
+	// Calculate maximum capacity needed.
 	maxLen := len(proto) + len(domain) + len(port)
 
-	// Build withProtocol
+	// Build withProtocol.
 	b.Grow(maxLen)
 	b.WriteString(proto)
 	b.WriteString(domain)
 	withProtocol = b.String()
 
-	// Build withProtocolAndPort
+	// Build withProtocolAndPort.
 	b.WriteString(port)
 	withProtocolAndPort = b.String()
 
-	// Build noProtocol
+	// Build noProtocol.
 	b.Reset()
 	b.Grow(maxLen)
 	b.WriteString(domain)
 	noProtocol = b.String()
 
-	// Build noProtocolWithPort
+	// Build noProtocolWithPort.
 	b.WriteString(port)
 	noProtocolWithPort = b.String()
 

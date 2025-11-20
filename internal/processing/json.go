@@ -39,7 +39,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 
-	// Open the file
+	// Open the file.
 	file, err := os.OpenFile(filePath, os.O_RDWR, 0o644)
 	if err != nil {
 		vars.AddToErrorArray(err)
@@ -51,10 +51,10 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		}
 	}()
 
-	// Grab and store metadata reader/writer
+	// Grab and store metadata reader/writer.
 	jsonRW := metawriters.NewJSONFileRW(ctx, file)
 
-	// Decode metadata from file
+	// Decode metadata from file.
 	data, err := jsonRW.DecodeJSON(file)
 	if err != nil {
 		return err
@@ -63,7 +63,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		return fmt.Errorf("json decoded nil for file %q", file.Name())
 	}
 
-	// Get web data first (before MakeMetaEdits in case of transformation presets)
+	// Get web data first (before MakeMetaEdits in case of transformation presets).
 	gotWebData := fieldsjson.FillWebpageDetails(fd, data)
 	if gotWebData {
 		logger.Pl.I("URLs grabbed: %s", fd.MWebData.TryURLs)
@@ -74,7 +74,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		}
 	}
 
-	// Make metadata adjustments per user selection or transformation preset
+	// Make metadata adjustments per user selection or transformation preset.
 	if edited, err := jsonRW.MakeJSONEdits(file, fd); err != nil {
 		return err
 	} else if edited {
@@ -84,7 +84,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		}
 	}
 
-	// Fill timestamps and make/delete date tag amendments
+	// Fill timestamps and make/delete date tag amendments.
 	if ok = fieldsjson.FillTimestamps(fd, data, jsonRW); !ok {
 		logger.Pl.I("No date metadata found")
 	}
@@ -92,7 +92,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		dates.FormatAllDates(fd)
 	}
 
-	// Make date tag edits if meta ops requires it
+	// Make date tag edits if meta ops requires it.
 	if len(fd.MetaOps.DateTags) > 0 || len(fd.MetaOps.DeleteDateTags) > 0 {
 		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
@@ -104,13 +104,13 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		logger.Pl.D(4, "Skipping making metadata date tag edits, key not set")
 	}
 
-	// Must refresh JSON again after further edits
+	// Must refresh JSON again after further edits.
 	data, err = jsonRW.RefreshJSON()
 	if err != nil {
 		return err
 	}
 
-	// Fill other metafields
+	// Fill other metafields.
 	if data, ok = fieldsjson.FillJSONFields(fd, data, jsonRW); !ok {
 		logger.Pl.D(2, "Some metafields were unfilled")
 	}
@@ -118,7 +118,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 	// Construct date tag:
 	logger.Pl.D(1, "About to make date tag for: %v", file.Name())
 
-	// Make date tag and apply to model if necessary
+	// Make date tag and apply to model if necessary.
 	if fd.FilenameOps != nil && fd.FilenameOps.DateTag.DateFormat != enums.DateFmtSkip {
 		if dateTag, err := dates.MakeDateTag(data, fd, fd.FilenameOps.DateTag.DateFormat); err != nil {
 			logger.Pl.E("Failed to make date tag: %v", err)
@@ -129,7 +129,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 		}
 	}
 
-	// Check if metadata is already existent in target file
+	// Check if metadata is already existent in target file.
 	if filetypeMetaCheckSwitch(ctx, fd) {
 		logger.Pl.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
 		fd.MetaAlreadyExists = true

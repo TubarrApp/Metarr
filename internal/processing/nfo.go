@@ -33,7 +33,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) error {
 	fileMutex.Lock()
 	defer fileMutex.Unlock()
 
-	// Open the file
+	// Open the file.
 	file, err := os.OpenFile(fd.MetaFilePath, os.O_RDWR, 0o644)
 	if err != nil {
 		vars.AddToErrorArray(err)
@@ -51,7 +51,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) error {
 	if err != nil || nfoData == nil {
 		logger.Pl.E("Failed to decode metadata from file: %v", err)
 	} else {
-		// Store NFO data in model
+		// Store NFO data in model.
 		fd.NFOData = nfoData
 	}
 
@@ -68,7 +68,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) error {
 		fd.NFOData = data
 	}
 
-	// Fill to file metadata
+	// Fill to file metadata.
 	if ok := fieldsnfo.FillNFO(fd); !ok {
 		logger.Pl.E("No metadata filled from NFO file...")
 	}

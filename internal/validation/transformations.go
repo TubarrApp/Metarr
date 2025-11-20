@@ -116,7 +116,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 					return err
 				}
 				ops.DateTags[field] = models.MetaDateTag{
-					// Don't need field, using map
+					// Don't need field, using map.
 					Loc:    dateTagLocation,
 					Format: e,
 				}
@@ -142,7 +142,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 					return err
 				}
 				ops.DeleteDateTags[field] = models.MetaDeleteDateTag{
-					// Don't need field, using map
+					// Don't need field, using map.
 					Loc:    dateTagLocation,
 					Format: e,
 				}
@@ -183,7 +183,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 	}
 	logger.Pl.I("Added %d meta operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 
-	// Set values into Viper
+	// Set values into Viper.
 	abstractions.Set(keys.MetaOpsModels, ops)
 	return nil
 }
@@ -329,12 +329,13 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	}
 	logger.Pl.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
 
-	// Set values into Viper
+	// Set values into Viper.
 	abstractions.Set(keys.FilenameOpsModels, fOpModel)
 	return nil
 }
 
-// ---- Private ----------------------------------------------------------------------------------------------------
+// ** Private ************************************************************************************************************************************
+
 // dateEnum returns the date format enum type.
 func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 	if len(dateFmt) < 2 || len(dateFmt) > 3 {
@@ -363,7 +364,7 @@ func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
 	case "dm":
 		return enums.DateDdMm, nil
 
-		// Else, invalid operation
+		// Else, invalid operation.
 	default:
 		return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
 	}

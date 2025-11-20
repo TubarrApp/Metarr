@@ -7,7 +7,7 @@ import (
 
 // addFilenameReplacements adds suffix and prefix replacements to FileData without duplicates.
 func addFilenameReplacements(fd *models.FileData, suffixes []models.FOpReplaceSuffix, prefixes []models.FOpReplacePrefix) {
-	// Add suffixes
+	// Add suffixes.
 	for _, newSuffix := range suffixes {
 		exists := false
 		for _, existing := range fd.FilenameOps.ReplaceSuffixes {
@@ -23,7 +23,7 @@ func addFilenameReplacements(fd *models.FileData, suffixes []models.FOpReplaceSu
 		}
 	}
 
-	// Add prefixes
+	// Add prefixes.
 	for _, newPrefix := range prefixes {
 		exists := false
 		for _, existing := range fd.FilenameOps.ReplacePrefixes {
@@ -46,10 +46,3 @@ func addSuffix(fd *models.FileData, suffix, replacement string) {
 		{Suffix: suffix, Replacement: replacement},
 	}, nil)
 }
-
-// // addPrefix is a convenience function to add a single prefix replacement.
-// func addPrefix(fd *models.FileData, prefix, replacement string) {
-// 	addFilenameReplacements(fd, nil, []models.FOpReplacePrefix{
-// 		{Prefix: prefix, Replacement: replacement},
-// 	})
-// }

@@ -22,7 +22,7 @@ func BackupFile(file *os.File) error {
 	backupFilePath := generateBackupFilename(originalFilePath)
 	logger.Pl.D(3, "Creating backup of file %q as %q", originalFilePath, backupFilePath)
 
-	// Current position
+	// Current position.
 	currentPos, err := file.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return fmt.Errorf("failed to get current file position: %w", err)
@@ -36,12 +36,12 @@ func BackupFile(file *os.File) error {
 	muBackup.Lock()
 	defer muBackup.Unlock()
 
-	// Seek to start for backup
+	// Seek to start for backup.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek to beginning of original file: %w", err)
 	}
 
-	// Open the backup file for writing
+	// Open the backup file for writing.
 	backupFile, err := os.Create(backupFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to create backup file: %w", err)
@@ -52,7 +52,7 @@ func BackupFile(file *os.File) error {
 		}
 	}()
 
-	// Copy the content of the original file to the backup file
+	// Copy the content of the original file to the backup file.
 	buf := make([]byte, (4 * consts.MB))
 	_, err = io.CopyBuffer(backupFile, file, buf)
 	if err != nil {
@@ -77,8 +77,10 @@ func RenameToBackup(filename string) (backupName string, err error) {
 		logger.Pl.E("filename was passed in to backup empty")
 	}
 
+	// Get backup name.
 	backupName = generateBackupFilename(filename)
 
+	// Rename existing file to backup.
 	if err := os.Rename(filename, backupName); err != nil {
 		return "", fmt.Errorf("failed to backup filename %q → %q", filename, backupName)
 	}

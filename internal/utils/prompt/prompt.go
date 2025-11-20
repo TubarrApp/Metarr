@@ -34,7 +34,7 @@ func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, er
 	logger.Pl.D(3, "Entering PromptUser dialogue...")
 
 	if decisionMade {
-		// If overwriteAll, return "Y" without waiting
+		// If overwriteAll, return "Y" without waiting.
 		if ow {
 			logger.Pl.D(3, "Overwrite all is set...")
 			return "Y", nil
@@ -47,7 +47,7 @@ func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, er
 	fmt.Fprintf(os.Stderr, "\n")
 	logger.Pl.I("%s", promptMsg)
 
-	// Wait for user input
+	// Wait for user input.
 	select {
 	case response := <-userInputChan:
 		decisionMade = true

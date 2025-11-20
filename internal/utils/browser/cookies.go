@@ -37,7 +37,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 
 	cookieFilePath := abstractions.GetString(keys.CookiePath)
 
-	// If a cookie file path is provided, use it
+	// If a cookie file path is provided, use it.
 	if cookieFilePath != "" {
 		logger.Pl.D(2, "Reading cookies from specified file: %s", cookieFilePath)
 		kookyCookies, err := readCookieFile(cookieFilePath)
@@ -47,7 +47,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 		return convertToHTTPCookies(kookyCookies), nil
 	}
 
-	// Otherwise, proceed to use browser cookie stores
+	// Otherwise, proceed to use browser cookie stores.
 	if allStores == nil || allCookies == nil || len(allCookies) == 0 {
 		initializeCookies()
 	}
@@ -73,7 +73,7 @@ func getBrowserCookies(u string) ([]*http.Cookie, error) {
 		}
 	}
 
-	// Log summary of attempted browsers
+	// Log summary of attempted browsers.
 	logger.Pl.I("Attempted to read cookies from the following browsers: %v", keysFromMap(attemptedBrowsers))
 
 	if len(allCookies) == 0 {
@@ -128,7 +128,7 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 	var store kooky.CookieStore
 	var err error
 
-	// Attempt to identify and read cookies based on known browser stores
+	// Attempt to identify and read cookies based on known browser stores.
 	switch {
 	case strings.Contains(cookieFilePath, "firefox") || strings.Contains(cookieFilePath, "cookies.sqlite"):
 		store, err = firefox.CookieStore(cookieFilePath)
@@ -147,7 +147,7 @@ func readCookieFile(cookieFilePath string) ([]*kooky.Cookie, error) {
 		return nil, fmt.Errorf("failed to create cookie store: %w", err)
 	}
 
-	// Read cookies from the store
+	// Read cookies from the store.
 	cookies, err := store.ReadCookies()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read cookies: %w", err)

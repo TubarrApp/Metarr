@@ -17,7 +17,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	d := fd.MTitleDesc
 	w := fd.MWebData
 
-	fieldMap := map[string]*string{ // Order by importance
+	fieldMap := map[string]*string{ // Order by importance.
 		consts.JLongDesc:           &d.LongDescription,
 		consts.JLongUnderscoreDesc: &d.LongUnderscoreDescription,
 		consts.JDescription:        &d.Description,
@@ -36,7 +36,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 		}()
 	}
 
-	// Attempt to fill empty description fields by inference
+	// Attempt to fill empty description fields by inference.
 	for k, ptr := range fieldMap {
 		if ptr == nil {
 			logger.Pl.E("Unexpected nil pointer in descriptions fieldMap")
@@ -71,7 +71,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 		return data, true
 	}
 
-	// Attempt to scrape description from the webpage
+	// Attempt to scrape description from the webpage.
 	if w.WebpageURL != "" {
 		description := browser.ScrapeMeta(w, enums.WebclassDescription)
 		if description != "" {
@@ -105,7 +105,7 @@ func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
 		return false
 	}
 
-	// Nil check and empty value check
+	// Nil check and empty value check.
 	switch {
 	case d.LongDescription != "":
 		*s = d.LongDescription

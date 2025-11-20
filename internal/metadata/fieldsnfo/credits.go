@@ -24,7 +24,7 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 		consts.NProducer:          &c.Producer,
 	}
 
-	// Post-unmarshal clean
+	// Post-unmarshal clean.
 	cleanEmptyFields(fieldMap)
 	printMap := make(map[string]string, len(fieldMap))
 	defer func() {

@@ -51,19 +51,19 @@ func NormalizeFilename(filename string) string {
 
 // TrimMetafileSuffixes normalizes away common metafile string suffixes.
 //
-// E.g. ".info" for yt-dlp outputted JSON files
+// E.g. ".info" for yt-dlp outputted JSON files.
 func TrimMetafileSuffixes(metaBase, videoBase string) string {
 	patterns := []struct {
 		full  string
 		noExt string
 	}{
-		// JSON
+		// JSON.
 		{".info.json", ".info"},
 		{".metadata.json", ".metadata"},
 		{".model.json", ".model"},
 		{".manifest.cdm.json", ".manifest.cdm"},
 
-		// NFO
+		// NFO.
 		{".movie.nfo", ".movie"},
 		{".tvshow.nfo", ".tvshow"},
 		{".episode.nfo", ".episode"},

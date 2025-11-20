@@ -30,13 +30,13 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 	var b strings.Builder
 	b.Grow(5000)
 
-	// Helper function to add sections
+	// Helper function to add sections.
 	addSection := func(title string, content string) {
 		b.WriteString(sharedconsts.ColorYellow + "\n" + title + ":\n" + sharedconsts.ColorReset)
 		b.WriteString(content)
 	}
 
-	// Header
+	// Header.
 	b.WriteString("\n\n================= ")
 	b.WriteString(sharedconsts.ColorCyan + "Printing metadata fields for: " + sharedconsts.ColorReset)
 	b.WriteString("'" + sharedconsts.ColorReset + filename + "'")
@@ -85,10 +85,10 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 		addSection("Other data", printStructFields(m.MOther))
 
 	case *models.NFOData:
-		// Credits section
+		// Credits section.
 		b.WriteString(sharedconsts.ColorYellow + "\nCredits:\n" + sharedconsts.ColorReset)
 
-		// Handle each slice type separately
+		// Handle each slice type separately.
 		for _, actor := range m.Actors {
 			b.WriteString(printStructFields(actor.Name))
 		}
@@ -120,7 +120,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 			printStructFields(m.ShowInfo.SeasonNumber))
 	}
 
-	// Footer
+	// Footer.
 	b.WriteString("\n\n================= ")
 	b.WriteString(sharedconsts.ColorYellow + "End metadata fields for: " + sharedconsts.ColorReset)
 	b.WriteString("'" + filename + "'")
@@ -133,7 +133,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 func printStructFields(s any) string {
 	val := reflect.ValueOf(s)
 
-	// Dereference pointer
+	// Dereference pointer.
 	if val.Kind() == reflect.Pointer {
 		val = val.Elem()
 	}
@@ -148,19 +148,19 @@ func printStructFields(s any) string {
 	b.Grow(val.NumField() * 512)
 
 	for i := 0; i < val.NumField(); i++ {
-		field := typ.Field(i)      // Get field metadata
-		fieldValue := val.Field(i) // Get field value
+		field := typ.Field(i)      // Get field metadata.
+		fieldValue := val.Field(i) // Get field value.
 
-		// Skip zero or empty fields
+		// Skip zero or empty fields.
 		if fieldValue.IsZero() {
 			b.WriteString(field.Name + sharedconsts.ColorRed + " [empty]\n" + sharedconsts.ColorReset)
 			continue
 		}
 
 		fieldName := field.Name
-		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string
+		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string.
 
-		// Append the field name and value in key-value format
+		// Append the field name and value in key-value format.
 		b.WriteString(fmt.Sprintf("%s: %s\n", fieldName, fieldValueStr))
 	}
 

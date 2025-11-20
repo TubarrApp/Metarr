@@ -20,12 +20,12 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 	c := fd.MCredits
 	w := fd.MWebData
 
-	// Order by importance
+	// Order by importance.
 	fieldMap := map[string]*string{
 		consts.JCreator:   &c.Creator,
 		consts.JPerformer: &c.Performer,
 		consts.JAuthor:    &c.Author,
-		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems
+		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems.
 		consts.JChannel:   &c.Channel,
 		consts.JDirector:  &c.Director,
 		consts.JActor:     &c.Actor,
@@ -46,13 +46,13 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		}()
 	}
 
-	// Set using override will fill all values anyway
+	// Set using override will fill all values anyway.
 	if len(fd.MetaOps.SetOverrides) == 0 {
 		if filled = unpackJSON(fieldMap, json); filled {
 			logger.Pl.D(2, "Decoded credits JSON into field map")
 		}
 
-		// Find highest priority filled element
+		// Find highest priority filled element.
 		fillWith := c.Override
 		if fillWith == "" {
 			for _, ptr := range fieldMap {
@@ -63,7 +63,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 			}
 		}
 
-		// Check if filled
+		// Check if filled.
 		for k, ptr := range fieldMap {
 			if ptr == nil {
 				logger.Pl.E("Unexpected nil pointer in credits fieldMap")
@@ -92,7 +92,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		}
 	}
 
-	// Return if data filled or no web data, else scrape
+	// Return if data filled or no web data, else scrape.
 	switch {
 	case filled:
 		rtn, err := jsonRW.WriteJSON(fieldMap)
@@ -111,7 +111,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		return json, false
 	}
 
-	// Scrape for missing data (write back to file if found)
+	// Scrape for missing data (write back to file if found).
 	credits := browser.ScrapeMeta(w, enums.WebclassCredits)
 	if credits != "" {
 		for _, value := range fieldMap {
@@ -146,7 +146,7 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 	}
 
 	filled := false
-	// Note order of operations
+	// Note order of operations.
 	if len(fd.MetaOps.ReplaceOverrides) > 0 {
 		logger.Pl.I("Overriding credits with text replacements...")
 		if m, exists := fd.MetaOps.ReplaceOverrides[enums.OverrideMetaCredits]; exists {

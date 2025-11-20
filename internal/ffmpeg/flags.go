@@ -6,20 +6,20 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
-// formatPreset holds a pre-calculated set of ffmpeg flags
+// formatPreset holds a pre-calculated set of ffmpeg flags.
 type formatPreset struct {
 	flags map[string]string
 }
 
 var unsafeHardwareEncode = map[string]map[string]bool{
-	sharedconsts.AccelTypeNvidia: {"mjpeg": true}, // hypothetical crashes
+	sharedconsts.AccelTypeNvidia: {"mjpeg": true}, // hypothetical crashes.
 	sharedconsts.AccelTypeVAAPI:  {"vp8": true, "vp9": true, "av1": true},
 	sharedconsts.AccelTypeIntel:  {"vp8": true, "vp9": true, "av1": true},
 }
 
 // Presets for transcoding.
 var (
-	// Direct copy preset
+	// Direct copy preset.
 	copyPreset = formatPreset{
 		flags: map[string]string{
 			consts.FFmpegCV0: "copy",
@@ -30,7 +30,7 @@ var (
 		},
 	}
 
-	// Standard h264 conversion
+	// Standard h264 conversion.
 	h264Preset = formatPreset{
 		flags: map[string]string{
 			consts.FFmpegCV0: "libx264",
@@ -41,7 +41,7 @@ var (
 		},
 	}
 
-	// Video copy with AAC audio
+	// Video copy with AAC audio.
 	videoCopyAACPreset = formatPreset{
 		flags: map[string]string{
 			consts.FFmpegCV0: "copy",
@@ -52,7 +52,7 @@ var (
 		},
 	}
 
-	// Full webm conversion preset
+	// Full webm conversion preset.
 	webmPreset = formatPreset{
 		flags: map[string]string{
 			consts.FFmpegCV0: "libx264",
@@ -72,23 +72,23 @@ var formatMap = map[string]map[string]formatPreset{
 		consts.ExtMOV:  videoCopyAACPreset,
 		consts.ExtRM:   webmPreset,
 		consts.ExtRMVB: webmPreset,
-		"*":            h264Preset, // default preset
+		"*":            h264Preset, // default preset.
 	},
 	consts.ExtMP4: {
 		consts.ExtMP4:  copyPreset,
 		consts.ExtMKV:  videoCopyAACPreset,
 		consts.ExtWEBM: webmPreset,
-		"*":            h264Preset,
+		"*":            h264Preset, // default preset.
 	},
 	consts.ExtMKV: {
 		consts.ExtMKV: copyPreset,
 		consts.ExtMP4: videoCopyAACPreset,
 		consts.ExtM4V: videoCopyAACPreset,
-		"*":           h264Preset,
+		"*":           h264Preset, // default preset.
 	},
 	consts.ExtWEBM: {
 		consts.ExtWEBM: copyPreset,
 		consts.ExtMP4:  copyPreset,
-		"*":            webmPreset,
+		"*":            webmPreset, // default preset.
 	},
 }

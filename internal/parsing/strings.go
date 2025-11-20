@@ -11,14 +11,14 @@ func EscapedSplit(s string, desiredSeparator rune) []string {
 	for _, r := range s {
 		switch {
 		case escaped:
-			// Always take the next character literally
+			// Always take the next character literally.
 			buf.WriteRune(r)
 			escaped = false
 		case r == '\\':
-			// Escape next character
+			// Escape next character.
 			escaped = true
 		case r == desiredSeparator:
-			// Separator
+			// Separator.
 			parts = append(parts, buf.String())
 			buf.Reset()
 		default:
@@ -26,11 +26,11 @@ func EscapedSplit(s string, desiredSeparator rune) []string {
 		}
 	}
 	if escaped {
-		// Trailing '\' treated as literal backslash
+		// Trailing '\' treated as literal backslash.
 		buf.WriteRune('\\')
 	}
 
-	// Add last segment
+	// Add last segment.
 	parts = append(parts, buf.String())
 	return parts
 }

@@ -123,7 +123,7 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 		}
 	}()
 
-	// Execute video jobs
+	// Execute video jobs.
 	for job := range jobs {
 		skipVideos := job.skipVids
 		filename := job.filename
@@ -271,22 +271,22 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 
 // executeFile handles processing for both video and metadata files.
 func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filename string, fd *models.FileData) (*models.FileData, error) {
-	// Check for context cancellation
+	// Check for context cancellation.
 	select {
 	case <-ctx.Done():
 		return nil, fmt.Errorf("did not process %q due to program cancellation", filename)
 	default:
 	}
 
-	// Print progress for metadata
+	// Print progress for metadata.
 	currentMeta := atomic.AddInt32(&bp.counts.processedMeta, 1)
 	totalMeta := atomic.LoadInt32(&bp.counts.totalMeta)
 	printProgress(typeMeta, currentMeta, totalMeta, fd.MetaDirectory)
 
-	// System resource check
+	// System resource check.
 	sysResourceLoop(ctx, filename)
 
-	// Process file based on type
+	// Process file based on type.
 	isVideoFile := fd.OriginalVideoPath != ""
 
 	if isVideoFile {
@@ -312,7 +312,7 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 		logger.Pl.S("Successfully processed metadata for %s", filename)
 	}
 
-	// Print progress for video
+	// Print progress for video.
 	currentVideo := atomic.AddInt32(&bp.counts.processedVideo, 1)
 	totalVideo := atomic.LoadInt32(&bp.counts.totalVideo)
 	printProgress(typeVideo, currentVideo, totalVideo, fd.MetaDirectory)
@@ -323,19 +323,19 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 // setupCleanup watches the context and safely cleans up batch resources on cancellation.
 func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, muFailed *sync.Mutex) {
 	go func() {
-		// Wait for context finish or cancellation
+		// Wait for context finish or cancellation.
 		<-ctx.Done()
 		logger.Pl.D(2, "Context ended, performing cleanup for batch %d", batch.bp.batchID)
 
-		// Wait for workers to finish
+		// Wait for workers to finish.
 		wg.Wait()
 
-		// Log failed videos
+		// Log failed videos.
 		muFailed.Lock()
 		batch.bp.logFailedVideos()
 		muFailed.Unlock()
 
-		// Release the batch processor back to the pool
+		// Release the batch processor back to the pool.
 		batch.bp.release()
 	}()
 }

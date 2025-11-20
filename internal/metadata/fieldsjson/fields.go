@@ -40,7 +40,7 @@ func unpackJSON(fmap map[string]*string, json map[string]any) bool {
 	filled := false
 	pmap := make(map[string]string, len(fmap))
 
-	// Match decoded JSON to field map
+	// Match decoded JSON to field map.
 	for k, ptr := range fmap {
 		if ptr == nil {
 			logger.Pl.E("fieldMap entry pointer unexpectedly nil")

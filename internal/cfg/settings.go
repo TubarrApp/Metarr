@@ -14,42 +14,42 @@ import (
 
 // init sets the initial Viper settings.
 func init() {
-	// Env vars
+	// Env vars.
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer("_", "-")) // Convert "video_directory" to "video-directory"
 
-	// Config file
+	// Config file.
 	rootCmd.PersistentFlags().String(keys.ConfigPath, "", "Specify a path to your preset configuration file")
 	if err := viper.BindPFlag(keys.ConfigPath, rootCmd.PersistentFlags().Lookup(keys.ConfigPath)); err != nil {
 		fmt.Fprintf(os.Stderr, "config file path setting failure: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Files and directories
+	// Files and directories.
 	initOrExit(initFilesDirs(),
 		"files & dirs initialization failure")
 
-	// System resource related
+	// System resource related.
 	initOrExit(initResourceRelated(),
 		"config resource element initialization failure")
 
-	// Filtering
+	// Filtering.
 	initOrExit(initFiltering(),
 		"config filtering initialization failure")
 
-	// All file transformations
+	// All file transformations.
 	initOrExit(initAllFileTransformers(),
 		"config file transformer initialization failure")
 
-	// Filename transformations
+	// Filename transformations.
 	initOrExit(initVideoTransformers(),
 		"config video transformer initialization failure")
 
-	// Metadata and metafile manipulation
+	// Metadata and metafile manipulation.
 	initOrExit(initMetaTransformers(),
 		"config meta transformer initialization failure")
 
-	// Special functions
+	// Special functions.
 	initOrExit(initProgramFunctions(),
 		"config program function initialization failure")
 }
@@ -146,7 +146,7 @@ func execute() (err error) {
 
 // initTransformations initializes text replacement flags.
 func initTransformations() error {
-	// Set rename flag
+	// Set rename flag.
 	validation.ValidateAndSetRenameFlag(viper.GetString(keys.RenameStyle))
 
 	// Validate filename operations.

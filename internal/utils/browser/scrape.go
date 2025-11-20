@@ -78,7 +78,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 		custom      bool
 	)
 
-	// Initialize the collector
+	// Initialize the collector.
 	c := colly.NewCollector(
 		colly.AllowURLRevisit(),
 		colly.MaxDepth(1),
@@ -92,7 +92,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 		}
 	}
 
-	// Define preset scraping rules if the URL matches a known pattern
+	// Define preset scraping rules if the URL matches a known pattern.
 	switch {
 	case strings.Contains(url, "bitchute.com") && !skipPresets:
 
@@ -126,12 +126,12 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 		setupGenericScraping(c, tag, &result, url)
 	}
 
-	// Error handler
+	// Error handler.
 	c.OnError(func(r *colly.Response, err error) {
 		scrapeError = fmt.Errorf("failed to scrape %s: %w", r.Request.URL, err)
 	})
 
-	// Attempt visit and wait for async scraping
+	// Attempt visit and wait for async scraping.
 	if err := c.Visit(url); err != nil {
 		return "", fmt.Errorf("unable to visit web page %q", url)
 	}
@@ -147,7 +147,7 @@ func attemptScrape(url string, cookies []*http.Cookie, tag enums.WebClassTags, s
 		}
 	}
 
-	// If custom preset was used and failed, try again with default
+	// If custom preset was used and failed, try again with default.
 	if result == "" && custom {
 		return scrape(url, cookies, tag, true)
 	}
@@ -198,7 +198,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 
 	var tags []string
 
-	// Determine the appropriate tags based on the metadata being fetched
+	// Determine the appropriate tags based on the metadata being fetched.
 	switch tag {
 	case enums.WebclassDate:
 		tags = consts.WebDateTags[:]
@@ -212,7 +212,7 @@ func setupGenericScraping(c *colly.Collector, tag enums.WebClassTags, result *st
 		return
 	}
 
-	// Set up the HTML scraper for each tag
+	// Set up the HTML scraper for each tag.
 	c.OnHTML("*", func(e *colly.HTMLElement) {
 		if *result != "" {
 			return
@@ -270,9 +270,9 @@ func looksLikeDate(text string) bool {
 
 	// Common date patterns
 	datePatterns := []string{
-		`\d{4}-\d{2}-\d{2}`,       // YYYY-MM-DD
-		`\d{1,2}/\d{1,2}/\d{2,4}`, // M/D/YY or MM/DD/YYYY
-		`(?i)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2},?\s+\d{4}`, // Month DD, YYYY
+		`\d{4}-\d{2}-\d{2}`,       // YYYY-MM-DD.
+		`\d{1,2}/\d{1,2}/\d{2,4}`, // M/D/YY or MM/DD/YYYY.
+		`(?i)(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{1,2},?\s+\d{4}`, // Month DD, YYYY.
 	}
 
 	for _, pattern := range datePatterns {
@@ -282,7 +282,7 @@ func looksLikeDate(text string) bool {
 		}
 	}
 
-	// Additional date indicators
+	// Additional date indicators.
 	dateIndicators := []string{"uploaded", "published", "created", "date:", "on"}
 	for _, indicator := range dateIndicators {
 		if strings.Contains(text, indicator) {

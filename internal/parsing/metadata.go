@@ -30,7 +30,7 @@ func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string
 
 	result, anyValid := mtp.fillMetaTemplateTagRecursive(inputStr, j)
 	if !anyValid {
-		return inputStr, true // No valid replacements, return unchanged
+		return inputStr, true // No valid replacements, return unchanged.
 	}
 	return result, true
 }
@@ -43,12 +43,12 @@ func (mtp *MetaTemplateParser) fillMetaTemplateTagRecursive(inputStr string, j m
 		return inputStr, false
 	}
 
-	// Bounds check
+	// Bounds check.
 	if openTagIdx+2 > len(inputStr) || closeTagIdx+2 > len(inputStr) {
 		return inputStr, false
 	}
 
-	// Ensure content between open and close tags
+	// Ensure content between open and close tags.
 	if openTagIdx+2 > closeTagIdx {
 		return inputStr, false
 	}
@@ -56,7 +56,7 @@ func (mtp *MetaTemplateParser) fillMetaTemplateTagRecursive(inputStr string, j m
 	tagContent := inputStr[openTagIdx+2 : closeTagIdx]
 	replacement, succeeded := mtp.fillTag(tagContent, j)
 
-	// If fillTag failed, return original with no replacement flag
+	// If fillTag failed, return original with no replacement flag.
 	if !succeeded {
 		return inputStr, false
 	}
@@ -73,7 +73,7 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 	if template == "" || j[template] == nil {
 		return "", false
 	}
-	// Search map for template key
+	// Search map for template key.
 	for k, v := range j {
 		if k == template {
 			strVal, ok := v.(string)

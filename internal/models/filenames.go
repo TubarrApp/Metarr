@@ -23,8 +23,8 @@ func NewFilenameOps() *FilenameOps {
 		ReplaceSuffixes: make([]FOpReplaceSuffix, 0),
 		ReplacePrefixes: make([]FOpReplacePrefix, 0),
 	}
-	fo.DateTag.DateFormat = enums.DateFmtSkip        // Zero value
-	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip // Zero value
+	fo.DateTag.DateFormat = enums.DateFmtSkip        // Zero value.
+	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip // Zero value.
 
 	return fo
 }
@@ -95,7 +95,7 @@ type FOpReplacePrefix struct {
 	Replacement string
 }
 
-// FOpSet can be used to set filenames. Before writing final name changes, check for duplicate filenames and use ++.
+// FOpSet can be used to set filenames. -- Before writing final name changes, check for duplicate filenames. --
 type FOpSet struct {
 	IsSet bool
 	Value string

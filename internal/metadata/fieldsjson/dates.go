@@ -19,7 +19,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 	t := fd.MDates
 	w := fd.MWebData
 
-	fieldMap := map[string]*string{ // Order by importance
+	fieldMap := map[string]*string{ // Order by importance.
 		consts.JReleaseDate:         &t.ReleaseDate,
 		consts.JOriginallyAvailable: &t.OriginallyAvailableAt,
 		consts.JDate:                &t.Date,
@@ -160,7 +160,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 	gotDate := false
 
-	// Infer from originally available date
+	// Infer from originally available date.
 	if t.OriginallyAvailableAt != "" && len(t.OriginallyAvailableAt) >= 6 {
 		gotDate = true
 
@@ -170,7 +170,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		}
 	}
 
-	// Infer from release date
+	// Infer from release date.
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
 		gotDate = true
 
@@ -184,7 +184,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		}
 	}
 
-	// Infer from date
+	// Infer from date.
 	if t.Date != "" && len(t.Date) >= 6 {
 		gotDate = true
 
@@ -198,7 +198,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		}
 	}
 
-	// Infer from upload date
+	// Infer from upload date.
 	if t.UploadDate != "" && len(t.UploadDate) >= 6 {
 
 		if !strings.ContainsRune(t.CreationTime, 'T') {
@@ -211,7 +211,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		}
 	}
 
-	// Fill empty date
+	// Fill empty date.
 	if t.Date == "" {
 		switch {
 		case t.ReleaseDate != "":
@@ -226,7 +226,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 			t.Date = t.FormattedDate
 		}
 	}
-	// Fill empty year
+	// Fill empty year.
 	if t.Year == "" {
 		switch {
 		case t.Date != "" && len(t.Date) >= 4:
@@ -243,7 +243,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		t.Year = t.Year[:4]
 	}
 
-	// Try to fix accidentally using upload date if another date is available
+	// Try to fix accidentally using upload date if another date is available.
 	if len(t.Year) == 4 && !strings.HasPrefix(t.CreationTime, t.Year) && len(t.CreationTime) >= 4 {
 
 		logger.Pl.D(1, "Creation time does not match year tag, seeing if other dates are available...")

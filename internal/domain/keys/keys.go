@@ -1,7 +1,7 @@
 // Package keys holds keys relating to terminal commands, and internal Viper/Cobra keys.
 package keys
 
-// Terminal keys
+// Terminal keys.
 const (
 	BatchPairsInput string = "batch-pairs"
 	VideoDirs       string = "video-directory"
@@ -49,28 +49,28 @@ const (
 	StripThumbnails      string = "strip-thumbnail"
 )
 
-// Primary program
+// Primary program.
 const (
 	MinFreeMem string = "minFreeMem"
 )
 
-// Files and directories
+// Files and directories.
 const (
 	MetaPurgeEnum string = "metaPurgeEnum"
 )
 
-// Filter for files
+// Filter for files.
 const (
 	InputVExts string = "inputVideoExtsEnum"
 	InputMExts string = "inputMetaExtsEnum"
 )
 
-// Filename edits
+// Filename edits.
 const (
 	Rename string = "Rename"
 )
 
-// Meta edits
+// Meta edits.
 const (
 	MOverwrite      string = "meta-overwrite"
 	MPreserve       string = "meta-preserve"

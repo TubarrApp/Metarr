@@ -60,7 +60,7 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 			logger.Pl.I("Found transformation preset for URL %q", url)
 			return url
 		default:
-			// Not yet implemented
+			// Not yet implemented.
 		}
 	}
 	return ""
@@ -124,7 +124,7 @@ func fixContractions(videoBase, metaBase string, videoFilePath string, style enu
 
 	fmt.Fprintf(os.Stderr, "After replacement - Video: %s, Meta: %s\n", videoBase, metaBase)
 
-	// Function to replace contractions in a filename
+	// Function to replace contractions in a filename.
 	replaceContractions := func(filename string) string {
 		for _, replacement := range contractionsMap {
 			repIdx := replacement.Regexp.FindStringIndex(strings.ToLower(filename))
@@ -136,7 +136,7 @@ func fixContractions(videoBase, metaBase string, videoFilePath string, style enu
 			b.Grow(len(replacement.Replacement))
 			originalContraction := filename[repIdx[0]:repIdx[1]]
 
-			// Match original case for each character in the replacement
+			// Match original case for each character in the replacement.
 			for i, char := range replacement.Replacement {
 				if i < len(originalContraction) && unicode.IsUpper(rune(originalContraction[i])) {
 					b.WriteString(strings.ToUpper(string(char)))
@@ -145,7 +145,7 @@ func fixContractions(videoBase, metaBase string, videoFilePath string, style enu
 				}
 			}
 
-			// Replace in filename with adjusted case
+			// Replace in filename with adjusted case.
 			filename = filename[:repIdx[0]] + b.String() + filename[repIdx[1]:]
 			b.Reset()
 		}
@@ -153,7 +153,7 @@ func fixContractions(videoBase, metaBase string, videoFilePath string, style enu
 		logger.Pl.D(2, "Made contraction replacements for file %q", filename)
 		return filename
 	}
-	// Trim whitespace and fix contractions in both filenames
+	// Trim whitespace and fix contractions in both filenames.
 	videoBase = strings.TrimSpace(videoBase)
 	metaBase = strings.TrimSpace(metaBase)
 
@@ -168,14 +168,14 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		logger.Pl.E("%s setString is not set for filename %q", consts.LogTagDevError, filename)
 		return filename
 	}
-	// Fill template
+	// Fill template.
 	result, _ := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
 	if result == "" {
 		logger.Pl.W("setString result was empty for template %q", setString.Value)
 		return filename
 	}
 
-	// If nothing changed, just return the original
+	// If nothing changed, just return the original.
 	if result == filename {
 		logger.Pl.D(2, "setString produced same name (%q), skipping", filename)
 		return filename
@@ -230,13 +230,13 @@ func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpRep
 	}
 
 	for _, suffix := range suffixes {
-		// Expand template tags
+		// Expand template tags.
 		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(suffix.Replacement, fp.metadata)
 		if replacement == suffix.Replacement && isTemplate {
 			continue
 		}
 
-		// Process
+		// Process.
 		if before, ok := strings.CutSuffix(filename, suffix.Suffix); ok {
 			filename = before + replacement
 			logger.Pl.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, replacement)
@@ -254,13 +254,13 @@ func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpRep
 	}
 
 	for _, prefix := range prefixes {
-		// Expand template tags
+		// Expand template tags.
 		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(prefix.Replacement, fp.metadata)
 		if replacement == prefix.Replacement && isTemplate {
 			continue
 		}
 
-		// Process
+		// Process.
 		if after, ok := strings.CutPrefix(filename, prefix.Prefix); ok {
 			filename = replacement + after
 			logger.Pl.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, replacement)
@@ -278,13 +278,13 @@ func (fp *fileProcessor) appendStrings(filename string, appends []models.FOpAppe
 	}
 
 	for _, app := range appends {
-		// Expand template tags
+		// Expand template tags.
 		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(app.Value, fp.metadata)
 		if value == app.Value && isTemplate {
 			continue
 		}
 
-		// Process
+		// Process.
 		prev := filename
 		filename = filename + value
 		logger.Pl.D(2, "Append made: %s -> %s (appended %q)", prev, filename, value)
@@ -300,13 +300,13 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 	}
 
 	for _, pre := range prefixes {
-		// Expand template tags
+		// Expand template tags.
 		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(pre.Value, fp.metadata)
 		if value == pre.Value && isTemplate {
 			continue
 		}
 
-		// Process
+		// Process.
 		prev := filename
 		filename = value + filename
 		logger.Pl.D(2, "Prefix made: %s -> %s (prefixed %q)", prev, filename, value)
@@ -367,10 +367,10 @@ func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDele
 		_, filename = dates.StripDateTags(filename, enums.DateTagLocSuffix)
 		logger.Pl.D(2, "Stripped suffix date tag: %s -> %s", prevFilename, filename)
 	case enums.DateTagLocAll:
-		// Strip all date tags from anywhere in the string
+		// Strip all date tags from anywhere in the string.
 		for {
 			oldFilename := filename
-			// Look for any [date] pattern
+			// Look for any [date] pattern.
 			openTag := strings.Index(filename, "[")
 			if openTag == -1 {
 				break
@@ -383,14 +383,14 @@ func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDele
 
 			dateStr := filename[openTag+1 : closeTag]
 			if regex.DateTagCompile().MatchString(dateStr) {
-				// Remove this date tag
+				// Remove this date tag.
 				filename = filename[:openTag] + filename[closeTag+1:]
 			} else {
-				// Not a valid date tag, skip past this bracket
+				// Not a valid date tag, skip past this bracket.
 				if closeTag+1 >= len(filename) {
 					break
 				}
-				// Replace the opening bracket temporarily to skip it
+				// Replace the opening bracket temporarily to skip it.
 				filename = filename[:openTag] + "\x00" + filename[openTag+1:]
 			}
 
@@ -398,7 +398,7 @@ func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDele
 				break
 			}
 		}
-		// Restore any temporarily replaced brackets
+		// Restore any temporarily replaced brackets.
 		filename = strings.ReplaceAll(filename, "\x00", "[")
 		logger.Pl.D(2, "Stripped all date tags: %s -> %s", prevFilename, filename)
 	default:
@@ -419,7 +419,7 @@ func replaceLoneS(f string, style enums.ReplaceToStyle) string {
 
 	// Keep replacing until no more changes occur.
 	// Fixes accidental double spaces or double underscores
-	// in the "s" contractions
+	// in the "s" contractions.
 	for f != prevString {
 		prevString = f
 

@@ -56,8 +56,9 @@ func BitchuteComParseDate(date string) string {
 		digit, err = strconv.Atoi(dateSplit[0])
 		if err != nil {
 			logger.Pl.E("Failed to convert string to digits: %v", err)
+			return ""
 		}
-		unit = strings.TrimSuffix(strings.ToLower(dateSplit[1]), "s") // handles both "hour" and "hours"
+		unit = strings.TrimSuffix(strings.ToLower(dateSplit[1]), "s") // handles both "hour" and "hours".
 
 		var duration time.Duration
 		now := time.Now()

@@ -20,7 +20,7 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 		consts.NTagline:       &t.Subtitle,
 	}
 
-	// Post-unmarshal clean
+	// Post-unmarshal clean.
 	cleanEmptyFields(fieldMap)
 	printMap := make(map[string]string, len(fieldMap))
 

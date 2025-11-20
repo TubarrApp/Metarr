@@ -27,7 +27,7 @@ type Title struct {
 	Original  string `xml:"original"`
 	Sort      string `xml:"sort"`
 	Sub       string `xml:"sub"`
-	PlainText string `xml:",chardata"` // For non-nested titles
+	PlainText string `xml:",chardata"` // For non-nested titles.
 }
 
 // Person represents a credited person with optional role.

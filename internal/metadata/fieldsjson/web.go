@@ -32,7 +32,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		}()
 	}
 
-	// Fill model using priorityMap keys
+	// Fill model using priorityMap keys.
 	for _, k := range priorityMap {
 		v, exists := data[k]
 		if !exists {

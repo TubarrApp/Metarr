@@ -28,7 +28,7 @@ var (
 	availableCodecsCacheOnce sync.Once
 )
 
-// ffCommandBuilder handles FFmpeg command construction
+// ffCommandBuilder handles FFmpeg command construction.
 type ffCommandBuilder struct {
 	// Files
 	inputFile  string
@@ -77,7 +77,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
 
-	// Grab current codecs
+	// Grab current codecs.
 	currentVCodec, currentACodec, err := checkCodecs(b.inputFile)
 	if err != nil {
 		logger.Pl.E("Failed to check codecs in file %q: %v", b.inputFile, err)
@@ -87,7 +87,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	})
 	availableCodecs := availableCodecsCache
 
-	// Get GPU flags/codecs
+	// Get GPU flags/codecs.
 	accelType, useTranscodeCodec, useHW := b.getHWAccelFlags(desiredVCodec)
 	if useHW {
 		b.setGPUAcceleration(accelType)
@@ -96,7 +96,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 
 	logger.Pl.D(1, "Transcoding to codec %q from current codec %q", useTranscodeCodec, currentVCodec)
 
-	// Get software codecs
+	// Get software codecs.
 	if b.videoCodecGPU == nil {
 		b.setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs)
 	}
@@ -115,7 +115,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		b.setThumbnail(fd.MWebData.Thumbnail, parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
 	}
 
-	// Return the fully appended argument string
+	// Return the fully appended argument string.
 	return b.buildFinalCommand(args, useHW)
 }
 
@@ -234,7 +234,7 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 		return "", fmt.Errorf("failed to download thumbnail: %s", resp.Status)
 	}
 
-	// Remove query parameters and detect extension
+	// Remove query parameters.
 	base, _, _ := strings.Cut(urlStr, "?")
 	base, _, _ = strings.Cut(base, "#")
 
@@ -249,7 +249,7 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 		return '_'
 	}, filepath.Base(base))
 
-	// Limit length to stay below filesystem limits
+	// Limit length to stay below filesystem limits.
 	if len(cleanBase) > 50 {
 		cleanBase = cleanBase[:50]
 	}
@@ -383,7 +383,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 				consts.FFmpegHWAccelOutputFormat, accelType,
 			}
 			devNumber := strings.TrimPrefix(transcodeDir, "/dev/nvidia")
-			if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil
+			if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil.
 				b.gpuDir = []string{consts.FFmpegDeviceHW, devNumber}
 			} else {
 				logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
@@ -698,7 +698,7 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity += len(b.thumbnail)
 
 	if abstractions.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 2 // -vf and flag
+		totalCapacity += 2 // -vf and flag.
 	}
 
 	if abstractions.IsSet(keys.ExtraFFmpegArgs) {

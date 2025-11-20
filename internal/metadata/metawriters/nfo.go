@@ -40,17 +40,17 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
-	// Read entire file content
+	// Read entire file content.
 	content, err := io.ReadAll(file)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Ensure XML structure exists
+	// Ensure XML structure exists.
 	contentStr := rw.ensureXMLStructure(string(content))
 	content = []byte(contentStr)
 
-	// Decode into NFOData model
+	// Decode into NFOData model.
 	var input models.NFOData
 	if err := xml.Unmarshal(content, &input); err != nil {
 		return nil, fmt.Errorf("failed to decode XML: %w", err)
@@ -59,7 +59,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 	rw.Model = &input
 	rw.Meta = string(content)
 
-	// Reset file pointer for future operations
+	// Reset file pointer for future operations.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
@@ -77,18 +77,18 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 		return nil, errors.New("NFOFileRW's stored metadata map is empty or null, decode must be called first")
 	}
 
-	// Reset file pointer
+	// Reset file pointer.
 	if _, err := rw.File.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	// Read file content
+	// Read file content.
 	content, err := io.ReadAll(rw.File)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// Decode XML into model
+	// Decode XML into model.
 	var input models.NFOData
 	if err := xml.Unmarshal(content, &input); err != nil {
 		return nil, fmt.Errorf("failed to decode XML: %w", err)
@@ -124,13 +124,13 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	)
 
 	// Initialize:
-	// Replacements
+	// Replacements.
 	if len(fd.MetaOps.Replaces) > 0 {
 		logger.Pl.I("Model for file %q making replacements", fd.MetaFilePath)
 		replace = fd.MetaOps.Replaces
 	}
 
-	// Field trim
+	// Field trim.
 	if len(fd.MetaOps.ReplacePrefixes) > 0 {
 		logger.Pl.I("Model for file %q trimming prefixes", fd.MetaFilePath)
 		trimPfx = fd.MetaOps.ReplacePrefixes
@@ -141,7 +141,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		trimSfx = fd.MetaOps.ReplaceSuffixes
 	}
 
-	// Append and prefix
+	// Append and prefix.
 	if len(fd.MetaOps.Appends) > 0 {
 		logger.Pl.I("Model for file %q adding appends", fd.MetaFilePath)
 		apnd = fd.MetaOps.Appends
@@ -152,13 +152,13 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		pfx = fd.MetaOps.Prefixes
 	}
 
-	// New fields
+	// New fields.
 	if len(fd.MetaOps.SetFields) > 0 {
 		logger.Pl.I("Model for file %q applying new field additions", fd.MetaFilePath)
 		newField = fd.MetaOps.SetFields
 	}
 
-	// Copy/paste
+	// Copy/paste.
 	if len(fd.MetaOps.CopyToFields) > 0 {
 		logger.Pl.I("Model for file %q copying to fields", fd.MetaFilePath)
 		copyTo = fd.MetaOps.CopyToFields
@@ -172,14 +172,14 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	logger.Pl.W("Copy to %q and paste from %q not currently implemented.", copyTo, pasteFrom)
 
 	// Make edits:
-	// Replace
+	// Replace.
 	if len(replace) > 0 {
 		if newContent, ok = rw.replaceXML(data, replace); ok {
 			edited = true
 		}
 	}
 
-	// Trim
+	// Trim.
 	if len(trimPfx) > 0 {
 		if newContent, ok = rw.trimXMLPrefix(data, trimPfx); ok {
 			edited = true
@@ -192,7 +192,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		}
 	}
 
-	// Append and prefix
+	// Append and prefix.
 	if len(apnd) > 0 {
 		if newContent, ok = rw.xmlAppend(data, apnd); ok {
 			edited = true
@@ -205,7 +205,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		}
 	}
 
-	// Add new
+	// Add new.
 	if len(newField) > 0 {
 		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, newField); err != nil {
 			logger.Pl.E("failed to add new XML fields with %+v: %v", newField, err)
@@ -214,7 +214,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		}
 	}
 
-	// Only write if changes were made
+	// Only write if changes were made.
 	if edited {
 		if err := rw.writeMetadataToFile(file, []byte(newContent)); err != nil {
 			return false, fmt.Errorf("failed to refresh metadata: %w", err)
@@ -226,13 +226,13 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 // Helper function to ensure XML structure.
 func (rw *NFOFileRW) ensureXMLStructure(content string) string {
-	// Ensure XML declaration
+	// Ensure XML declaration.
 	if !strings.HasPrefix(content, "<?xml") {
 		content = fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 %s`, content)
 	}
 
-	// Ensure movie tag exists
+	// Ensure movie tag exists.
 	if !strings.Contains(content, "<movie>") {
 		content = strings.TrimSpace(content)
 		content = fmt.Sprintf("%s\n<movie>\n</movie>", content)
@@ -246,29 +246,29 @@ func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 	rw.mu.Lock()
 	defer rw.mu.Unlock()
 
-	// Seek to start
+	// Seek to start.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	// Read the full file content
+	// Read the full file content.
 	content, err := io.ReadAll(file)
 	if err != nil {
 		return fmt.Errorf("failed to read file: %w", err)
 	}
 
-	// If file is empty, initialize an empty model
+	// If file is empty, initialize an empty model.
 	if len(content) == 0 {
 		rw.Model = &models.NFOData{}
 		return nil
 	}
 
-	// Initialize Model if nil
+	// Initialize Model if nil.
 	if rw.Model == nil {
 		rw.Model = &models.NFOData{}
 	}
 
-	// Decode XML from content
+	// Decode XML from content.
 	if err := xml.Unmarshal(content, rw.Model); err != nil {
 		return fmt.Errorf("failed to decode xml: %w", err)
 	}
@@ -285,18 +285,18 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 		return fmt.Errorf("seek file: %w", err)
 	}
 
-	// Use buffered writer for efficiency
+	// Use buffered writer for efficiency.
 	writer := bufio.NewWriter(file)
 	if _, err := writer.Write(content); err != nil {
 		return fmt.Errorf("write content: %w", err)
 	}
 
-	// Flush before reading the file again
+	// Flush before reading the file again.
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("flush content: %w", err)
 	}
 
-	// Refresh metadata in struct
+	// Refresh metadata in struct.
 	if err := rw.refreshMetadataInternal(file); err != nil {
 		return fmt.Errorf("failed to refresh metadata: %w", err)
 	}
@@ -309,7 +309,7 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 	logger.Pl.D(5, "Entering replaceXml with data: %v", data)
 
 	if len(replace) == 0 {
-		return data, false // No replacements to apply
+		return data, false // No replacements to apply.
 	}
 
 	for _, replacement := range replace {
@@ -323,7 +323,7 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
 		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing
+			continue // One or both tags missing.
 		}
 
 		contentStart := startIdx + len(startTag)
@@ -344,7 +344,7 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePref
 	logger.Pl.D(5, "Entering trimXmlPrefix with data: %v", data)
 
 	if len(trimPfx) == 0 {
-		return data, false // No replacements to apply
+		return data, false // No replacements to apply.
 	}
 
 	for _, prefix := range trimPfx {
@@ -358,7 +358,7 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePref
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
 		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing
+			continue // One or both tags missing.
 		}
 
 		contentStart := startIdx + len(startTag)
@@ -379,7 +379,7 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 	logger.Pl.D(5, "Entering trimXmlSuffix with data: %v", data)
 
 	if len(trimSfx) == 0 {
-		return data, false // No replacements to apply
+		return data, false // No replacements to apply.
 	}
 
 	for _, suffix := range trimSfx {
@@ -393,7 +393,7 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
 		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing
+			continue // One or both tags missing.
 		}
 
 		contentStart := startIdx + len(startTag)
@@ -415,7 +415,7 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn st
 	logger.Pl.D(5, "Entering xmlPrefix with data: %v", data)
 
 	if len(pfx) == 0 {
-		return data, false // No replacements to apply
+		return data, false // No replacements to apply.
 	}
 
 	for _, prefix := range pfx {
@@ -429,7 +429,7 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn st
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
 		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing
+			continue // One or both tags missing.
 		}
 
 		contentStart := startIdx + len(startTag)
@@ -450,7 +450,7 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 	logger.Pl.D(5, "Entering xmlAppend with data: %v", data)
 
 	if len(apnd) == 0 {
-		return data, false // No replacements to apply
+		return data, false // No replacements to apply.
 	}
 
 	for _, append := range apnd {
@@ -464,7 +464,7 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 		startIdx := strings.Index(data, startTag)
 		endIdx := strings.Index(data, endTag)
 		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing
+			continue // One or both tags missing.
 		}
 
 		contentStart := startIdx + len(startTag)
@@ -490,7 +490,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 	logger.Pl.D(5, "Entering addNewXmlFields with data: %v", data)
 
 	if len(newField) == 0 {
-		return data, false, nil // No replacements to apply
+		return data, false, nil // No replacements to apply.
 	}
 
 	if ow {
@@ -507,9 +507,9 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 			continue
 		}
 
-		// Special handling for actor fields
+		// Special handling for actor fields.
 		if addition.Field == "actor" {
-			// Check if actor already exists
+			// Check if actor already exists.
 			flatData := rw.flattenField(data)
 			actorNameCheck := fmt.Sprintf("<name>%s</name>", rw.flattenField(addition.Value))
 
@@ -524,13 +524,13 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 			continue
 		}
 
-		// Handle non-actor fields
+		// Handle non-actor fields.
 		tagStart := fmt.Sprintf("<%s>", addition.Field)
 		tagEnd := fmt.Sprintf("</%s>", addition.Field)
 
 		startIdx := strings.Index(data, tagStart)
 		if startIdx == -1 {
-			// Field doesn't exist, add it
+			// Field doesn't exist, add it.
 			if modified, ok := rw.addNewField(data, fmt.Sprintf("%s%s%s", tagStart, addition.Value, tagEnd)); ok {
 				data = modified
 				newAddition = true
@@ -538,13 +538,13 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 			continue
 		}
 
-		// Field exists, handle overwrite
+		// Field exists, handle overwrite.
 		if !metaOW {
 			startContent := startIdx + len(tagStart)
 			endIdx := strings.Index(data, tagEnd)
 			content := strings.TrimSpace(data[startContent:endIdx])
 
-			// Check for context cancellation
+			// Check for context cancellation.
 			select {
 			case <-rw.ctx.Done():
 				return data, false, fmt.Errorf("operation canceled for field %q: %w", addition.Field, rw.ctx.Err())
@@ -602,7 +602,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 	castEnd := strings.Index(data, "</cast>")
 
 	if castStart == -1 && castEnd == -1 {
-		// No cast tag exists, create new structure
+		// No cast tag exists, create new structure.
 		movieStart := strings.Index(data, "<movie>")
 		if movieStart == -1 {
 			logger.Pl.E("Invalid XML structure: no movie tag found")
@@ -615,10 +615,10 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 			return data, false
 		}
 
-		// Create new cast section
+		// Create new cast section.
 		newCast := fmt.Sprintf("    <cast>\n        <actor>\n            <name>%s</name>\n        </actor>\n    </cast>", name)
 
-		// Find the right spot to insert
+		// Find the right spot to insert.
 		contentStart := movieStart + len("<movie>")
 		if contentStart >= len(data) {
 			logger.Pl.E("Invalid XML structure: movie tag at end of data")
@@ -628,20 +628,20 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		return data[:contentStart] + "\n" + newCast + "\n" + data[contentStart:], true
 	}
 
-	// Cast exists, validate indices
+	// Cast exists, validate indices.
 	if castStart == -1 || castEnd == -1 || castStart >= len(data) || castEnd > len(data) {
 		logger.Pl.E("Invalid XML structure: mismatched cast tags")
 		return data, false
 	}
 
-	// Insert new actor
+	// Insert new actor.
 	newActor := fmt.Sprintf("    <actor>\n            <name>%s</name>\n        </actor>", name)
 
 	if castEnd-castStart > 1 {
-		// Cast has content, insert with proper spacing
+		// Cast has content, insert with proper spacing.
 		return data[:castEnd] + newActor + "\n    " + data[castEnd:], true
 	}
-	// Empty cast tag
+	// Empty cast tag.
 	insertPoint := castStart + len("<cast>")
 	return data[:insertPoint] + newActor + "\n    " + data[insertPoint:], true
 }

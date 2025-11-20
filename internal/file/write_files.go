@@ -74,7 +74,7 @@ func (fs *FSFileWriter) RenameFiles() error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	// Rename video file
+	// Rename video file.
 	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
 		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputVideo, fs.RenamedVideo, err)
@@ -83,7 +83,7 @@ func (fs *FSFileWriter) RenameFiles() error {
 		fs.Fd.RenamedVideoPath = fs.RenamedVideo
 	}
 
-	// Rename meta file
+	// Rename meta file.
 	if shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
 		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputMeta, fs.RenamedMeta, err)
@@ -123,7 +123,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		}
 	}
 
-	// Move/copy video and metadata file
+	// Move or copy video.
 	if !fs.SkipVids {
 		if fs.RenamedVideo != "" {
 			videoDestPath := filepath.Join(dst, filepath.Base(fs.RenamedVideo))
@@ -133,6 +133,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		}
 	}
 
+	// Move or copy metadata file.
 	if !noMeta {
 		if fs.RenamedMeta != "" {
 			metaDestPath := filepath.Join(dst, filepath.Base(fs.RenamedMeta))

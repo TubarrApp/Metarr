@@ -36,7 +36,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 		logger.Pl.D(2, "Decoded titles JSON into field map")
 	}
 
-	// Fill fieldMap entries
+	// Fill fieldMap entries.
 	for k, ptr := range fieldMap {
 		if ptr == nil {
 			logger.Pl.E("fieldMap entry pointer unexpectedly nil")
@@ -62,7 +62,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 		}
 	}
 
-	// Infer empty fields
+	// Infer empty fields.
 	if t.Title == "" && t.Fulltitle != "" {
 		t.Title = t.Fulltitle
 	}

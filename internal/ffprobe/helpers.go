@@ -11,16 +11,19 @@ import (
 	"strings"
 )
 
+// ffprobeFormat contains metadata tags.
 type ffprobeFormat struct {
 	Tags ffprobeTags `json:"tags"`
 }
 
+// ffprobeOutput contains top-level FFprobe output.
 type ffprobeOutput struct {
 	Streams []ffprobeStream `json:"streams"`
 	Format  ffprobeFormat   `json:"format"`
 }
 
 // ffprobeTags is a map of metadata key-value pairs.
+//
 // Different container formats use different key names (e.g., "artist" vs "ARTIST" vs "WM/AlbumArtist").
 type ffprobeTags map[string]string
 
@@ -186,39 +189,39 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 
 	case consts.ExtAVI:
 		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JLongDesc, e): { // Comments
+			parsing.GetContainerKeys(consts.JLongDesc, e): { // Comments.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("COMM")),
 				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
 			},
-			parsing.GetContainerKeys(consts.JArtist, e): { // Artist
+			parsing.GetContainerKeys(consts.JArtist, e): { // Artist.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("IART")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			parsing.GetContainerKeys(consts.JDescription, e): { // Comment
+			parsing.GetContainerKeys(consts.JDescription, e): { // Comment.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ICMT")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			parsing.GetContainerKeys(consts.JReleaseDate, e): { // Date created
+			parsing.GetContainerKeys(consts.JReleaseDate, e): { // Date created.
 				existing: getDatePart(ffData.Format.Tags.get("ICRD")),
 				new:      getDatePart(fd.MDates.ReleaseDate),
 			},
-			parsing.GetContainerKeys(consts.JProducer, e): { // Engineer
+			parsing.GetContainerKeys(consts.JProducer, e): { // Engineer.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("IENG")),
 				new:      strings.TrimSpace(fd.MCredits.Producer),
 			},
-			parsing.GetContainerKeys(consts.JTitle, e): { // Title
+			parsing.GetContainerKeys(consts.JTitle, e): { // Title.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("INAM")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},
-			parsing.GetContainerKeys(consts.JSynopsis, e): { // Subject
+			parsing.GetContainerKeys(consts.JSynopsis, e): { // Subject.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ISBJ")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
 			},
-			parsing.GetContainerKeys(consts.JActor, e): { // Starring
+			parsing.GetContainerKeys(consts.JActor, e): { // Starring.
 				existing: strings.TrimSpace(ffData.Format.Tags.get("STAR")),
 				new:      strings.TrimSpace(fd.MCredits.Actor),
 			},
-			parsing.GetContainerKeys(consts.JYear, e): { // Year
+			parsing.GetContainerKeys(consts.JYear, e): { // Year.
 				existing: getDatePart(ffData.Format.Tags.get("YEAR")),
 				new:      getDatePart(fd.MDates.Year),
 			},

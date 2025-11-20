@@ -37,11 +37,11 @@ func InitProgFilesDirs() error {
 		}
 	}
 
-	// Main files
+	// Main files.
 	MetarrLogFilePath = filepath.Join(HomeMetarrDir, logFile)
 	fmt.Fprintf(os.Stderr, "Metarr log file path: %q\n", MetarrLogFilePath)
 
-	// Benchmark directory
+	// Benchmark directory.
 	if abstractions.IsSet(keys.Benchmarking) {
 		BenchmarkDir = filepath.Join(HomeMetarrDir, benchmarkDir)
 		if _, err := os.Stat(BenchmarkDir); os.IsNotExist(err) {

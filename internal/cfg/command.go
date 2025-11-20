@@ -15,14 +15,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+// rootCmd is the root terminal command for Metarr.
 var rootCmd = &cobra.Command{
 	Use:   "metarr",
 	Short: "Metarr is a video and metatagging tool.",
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
-		// Set logging level
+		// Set logging level.
 		logging.Level = min(max(viper.GetInt(keys.DebugLevel), 0), 5)
 
-		// Setup benchmarking if flag is set
+		// Setup benchmarking if flag is set.
 		if viper.GetBool(keys.Benchmarking) {
 			var err error
 			vars.BenchmarkFiles, err = benchmark.SetupBenchmarking(logger.Pl, paths.BenchmarkDir)
@@ -32,7 +33,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		// Setup flags from config file
+		// Setup flags from config file.
 		if viper.IsSet(keys.ConfigPath) {
 			configFile := viper.GetString(keys.ConfigPath)
 
@@ -45,7 +46,7 @@ var rootCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			// Load in config file
+			// Load in config file.
 			if configFile != "" {
 				if err := loadConfigFile(configFile); err != nil {
 					fmt.Fprintf(os.Stderr, "failed loading config file: %v\n", err)

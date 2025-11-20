@@ -22,7 +22,7 @@ var (
 	ContractionMapUnderscored map[string]models.ContractionPattern
 	ContractionMapAll         map[string]models.ContractionPattern
 
-	// Initialize sync.Once for each compilation
+	// Initialize sync.Once for each compilation.
 	ansiEscapeOnce          sync.Once
 	bracketedNumberOnce     sync.Once
 	dateTagDetectOnce       sync.Once
@@ -39,7 +39,7 @@ func ContractionMapAllCompile() map[string]models.ContractionPattern {
 	compileMu.Lock()
 	defer compileMu.Unlock()
 
-	// Clear old compiled patterns
+	// Clear old compiled patterns.
 	for k := range ContractionMapAll {
 		delete(ContractionMapAll, k)
 	}
@@ -47,7 +47,7 @@ func ContractionMapAllCompile() map[string]models.ContractionPattern {
 	totalLen := len(consts.ContractionsSpaced) + len(consts.ContractionsUnderscored)
 	ContractionMapAll = make(map[string]models.ContractionPattern, totalLen)
 
-	// Spaced map
+	// Spaced map.
 	for contraction, replacement := range consts.ContractionsSpaced {
 		ContractionMapAll[contraction] = models.ContractionPattern{
 			Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
@@ -55,7 +55,7 @@ func ContractionMapAllCompile() map[string]models.ContractionPattern {
 		}
 	}
 
-	// Underscored map
+	// Underscored map.
 	for contraction, replacement := range consts.ContractionsUnderscored {
 		ContractionMapAll[contraction] = models.ContractionPattern{
 			Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
@@ -72,7 +72,7 @@ func ContractionMapSpacesCompile() map[string]models.ContractionPattern {
 	compileMu.Lock()
 	defer compileMu.Unlock()
 
-	// Clear old compiled patterns
+	// Clear old compiled patterns.
 	for k := range ContractionMapSpaced {
 		delete(ContractionMapSpaced, k)
 	}
@@ -93,7 +93,7 @@ func ContractionMapUnderscoresCompile() map[string]models.ContractionPattern {
 	compileMu.Lock()
 	defer compileMu.Unlock()
 
-	// Clear old compiled patterns
+	// Clear old compiled patterns.
 	for k := range ContractionMapUnderscored {
 		delete(ContractionMapUnderscored, k)
 	}

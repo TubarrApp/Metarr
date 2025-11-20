@@ -13,7 +13,7 @@ func getOutputVideoCodecString(currentVCodec string) (outputCodec string) {
 		return
 	}
 
-	// Extract codec from map
+	// Extract codec from map.
 	cMapInterface := abstractions.Get(keys.TranscodeVideoCodecMap)
 	cMap, ok := cMapInterface.(map[string]string)
 	if !ok {
@@ -22,7 +22,7 @@ func getOutputVideoCodecString(currentVCodec string) (outputCodec string) {
 	}
 	codec := cMap[currentVCodec]
 
-	// Normalize
+	// Normalize.
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")
@@ -36,7 +36,7 @@ func getOutputAudioCodecString(currentACodec string) (outputCodec string) {
 		return
 	}
 
-	// Extract codec from map
+	// Extract codec from map.
 	cMapInterface := abstractions.Get(keys.TranscodeAudioCodecMap)
 	cMap, ok := cMapInterface.(map[string]string)
 	if !ok {
@@ -45,7 +45,7 @@ func getOutputAudioCodecString(currentACodec string) (outputCodec string) {
 	}
 	codec := cMap[currentACodec]
 
-	// Normalize
+	// Normalize.
 	codec = strings.ToLower(codec)
 	codec = strings.ReplaceAll(codec, " ", "")
 	codec = strings.ReplaceAll(codec, ".", "")

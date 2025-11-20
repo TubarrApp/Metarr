@@ -18,7 +18,7 @@ func fillNFODescriptions(fd *models.FileData) (filled bool) {
 		consts.NPlot:        &d.LongDescription,
 	}
 
-	// Post-unmarshal clean
+	// Post-unmarshal clean.
 	cleanEmptyFields(fieldMap)
 	printMap := make(map[string]string, len(fieldMap))
 

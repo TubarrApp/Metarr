@@ -84,8 +84,8 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 	}
 	job := 1
 
-	// Collect all processed files from all batches
-	allProcessedFiles := []*models.FileData{} // Do not assign length, parent uses length to go into renaming
+	// Collect all processed files from all batches.
+	allProcessedFiles := []*models.FileData{} // Do not assign length.
 
 	// Begin iteration...
 	skipVideos := abstractions.GetBool(keys.SkipVideos)

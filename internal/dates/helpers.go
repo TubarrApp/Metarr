@@ -128,7 +128,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 
 		return year, month, day, nil
 	}
-	if len(d) == 4 { // Guess year or month-day
+	if len(d) == 4 { // Guess year or month-day.
 
 		i, err := strconv.Atoi(d[:2])
 		if err != nil {
@@ -139,7 +139,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 			return "", "", "", fmt.Errorf("invalid date string %q threw error: %w", d, err)
 		}
 
-		if (i == 20 || i == 19) && j > 12 { // First guess year
+		if (i == 20 || i == 19) && j > 12 { // First guess year.
 			logger.Pl.I("Guessing date string %q as year", d)
 			switch dateFmt {
 			case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
@@ -147,7 +147,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 			default:
 				return d[:4], "", "", nil
 			}
-		} else { // Second guess, month-date
+		} else { // Second guess, month-date.
 			if ddmm, mmdd := maybeDayMonth(i, j); ddmm || mmdd {
 				if ddmm {
 					logger.Pl.I("Guessing date string %q as day-month", d)
@@ -160,7 +160,7 @@ func getYearMonthDay(d string, dateFmt enums.DateFormat) (year, month, day strin
 					month = d[:2]
 				}
 				return "", month, day, nil
-			} else if i == 20 || i == 19 { // Final guess year
+			} else if i == 20 || i == 19 { // Final guess year.
 				logger.Pl.I("Guessing date string %q as year after failed day-month check", d)
 				switch dateFmt {
 				case enums.DateDdMmYy, enums.DateMmDdYy, enums.DateYyDdMm, enums.DateYyMmDd:
@@ -180,7 +180,7 @@ func validateDateComponents(year, month, day string) (y, m, d string, err error)
 		return year, month, day, nil
 	}
 
-	// Attempt swapping day and month
+	// Attempt swapping day and month.
 	if isValidMonth(day) && isValidDay(month, day, year) {
 		return year, month, day, nil
 	}
@@ -219,14 +219,14 @@ func isValidDay(day, month, year string) bool {
 		return false
 	}
 
-	// Months with 30 days
+	// Months with 30 days.
 	if m == 4 || m == 6 || m == 9 || m == 11 {
 		return d <= 30
 	}
 
-	// February
+	// February.
 	if m == 2 {
-		// Leap year check
+		// Leap year check.
 		isLeap := y%4 == 0 && (y%100 != 0 || y%400 == 0)
 		if isLeap {
 			return d <= 29
@@ -237,7 +237,7 @@ func isValidDay(day, month, year string) bool {
 	return true
 }
 
-// maybeDayMonth guesses if the input is a DD-MM or MM-DD format
+// maybeDayMonth guesses if the input is a DD-MM or MM-DD format.
 func maybeDayMonth(i, j int) (ddmm, mmdd bool) {
 	if i == 0 || i >= 31 || j == 0 || j >= 31 {
 		return false, false
@@ -291,15 +291,15 @@ func stripAllDateTags(val string) (tags []string, cleaned string) {
 	pattern := regex.DateTagWithBracketsCompile()
 	logger.Pl.D(3, "Pattern: %v", pattern.String())
 
-	// Find all tags
+	// Find all tags.
 	tags = pattern.FindAllString(val, -1)
 	logger.Pl.D(3, "Found tags: %v (count: %d)", tags, len(tags))
 
-	// Remove all tags
+	// Remove all tags.
 	cleaned = pattern.ReplaceAllString(val, "")
 	logger.Pl.D(3, "After removal: %q", cleaned)
 
-	// Clean up extra spaces
+	// Clean up extra spaces.
 	cleaned = strings.TrimSpace(cleaned)
 	cleaned = regex.DoubleSpacesCompile().ReplaceAllString(cleaned, " ")
 	logger.Pl.D(3, "Final cleaned: %q", cleaned)
@@ -307,7 +307,7 @@ func stripAllDateTags(val string) (tags []string, cleaned string) {
 	return tags, cleaned
 }
 
-// extractDateFromMetadata attempts to find a date in the metadata using predefined fields
+// extractDateFromMetadata attempts to find a date in the metadata using predefined fields.
 func extractDateFromMetadata(metadata map[string]any) (string, bool) {
 	preferredDateFields := []string{
 		consts.JReleaseDate,
@@ -320,7 +320,7 @@ func extractDateFromMetadata(metadata map[string]any) (string, bool) {
 		consts.JUploadDate,
 		"uploaddate",
 		"uploaded_on",
-		consts.JCreationTime, // Last resort, may give false positives
+		consts.JCreationTime, // Last resort, may give false positives.
 		"created_at",
 	}
 

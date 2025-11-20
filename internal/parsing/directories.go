@@ -64,7 +64,7 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 	}
 
 	var b strings.Builder
-	b.Grow(len(dir) - (opens * templateLen) + (opens * 32)) // Approximate size
+	b.Grow(len(dir) - (opens * templateLen) + (opens * 32)) // Approximate size.
 	remaining := dir
 
 	for range opens {
@@ -78,10 +78,10 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 			return "", fmt.Errorf("%q is missing closing delimiter", remaining)
 		}
 
-		// String up to template open
+		// String up to template open.
 		b.WriteString(remaining[:startIdx])
 
-		// Replacement string
+		// Replacement string.
 		tag := remaining[startIdx+len(openTag) : endIdx]
 		replacement, err := dp.replace(strings.TrimSpace(tag))
 		if err != nil {
@@ -89,11 +89,11 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 		}
 		b.WriteString(replacement)
 
-		// String after template close
+		// String after template close.
 		remaining = remaining[endIdx+len(closeTag):]
 	}
 
-	// Write any remaining text after last template
+	// Write any remaining text after last template.
 	b.WriteString(remaining)
 
 	return b.String(), nil
