@@ -9,6 +9,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"net/http"
 	"os"
 	"os/exec"
@@ -130,12 +131,12 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 			switch strings.ToLower(outExt) {
 			case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
 				b.thumbnail = []string{
-					"-map", "0:V", // Map only regular video streams (excludes existing attached_pic)
-					"-map", "0:a?", // Map audio streams if present
-					"-map", "0:s?", // Map subtitle streams if present
-					"-map", "0:d?", // Map data streams if present
-					"-map", "0:t?", // Map attachment streams if present
-					"-map", "0:v", // Now map attached_pic (will be only the first one found)
+					"-map", "0:V", // Map only regular video streams (excludes existing attached_pic).
+					"-map", "0:a?", // Map audio streams if present.
+					"-map", "0:s?", // Map subtitle streams if present.
+					"-map", "0:d?", // Map data streams if present.
+					"-map", "0:t?", // Map attachment streams if present.
+					"-map", "0:v", // Now map attached_pic (will be only the first one found).
 					"-c", "copy",
 					"-disposition:v:1", "attached_pic",
 				}
@@ -156,14 +157,14 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 
 	// Thumbnail URL not "" beyond here...
 
-	// Download local thumbnail
+	// Download local thumbnail.
 	thumbnail, err := downloadThumbnail(thumbnailURL, videoBaseName)
 	if err != nil {
 		logger.Pl.E("Could not download thumbnail %q: %v", thumbnailURL, err)
 		return
 	}
 
-	// Ensure JPG
+	// Ensure JPG.
 	thumbExt := strings.ToLower(filepath.Ext(thumbnail))
 	if thumbExt != ".jpg" && thumbExt != ".jpeg" {
 		if thumbnail, err = convertToJPG(thumbnail); err != nil {
@@ -176,15 +177,15 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 	switch ext {
 	case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
 		b.thumbnail = []string{
-			"-i", thumbnail, // add the thumbnail as a second input
-			"-map", "0:V", // map only regular video streams (excludes any existing attached_pic)
-			"-map", "0:a?", // map audio streams if present
-			"-map", "0:s?", // map subtitle streams if present
-			"-map", "0:d?", // map data streams if present
-			"-map", "0:t?", // map attachment streams if present
-			"-map", "1", // map new thumbnail
-			"-c:v:1", "mjpeg", // always use mjpeg codec for thumbnail
-			"-disposition:v:1", "attached_pic", // mark as cover art
+			"-i", thumbnail, // add the thumbnail as a second input.
+			"-map", "0:V", // map only regular video streams (excludes any existing attached_pic).
+			"-map", "0:a?", // map audio streams if present.
+			"-map", "0:s?", // map subtitle streams if present.
+			"-map", "0:d?", // map data streams if present.
+			"-map", "0:t?", // map attachment streams if present.
+			"-map", "1", // map new thumbnail.
+			"-c:v:1", "mjpeg", // always use mjpeg codec for thumbnail.
+			"-disposition:v:1", "attached_pic", // mark as cover art.
 		}
 
 	case consts.ExtMKV:
@@ -465,7 +466,7 @@ func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelTyp
 		return "", "", false
 	}
 
-	// Check GPU flag
+	// Check GPU flag.
 	accelType = abstractions.GetString(keys.TranscodeGPU)
 	accelType = strings.ToLower(accelType)
 	if accelType == "" {
@@ -473,19 +474,19 @@ func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelTyp
 		return "", "", false
 	}
 
-	// Do not use HW on copy
+	// Do not use HW on copy.
 	if transcodeVideoCodec == sharedconsts.VCodecCopy {
 		logger.Pl.I("Video codec is '%s', hardware acceleration not needed", sharedconsts.VCodecCopy)
 		return "", "", false
 	}
 
-	// Non-auto GPU flag but no codec
+	// Non-auto GPU flag but no codec.
 	if accelType != sharedconsts.AccelTypeAuto && transcodeVideoCodec == "" {
 		logger.Pl.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", accelType)
 		return "", "", false
 	}
 
-	// Check safe hardware encode for GPU type
+	// Check safe hardware encode for GPU type.
 	if gpuMap, exists := unsafeHardwareEncode[accelType]; exists {
 		if unsafe, ok := gpuMap[transcodeVideoCodec]; ok && unsafe {
 			logger.Pl.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.", b.inputFile, transcodeVideoCodec, accelType)
@@ -512,25 +513,25 @@ func (b *ffCommandBuilder) setTranscodeQuality(accelType string) {
 	qNum := abstractions.GetString(keys.TranscodeQuality)
 	switch accelType {
 	case "", sharedconsts.AccelTypeAuto:
-		// CRF for software encoders or 'auto'
+		// CRF for software encoders or 'auto'.
 		b.qualityParameter = append(b.qualityParameter, consts.FFmpegCRF, qNum)
 
 	case sharedconsts.AccelTypeAMF:
 		b.qualityParameter = append(b.qualityParameter, "-qp_p", qNum)
 
 	case sharedconsts.AccelTypeNvidia:
-		// Nvidia uses CQ
+		// Nvidia uses CQ.
 		b.qualityParameter = append(b.qualityParameter,
 			"-rc", "vbr",
 			"-cq", qNum,
 		)
 
 	case sharedconsts.AccelTypeIntel:
-		// Intel uses QSV
+		// Intel uses QSV.
 		b.qualityParameter = append(b.qualityParameter, "-global_quality", qNum)
 
 	case sharedconsts.AccelTypeVAAPI:
-		// VAAPI uses QP
+		// VAAPI uses QP.
 		b.qualityParameter = append(b.qualityParameter, "-qp", qNum)
 	}
 }
@@ -548,20 +549,20 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 	logger.Pl.D(2, "Making default format map for input extension: %q, output extension: %q. (File: %q)",
 		inExt, outExt, b.inputFile)
 
-	// Get format preset from map
+	// Get format preset from map.
 	if presets, exists := formatMap[outExt]; exists {
-		// Try exact input format match
+		// Try exact input format match.
 		if preset, exists := presets[inExt]; exists {
 			b.formatFlagsMap = preset.flags
 			return
 		}
-		// Fall back to default preset for this output format
+		// Fall back to default preset for this output format.
 		if preset, exists := presets["*"]; exists {
 			b.formatFlagsMap = preset.flags
 			return
 		}
 	}
-	// Fall back to copy preset if no mapping found
+	// Fall back to copy preset if no mapping found.
 	b.formatFlagsMap = copyPreset.flags
 	logger.Pl.D(1, "No format mapping found for %s to %s conversion, using copy preset",
 		inExt, outExt)
@@ -648,23 +649,24 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 	args = append(args, formatArgs...)
 
 	// Add all -metadata arguments (these apply to the output file).
-	// Get output file extension for container-specific tag mapping.
 	outputExt := filepath.Ext(b.outputFile)
 
+	// Get valid container-specific tag names for each key in the metadata.
 	for key, value := range b.metadataMap {
-		// Get all valid container-specific tag names for this canonical key.
-		containerKeys := getContainerKeys(key, outputExt)
-
-		// Write metadata to all aliases for maximum compatibility.
-		for _, containerKey := range containerKeys {
-			b.builder.Reset()
-			b.builder.WriteString(containerKey)
-			b.builder.WriteByte('=')
-			b.builder.WriteString(strings.TrimSpace(value))
-
-			logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
-			args = append(args, "-metadata", b.builder.String())
+		containerKey := parsing.GetContainerKeys(key, outputExt)
+		if containerKey == "" {
+			logger.Pl.W("Not inserting key: %q, could not find match for container %q.", key, outputExt)
+			continue
 		}
+
+		// Write metadata argument.
+		b.builder.Reset()
+		b.builder.WriteString(containerKey)
+		b.builder.WriteByte('=')
+		b.builder.WriteString(strings.TrimSpace(value))
+
+		logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
+		args = append(args, "-metadata", b.builder.String())
 	}
 
 	// Extra FFmpeg arguments.

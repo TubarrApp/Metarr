@@ -7,6 +7,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"strings"
 )
 
@@ -77,39 +78,35 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		consts.ExtWEBM:
 
 		return tagDiffMap{
-			"ARTIST": {
+			parsing.GetContainerKeys(consts.JArtist, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ARTIST")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			"LEAD_PERFORMER": {
+			parsing.GetContainerKeys(consts.JActor, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("LEAD_PERFORMER")),
-				new:      strings.TrimSpace(fd.MCredits.Artist),
+				new:      strings.TrimSpace(fd.MCredits.Actor),
 			},
-			"COMPOSER": {
+			parsing.GetContainerKeys(consts.JComposer, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("COMPOSER")),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
-			"DATE_RELEASED": {
+			parsing.GetContainerKeys(consts.JReleaseDate, e): {
 				existing: getDatePart(ffData.Format.Tags.get("DATE_RELEASED")),
-				new:      getDatePart(fd.MDates.Date),
+				new:      getDatePart(fd.MDates.ReleaseDate),
 			},
-			"DESCRIPTION": {
+			parsing.GetContainerKeys(consts.JLongDesc, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Description),
+				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
 			},
-			"SUMMARY": {
+			parsing.GetContainerKeys(consts.JSummary, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("SUMMARY")),
+				new:      strings.TrimSpace(fd.MTitleDesc.Summary),
+			},
+			parsing.GetContainerKeys(consts.JDescription, e): {
+				existing: strings.TrimSpace(ffData.Format.Tags.get("SUBJECT")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			"SUBJECT": {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("SUBJECT")),
-				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
-			},
-			"KEYWORDS": {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("KEYWORDS")),
-				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
-			},
-			"TITLE": {
+			parsing.GetContainerKeys(consts.JTitle, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("TITLE")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},
@@ -119,39 +116,39 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		consts.ExtWMV:
 
 		return tagDiffMap{
-			"Title": {
+			parsing.GetContainerKeys(consts.JTitle, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("Title")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},
-			"WM/AlbumArtist": {
+			parsing.GetContainerKeys(consts.JArtist, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/AlbumArtist")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			"WM/Composer": {
+			parsing.GetContainerKeys(consts.JComposer, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/Composer")),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
-			"WM/Director": {
+			parsing.GetContainerKeys(consts.JDirector, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/Director")),
 				new:      strings.TrimSpace(fd.MCredits.Director),
 			},
-			"WM/EncodingTime": {
+			parsing.GetContainerKeys(consts.JDate, e): {
 				existing: getDatePart(ffData.Format.Tags.get("WM/EncodingTime")),
 				new:      getDatePart(fd.MDates.Date),
 			},
-			"WM/Producer": {
+			parsing.GetContainerKeys(consts.JProducer, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/Producer")),
 				new:      strings.TrimSpace(fd.MCredits.Producer),
 			},
-			"WM/SubTitle": {
+			parsing.GetContainerKeys(consts.JSubtitle, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/SubTitle")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Description),
+				new:      strings.TrimSpace(fd.MTitleDesc.Subtitle),
 			},
-			"WM/SubTitleDescription": {
+			parsing.GetContainerKeys(consts.JLongDesc, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/SubTitleDescription")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Description),
+				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
 			},
-			"WM/Year": {
+			parsing.GetContainerKeys(consts.JYear, e): {
 				existing: getDatePart(ffData.Format.Tags.get("WM/Year")),
 				new:      getDatePart(fd.MDates.Year),
 			},
@@ -161,67 +158,75 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		consts.ExtOGV:
 
 		return tagDiffMap{
-			"ARTIST": {
+			parsing.GetContainerKeys(consts.JArtist, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ARTIST")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			"PERFORMER": {
+			parsing.GetContainerKeys(consts.JPerformer, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("PERFORMER")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			"COMPOSER": {
+			parsing.GetContainerKeys(consts.JComposer, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("COMPOSER")),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
-			"DATE": {
+			parsing.GetContainerKeys(consts.JDate, e): {
 				existing: getDatePart(ffData.Format.Tags.get("DATE")),
 				new:      getDatePart(fd.MDates.Date),
 			},
-			"DESCRIPTION": {
+			parsing.GetContainerKeys(consts.JDescription, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			"SUMMARY": {
+			parsing.GetContainerKeys(consts.JSummary, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("SUMMARY")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
+				new:      strings.TrimSpace(fd.MTitleDesc.Summary),
 			},
 		}, true
 
 	case consts.ExtAVI:
 		return tagDiffMap{
-			"IART": {
+			parsing.GetContainerKeys(consts.JLongDesc, e): { // Comments
+				existing: strings.TrimSpace(ffData.Format.Tags.get("COMM")),
+				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
+			},
+			parsing.GetContainerKeys(consts.JArtist, e): { // Artist
 				existing: strings.TrimSpace(ffData.Format.Tags.get("IART")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			"ICRD": {
-				existing: getDatePart(ffData.Format.Tags.get("ICRD")),
-				new:      getDatePart(fd.MDates.Date),
-			},
-			"ICMT": {
+			parsing.GetContainerKeys(consts.JDescription, e): { // Comment
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ICMT")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
+				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			"IENG": {
+			parsing.GetContainerKeys(consts.JReleaseDate, e): { // Date created
+				existing: getDatePart(ffData.Format.Tags.get("ICRD")),
+				new:      getDatePart(fd.MDates.ReleaseDate),
+			},
+			parsing.GetContainerKeys(consts.JProducer, e): { // Engineer
 				existing: strings.TrimSpace(ffData.Format.Tags.get("IENG")),
-				new:      strings.TrimSpace(fd.MCredits.Composer),
+				new:      strings.TrimSpace(fd.MCredits.Producer),
 			},
-			"INAM": {
+			parsing.GetContainerKeys(consts.JTitle, e): { // Title
 				existing: strings.TrimSpace(ffData.Format.Tags.get("INAM")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},
-			"ISBJ": {
+			parsing.GetContainerKeys(consts.JSynopsis, e): { // Subject
 				existing: strings.TrimSpace(ffData.Format.Tags.get("ISBJ")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Description),
+				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
 			},
-			"ITCH": {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("ITCH")),
-				new:      strings.TrimSpace(fd.MCredits.Composer),
+			parsing.GetContainerKeys(consts.JActor, e): { // Starring
+				existing: strings.TrimSpace(ffData.Format.Tags.get("STAR")),
+				new:      strings.TrimSpace(fd.MCredits.Actor),
+			},
+			parsing.GetContainerKeys(consts.JYear, e): { // Year
+				existing: getDatePart(ffData.Format.Tags.get("YEAR")),
+				new:      getDatePart(fd.MDates.Year),
 			},
 		}, true
 
 	case consts.ExtFLV:
 		return tagDiffMap{
-			"creationdate": {
+			parsing.GetContainerKeys(consts.JDate, e): {
 				existing: getDatePart(ffData.Format.Tags.get("creationdate")),
 				new:      getDatePart(fd.MDates.Date),
 			},
@@ -230,15 +235,15 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 	case consts.ExtRM,
 		consts.ExtRMVB:
 		return tagDiffMap{
-			"Author": {
+			parsing.GetContainerKeys(consts.JAuthor, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("Author")),
 				new:      strings.TrimSpace(fd.MCredits.Author),
 			},
-			"Comment": {
+			parsing.GetContainerKeys(consts.JDescription, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("Comment")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			"Title": {
+			parsing.GetContainerKeys(consts.JTitle, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("Title")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},
@@ -247,11 +252,11 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 	case consts.ExtMTS,
 		consts.ExtTS:
 		return tagDiffMap{
-			"service_provider": {
+			parsing.GetContainerKeys(consts.JArtist, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("service_provider")),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			"service_name": {
+			parsing.GetContainerKeys(consts.JTitle, e): {
 				existing: strings.TrimSpace(ffData.Format.Tags.get("service_name")),
 				new:      strings.TrimSpace(fd.MTitleDesc.Title),
 			},

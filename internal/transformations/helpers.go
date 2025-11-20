@@ -13,6 +13,7 @@ import (
 	"metarr/internal/transformations/transpresets"
 	"metarr/internal/utils/browser"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
@@ -66,15 +67,38 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 }
 
 // applyNamingStyle applies renaming conventions.
-func applyNamingStyle(style enums.ReplaceToStyle, input string) (output string) {
+func applyNamingStyle(style enums.ReplaceToStyle, input string, originalFilePath string) (output string) {
+	ext := filepath.Ext(originalFilePath)
+	originalFileBase := strings.TrimSuffix(filepath.Base(originalFilePath), ext)
+
+	output = handleOriginalUnwantedChars(input, originalFileBase)
+
 	switch style {
 	case enums.RenamingSpaces:
-		output = strings.ReplaceAll(input, "_", " ")
+		output = strings.ReplaceAll(output, "_", " ")
 	case enums.RenamingUnderscores:
-		output = strings.ReplaceAll(input, " ", "_")
+		output = strings.ReplaceAll(output, " ", "_")
 	default:
 		logger.Pl.I("Skipping space or underscore renaming conventions...")
 		output = input
+	}
+	return output
+}
+
+// handleOriginalUnwantedChars normalizes the output string if the original filename had leading/trailing underscores or space.
+func handleOriginalUnwantedChars(input string, originalFileBase string) (output string) {
+	output = input
+	if strings.HasPrefix(originalFileBase, "_") {
+		output = strings.TrimPrefix(output, "_")
+	}
+	if strings.HasSuffix(originalFileBase, "_") {
+		output = strings.TrimSuffix(output, "_")
+	}
+	if strings.HasPrefix(originalFileBase, " ") {
+		output = strings.TrimPrefix(output, " ")
+	}
+	if strings.HasSuffix(originalFileBase, " ") {
+		output = strings.TrimSuffix(output, " ")
 	}
 	return output
 }
@@ -171,13 +195,13 @@ func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models
 	logger.Pl.D(2, "Processing filename %s with string replacements: %v", filename, replaceStrings)
 
 	for _, rep := range replaceStrings {
-		// Expand template tags
+		// Expand template tags.
 		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(rep.Replacement, fp.metadata)
 		if replacement == rep.Replacement && isTemplate {
 			continue
 		}
 
-		// Process
+		// Process.
 		prevFilename := filename
 		filename = strings.ReplaceAll(filename, rep.FindString, replacement)
 

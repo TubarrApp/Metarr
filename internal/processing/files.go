@@ -38,14 +38,13 @@ type workItem struct {
 // processFiles is the main program function to process folder entries.
 func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File) ([]*models.FileData, error) {
 	var skipVideos bool
-
 	if abstractions.IsSet(keys.SkipVideos) {
 		skipVideos = abstractions.GetBool(keys.SkipVideos)
 	} else {
 		skipVideos = batch.SkipVideos
 	}
 
-	// Match and video file maps, and meta file count
+	// Match and video file maps, and meta file count.
 	if err := getFiles(batch, openMeta, openVideo, skipVideos); err != nil {
 		return nil, err
 	}
@@ -71,13 +70,13 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	jobs := make(chan workItem, min(matchedCount, numWorkers*2))
 	results := make(chan *models.FileData, min(matchedCount, numWorkers*2))
 
-	// Start workers
+	// Start workers.
 	for worker := 1; worker <= numWorkers; worker++ {
 		wg.Add(1)
 		go workerVideoProcess(ctx, wg, batch, worker, jobs, results)
 	}
 
-	// Collector routine to collect results from the results channel
+	// Collector routine to collect results from the results channel.
 	var collectorWg sync.WaitGroup
 	collectorWg.Add(1)
 	go func() {
@@ -92,7 +91,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		}
 	}()
 
-	// Send jobs to workers
+	// Send jobs to workers.
 	for name, data := range batch.bp.syncMapToRegularMap(&batch.bp.files.matched) {
 		jobs <- workItem{
 			filename:     name,
@@ -107,7 +106,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	close(results)
 	collectorWg.Wait()
 
-	// Get errors
+	// Get errors.
 	errArray := vars.GetErrorArray()
 	if errArray != nil {
 		batch.bp.logFailedVideos()
@@ -218,8 +217,8 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 	}
 
-	// Match video and metadata files
-	var matchedFiles map[string]*models.FileData // No need to assign length (just a placeholder var)
+	// Match video and metadata files.
+	var matchedFiles map[string]*models.FileData // Do not assign length (just a placeholder var, will show unused otherwise).
 	if !skipVideos {
 		matchedFiles, err = file.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
 		if err != nil {

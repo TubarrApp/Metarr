@@ -135,10 +135,10 @@ func main() {
 	}
 	fdArray = append(fdArray, fdArrayResult...)
 
-	// Wait for all goroutines to finish
+	// Wait for all goroutines to finish.
 	wg.Wait()
 
-	// Process renames
+	// Process renames.
 	if len(fdArray) > 0 {
 		logger.Pl.I("Processing file renames for %d file(s)...", len(fdArray))
 
@@ -148,14 +148,14 @@ func main() {
 		logger.Pl.S("File renaming complete!")
 	}
 
-	// Check if shutdown was triggered by signal
+	// Check if shutdown was triggered by signal.
 	select {
 	case <-ctx.Done():
 		logger.Pl.I("Shutdown was triggered by signal")
 	default:
 	}
 
-	// End program run
+	// End program run.
 	endTime := time.Now()
 	fmt.Fprintf(os.Stderr, "\n")
 	logger.Pl.I(endLogFormat, endTime.Format(timeFormat))

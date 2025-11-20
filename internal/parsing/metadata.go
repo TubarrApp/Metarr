@@ -1,6 +1,7 @@
 package parsing
 
 import (
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"strings"
 )
@@ -85,4 +86,151 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 	}
 	logger.Pl.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
 	return "", false
+}
+
+// GetContainerKeys returns valid tag names for the given key and container type.
+func GetContainerKeys(key, extension string) string {
+	switch extension {
+	case consts.Ext3GP,
+		consts.Ext3G2,
+		consts.ExtF4V,
+		consts.ExtM4V,
+		consts.ExtMOV,
+		consts.ExtMP4:
+		// Containers use lowercase keys (already stored as lowercase).
+		return key
+
+	case consts.ExtMKV,
+		consts.ExtWEBM:
+		// Matroska uses UPPERCASE tags.
+		switch key {
+		case consts.JArtist:
+			return "ARTIST"
+		case consts.JActor:
+			return "LEAD_PERFORMER"
+		case consts.JComposer:
+			return "COMPOSER"
+		case consts.JPerformer:
+			return "PERFORMER"
+		case consts.JProducer:
+			return "PRODUCER"
+		case consts.JDirector:
+			return "DIRECTOR"
+		case consts.JTitle:
+			return "TITLE"
+		case consts.JLongDesc:
+			return "DESCRIPTION"
+		case consts.JSummary:
+			return "SUMMARY"
+		case consts.JSynopsis:
+			return "SYNOPSIS"
+		case consts.JDescription:
+			return "SUBJECT"
+		case consts.JReleaseDate, consts.JDate:
+			return "DATE_RELEASED"
+		case consts.JCreationTime:
+			return "DATE_ENCODED"
+		case consts.JYear:
+			return "DATE_RELEASED"
+		}
+
+	case consts.ExtWMV,
+		consts.ExtASF:
+		// WMV uses TitleCase and WM/ prefixes.
+		switch key {
+		case consts.JTitle:
+			return "Title"
+		case consts.JArtist:
+			return "WM/AlbumArtist"
+		case consts.JComposer:
+			return "WM/Composer"
+		case consts.JDirector:
+			return "WM/Director"
+		case consts.JProducer:
+			return "WM/Producer"
+		case consts.JSubtitle:
+			return "WM/SubTitle"
+		case consts.JLongDesc:
+			return "WM/SubTitleDescription"
+		case consts.JDate:
+			return "WM/EncodingTime"
+		case consts.JYear:
+			return "WM/Year"
+		}
+
+	case consts.ExtOGM,
+		consts.ExtOGV:
+		// Ogg uses UPPERCASE Vorbis comments.
+		switch key {
+		case consts.JArtist:
+			return "ARTIST"
+		case consts.JPerformer:
+			return "PERFORMER"
+		case consts.JComposer:
+			return "COMPOSER"
+		case consts.JDescription, consts.JLongDesc:
+			return "DESCRIPTION"
+		case consts.JSummary, consts.JSynopsis:
+			return "SUMMARY"
+		case consts.JDate:
+			return "DATE"
+		case consts.JTitle:
+			return "TITLE"
+		}
+
+	case consts.ExtAVI:
+		// AVI uses RIFF INFO tags (4-character codes).
+		switch key {
+		case consts.JLongDesc:
+			return "COMM"
+		case consts.JArtist:
+			return "IART"
+		case consts.JDescription:
+			return "ICMT"
+		case consts.JReleaseDate:
+			return "ICRD"
+		case consts.JProducer:
+			return "IENG"
+		case consts.JTitle:
+			return "INAM"
+		case consts.JSynopsis:
+			return "ISBJ"
+		case consts.JYear, consts.JReleaseYear:
+			return "YEAR"
+		}
+
+	case consts.ExtFLV:
+		// FLV uses lowercase tags.
+		switch key {
+		case consts.JDate:
+			return "creationdate"
+		}
+
+	case consts.ExtRM,
+		consts.ExtRMVB:
+		// RealMedia uses TitleCase.
+		switch key {
+		case consts.JAuthor:
+			return "Author"
+		case consts.JDescription:
+			return "Comment"
+		case consts.JTitle:
+			return "Title"
+		}
+
+	case consts.ExtMTS,
+		consts.ExtTS:
+		// MPEG-TS uses specific service tags.
+		switch key {
+		case consts.JArtist:
+			return "service_provider"
+		case consts.JTitle:
+			return "service_name"
+		}
+
+	default:
+		// For unknown container types, use input key.
+		return ""
+	}
+	return ""
 }

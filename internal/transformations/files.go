@@ -41,6 +41,7 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 	var replaceStyle enums.ReplaceToStyle
 	skipVideos := abstractions.GetBool(keys.SkipVideos)
 
+	// Check rename style.
 	if abstractions.IsSet(keys.Rename) {
 		if style, ok := abstractions.Get(keys.Rename).(enums.ReplaceToStyle); ok {
 			replaceStyle = style
@@ -49,30 +50,30 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 			return fmt.Errorf("%s invalid rename style type %T", consts.LogTagDevError, replaceStyle)
 		}
 	}
-	// Create a copy to sort
+	// Create a copy to sort.
 	sortedFiles := make([]*models.FileData, 0, len(fdArray))
 	for _, fd := range fdArray {
 		if fd != nil {
 			sortedFiles = append(sortedFiles, fd)
 		}
 	}
-	// Sort alphabetically by meta path
+	// Sort alphabetically by meta path.
 	sort.Slice(sortedFiles, func(i, j int) bool {
 		return sortedFiles[i].MetaFilePath < sortedFiles[j].MetaFilePath
 	})
-	// Iterate over sorted list
+	// Iterate over sorted list.
 	processedDirs := make(map[string]bool)
 	for _, fd := range sortedFiles {
 		if fd == nil {
 			continue
 		}
-		// Rename
+		// Rename.
 		if err := renameFile(ctx, fd, replaceStyle, skipVideos); err != nil {
 			vars.AddToErrorArray(err)
 			logger.Pl.E("Failed to rename file %q: %v", fd.OriginalVideoPath, err)
 			continue
 		}
-		// Track directory for success message
+		// Track directory for success message.
 		var directory string
 		if fd.MetaDirectory != "" {
 			directory = fd.MetaDirectory
@@ -83,7 +84,7 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 			processedDirs[directory] = true
 		}
 	}
-	// Log success per directory
+	// Log success per directory.
 	for dir := range processedDirs {
 		logger.Pl.S("Successfully formatted file names in directory: %s", dir)
 	}
@@ -146,14 +147,12 @@ func (fp *fileProcessor) process() error {
 
 	if !rename && !move {
 		logger.Pl.D(1, "Do not need to rename or move %q", fp.fd.PostFFmpegVideoPath)
-		// Set final paths since this is a terminal boundary (no rename/move operations)
 		fp.fd.SetFinalPaths(fp.fd.PostFFmpegVideoPath, fp.fd.MetaFilePath)
 		return nil
 	}
 
 	if !rename {
 		logger.Pl.D(1, "Do not need to rename %q, just moving...", fp.fd.PostFFmpegVideoPath)
-		// Set renamed paths to current paths for move operation
 		fp.fd.RenamedVideoPath = fp.fd.PostFFmpegVideoPath
 		fp.fd.RenamedMetaPath = fp.fd.MetaFilePath
 
@@ -349,7 +348,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	set := fOps.Set
 	initialBase := fileBase
 
-	// Early exit if nothing to do
+	// Early exit if nothing to do.
 	if !set.IsSet && len(fOps.Replaces) == 0 && len(fOps.ReplacePrefixes) == 0 &&
 		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Appends) == 0 &&
 		fOps.DateTag.DateFormat == enums.DateFmtSkip && fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
@@ -358,17 +357,17 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		return fileBase, nil
 	}
 
-	// Delete date tags first
+	// Delete date tags first.
 	if fOps.DeleteDateTags.DateFormat != enums.DateFmtSkip {
-		fileBase = fp.deleteDateTag(fileBase, fOps.DeleteDateTags)
+		fileBase = strings.TrimSpace(fp.deleteDateTag(fileBase, fOps.DeleteDateTags))
 	}
 
-	// Explicit string setting e.g. 'title:set:{{year}}\: {{fulltitle}}'
+	// Explicit string setting e.g. 'title:set:{{year}}\: {{fulltitle}}'.
 	if set.IsSet {
 		fileBase = fp.setString(fileBase, set)
 	}
 
-	// Transformations which search the string to replace elements
+	// Transformations which search the string to replace elements.
 	if len(fOps.Replaces) > 0 {
 		fileBase = fp.replaceStrings(fileBase, fOps.Replaces)
 	}
@@ -379,9 +378,9 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		fileBase = fp.replaceSuffix(fileBase, fOps.ReplaceSuffixes)
 	}
 
-	// Apply naming style after string search replacements
+	// Apply naming style after string search replacements.
 	if style != enums.RenamingSkip {
-		fileBase = applyNamingStyle(style, fileBase)
+		fileBase = applyNamingStyle(style, fileBase, fd.OriginalVideoPath)
 	}
 
 	// Plain appends etc.
