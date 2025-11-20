@@ -5,9 +5,9 @@ import (
 	"io"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
+	"metarr/internal/parsing"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 )
 
@@ -66,7 +66,8 @@ func BackupFile(file *os.File) error {
 // generateBackupFilename creates a backup filename by appending "_backup" to the original filename.
 func generateBackupFilename(originalFilePath string) string {
 	ext := filepath.Ext(originalFilePath)
-	base := strings.TrimSuffix(originalFilePath, ext)
+	base := parsing.GetFilepathWithoutExt(originalFilePath)
+
 	return base + consts.BackupTag + ext
 }
 

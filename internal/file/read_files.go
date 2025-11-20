@@ -9,6 +9,7 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"os"
 	"path/filepath"
 	"slices"
@@ -105,7 +106,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
 			m.VideoDirectory = videoDir.Name()
 
-			if !strings.Contains(m.GetBaseNameWithoutExt(m.OriginalVideoPath), consts.BackupTag) {
+			if !strings.Contains(parsing.GetBaseNameWithoutExt(m.OriginalVideoPath), consts.BackupTag) {
 				videoFiles[file.Name()] = m
 				logger.Pl.I("Added video to queue: %v", videoFilenameBase)
 			} else {
@@ -163,7 +164,8 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		// Check extensions
 		m := models.NewFileData()
 		metaFilenameBase := filepath.Base(file.Name())
-		baseName := strings.TrimSuffix(metaFilenameBase, ext)
+		metaBaseName := parsing.GetBaseNameWithoutExt(metaFilenameBase)
+
 		filePath := filepath.Join(metaDir.Name(), file.Name())
 
 		// Check if valid metafile is present
@@ -177,10 +179,10 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		// Skip if it's a Metarr-generated backup file
-		if !strings.Contains(baseName, consts.BackupTag) {
+		if !strings.Contains(metaBaseName, consts.BackupTag) {
 			metaFiles[file.Name()] = m
 		} else {
-			logger.Pl.I("Skipping file %q containing backup tag (%q)", baseName, consts.BackupTag)
+			logger.Pl.I("Skipping file %q containing backup tag (%q)", metaBaseName, consts.BackupTag)
 		}
 	}
 	if len(metaFiles) == 0 {
@@ -247,7 +249,7 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, b
 			logger.Pl.W("Skipping nil video file entry: %s", videoFilename)
 			continue
 		}
-		videoBase := strings.TrimSuffix(videoFilename, filepath.Ext(videoFilename))
+		videoBase := parsing.GetBaseNameWithoutExt(videoFilename)
 		normalizedVideoBase := NormalizeFilename(videoBase)
 
 		if fileData, exists := metaLookup[normalizedVideoBase]; exists && fileData != nil { // This checks if the key exists in the metaLookup map

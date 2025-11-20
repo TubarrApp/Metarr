@@ -11,6 +11,7 @@ import (
 	"metarr/internal/domain/vars"
 	"metarr/internal/file"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/validation"
 	"os"
 	"os/exec"
@@ -68,7 +69,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if err != nil {
 		dir = fd.VideoDirectory
 	}
-	fileBase := strings.TrimSuffix(filepath.Base(origPath), origExt)
+	fileBase := parsing.GetBaseNameWithoutExt(origPath)
 
 	// Make cache output path.
 	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
@@ -97,7 +98,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	command.Stderr = os.Stderr
 
 	// Set post-FFmpeg video path in model.
-	baseName := fd.GetBaseNameWithoutExt(origPath)
+	baseName := parsing.GetBaseNameWithoutExt(origPath)
 	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outExt
 
 	logger.Pl.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nPost-FFmpeg Video Path: %s\n\nTemp Output Path: %s", origPath,
@@ -186,7 +187,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 		logger.Pl.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoPath)
 
 		// Save 'post-FFmpeg' video path into model.
-		fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, fd.GetBaseNameWithoutExt(fd.OriginalVideoPath)) + outExt
+		fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath)) + outExt
 
 		// Set final paths and end processing.
 		fd.SetFinalPaths(fd.OriginalVideoPath, fd.MetaFilePath)

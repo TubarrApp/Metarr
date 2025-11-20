@@ -112,7 +112,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		stripThumbnails = abstractions.GetBool(keys.StripThumbnails)
 	}
 	if !stripThumbnails {
-		b.setThumbnail(fd.MWebData.Thumbnail, fd.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
+		b.setThumbnail(fd.MWebData.Thumbnail, parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
 	}
 
 	// Return the fully appended argument string
@@ -201,11 +201,10 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 
 // convertToJPG converts an inputted file format to JPG for embedding.
 func convertToJPG(inputPath string) (string, error) {
-	inputFileExt := filepath.Ext(inputPath)
-	outputPath := strings.TrimSuffix(inputPath, inputFileExt) + ".jpg"
+	outputPath := parsing.GetFilepathWithoutExt(inputPath) + ".jpg"
 	cmd := exec.Command("ffmpeg", "-y", "-i", inputPath, outputPath)
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to convert %q to jpg: %w", inputFileExt, err)
+		return "", fmt.Errorf("failed to convert %q to jpg: %w", filepath.Ext(inputPath), err)
 	}
 	return outputPath, nil
 }
@@ -238,10 +237,6 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 	// Remove query parameters and detect extension
 	base, _, _ := strings.Cut(urlStr, "?")
 	base, _, _ = strings.Cut(base, "#")
-	ext := strings.ToLower(filepath.Ext(base))
-	if ext == "" {
-		ext = ".jpg"
-	}
 
 	// Remove illegal characters
 	cleanBase := strings.Map(func(r rune) rune {
@@ -259,7 +254,7 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 		cleanBase = cleanBase[:50]
 	}
 
-	tmpPath := filepath.Join(os.TempDir(), "thumb_"+videoBaseName+"_"+strings.TrimSuffix(cleanBase, ext)+ext)
+	tmpPath := filepath.Join(os.TempDir(), "thumb_"+videoBaseName+"_"+cleanBase)
 
 	file, err := os.Create(tmpPath)
 	if err != nil {

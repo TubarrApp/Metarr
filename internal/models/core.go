@@ -8,8 +8,6 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 )
 
@@ -103,15 +101,6 @@ func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 	if _, err := fmt.Fprintf(os.Stderr, "\n"); err != nil {
 		logger.Pl.E("Failed to write final newline: %v", err)
 	}
-}
-
-// GetBaseNameWithoutExt returns the base name (without extension) of any file path.
-func (fd *FileData) GetBaseNameWithoutExt(path string) string {
-	if path == "" {
-		return ""
-	}
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
 }
 
 // Core contains variables important to the program core.

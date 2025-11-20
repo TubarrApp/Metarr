@@ -10,10 +10,10 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/transformations/transpresets"
 	"metarr/internal/utils/browser"
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode"
 )
@@ -68,9 +68,7 @@ func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
 
 // applyNamingStyle applies renaming conventions.
 func applyNamingStyle(style enums.ReplaceToStyle, input string, originalFilePath string) (output string) {
-	ext := filepath.Ext(originalFilePath)
-	originalFileBase := strings.TrimSuffix(filepath.Base(originalFilePath), ext)
-
+	originalFileBase := parsing.GetBaseNameWithoutExt(originalFilePath)
 	output = handleOriginalUnwantedChars(input, originalFileBase)
 
 	switch style {

@@ -233,10 +233,10 @@ func (fp *fileProcessor) writeResult() error {
 
 // handleRenaming processes the renaming operations.
 func (fp *fileProcessor) handleRenaming() error {
-	metaBase := fp.fd.GetBaseNameWithoutExt(fp.fd.MetaFilePath)
+	metaBase := parsing.GetBaseNameWithoutExt(fp.fd.MetaFilePath)
 	metaDir := fp.fd.MetaDirectory
 	originalMPath := fp.fd.MetaFilePath
-	videoBase := fp.fd.GetBaseNameWithoutExt(fp.fd.PostFFmpegVideoPath)
+	videoBase := parsing.GetBaseNameWithoutExt(fp.fd.PostFFmpegVideoPath)
 	originalVPath := fp.fd.PostFFmpegVideoPath
 
 	// Get ext
