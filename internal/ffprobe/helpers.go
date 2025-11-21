@@ -46,7 +46,7 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 
 		return tagDiffMap{
 			sharedtags.ASFArtist: { // FFprobe access key.
-				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFArtist)), // FFprobe value.
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFArtist)), // FFprobe value. Do not remove "get", keys are hard to predict.
 				new:      strings.TrimSpace(fd.MCredits.Artist),                           // Desired new value.
 			},
 			sharedtags.ASFComposer: {
@@ -338,5 +338,13 @@ func (tags ffprobeTags) get(key string) string {
 	if k, exists := tags[strings.ToTitle(key)]; exists {
 		return k
 	}
+
+	// Special WM/ case attempts:
+	key, _, _ = strings.Cut(key, "WM/")
+	key = tags.get(key)
+	if key != "" {
+		return key
+	}
+
 	return ""
 }
