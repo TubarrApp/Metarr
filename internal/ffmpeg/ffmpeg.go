@@ -64,15 +64,11 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}
 	logger.Pl.I("Will execute video from extension %q → %q", origExt, outExt)
 
-	// Get user cache dir for temp file.
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		dir = fd.VideoDirectory
-	}
+	// DO NOT use user cache or temp dir, causes cross device link move failures.
 	fileBase := parsing.GetBaseNameWithoutExt(origPath)
 
 	// Make cache output path.
-	tmpOutPath = filepath.Join(dir, consts.TempTag+fileBase+origExt+outExt)
+	tmpOutPath = filepath.Join(fd.VideoDirectory, consts.TempTag+fileBase+origExt+outExt)
 	logger.Pl.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
 
 	// Remove temp file on function end.
