@@ -62,7 +62,7 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 
 // addCredits adds all credit-related metadata.
 func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
-	// Single value credits
+	// Single value credits.
 	fields := map[string]string{
 		sharedtags.JActor:     c.Actor,
 		sharedtags.JAuthor:    c.Author,
