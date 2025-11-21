@@ -170,7 +170,7 @@ func GetContainerKeys(key, extension string) string {
 		consts.ExtM4V,
 		consts.ExtMOV,
 		consts.ExtMP4:
-		// ISOBMM uses lowercase tags.
+		// ISOBMFF uses lowercase tags.
 		switch key {
 		case sharedtags.JArtist:
 			return sharedtags.ISOArtist

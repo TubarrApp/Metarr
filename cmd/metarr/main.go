@@ -104,7 +104,7 @@ func main() {
 			}
 		})
 		if err := http.ListenAndServe("127.0.0.1:6387", nil); err != nil {
-			logger.Pl.E("Could not start server for Metarr logs, logs will be inaccessible from Tubarr.")
+			logger.Pl.E("Could not start server for Metarr logs, logs will be inaccessible from Tubarr. (Error: %v)", err)
 		}
 	}()
 

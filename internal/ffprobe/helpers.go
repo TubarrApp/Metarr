@@ -133,7 +133,7 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 			},
 		}, true
 
-		// ISOBMM.
+		// ISOBMFF.
 	case consts.Ext3GP,
 		consts.Ext3G2,
 		consts.ExtF4V,
