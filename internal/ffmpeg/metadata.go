@@ -18,13 +18,30 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 
 // addTitlesDescs adds all title/description-related metadata.
 func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
-	// Prefer fulltitle if possible (also exists in the JSON processing func).
-	if t.Title == "" && t.Fulltitle != "" {
+	// Prefer fulltitle.
+	if t.Fulltitle != "" {
 		t.Title = t.Fulltitle
 	}
+	if t.Fulltitle == "" && t.Title != "" {
+		t.Fulltitle = t.Title
+	}
 
-	if t.LongDescription == "" && t.LongUnderscoreDescription != "" {
-		t.LongDescription = t.LongUnderscoreDescription
+	// Prefer long (non-truncated) description.
+	if t.LongDescription == "" {
+		if t.LongUnderscoreDescription != "" {
+			t.LongDescription = t.LongUnderscoreDescription
+		}
+		if t.Description != "" {
+			t.LongDescription = t.Description
+		}
+	}
+	if t.LongUnderscoreDescription == "" {
+		if t.LongDescription != "" {
+			t.LongUnderscoreDescription = t.LongDescription
+		}
+	}
+	if t.LongDescription != "" {
+		t.Description = t.LongDescription
 	}
 
 	fields := map[string]string{

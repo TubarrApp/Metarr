@@ -97,8 +97,6 @@ func GetContainerKeys(key, extension string) string {
 		consts.ExtASF:
 		// ASF uses TitleCase and WM/ prefixes.
 		switch key {
-		case sharedtags.JFulltitle:
-			return sharedtags.ASFTitle
 
 		case sharedtags.JArtist:
 			return sharedtags.ASFArtist
@@ -120,6 +118,9 @@ func GetContainerKeys(key, extension string) string {
 
 		case sharedtags.JDate:
 			return sharedtags.ASFEncodingTime
+
+		case sharedtags.JTitle:
+			return sharedtags.ASFTitle
 
 		case sharedtags.JYear:
 			return sharedtags.ASFYear
@@ -146,11 +147,11 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JProducer:
 			return sharedtags.AVIEngineer
 
-		case sharedtags.JFulltitle:
-			return sharedtags.AVITitle
-
 		case sharedtags.JSynopsis:
 			return sharedtags.AVISubject
+
+		case sharedtags.JTitle:
+			return sharedtags.AVITitle
 
 		case sharedtags.JYear:
 			return sharedtags.AVIYear
@@ -192,7 +193,7 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JSynopsis:
 			return sharedtags.ISOSynopsis
 
-		case sharedtags.JFulltitle:
+		case sharedtags.JTitle:
 			return sharedtags.ISOTitle
 		}
 
@@ -236,7 +237,7 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JSynopsis:
 			return sharedtags.MatroskaSynopsis
 
-		case sharedtags.JFulltitle:
+		case sharedtags.JTitle:
 			return sharedtags.MatroskaTitle
 		}
 
@@ -244,11 +245,12 @@ func GetContainerKeys(key, extension string) string {
 		consts.ExtTS:
 		// MPEG-TS uses specific service tags.
 		switch key {
-		case sharedtags.JFulltitle:
-			return sharedtags.TSServiceName
-
 		case sharedtags.JArtist:
 			return sharedtags.TSServiceProvider
+
+		case sharedtags.JTitle:
+			return sharedtags.TSServiceName
+
 		}
 
 	case consts.ExtOGM,
@@ -258,22 +260,22 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JArtist:
 			return sharedtags.OggArtist
 
-		case sharedtags.JPerformer:
-			return sharedtags.OggPerformer
-
 		case sharedtags.JComposer:
 			return sharedtags.OggComposer
-
-		case sharedtags.JDescription:
-			return sharedtags.OggDescription
-
-		case sharedtags.JSummary:
-			return sharedtags.OggSummary
 
 		case sharedtags.JDate:
 			return sharedtags.OggDate
 
-		case sharedtags.JFulltitle:
+		case sharedtags.JDescription:
+			return sharedtags.OggDescription
+
+		case sharedtags.JPerformer:
+			return sharedtags.OggPerformer
+
+		case sharedtags.JSummary:
+			return sharedtags.OggSummary
+
+		case sharedtags.JTitle:
 			return sharedtags.OggTitle
 		}
 
@@ -287,7 +289,7 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JDescription:
 			return sharedtags.RMComment
 
-		case sharedtags.JFulltitle:
+		case sharedtags.JTitle:
 			return sharedtags.RMTitle
 		}
 
