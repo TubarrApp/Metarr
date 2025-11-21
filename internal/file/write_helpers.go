@@ -110,6 +110,7 @@ func moveOrCopyFile(src, dst string) error {
 	if err := os.Remove(dst); err != nil {
 		logger.Pl.E("Failed to remove failed copied file %q due to error: %v", dst, err)
 	}
+
 	return fmt.Errorf("failed to copy file %q → %q: %w", src, dst, err)
 }
 
