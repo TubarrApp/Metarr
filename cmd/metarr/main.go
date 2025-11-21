@@ -45,7 +45,7 @@ func init() {
 // main is the program entrypoint.
 func main() {
 	startTime := time.Now()
-	// Setup logging
+	// Setup logging.
 	logConfig := logging.LoggingConfig{
 		LogFilePath: paths.MetarrLogFilePath,
 		MaxSizeMB:   1,
@@ -63,7 +63,7 @@ func main() {
 
 	logger.Pl.I(startLogFormat, startTime.Format(timeFormat))
 
-	// Panic recovery with proper cleanup
+	// Panic recovery with proper cleanup.
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Pl.E("Panic recovered: %v", r)
@@ -72,23 +72,23 @@ func main() {
 		}
 	}()
 
-	// Ensure benchmarking is closed on all exit paths
+	// Ensure benchmarking is closed on all exit paths.
 	defer benchmark.CloseBenchFiles(logger.Pl, vars.BenchmarkFiles, "", nil)
 
-	// Parse configuration
+	// Parse configuration.
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintf(os.Stderr, "\n")
 		return
 	}
 
-	// Early exit if not executing
+	// Early exit if not executing.
 	if !abstractions.GetBool("execute") {
 		fmt.Fprintf(os.Stderr, "\n")
 		return
 	}
 
-	// Setup context for cancellation
+	// Setup context for cancellation.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer cancel()
 	go func() {
@@ -108,17 +108,17 @@ func main() {
 		}
 	}()
 
-	// Initialize cached variables
+	// Initialize cached variables.
 	if err := file.InitFetchFilesVars(); err != nil {
 		logger.Pl.E("Failed to initialize variables to fetch files. Exiting...")
 		cancel()
 		return
 	}
 
-	// Initialize user input reader (used for prompting the user during program run)
+	// Initialize user input reader (used for prompting the user during program run).
 	prompt.InitUserInputReader()
 
-	// Process batches
+	// Process batches.
 	wg := new(sync.WaitGroup)
 	core := &models.Core{
 		Ctx: ctx,
