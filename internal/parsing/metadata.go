@@ -4,6 +4,8 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // MetaTemplateParser is used for parsing meta template tags into filled strings.
@@ -91,146 +93,204 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 // GetContainerKeys returns valid tag names for the given key and container type.
 func GetContainerKeys(key, extension string) string {
 	switch extension {
+	case consts.ExtWMV,
+		consts.ExtASF:
+		// ASF uses TitleCase and WM/ prefixes.
+		switch key {
+		case sharedtags.JFulltitle:
+			return sharedtags.ASFTitle
+
+		case sharedtags.JArtist:
+			return sharedtags.ASFArtist
+
+		case sharedtags.JComposer:
+			return sharedtags.ASFComposer
+
+		case sharedtags.JDirector:
+			return sharedtags.ASFDirector
+
+		case sharedtags.JProducer:
+			return sharedtags.ASFProducer
+
+		case sharedtags.JSubtitle:
+			return sharedtags.ASFSubtitle
+
+		case sharedtags.JDescription:
+			return sharedtags.ASFSubTitleDescription
+
+		case sharedtags.JDate:
+			return sharedtags.ASFEncodingTime
+
+		case sharedtags.JYear:
+			return sharedtags.ASFYear
+		}
+
+	case consts.ExtAVI:
+		// AVI uses RIFF INFO tags (4-character codes).
+		switch key {
+		case sharedtags.JLongDesc:
+			return sharedtags.AVIComments
+
+		case sharedtags.JActor:
+			return sharedtags.AVIStar
+
+		case sharedtags.JArtist:
+			return sharedtags.AVIArtist
+
+		case sharedtags.JDescription:
+			return sharedtags.AVIComment
+
+		case sharedtags.JReleaseDate:
+			return sharedtags.AVIDateCreated
+
+		case sharedtags.JProducer:
+			return sharedtags.AVIEngineer
+
+		case sharedtags.JFulltitle:
+			return sharedtags.AVITitle
+
+		case sharedtags.JSynopsis:
+			return sharedtags.AVISubject
+
+		case sharedtags.JYear:
+			return sharedtags.AVIYear
+		}
+
+	case consts.ExtFLV:
+		// FLV uses lowercase tags.
+		switch key {
+		case sharedtags.JDate:
+			return sharedtags.FLVCreationDate
+		}
+
 	case consts.Ext3GP,
 		consts.Ext3G2,
 		consts.ExtF4V,
 		consts.ExtM4V,
 		consts.ExtMOV,
 		consts.ExtMP4:
-		// Containers use lowercase keys (already stored as lowercase).
-		return key
+		// ISOBMM uses lowercase tags.
+		switch key {
+		case sharedtags.JArtist:
+			return sharedtags.ISOArtist
+
+		case sharedtags.JComment:
+			return sharedtags.ISOComment
+
+		case sharedtags.JComposer:
+			return sharedtags.ISOComposer
+
+		case sharedtags.JCreationTime:
+			return sharedtags.ISOCreationTime
+
+		case sharedtags.JDate:
+			return sharedtags.ISODate
+
+		case sharedtags.JDescription:
+			return sharedtags.ISODescription
+
+		case sharedtags.JSynopsis:
+			return sharedtags.ISOSynopsis
+
+		case sharedtags.JFulltitle:
+			return sharedtags.ISOTitle
+		}
 
 	case consts.ExtMKV,
 		consts.ExtWEBM:
 		// Matroska uses UPPERCASE tags.
 		switch key {
-		case consts.JArtist:
-			return "ARTIST"
-		case consts.JActor:
-			return "LEAD_PERFORMER"
-		case consts.JComposer:
-			return "COMPOSER"
-		case consts.JPerformer:
-			return "PERFORMER"
-		case consts.JProducer:
-			return "PRODUCER"
-		case consts.JDirector:
-			return "DIRECTOR"
-		case consts.JTitle:
-			return "TITLE"
-		case consts.JLongDesc:
-			return "DESCRIPTION"
-		case consts.JSummary:
-			return "SUMMARY"
-		case consts.JSynopsis:
-			return "SYNOPSIS"
-		case consts.JDescription:
-			return "SUBJECT"
-		case consts.JReleaseDate, consts.JDate:
-			return "DATE_RELEASED"
-		case consts.JCreationTime:
-			return "DATE_ENCODED"
-		case consts.JYear:
-			return "DATE_RELEASED"
-		}
+		case sharedtags.JArtist:
+			return sharedtags.MatroskaArtist
 
-	case consts.ExtWMV,
-		consts.ExtASF:
-		// WMV uses TitleCase and WM/ prefixes.
-		switch key {
-		case consts.JTitle:
-			return "Title"
-		case consts.JArtist:
-			return "WM/AlbumArtist"
-		case consts.JComposer:
-			return "WM/Composer"
-		case consts.JDirector:
-			return "WM/Director"
-		case consts.JProducer:
-			return "WM/Producer"
-		case consts.JSubtitle:
-			return "WM/SubTitle"
-		case consts.JLongDesc:
-			return "WM/SubTitleDescription"
-		case consts.JDate:
-			return "WM/EncodingTime"
-		case consts.JYear:
-			return "WM/Year"
-		}
+		case sharedtags.JComposer:
+			return sharedtags.MatroskaComposer
 
-	case consts.ExtOGM,
-		consts.ExtOGV:
-		// Ogg uses UPPERCASE Vorbis comments.
-		switch key {
-		case consts.JArtist:
-			return "ARTIST"
-		case consts.JPerformer:
-			return "PERFORMER"
-		case consts.JComposer:
-			return "COMPOSER"
-		case consts.JDescription, consts.JLongDesc:
-			return "DESCRIPTION"
-		case consts.JSummary, consts.JSynopsis:
-			return "SUMMARY"
-		case consts.JDate:
-			return "DATE"
-		case consts.JTitle:
-			return "TITLE"
-		}
+		case sharedtags.JCreationTime:
+			return sharedtags.MatroskaDateEncoded
 
-	case consts.ExtAVI:
-		// AVI uses RIFF INFO tags (4-character codes).
-		switch key {
-		case consts.JLongDesc:
-			return "COMM"
-		case consts.JArtist:
-			return "IART"
-		case consts.JDescription:
-			return "ICMT"
-		case consts.JReleaseDate:
-			return "ICRD"
-		case consts.JProducer:
-			return "IENG"
-		case consts.JTitle:
-			return "INAM"
-		case consts.JSynopsis:
-			return "ISBJ"
-		case consts.JYear, consts.JReleaseYear:
-			return "YEAR"
-		}
+		case sharedtags.JReleaseDate:
+			return sharedtags.MatroskaDateReleased
 
-	case consts.ExtFLV:
-		// FLV uses lowercase tags.
-		switch key {
-		case consts.JDate:
-			return "creationdate"
-		}
+		case sharedtags.JDescription:
+			return sharedtags.MatroskaDescription
 
-	case consts.ExtRM,
-		consts.ExtRMVB:
-		// RealMedia uses TitleCase.
-		switch key {
-		case consts.JAuthor:
-			return "Author"
-		case consts.JDescription:
-			return "Comment"
-		case consts.JTitle:
-			return "Title"
+		case sharedtags.JDirector:
+			return sharedtags.MatroskaDirector
+
+		case sharedtags.JActor:
+			return sharedtags.MatroskaLeadPerformer
+
+		case sharedtags.JPerformer:
+			return sharedtags.MatroskaPerformer
+
+		case sharedtags.JProducer:
+			return sharedtags.MatroskaProducer
+
+		case sharedtags.JSubtitle:
+			return sharedtags.MatroskaSubject
+
+		case sharedtags.JSummary:
+			return sharedtags.MatroskaSummary
+
+		case sharedtags.JSynopsis:
+			return sharedtags.MatroskaSynopsis
+
+		case sharedtags.JFulltitle:
+			return sharedtags.MatroskaTitle
 		}
 
 	case consts.ExtMTS,
 		consts.ExtTS:
 		// MPEG-TS uses specific service tags.
 		switch key {
-		case consts.JArtist:
-			return "service_provider"
-		case consts.JTitle:
-			return "service_name"
+		case sharedtags.JFulltitle:
+			return sharedtags.TSServiceName
+
+		case sharedtags.JArtist:
+			return sharedtags.TSServiceProvider
 		}
 
-	default:
-		// For unknown container types, use input key.
-		return ""
+	case consts.ExtOGM,
+		consts.ExtOGV:
+		// Ogg uses UPPERCASE Vorbis comments.
+		switch key {
+		case sharedtags.JArtist:
+			return sharedtags.OggArtist
+
+		case sharedtags.JPerformer:
+			return sharedtags.OggPerformer
+
+		case sharedtags.JComposer:
+			return sharedtags.OggComposer
+
+		case sharedtags.JDescription:
+			return sharedtags.OggDescription
+
+		case sharedtags.JSummary:
+			return sharedtags.OggSummary
+
+		case sharedtags.JDate:
+			return sharedtags.OggDate
+
+		case sharedtags.JFulltitle:
+			return sharedtags.OggTitle
+		}
+
+	case consts.ExtRM,
+		consts.ExtRMVB:
+		// RealMedia uses TitleCase.
+		switch key {
+		case sharedtags.JAuthor:
+			return sharedtags.RMAuthor
+
+		case sharedtags.JDescription:
+			return sharedtags.RMComment
+
+		case sharedtags.JFulltitle:
+			return sharedtags.RMTitle
+		}
+
 	}
 	return ""
 }

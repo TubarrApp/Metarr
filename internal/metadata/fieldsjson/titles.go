@@ -1,7 +1,6 @@
 package fieldsjson
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
@@ -10,6 +9,7 @@ import (
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillTitles grabs titles, subtitles, etc, from JSON.
@@ -18,9 +18,9 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 	w := fd.MWebData
 
 	fieldMap := map[string]*string{
-		consts.JTitle:     &t.Title,
-		consts.JFulltitle: &t.Fulltitle,
-		consts.JSubtitle:  &t.Subtitle,
+		sharedtags.JTitle:     &t.Title,
+		sharedtags.JFulltitle: &t.Fulltitle,
+		sharedtags.JSubtitle:  &t.Subtitle,
 	}
 
 	printMap := make(map[string]string, len(fieldMap))

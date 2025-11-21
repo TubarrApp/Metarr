@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // FillTimestamps grabs timestamp metadata from JSON.
@@ -20,13 +21,13 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 	w := fd.MWebData
 
 	fieldMap := map[string]*string{ // Order by importance.
-		consts.JReleaseDate:         &t.ReleaseDate,
-		consts.JOriginallyAvailable: &t.OriginallyAvailableAt,
-		consts.JDate:                &t.Date,
-		consts.JUploadDate:          &t.UploadDate,
-		consts.JReleaseYear:         &t.Year,
-		consts.JYear:                &t.Year,
-		consts.JCreationTime:        &t.CreationTime,
+		sharedtags.JReleaseDate:         &t.ReleaseDate,
+		sharedtags.JOriginallyAvailable: &t.OriginallyAvailableAt,
+		sharedtags.JDate:                &t.Date,
+		sharedtags.JUploadDate:          &t.UploadDate,
+		sharedtags.JReleaseYear:         &t.Year,
+		sharedtags.JYear:                &t.Year,
+		sharedtags.JCreationTime:        &t.CreationTime,
 	}
 
 	if ok := unpackJSON(fieldMap, json); !ok {
@@ -140,9 +141,9 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		}
 
 		if logging.Level > 1 {
-			printMap[consts.JReleaseDate] = t.ReleaseDate
-			printMap[consts.JDate] = t.Date
-			printMap[consts.JYear] = t.Year
+			printMap[sharedtags.JReleaseDate] = t.ReleaseDate
+			printMap[sharedtags.JDate] = t.Date
+			printMap[sharedtags.JYear] = t.Year
 		}
 
 		if t.FormattedDate == "" {

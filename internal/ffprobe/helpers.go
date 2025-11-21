@@ -7,8 +7,9 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/parsing"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // ffprobeFormat contains metadata tags.
@@ -39,6 +40,100 @@ type ffprobeStream struct {
 // getDiffMapForFiletype returns a struct map with values.
 func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) (tagMap tagDiffMap, exists bool) {
 	switch e {
+	// ASF.
+	case consts.ExtASF,
+		consts.ExtWMV:
+
+		return tagDiffMap{
+			sharedtags.ASFArtist: { // FFprobe access key.
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFArtist)), // FFprobe value.
+				new:      strings.TrimSpace(fd.MCredits.Artist),                           // Desired new value.
+			},
+			sharedtags.ASFComposer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFComposer)),
+				new:      strings.TrimSpace(fd.MCredits.Composer),
+			},
+			sharedtags.ASFDirector: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFDirector)),
+				new:      strings.TrimSpace(fd.MCredits.Director),
+			},
+			sharedtags.ASFEncodingTime: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.ASFEncodingTime)),
+				new:      getDatePart(fd.MDates.Date),
+			},
+			sharedtags.ASFProducer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFProducer)),
+				new:      strings.TrimSpace(fd.MCredits.Producer),
+			},
+			sharedtags.ASFSubtitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFSubtitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Subtitle),
+			},
+			sharedtags.ASFSubTitleDescription: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFSubTitleDescription)),
+				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
+			},
+			sharedtags.ASFTitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ASFTitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
+			},
+			sharedtags.ASFYear: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.ASFYear)),
+				new:      getDatePart(fd.MDates.Year),
+			},
+		}, true
+
+	// AVI.
+	case consts.ExtAVI:
+		return tagDiffMap{
+			sharedtags.AVIArtist: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVIArtist)),
+				new:      strings.TrimSpace(fd.MCredits.Artist),
+			},
+			sharedtags.AVIComment: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVIComment)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Description),
+			},
+			sharedtags.AVIComments: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVIComments)),
+				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
+			},
+			sharedtags.AVIDateCreated: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.AVIDateCreated)),
+				new:      getDatePart(fd.MDates.ReleaseDate),
+			},
+			sharedtags.AVIEngineer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVIEngineer)),
+				new:      strings.TrimSpace(fd.MCredits.Producer),
+			},
+			sharedtags.AVIStar: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVIStar)),
+				new:      strings.TrimSpace(fd.MCredits.Actor),
+			},
+			sharedtags.AVISubject: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVISubject)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
+			},
+			sharedtags.AVITitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVITitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
+			},
+			sharedtags.AVIYear: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.AVIYear)),
+				new:      getDatePart(fd.MDates.Year),
+			},
+		}, true
+
+	// FLV.
+	case consts.ExtFLV:
+		return tagDiffMap{
+			sharedtags.FLVCreationDate: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.FLVCreationDate)),
+				new:      getDatePart(fd.MDates.Date),
+			},
+		}, true
+
+		// ISOBMM.
 	case consts.Ext3GP,
 		consts.Ext3G2,
 		consts.ExtF4V,
@@ -47,223 +142,166 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		consts.ExtMP4:
 
 		return tagDiffMap{
-			consts.JArtist: { // FFprobe access key.
-				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JArtist)), // FFprobe value.
-				new:      strings.TrimSpace(fd.MCredits.Artist),                     // Desired new value.
+			sharedtags.ISOArtist: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ISOArtist)),
+				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			consts.JComposer: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JComposer)),
+			sharedtags.ISOComment: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ISOComment)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Comment),
+			},
+			sharedtags.ISOComposer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ISOComposer)),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
-			consts.JCreationTime: {
-				existing: getDatePart(ffData.Format.Tags.get(consts.JCreationTime)),
+			sharedtags.ISOCreationTime: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.ISOCreationTime)),
 				new:      getDatePart(fd.MDates.CreationTime),
 			},
-			consts.JDate: {
-				existing: getDatePart(ffData.Format.Tags.get(consts.JDate)),
+			sharedtags.JDate: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.ISODate)),
 				new:      getDatePart(fd.MDates.Date),
 			},
-			consts.JDescription: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JDescription)),
+			sharedtags.ISODescription: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ISODescription)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			consts.JSynopsis: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JSynopsis)),
+			sharedtags.ISOSynopsis: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ISOSynopsis)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
 			},
-			consts.JTitle: {
-				existing: strings.TrimSpace(ffData.Format.Tags.get(consts.JTitle)),
-				new:      strings.TrimSpace(fd.MTitleDesc.Title),
+			sharedtags.ISOTitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.ISOTitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
 			},
 		}, true
 
+		// Matroska.
 	case consts.ExtMKV,
 		consts.ExtWEBM:
 
 		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JArtist, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("ARTIST")),
+			sharedtags.MatroskaArtist: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaArtist)),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			parsing.GetContainerKeys(consts.JActor, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("LEAD_PERFORMER")),
-				new:      strings.TrimSpace(fd.MCredits.Actor),
-			},
-			parsing.GetContainerKeys(consts.JComposer, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("COMPOSER")),
+			sharedtags.MatroskaComposer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaComposer)),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
-			parsing.GetContainerKeys(consts.JReleaseDate, e): {
-				existing: getDatePart(ffData.Format.Tags.get("DATE_RELEASED")),
+			sharedtags.MatroskaDateEncoded: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.MatroskaDateEncoded)),
+				new:      getDatePart(fd.MDates.CreationTime),
+			},
+			sharedtags.MatroskaDateReleased: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.MatroskaDateReleased)),
 				new:      getDatePart(fd.MDates.ReleaseDate),
 			},
-			parsing.GetContainerKeys(consts.JLongDesc, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
+			sharedtags.MatroskaDescription: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaDescription)),
 				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
 			},
-			parsing.GetContainerKeys(consts.JSummary, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("SUMMARY")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Summary),
-			},
-			parsing.GetContainerKeys(consts.JDescription, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("SUBJECT")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Description),
-			},
-			parsing.GetContainerKeys(consts.JTitle, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("TITLE")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Title),
-			},
-		}, true
-
-	case consts.ExtASF,
-		consts.ExtWMV:
-
-		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JTitle, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("Title")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Title),
-			},
-			parsing.GetContainerKeys(consts.JArtist, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/AlbumArtist")),
-				new:      strings.TrimSpace(fd.MCredits.Artist),
-			},
-			parsing.GetContainerKeys(consts.JComposer, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/Composer")),
-				new:      strings.TrimSpace(fd.MCredits.Composer),
-			},
-			parsing.GetContainerKeys(consts.JDirector, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/Director")),
+			sharedtags.MatroskaDirector: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaDirector)),
 				new:      strings.TrimSpace(fd.MCredits.Director),
 			},
-			parsing.GetContainerKeys(consts.JDate, e): {
-				existing: getDatePart(ffData.Format.Tags.get("WM/EncodingTime")),
-				new:      getDatePart(fd.MDates.Date),
+			sharedtags.MatroskaLeadPerformer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaLeadPerformer)),
+				new:      strings.TrimSpace(fd.MCredits.Actor),
 			},
-			parsing.GetContainerKeys(consts.JProducer, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/Producer")),
+			sharedtags.MatroskaPerformer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaPerformer)),
+				new:      strings.TrimSpace(fd.MCredits.Performer),
+			},
+			sharedtags.MatroskaProducer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaProducer)),
 				new:      strings.TrimSpace(fd.MCredits.Producer),
 			},
-			parsing.GetContainerKeys(consts.JSubtitle, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/SubTitle")),
+			sharedtags.MatroskaSubject: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaSubject)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Subtitle),
 			},
-			parsing.GetContainerKeys(consts.JLongDesc, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("WM/SubTitleDescription")),
-				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
+			sharedtags.MatroskaSummary: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaSummary)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Summary),
 			},
-			parsing.GetContainerKeys(consts.JYear, e): {
-				existing: getDatePart(ffData.Format.Tags.get("WM/Year")),
-				new:      getDatePart(fd.MDates.Year),
+			sharedtags.MatroskaSynopsis: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaSynopsis)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
+			},
+			sharedtags.MatroskaTitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.MatroskaTitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
 			},
 		}, true
 
+	// MPEG-TS.
+	case consts.ExtMTS,
+		consts.ExtTS:
+		return tagDiffMap{
+			sharedtags.TSServiceName: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.TSServiceName)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
+			},
+			sharedtags.TSServiceProvider: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.TSServiceProvider)),
+				new:      strings.TrimSpace(fd.MCredits.Artist),
+			},
+		}, true
+
+		// Ogg.
 	case consts.ExtOGM,
 		consts.ExtOGV:
 
 		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JArtist, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("ARTIST")),
+			sharedtags.OggArtist: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.OggArtist)),
 				new:      strings.TrimSpace(fd.MCredits.Artist),
 			},
-			parsing.GetContainerKeys(consts.JPerformer, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("PERFORMER")),
-				new:      strings.TrimSpace(fd.MCredits.Artist),
-			},
-			parsing.GetContainerKeys(consts.JComposer, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("COMPOSER")),
+			sharedtags.OggComposer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.OggComposer)),
 				new:      strings.TrimSpace(fd.MCredits.Composer),
 			},
-			parsing.GetContainerKeys(consts.JDate, e): {
-				existing: getDatePart(ffData.Format.Tags.get("DATE")),
+			sharedtags.OggDate: {
+				existing: getDatePart(ffData.Format.Tags.get(sharedtags.OggDate)),
 				new:      getDatePart(fd.MDates.Date),
 			},
-			parsing.GetContainerKeys(consts.JDescription, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("DESCRIPTION")),
+			sharedtags.OggDescription: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.OggDescription)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			parsing.GetContainerKeys(consts.JSummary, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("SUMMARY")),
+			sharedtags.OggPerformer: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.OggPerformer)),
+				new:      strings.TrimSpace(fd.MCredits.Performer),
+			},
+			sharedtags.OggSummary: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.OggSummary)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Summary),
 			},
-		}, true
-
-	case consts.ExtAVI:
-		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JLongDesc, e): { // Comments.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("COMM")),
-				new:      strings.TrimSpace(fd.MTitleDesc.LongDescription),
-			},
-			parsing.GetContainerKeys(consts.JArtist, e): { // Artist.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("IART")),
-				new:      strings.TrimSpace(fd.MCredits.Artist),
-			},
-			parsing.GetContainerKeys(consts.JDescription, e): { // Comment.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("ICMT")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Description),
-			},
-			parsing.GetContainerKeys(consts.JReleaseDate, e): { // Date created.
-				existing: getDatePart(ffData.Format.Tags.get("ICRD")),
-				new:      getDatePart(fd.MDates.ReleaseDate),
-			},
-			parsing.GetContainerKeys(consts.JProducer, e): { // Engineer.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("IENG")),
-				new:      strings.TrimSpace(fd.MCredits.Producer),
-			},
-			parsing.GetContainerKeys(consts.JTitle, e): { // Title.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("INAM")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Title),
-			},
-			parsing.GetContainerKeys(consts.JSynopsis, e): { // Subject.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("ISBJ")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Synopsis),
-			},
-			parsing.GetContainerKeys(consts.JActor, e): { // Starring.
-				existing: strings.TrimSpace(ffData.Format.Tags.get("STAR")),
-				new:      strings.TrimSpace(fd.MCredits.Actor),
-			},
-			parsing.GetContainerKeys(consts.JYear, e): { // Year.
-				existing: getDatePart(ffData.Format.Tags.get("YEAR")),
-				new:      getDatePart(fd.MDates.Year),
+			sharedtags.OggTitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.OggTitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
 			},
 		}, true
 
-	case consts.ExtFLV:
-		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JDate, e): {
-				existing: getDatePart(ffData.Format.Tags.get("creationdate")),
-				new:      getDatePart(fd.MDates.Date),
-			},
-		}, true
-
+		// RealMedia.
 	case consts.ExtRM,
 		consts.ExtRMVB:
 		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JAuthor, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("Author")),
+			sharedtags.RMAuthor: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.RMAuthor)),
 				new:      strings.TrimSpace(fd.MCredits.Author),
 			},
-			parsing.GetContainerKeys(consts.JDescription, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("Comment")),
+			sharedtags.RMComment: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.RMComment)),
 				new:      strings.TrimSpace(fd.MTitleDesc.Description),
 			},
-			parsing.GetContainerKeys(consts.JTitle, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("Title")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Title),
+			sharedtags.RMTitle: {
+				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.RMTitle)),
+				new:      strings.TrimSpace(fd.MTitleDesc.Fulltitle),
 			},
 		}, true
 
-	case consts.ExtMTS,
-		consts.ExtTS:
-		return tagDiffMap{
-			parsing.GetContainerKeys(consts.JArtist, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("service_provider")),
-				new:      strings.TrimSpace(fd.MCredits.Artist),
-			},
-			parsing.GetContainerKeys(consts.JTitle, e): {
-				existing: strings.TrimSpace(ffData.Format.Tags.get("service_name")),
-				new:      strings.TrimSpace(fd.MTitleDesc.Title),
-			},
-		}, true
 	}
 	return tagDiffMap{}, false
 }
@@ -286,18 +324,18 @@ func printArray(s []string) {
 // get grabs key based on casing.
 func (tags ffprobeTags) get(key string) string {
 	// Direct match.
-	if k, ok := tags[key]; ok {
+	if k, exists := tags[key]; exists {
 		return k
 	}
 
 	// Try variants.
-	if k, ok := tags[strings.ToLower(key)]; ok {
+	if k, exists := tags[strings.ToLower(key)]; exists {
 		return k
 	}
-	if k, ok := tags[strings.ToUpper(key)]; ok {
+	if k, exists := tags[strings.ToUpper(key)]; exists {
 		return k
 	}
-	if k, ok := tags[strings.ToTitle(key)]; ok {
+	if k, exists := tags[strings.ToTitle(key)]; exists {
 		return k
 	}
 	return ""

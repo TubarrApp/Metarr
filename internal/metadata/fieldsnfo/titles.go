@@ -1,12 +1,12 @@
 package fieldsnfo
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillNFOTitles attempts to fill in titles from NFO.
@@ -15,9 +15,9 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 	n := fd.NFOData
 
 	fieldMap := map[string]*string{
-		consts.NTitle:         &t.Title,
-		consts.NOriginalTitle: &t.Fulltitle,
-		consts.NTagline:       &t.Subtitle,
+		sharedtags.NTitle:         &t.Title,
+		sharedtags.NOriginalTitle: &t.Fulltitle,
+		sharedtags.NTagline:       &t.Subtitle,
 	}
 
 	// Post-unmarshal clean.
@@ -35,7 +35,7 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 	if n.Title.Main != "" {
 		if t.Title == "" {
 			t.Title = n.Title.Main
-			printMap[consts.NTitle] = t.Title
+			printMap[sharedtags.NTitle] = t.Title
 		}
 	}
 
@@ -45,21 +45,21 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 		}
 		if t.Title == "" {
 			t.Title = n.Title.Original
-			printMap[consts.NTitle] = t.Title
+			printMap[sharedtags.NTitle] = t.Title
 		}
 	}
 
 	if n.Title.Sub != "" {
 		if t.Subtitle == "" {
 			t.Subtitle = n.Title.Sub
-			printMap[consts.NSubtitle] = t.Subtitle
+			printMap[sharedtags.NSubtitle] = t.Subtitle
 		}
 	}
 
 	if n.Title.PlainText != "" {
 		if t.Title == "" {
 			t.Title = n.Title.PlainText
-			printMap[consts.NTitle] = t.Title
+			printMap[sharedtags.NTitle] = t.Title
 		}
 	}
 	return true

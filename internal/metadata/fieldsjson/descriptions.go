@@ -10,6 +10,7 @@ import (
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillDescriptions grabs description data from JSON.
@@ -18,12 +19,12 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	w := fd.MWebData
 
 	fieldMap := map[string]*string{ // Order by importance.
-		consts.JLongDesc:           &d.LongDescription,
-		consts.JLongUnderscoreDesc: &d.LongUnderscoreDescription,
-		consts.JDescription:        &d.Description,
-		consts.JSynopsis:           &d.Synopsis,
-		consts.JSummary:            &d.Summary,
-		consts.JComment:            &d.Comment,
+		sharedtags.JLongDesc:           &d.LongDescription,
+		sharedtags.JLongUnderscoreDesc: &d.LongUnderscoreDescription,
+		sharedtags.JDescription:        &d.Description,
+		sharedtags.JSynopsis:           &d.Synopsis,
+		sharedtags.JSummary:            &d.Summary,
+		sharedtags.JComment:            &d.Comment,
 	}
 	filled := unpackJSON(fieldMap, data)
 

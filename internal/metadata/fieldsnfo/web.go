@@ -1,11 +1,11 @@
 package fieldsnfo
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillNFOWebData attempts to fill in web data from NFO.
@@ -14,7 +14,7 @@ func fillNFOWebData(fd *models.FileData) (filled bool) {
 	nw := fd.NFOData.WebpageInfo
 
 	fieldMap := map[string]*string{
-		consts.NURL: &w.WebpageURL,
+		sharedtags.NURL: &w.WebpageURL,
 	}
 
 	// Post-unmarshal clean.
@@ -30,7 +30,7 @@ func fillNFOWebData(fd *models.FileData) (filled bool) {
 	if nw.URL != "" {
 		if w.WebpageURL == "" {
 			w.WebpageURL = nw.URL
-			printMap[consts.NURL] = w.WebpageURL
+			printMap[sharedtags.NURL] = w.WebpageURL
 		}
 	}
 	return true

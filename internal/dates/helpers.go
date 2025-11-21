@@ -2,12 +2,13 @@ package dates
 
 import (
 	"fmt"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/regex"
 	"strconv"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // ParseDateComponents extracts and validates year, month, and day from the date string.
@@ -310,17 +311,17 @@ func stripAllDateTags(val string) (tags []string, cleaned string) {
 // extractDateFromMetadata attempts to find a date in the metadata using predefined fields.
 func extractDateFromMetadata(metadata map[string]any) (string, bool) {
 	preferredDateFields := []string{
-		consts.JReleaseDate,
+		sharedtags.JReleaseDate,
 		"releasedate",
 		"released_on",
-		consts.JOriginallyAvailable,
+		sharedtags.JOriginallyAvailable,
 		"originally_available",
 		"originallyavailable",
-		consts.JDate,
-		consts.JUploadDate,
+		sharedtags.JDate,
+		sharedtags.JUploadDate,
 		"uploaddate",
 		"uploaded_on",
-		consts.JCreationTime, // Last resort, may give false positives.
+		sharedtags.JCreationTime, // Last resort, may give false positives.
 		"created_at",
 	}
 

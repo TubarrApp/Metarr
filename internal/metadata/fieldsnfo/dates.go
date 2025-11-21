@@ -3,7 +3,6 @@ package fieldsnfo
 import (
 	"fmt"
 	"metarr/internal/dates"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
@@ -11,6 +10,7 @@ import (
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillNFOTimestamps fills empty date fields from existing date metafields.
@@ -20,9 +20,9 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 	n := fd.NFOData
 
 	fieldMap := map[string]*string{
-		consts.NAired:        &t.Date,
-		consts.NPremiereDate: &t.ReleaseDate,
-		consts.NYear:         &t.Year,
+		sharedtags.NAired:        &t.Date,
+		sharedtags.NPremiereDate: &t.ReleaseDate,
+		sharedtags.NYear:         &t.Year,
 	}
 	cleanEmptyFields(fieldMap)
 
@@ -41,7 +41,7 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 				t.FormattedDate = rtn
 			}
 		}
-		printMap[consts.NPremiereDate] = n.Premiered
+		printMap[sharedtags.NPremiereDate] = n.Premiered
 		gotRelevantDate = true
 	}
 	if n.ReleaseDate != "" {
@@ -50,12 +50,12 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 				t.FormattedDate = rtn
 			}
 		}
-		printMap[consts.NAired] = n.Premiered
+		printMap[sharedtags.NAired] = n.Premiered
 		gotRelevantDate = true
 	}
 	if n.Year != "" {
 		t.Year = n.Year
-		printMap[consts.NYear] = n.Year
+		printMap[sharedtags.NYear] = n.Year
 	}
 
 	if t.FormattedDate != "" {
@@ -129,9 +129,9 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 			t.Year = date[:4]
 		}
 
-		printMap[consts.NPremiereDate] = t.ReleaseDate
-		printMap[consts.NAired] = t.Date
-		printMap[consts.NYear] = t.Year
+		printMap[sharedtags.NPremiereDate] = t.ReleaseDate
+		printMap[sharedtags.NAired] = t.Date
+		printMap[sharedtags.NYear] = t.Year
 
 		if t.FormattedDate == "" {
 			dates.FormatAllDates(fd)

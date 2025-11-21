@@ -1,9 +1,10 @@
 package ffmpeg
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // addAllMetadata combines all metadata into a single map.
@@ -27,12 +28,12 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 	}
 
 	fields := map[string]string{
-		consts.JTitle:       t.Title,
-		consts.JSubtitle:    t.Subtitle,
-		consts.JDescription: t.Description,
-		consts.JLongDesc:    t.LongDescription,
-		consts.JSummary:     t.Summary,
-		consts.JSynopsis:    t.Synopsis,
+		sharedtags.JTitle:       t.Title,
+		sharedtags.JSubtitle:    t.Subtitle,
+		sharedtags.JDescription: t.Description,
+		sharedtags.JLongDesc:    t.LongDescription,
+		sharedtags.JSummary:     t.Summary,
+		sharedtags.JSynopsis:    t.Synopsis,
 	}
 
 	for field, value := range fields {
@@ -46,17 +47,17 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 	// Single value credits
 	fields := map[string]string{
-		consts.JActor:     c.Actor,
-		consts.JAuthor:    c.Author,
-		consts.JArtist:    c.Artist,
-		consts.JCreator:   c.Creator,
-		consts.JStudio:    c.Studio,
-		consts.JPublisher: c.Publisher,
-		consts.JProducer:  c.Producer,
-		consts.JPerformer: c.Performer,
-		consts.JComposer:  c.Composer,
-		consts.JDirector:  c.Director,
-		consts.JWriter:    c.Writer,
+		sharedtags.JActor:     c.Actor,
+		sharedtags.JAuthor:    c.Author,
+		sharedtags.JArtist:    c.Artist,
+		sharedtags.JCreator:   c.Creator,
+		sharedtags.JStudio:    c.Studio,
+		sharedtags.JPublisher: c.Publisher,
+		sharedtags.JProducer:  c.Producer,
+		sharedtags.JPerformer: c.Performer,
+		sharedtags.JComposer:  c.Composer,
+		sharedtags.JDirector:  c.Director,
+		sharedtags.JWriter:    c.Writer,
 	}
 
 	for field, value := range fields {
@@ -66,26 +67,26 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 	}
 
 	// Array credits (length already checked in function).
-	b.addArrayMetadata(consts.JActor, c.Actors)
-	b.addArrayMetadata(consts.JComposer, c.Composers)
-	b.addArrayMetadata(consts.JArtist, c.Artists)
-	b.addArrayMetadata(consts.JStudio, c.Studios)
-	b.addArrayMetadata(consts.JPerformer, c.Performers)
-	b.addArrayMetadata(consts.JProducer, c.Producers)
-	b.addArrayMetadata(consts.JPublisher, c.Publishers)
-	b.addArrayMetadata(consts.JDirector, c.Directors)
-	b.addArrayMetadata(consts.JWriter, c.Writers)
+	b.addArrayMetadata(sharedtags.JActor, c.Actors)
+	b.addArrayMetadata(sharedtags.JComposer, c.Composers)
+	b.addArrayMetadata(sharedtags.JArtist, c.Artists)
+	b.addArrayMetadata(sharedtags.JStudio, c.Studios)
+	b.addArrayMetadata(sharedtags.JPerformer, c.Performers)
+	b.addArrayMetadata(sharedtags.JProducer, c.Producers)
+	b.addArrayMetadata(sharedtags.JPublisher, c.Publishers)
+	b.addArrayMetadata(sharedtags.JDirector, c.Directors)
+	b.addArrayMetadata(sharedtags.JWriter, c.Writers)
 }
 
 // addDates adds all date-related metadata.
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 	fields := map[string]string{
-		consts.JCreationTime:        d.CreationTime,
-		consts.JDate:                d.Date,
-		consts.JOriginallyAvailable: d.OriginallyAvailableAt,
-		consts.JReleaseDate:         d.ReleaseDate,
-		consts.JUploadDate:          d.UploadDate,
-		consts.JYear:                d.Year,
+		sharedtags.JCreationTime:        d.CreationTime,
+		sharedtags.JDate:                d.Date,
+		sharedtags.JOriginallyAvailable: d.OriginallyAvailableAt,
+		sharedtags.JReleaseDate:         d.ReleaseDate,
+		sharedtags.JUploadDate:          d.UploadDate,
+		sharedtags.JYear:                d.Year,
 	}
 
 	for field, value := range fields {

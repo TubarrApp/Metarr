@@ -1,11 +1,11 @@
 package fieldsnfo
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillNFODescriptions attempts to fill in descriptions from NFO.
@@ -14,8 +14,8 @@ func fillNFODescriptions(fd *models.FileData) (filled bool) {
 	n := fd.NFOData
 
 	fieldMap := map[string]*string{
-		consts.NDescription: &d.Description,
-		consts.NPlot:        &d.LongDescription,
+		sharedtags.NDescription: &d.Description,
+		sharedtags.NPlot:        &d.LongDescription,
 	}
 
 	// Post-unmarshal clean.
@@ -86,11 +86,11 @@ func fillNFODescriptions(fd *models.FileData) (filled bool) {
 	}
 
 	if d.LongDescription != "" {
-		printMap[consts.NDescription] = d.LongDescription
+		printMap[sharedtags.NDescription] = d.LongDescription
 	}
 
 	if d.Description != "" {
-		printMap[consts.NDescription] = d.Description
+		printMap[sharedtags.NDescription] = d.Description
 	}
 
 	return true

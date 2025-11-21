@@ -648,6 +648,10 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 
 	// Get valid container-specific tag names for each key in the metadata.
 	for key, value := range b.metadataMap {
+		if value == "" {
+			continue
+		}
+
 		containerKey := parsing.GetContainerKeys(key, outputExt)
 		if containerKey == "" {
 			logger.Pl.W("Not inserting key: %q, could not find match for container %q.", key, outputExt)

@@ -464,7 +464,7 @@ func ValidateAndSetRenameFlag(renameFlag string) {
 	abstractions.Set(keys.Rename, renameFlagEnum)
 }
 
-// ---- Private ----------------------------------------------------------------------------------------------------
+// ** Private ************************************************************************************************************************************
 
 // checkDriverNodeExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
 func checkDriverNodeExists(g string) error {

@@ -1,23 +1,23 @@
 package fieldsjson
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // FillWebpageDetails grabs details necessary to scrape the web for missing metafields.
 func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 	var isFilled bool
 
-	priorityMap := [...]string{consts.JWebpageURL,
-		consts.JURL,
-		consts.JReferer,
-		consts.JWebpageDomain,
-		consts.JDomain}
+	priorityMap := [...]string{sharedtags.JWebpageURL,
+		sharedtags.JURL,
+		sharedtags.JReferer,
+		sharedtags.JWebpageDomain,
+		sharedtags.JDomain}
 
 	if fd.MWebData.TryURLs == nil {
 		fd.MWebData.TryURLs = make([]string, 0, len(priorityMap))
@@ -45,22 +45,22 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		}
 
 		switch k {
-		case consts.JWebpageURL:
+		case sharedtags.JWebpageURL:
 			if webInfoFill(&fd.MWebData.WebpageURL, val, fd.MWebData) {
 				isFilled = true
 			}
 
-		case consts.JURL:
+		case sharedtags.JURL:
 			if webInfoFill(&fd.MWebData.VideoURL, val, fd.MWebData) {
 				isFilled = true
 			}
 
-		case consts.JReferer:
+		case sharedtags.JReferer:
 			if webInfoFill(&fd.MWebData.Referer, val, fd.MWebData) {
 				isFilled = true
 			}
 
-		case consts.JWebpageDomain, consts.JDomain:
+		case sharedtags.JWebpageDomain, sharedtags.JDomain:
 			if webInfoFill(&fd.MWebData.Domain, val, fd.MWebData) {
 				isFilled = true
 			}
@@ -74,7 +74,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 		}
 	}
 
-	thumb, ok := data[consts.JThumbnailURL].(string)
+	thumb, ok := data[sharedtags.JThumbnailURL].(string)
 	if ok {
 		fd.MWebData.Thumbnail = thumb
 		logger.Pl.I("Found thumbnail: %q", fd.MWebData.Thumbnail)

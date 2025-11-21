@@ -1,7 +1,6 @@
 package fieldsjson
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
@@ -11,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader).
@@ -22,19 +22,19 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 
 	// Order by importance.
 	fieldMap := map[string]*string{
-		consts.JCreator:   &c.Creator,
-		consts.JPerformer: &c.Performer,
-		consts.JAuthor:    &c.Author,
-		consts.JArtist:    &c.Artist, // May be alias for "author" in some systems.
-		consts.JChannel:   &c.Channel,
-		consts.JDirector:  &c.Director,
-		consts.JActor:     &c.Actor,
-		consts.JStudio:    &c.Studio,
-		consts.JProducer:  &c.Producer,
-		consts.JWriter:    &c.Writer,
-		consts.JUploader:  &c.Uploader,
-		consts.JPublisher: &c.Publisher,
-		consts.JComposer:  &c.Composer,
+		sharedtags.JCreator:   &c.Creator,
+		sharedtags.JPerformer: &c.Performer,
+		sharedtags.JAuthor:    &c.Author,
+		sharedtags.JArtist:    &c.Artist, // May be alias for "author" in some systems.
+		sharedtags.JChannel:   &c.Channel,
+		sharedtags.JDirector:  &c.Director,
+		sharedtags.JActor:     &c.Actor,
+		sharedtags.JStudio:    &c.Studio,
+		sharedtags.JProducer:  &c.Producer,
+		sharedtags.JWriter:    &c.Writer,
+		sharedtags.JUploader:  &c.Uploader,
+		sharedtags.JPublisher: &c.Publisher,
+		sharedtags.JComposer:  &c.Composer,
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
