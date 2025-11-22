@@ -32,27 +32,6 @@ func ValidateGPU(g string) (accelType string, err error) {
 	return g, nil
 }
 
-// ValidateExtension checks if the output extension is valid.
-func ValidateExtension(ext string) string {
-	ext = strings.TrimSpace(ext)
-
-	// Handle empty or invalid cases.
-	if ext == "" || ext == "." {
-		return ""
-	}
-
-	// Ensure proper dot prefix.
-	if !strings.HasPrefix(ext, ".") {
-		ext = "." + ext
-	}
-
-	// Verify the extension is not just a lone dot.
-	if len(ext) <= 1 {
-		return ""
-	}
-	return ext
-}
-
 // ---- Validate And Set ------------------------------------------------------------------------------------------
 
 // ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
@@ -303,24 +282,14 @@ func ValidateAndSetMaxCPU(maxCPU float64) {
 
 // ValidateAndSetOutputFiletype verifies the output filetype is valid for FFmpeg.
 func ValidateAndSetOutputFiletype(o string) {
-	o = strings.TrimSpace(o)
-	if !strings.HasPrefix(o, ".") {
-		o = "." + o
+	var err error
+	if o, err = sharedvalidation.ValidateFFmpegOutputExt(o); err != nil {
+		logger.Pl.E("Will not change file containers, invalid output extension: %v", err)
+		return
 	}
 
-	valid := false
-	for ext := range sharedconsts.AllVidExtensions {
-		if o != ext {
-			continue
-		}
-		valid = true
-		break
-	}
-
-	if valid {
-		abstractions.Set(keys.OutputFiletype, o)
-		logger.Pl.I("Outputting files as %s", o)
-	}
+	abstractions.Set(keys.OutputFiletype, o)
+	logger.Pl.I("Outputting files as %s", o)
 }
 
 // ValidateAndSetMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid.

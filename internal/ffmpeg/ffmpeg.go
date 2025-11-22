@@ -12,7 +12,6 @@ import (
 	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/validation"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,7 +32,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Extension validation.
 	if abstractions.IsSet(keys.OutputFiletype) {
-		if outExt = validation.ValidateExtension(abstractions.GetString(keys.OutputFiletype)); outExt == "" {
+		if outExt = abstractions.GetString(keys.OutputFiletype); outExt == "" {
 			logger.Pl.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
 			outExt = origExt
 		}

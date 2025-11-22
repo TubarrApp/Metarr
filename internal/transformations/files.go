@@ -15,7 +15,6 @@ import (
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/validation"
 	"os"
 	"path/filepath"
 	"sort"
@@ -272,7 +271,7 @@ func (fp *fileProcessor) determineVideoExtension(originalPath string) string {
 		return filepath.Ext(originalPath)
 	}
 
-	vidExt := validation.ValidateExtension(abstractions.GetString(keys.OutputFiletype))
+	vidExt := abstractions.GetString(keys.OutputFiletype)
 	if vidExt == "" {
 		vidExt = filepath.Ext(originalPath)
 	}
