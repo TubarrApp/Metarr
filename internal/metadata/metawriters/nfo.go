@@ -103,7 +103,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 
 // MakeMetaEdits applies a series of transformations and writes the final result to the file.
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileData) (bool, error) {
-	// Ensure we have valid XML
+	// Ensure valid XML.
 	if !strings.Contains(data, "<movie>") {
 		return false, errors.New("invalid XML: missing movie tag")
 	}
