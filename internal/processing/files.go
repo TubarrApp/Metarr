@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/vars"
@@ -16,6 +15,8 @@ import (
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 const (
@@ -150,10 +151,10 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles 
 	for _, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
-		case consts.MExtJSON:
+		case sharedconsts.MExtJSON:
 			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			err = processJSONFile(ctx, fd)
-		case consts.MExtNFO:
+		case sharedconsts.MExtNFO:
 			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			err = processNFOFiles(ctx, fd)
 		}

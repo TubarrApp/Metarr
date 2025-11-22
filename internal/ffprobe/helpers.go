@@ -4,11 +4,11 @@
 package ffprobe
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"strings"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
@@ -41,8 +41,8 @@ type ffprobeStream struct {
 func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) (tagMap tagDiffMap, exists bool) {
 	switch e {
 	// ASF.
-	case consts.ExtASF,
-		consts.ExtWMV:
+	case sharedconsts.ExtASF,
+		sharedconsts.ExtWMV:
 
 		return tagDiffMap{
 			sharedtags.ASFArtist: { // FFprobe access key.
@@ -84,7 +84,7 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 	// AVI.
-	case consts.ExtAVI:
+	case sharedconsts.ExtAVI:
 		return tagDiffMap{
 			sharedtags.AVIArtist: {
 				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.AVIArtist)),
@@ -125,7 +125,7 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 	// FLV.
-	case consts.ExtFLV:
+	case sharedconsts.ExtFLV:
 		return tagDiffMap{
 			sharedtags.FLVCreationDate: {
 				existing: getDatePart(ffData.Format.Tags.get(sharedtags.FLVCreationDate)),
@@ -134,12 +134,12 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 		// ISOBMFF.
-	case consts.Ext3GP,
-		consts.Ext3G2,
-		consts.ExtF4V,
-		consts.ExtM4V,
-		consts.ExtMOV,
-		consts.ExtMP4:
+	case sharedconsts.Ext3GP,
+		sharedconsts.Ext3G2,
+		sharedconsts.ExtF4V,
+		sharedconsts.ExtM4V,
+		sharedconsts.ExtMOV,
+		sharedconsts.ExtMP4:
 
 		return tagDiffMap{
 			sharedtags.ISOArtist: {
@@ -177,8 +177,8 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 		// Matroska.
-	case consts.ExtMKV,
-		consts.ExtWEBM:
+	case sharedconsts.ExtMKV,
+		sharedconsts.ExtWEBM:
 
 		return tagDiffMap{
 			sharedtags.MatroskaArtist: {
@@ -236,8 +236,8 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 	// MPEG-TS.
-	case consts.ExtMTS,
-		consts.ExtTS:
+	case sharedconsts.ExtMTS,
+		sharedconsts.ExtTS:
 		return tagDiffMap{
 			sharedtags.TSServiceName: {
 				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.TSServiceName)),
@@ -250,8 +250,8 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 		// Ogg.
-	case consts.ExtOGM,
-		consts.ExtOGV:
+	case sharedconsts.ExtOGM,
+		sharedconsts.ExtOGV:
 
 		return tagDiffMap{
 			sharedtags.OggArtist: {
@@ -285,8 +285,8 @@ func getDiffMapForFiletype(e string, fd *models.FileData, ffData ffprobeOutput) 
 		}, true
 
 		// RealMedia.
-	case consts.ExtRM,
-		consts.ExtRMVB:
+	case sharedconsts.ExtRM,
+		sharedconsts.ExtRMVB:
 		return tagDiffMap{
 			sharedtags.RMAuthor: {
 				existing: strings.TrimSpace(ffData.Format.Tags.get(sharedtags.RMAuthor)),

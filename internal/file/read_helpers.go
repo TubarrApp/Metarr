@@ -2,10 +2,11 @@ package file
 
 import (
 	"metarr/internal/domain/logger"
-	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/domain/regex"
 	"path/filepath"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // HasFileExtension checks if the file has a valid extension from a passed in map.
@@ -83,7 +84,7 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 	}
 	// Same as above but directly strips the metafile extension. Handles edge cases where
 	// video is file.json.mp4 and metafile is file.json, so they both become file.json.
-	for k := range lookupmaps.AllMetaExtensions {
+	for k := range sharedconsts.FilterByMetaExtension {
 		if strings.HasSuffix(metaBase, k) && !strings.HasSuffix(videoBase, k) {
 			return strings.TrimSuffix(metaBase, k)
 		}

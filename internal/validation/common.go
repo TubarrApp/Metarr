@@ -8,7 +8,6 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
-	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/models"
 	"os"
 	"slices"
@@ -310,7 +309,7 @@ func ValidateAndSetOutputFiletype(o string) {
 	}
 
 	valid := false
-	for ext := range lookupmaps.AllVidExtensions {
+	for ext := range sharedconsts.AllVidExtensions {
 		if o != ext {
 			continue
 		}

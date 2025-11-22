@@ -1,10 +1,10 @@
 package parsing
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"strings"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
@@ -93,8 +93,8 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 // GetContainerKeys returns valid tag names for the given key and container type.
 func GetContainerKeys(key, extension string) string {
 	switch extension {
-	case consts.ExtWMV,
-		consts.ExtASF:
+	case sharedconsts.ExtWMV,
+		sharedconsts.ExtASF:
 		// ASF uses TitleCase and WM/ prefixes.
 		switch key {
 
@@ -126,7 +126,7 @@ func GetContainerKeys(key, extension string) string {
 			return sharedtags.ASFYear
 		}
 
-	case consts.ExtAVI:
+	case sharedconsts.ExtAVI:
 		// AVI uses RIFF INFO tags (4-character codes).
 		switch key {
 		case sharedtags.JLongDesc:
@@ -157,19 +157,19 @@ func GetContainerKeys(key, extension string) string {
 			return sharedtags.AVIYear
 		}
 
-	case consts.ExtFLV:
+	case sharedconsts.ExtFLV:
 		// FLV uses lowercase tags.
 		switch key {
 		case sharedtags.JDate:
 			return sharedtags.FLVCreationDate
 		}
 
-	case consts.Ext3GP,
-		consts.Ext3G2,
-		consts.ExtF4V,
-		consts.ExtM4V,
-		consts.ExtMOV,
-		consts.ExtMP4:
+	case sharedconsts.Ext3GP,
+		sharedconsts.Ext3G2,
+		sharedconsts.ExtF4V,
+		sharedconsts.ExtM4V,
+		sharedconsts.ExtMOV,
+		sharedconsts.ExtMP4:
 		// ISOBMFF uses lowercase tags.
 		switch key {
 		case sharedtags.JArtist:
@@ -197,8 +197,8 @@ func GetContainerKeys(key, extension string) string {
 			return sharedtags.ISOTitle
 		}
 
-	case consts.ExtMKV,
-		consts.ExtWEBM:
+	case sharedconsts.ExtMKV,
+		sharedconsts.ExtWEBM:
 		// Matroska uses UPPERCASE tags.
 		switch key {
 		case sharedtags.JArtist:
@@ -241,8 +241,8 @@ func GetContainerKeys(key, extension string) string {
 			return sharedtags.MatroskaTitle
 		}
 
-	case consts.ExtMTS,
-		consts.ExtTS:
+	case sharedconsts.ExtMTS,
+		sharedconsts.ExtTS:
 		// MPEG-TS uses specific service tags.
 		switch key {
 		case sharedtags.JArtist:
@@ -253,8 +253,8 @@ func GetContainerKeys(key, extension string) string {
 
 		}
 
-	case consts.ExtOGM,
-		consts.ExtOGV:
+	case sharedconsts.ExtOGM,
+		sharedconsts.ExtOGV:
 		// Ogg uses UPPERCASE Vorbis comments.
 		switch key {
 		case sharedtags.JArtist:
@@ -279,8 +279,8 @@ func GetContainerKeys(key, extension string) string {
 			return sharedtags.OggTitle
 		}
 
-	case consts.ExtRM,
-		consts.ExtRMVB:
+	case sharedconsts.ExtRM,
+		sharedconsts.ExtRMVB:
 		// RealMedia uses TitleCase.
 		switch key {
 		case sharedtags.JAuthor:

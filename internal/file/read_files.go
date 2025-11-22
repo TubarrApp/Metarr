@@ -7,13 +7,14 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
-	"metarr/internal/domain/lookupmaps"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // InitFetchFilesVars sets up the cached variables to be used in file fetching ops.
@@ -33,31 +34,31 @@ func InitFetchFilesVars() (err error) {
 	}
 
 	// Set video map.
-	for k := range lookupmaps.AllVidExtensions {
+	for k := range sharedconsts.FilterByVidExtensions {
 		// Set all true.
 		if allV {
-			lookupmaps.AllVidExtensions[k] = true
+			sharedconsts.FilterByVidExtensions[k] = true
 			continue
 		}
 		// Selective set.
 		for _, ve := range inVExts {
 			if k == ve {
-				lookupmaps.AllVidExtensions[k] = true
+				sharedconsts.FilterByVidExtensions[k] = true
 			}
 		}
 	}
 
 	// Set meta map.
-	for k := range lookupmaps.AllMetaExtensions {
+	for k := range sharedconsts.FilterByMetaExtension {
 		// Set all true.
 		if allM {
-			lookupmaps.AllMetaExtensions[k] = true
+			sharedconsts.FilterByMetaExtension[k] = true
 			continue
 		}
 		// Selective set.
 		for _, me := range inMExts {
 			if k == me {
-				lookupmaps.AllMetaExtensions[k] = true
+				sharedconsts.FilterByMetaExtension[k] = true
 			}
 		}
 	}
@@ -70,7 +71,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading video directory %q: %w", videoDir.Name(), err)
 	}
-	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), lookupmaps.AllVidExtensions)
+	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), sharedconsts.FilterByVidExtensions)
 
 	// Iterate over video files in directory.
 	videoFiles := make(map[string]*models.FileData, len(files))
@@ -98,7 +99,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		// Other checks (is not a directory, has a video extension, is not a Metarr backup).
-		if !file.IsDir() && hasFileExtension(file.Name(), lookupmaps.AllVidExtensions) {
+		if !file.IsDir() && hasFileExtension(file.Name(), sharedconsts.FilterByVidExtensions) {
 			videoFilenameBase := filepath.Base(file.Name())
 
 			m := models.NewFileData()
@@ -115,7 +116,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 		}
 	}
 	if len(videoFiles) == 0 {
-		return nil, fmt.Errorf("no video files with extensions: %v or matching file filters found in directory: %s", lookupmaps.AllVidExtensions, videoDir.Name())
+		return nil, fmt.Errorf("no video files with extensions: %v or matching file filters found in directory: %s", sharedconsts.FilterByVidExtensions, videoDir.Name())
 	}
 	return videoFiles, nil
 }
@@ -126,7 +127,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata directory %q: %w", metaDir.Name(), err)
 	}
-	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", metaDir.Name(), lookupmaps.AllMetaExtensions)
+	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", metaDir.Name(), sharedconsts.FilterByMetaExtension)
 
 	// Iterate over metadata files in directory.
 	metaFiles := make(map[string]*models.FileData, len(files))
@@ -157,7 +158,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		// File is a directory or does not have meta extensions.
-		if file.IsDir() || !lookupmaps.AllMetaExtensions[ext] {
+		if file.IsDir() || !sharedconsts.FilterByMetaExtension[ext] {
 			continue
 		}
 
@@ -169,7 +170,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		filePath := filepath.Join(metaDir.Name(), file.Name())
 
 		// Check if valid metafile is present.
-		for k := range lookupmaps.AllMetaExtensions {
+		for k := range sharedconsts.FilterByMetaExtension {
 			if ext == k {
 				logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), file.Name())
 				m.MetaFilePath = filePath
@@ -186,7 +187,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 	}
 	if len(metaFiles) == 0 {
-		return nil, fmt.Errorf("no meta files with extensions: %v or matching file filters found in directory: %s", lookupmaps.AllMetaExtensions, metaDir.Name())
+		return nil, fmt.Errorf("no meta files with extensions: %v or matching file filters found in directory: %s", sharedconsts.FilterByMetaExtension, metaDir.Name())
 	}
 	logger.Pl.D(3, "Returning meta files %v", metaFiles)
 	return metaFiles, nil
@@ -217,7 +218,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	dir := filepath.Dir(metaFile.Name())
 
 	// Check if valid metafile is present.
-	for k := range lookupmaps.AllMetaExtensions {
+	for k := range sharedconsts.FilterByMetaExtension {
 		if ext == k {
 			logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
 			m.MetaFilePath = filename

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -16,6 +15,7 @@ import (
 	"sync"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // FSFileWriter is a model granting access to file writer functions.
@@ -164,13 +164,13 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 		break
 
 	case enums.PurgeMetaJSON:
-		if ext != consts.MExtJSON {
+		if ext != sharedconsts.MExtJSON {
 			logger.Pl.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return false, nil
 		}
 
 	case enums.PurgeMetaNFO:
-		if ext != consts.MExtNFO {
+		if ext != sharedconsts.MExtNFO {
 			logger.Pl.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return false, nil
 		}

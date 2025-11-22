@@ -129,7 +129,10 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 			logger.Pl.I("Video %q has an embedded thumbnail. Will copy existing attached_pic.", b.inputFile)
 
 			switch strings.ToLower(outExt) {
-			case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
+			case sharedconsts.ExtMP4,
+				sharedconsts.ExtM4V,
+				sharedconsts.ExtMOV:
+
 				b.thumbnail = []string{
 					"-map", "0:V", // Map only regular video streams (excludes existing attached_pic).
 					"-map", "0:a?", // Map audio streams if present.
@@ -141,7 +144,7 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 					"-disposition:v:1", "attached_pic",
 				}
 
-			case consts.ExtMKV:
+			case sharedconsts.ExtMKV:
 				b.thumbnail = []string{
 					"-map", "0",
 					"-c", "copy",
@@ -175,7 +178,10 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 
 	ext := strings.ToLower(outExt)
 	switch ext {
-	case consts.ExtMP4, consts.ExtM4V, consts.ExtMOV:
+	case sharedconsts.ExtMP4,
+		sharedconsts.ExtM4V,
+		sharedconsts.ExtMOV:
+
 		b.thumbnail = []string{
 			"-i", thumbnail, // add the thumbnail as a second input.
 			"-map", "0:V", // map only regular video streams (excludes any existing attached_pic).
@@ -188,7 +194,7 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 			"-disposition:v:1", "attached_pic", // mark as cover art.
 		}
 
-	case consts.ExtMKV:
+	case sharedconsts.ExtMKV:
 		b.thumbnail = []string{
 			"-attach", thumbnail,
 			"-metadata:s:t", "mimetype=image/jpeg",
@@ -537,7 +543,7 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 	outExt = strings.ToLower(outExt)
 
 	if outExt == "" || strings.EqualFold(inExt, outExt) {
-		b.formatFlagsMap = copyPreset.flags
+		b.formatFlagsMap = copyPreset
 		return
 	}
 
@@ -545,20 +551,9 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 		inExt, outExt, b.inputFile)
 
 	// Get format preset from map.
-	if presets, exists := formatMap[outExt]; exists {
-		// Try exact input format match.
-		if preset, exists := presets[inExt]; exists {
-			b.formatFlagsMap = preset.flags
-			return
-		}
-		// Fall back to default preset for this output format.
-		if preset, exists := presets["*"]; exists {
-			b.formatFlagsMap = preset.flags
-			return
-		}
-	}
+	b.formatFlagsMap = copyPreset
 	// Fall back to copy preset if no mapping found.
-	b.formatFlagsMap = copyPreset.flags
+	b.formatFlagsMap = copyPreset
 	logger.Pl.D(1, "No format mapping found for %s to %s conversion, using copy preset",
 		inExt, outExt)
 }

@@ -64,37 +64,37 @@ var (
 // IncompatibleCodecsForContainer by container/extension.
 var IncompatibleCodecsForContainer = map[string][]string{
 	// ISO BMFF family.
-	ExtMP4: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // AV1, H.264, HEVC OK.
-	ExtM4V: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // same as MP4.
-	ExtMOV: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecAV1},   // H.264, HEVC widely OK, MPEG-2 often OK.
+	sharedconsts.ExtMP4: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // AV1, H.264, HEVC OK.
+	sharedconsts.ExtM4V: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2}, // same as MP4.
+	sharedconsts.ExtMOV: {sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecAV1},   // H.264, HEVC widely OK, MPEG-2 often OK.
 
 	// WebM / Matroska.
-	ExtWEBM: {sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2}, // WebM only supports VP8, VP9, AV1.
-	ExtMKV:  {},                                                                           // Matroska supports all listed codecs.
+	sharedconsts.ExtWEBM: {sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2}, // WebM only supports VP8, VP9, AV1.
+	sharedconsts.ExtMKV:  {},                                                                           // Matroska supports all listed codecs.
 
 	// Legacy/desktop.
-	ExtAVI: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecH264},  // nonstandard for modern codecs.
-	ExtFLV: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // FLV supports only H.263/VP6/H.264.
-	ExtF4V: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // Flash MP4 variant; H.264 only.
+	sharedconsts.ExtAVI: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecH264},  // nonstandard for modern codecs.
+	sharedconsts.ExtFLV: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // FLV supports only H.263/VP6/H.264.
+	sharedconsts.ExtF4V: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // Flash MP4 variant; H.264 only.
 
 	// Mobile-era.
-	Ext3GP: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // supports H.264, MPEG-4, H.264.
-	Ext3G2: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
+	sharedconsts.Ext3GP: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // supports H.264, MPEG-4, H.264.
+	sharedconsts.Ext3G2: {sharedconsts.VCodecAV1, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
 
 	// Ogg family.
-	ExtOGV: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // OGV → Theora/Dirac.
-	ExtOGM: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // obsolete; treat as incompatible.
+	sharedconsts.ExtOGV: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // OGV → Theora/Dirac.
+	sharedconsts.ExtOGM: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // obsolete; treat as incompatible.
 
 	// MPEG program/transport & derivatives.
-	ExtMPG:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // only MPEG-1/2 video is valid.
-	ExtMPEG: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
-	ExtVOB:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},  // DVD-Video → MPEG-2 only.
-	ExtTS:   {sharedconsts.VCodecAV1, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},                                                    // TS supports MPEG-2, H.264, HEVC.
-	ExtMTS:  {sharedconsts.VCodecAV1, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecHEVC}, // AVCHD = H.264 only.
+	sharedconsts.ExtMPG:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // only MPEG-1/2 video is valid.
+	sharedconsts.ExtMPEG: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
+	sharedconsts.ExtVOB:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},  // DVD-Video → MPEG-2 only.
+	sharedconsts.ExtTS:   {sharedconsts.VCodecAV1, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},                                                    // TS supports MPEG-2, H.264, HEVC.
+	sharedconsts.ExtMTS:  {sharedconsts.VCodecAV1, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecHEVC}, // AVCHD = H.264 only.
 
 	// Real/Windows/QuickTime ecosystems.
-	ExtASF:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // ASF expects WMV/VC-1.
-	ExtWMV:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // same as ASF.
-	ExtRM:   {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // RealMedia → RealVideo only.
-	ExtRMVB: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
+	sharedconsts.ExtASF:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // ASF expects WMV/VC-1.
+	sharedconsts.ExtWMV:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // same as ASF.
+	sharedconsts.ExtRM:   {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // RealMedia → RealVideo only.
+	sharedconsts.ExtRMVB: {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},
 }
