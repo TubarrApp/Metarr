@@ -6,20 +6,21 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
-var unsafeHardwareEncode = map[string]map[string]bool{
-	sharedconsts.AccelTypeNvidia: {"mjpeg": true}, // hypothetical crashes.
-	sharedconsts.AccelTypeVAAPI:  {"vp8": true, "vp9": true, "av1": true},
-	sharedconsts.AccelTypeIntel:  {"vp8": true, "vp9": true, "av1": true},
+// unsafeHardwareEncode contains codecs unsafe for transcoding on this GPU acceleration type.
+var unsafeHardwareEncode = map[string]map[string]struct{}{
+	sharedconsts.AccelTypeNvidia: {"mjpeg": {}},
+	sharedconsts.AccelTypeVAAPI:  {sharedconsts.VCodecVP8: {}, sharedconsts.VCodecVP9: {}, sharedconsts.VCodecAV1: {}},
+	sharedconsts.AccelTypeIntel:  {sharedconsts.VCodecVP8: {}, sharedconsts.VCodecVP9: {}},
 }
 
 // Presets for transcoding.
 var (
 	// Direct copy preset.
 	copyPreset = map[string]string{
-		consts.FFmpegCV0: "copy",
-		consts.FFmpegCA:  "copy",
-		consts.FFmpegCS:  "copy",
-		consts.FFmpegCD:  "copy",
-		consts.FFmpegCT:  "copy",
+		consts.FFmpegCV0: sharedconsts.VCodecCopy,
+		consts.FFmpegCA:  sharedconsts.VCodecCopy,
+		consts.FFmpegCS:  sharedconsts.VCodecCopy,
+		consts.FFmpegCD:  sharedconsts.VCodecCopy,
+		consts.FFmpegCT:  sharedconsts.VCodecCopy,
 	}
 )

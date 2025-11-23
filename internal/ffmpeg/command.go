@@ -488,9 +488,11 @@ func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelTyp
 	}
 
 	// Check safe hardware encode for GPU type.
-	if gpuMap, exists := unsafeHardwareEncode[accelType]; exists {
-		if unsafe, ok := gpuMap[transcodeVideoCodec]; ok && unsafe {
-			logger.Pl.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.", b.inputFile, transcodeVideoCodec, accelType)
+	if gpuMap, ok := unsafeHardwareEncode[accelType]; ok {
+		if _, unsafe := gpuMap[transcodeVideoCodec]; unsafe {
+			logger.Pl.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.",
+				b.inputFile, transcodeVideoCodec, accelType)
+
 			return "", "", false
 		}
 	}
