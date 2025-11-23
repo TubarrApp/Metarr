@@ -9,6 +9,8 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // ValidateAndSetMetaOps parses the meta transformation operations.
@@ -36,7 +38,8 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 			value := parts[2]
 
 			switch strings.ToLower(operation) {
-			case "set":
+			// Set.
+			case sharedconsts.OpSet:
 				switch field {
 				case "all-credits", "credits-all":
 					ops.SetOverrides[enums.OverrideMetaCredits] = value
@@ -49,7 +52,8 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
 
-			case "append":
+				// Append/prefix.
+			case sharedconsts.OpAppend:
 				apndModel := models.MetaAppend{
 					Field:  parsing.UnescapeSplit(field, ":"),
 					Append: parsing.UnescapeSplit(value, ":"),
@@ -58,7 +62,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Append)
 
-			case "prefix":
+			case sharedconsts.OpPrefix:
 				pfxModel := models.MetaPrefix{
 					Field:  parsing.UnescapeSplit(field, ":"),
 					Prefix: parsing.UnescapeSplit(value, ":"),
@@ -67,7 +71,8 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
 
-			case "copy-to":
+				// Copy/paste.
+			case sharedconsts.OpCopyTo:
 				c := models.CopyToField{
 					Field: parsing.UnescapeSplit(field, ":"),
 					Dest:  parsing.UnescapeSplit(value, ":"),
@@ -76,7 +81,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
 
-			case "paste-from":
+			case sharedconsts.OpPasteFrom:
 				p := models.PasteFromField{
 					Field:  parsing.UnescapeSplit(field, ":"),
 					Origin: parsing.UnescapeSplit(value, ":"),
@@ -87,7 +92,57 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 			}
 		case 4:
 			switch strings.ToLower(operation) {
-			case "replace":
+			// Date operations.
+			case sharedconsts.OpDateTag:
+				loc := parts[2]
+				dateFmt := parts[3]
+				var dateTagLocation enums.DateTagLocation
+				switch strings.ToLower(loc) {
+				case sharedconsts.OpLocPrefix:
+					dateTagLocation = enums.DateTagLocPrefix
+				case sharedconsts.OpLocSuffix:
+					dateTagLocation = enums.DateTagLocSuffix
+				default:
+					return fmt.Errorf("date tag location must be prefix, or suffix, skipping op %v", op)
+				}
+				e, err := dateEnum(dateFmt)
+				if err != nil {
+					return err
+				}
+				ops.DateTags[field] = models.MetaDateTag{
+					Loc:    dateTagLocation,
+					Format: e,
+				}
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logger.Pl.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, loc, dateFmt)
+
+			case sharedconsts.OpDeleteDateTag:
+				loc := parts[2]
+				dateFmt := parts[3]
+				var dateTagLocation enums.DateTagLocation
+				switch strings.ToLower(loc) {
+				case sharedconsts.OpLocPrefix:
+					dateTagLocation = enums.DateTagLocPrefix
+				case sharedconsts.OpLocSuffix:
+					dateTagLocation = enums.DateTagLocSuffix
+				case sharedconsts.OpLocAll:
+					dateTagLocation = enums.DateTagLocAll
+				default:
+					return fmt.Errorf("date tag location must be prefix, suffix, pr all. Skipping op %v", op)
+				}
+				e, err := dateEnum(dateFmt)
+				if err != nil {
+					return err
+				}
+				ops.DeleteDateTags[field] = models.MetaDeleteDateTag{
+					Loc:    dateTagLocation,
+					Format: e,
+				}
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logger.Pl.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, loc, dateFmt)
+
+				// Replace.
+			case sharedconsts.OpReplace:
 				findStr := parts[2]
 				replacement := parts[3]
 				rModel := models.MetaReplace{
@@ -99,68 +154,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
 
-			case "date-tag":
-				loc := parts[2]
-				dateFmt := parts[3]
-				var dateTagLocation enums.DateTagLocation
-				switch strings.ToLower(loc) {
-				case "prefix":
-					dateTagLocation = enums.DateTagLocPrefix
-				case "suffix":
-					dateTagLocation = enums.DateTagLocSuffix
-				default:
-					return fmt.Errorf("date tag location must be prefix, or suffix, skipping op %v", op)
-				}
-				e, err := dateEnum(dateFmt)
-				if err != nil {
-					return err
-				}
-				ops.DateTags[field] = models.MetaDateTag{
-					// Don't need field, using map.
-					Loc:    dateTagLocation,
-					Format: e,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, loc, dateFmt)
-
-			case "delete-date-tag":
-				loc := parts[2]
-				dateFmt := parts[3]
-				var dateTagLocation enums.DateTagLocation
-				switch strings.ToLower(loc) {
-				case "prefix":
-					dateTagLocation = enums.DateTagLocPrefix
-				case "suffix":
-					dateTagLocation = enums.DateTagLocSuffix
-				case "all":
-					dateTagLocation = enums.DateTagLocAll
-				default:
-					return fmt.Errorf("date tag location must be prefix, suffix, pr all. Skipping op %v", op)
-				}
-				e, err := dateEnum(dateFmt)
-				if err != nil {
-					return err
-				}
-				ops.DeleteDateTags[field] = models.MetaDeleteDateTag{
-					// Don't need field, using map.
-					Loc:    dateTagLocation,
-					Format: e,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, loc, dateFmt)
-
-			case "replace-suffix":
-				findSuffix := parts[2]
-				replaceStr := parts[3]
-				ops.ReplaceSuffixes = append(ops.ReplaceSuffixes, models.MetaReplaceSuffix{
-					Field:       parsing.UnescapeSplit(field, ":"),
-					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
-
-			case "replace-prefix":
+			case sharedconsts.OpReplacePrefix:
 				findPrefix := parts[2]
 				replaceStr := parts[3]
 				ops.ReplacePrefixes = append(ops.ReplacePrefixes, models.MetaReplacePrefix{
@@ -170,6 +164,17 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
+
+			case sharedconsts.OpReplaceSuffix:
+				findSuffix := parts[2]
+				replaceStr := parts[3]
+				ops.ReplaceSuffixes = append(ops.ReplaceSuffixes, models.MetaReplaceSuffix{
+					Field:       parsing.UnescapeSplit(field, ":"),
+					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
+				})
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logger.Pl.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
 
 			default:
 				return fmt.Errorf(invalidWarning, op)
@@ -209,21 +214,22 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 		case 2:
 			opValue := parts[1]
 			switch strings.ToLower(operation) {
-			case "prefix":
+			// Prefix, append, set.
+			case sharedconsts.OpPrefix:
 				fOpModel.Prefixes = append(fOpModel.Prefixes, models.FOpPrefix{
 					Value: parsing.UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new prefix operation:\nPrefix: %s\n", opValue)
 
-			case "append":
+			case sharedconsts.OpAppend:
 				fOpModel.Appends = append(fOpModel.Appends, models.FOpAppend{
 					Value: parsing.UnescapeSplit(opValue, ":"),
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new append operation:\nAppend: %s\n", opValue)
 
-			case "set":
+			case sharedconsts.OpSet:
 				if fOpModel.Set.IsSet {
 					return fmt.Errorf("only one set operation can be run per batch. Skipping operation %q", op)
 				}
@@ -235,7 +241,8 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 			}
 		case 3:
 			switch strings.ToLower(operation) {
-			case "date-tag":
+			// Date operations.
+			case sharedconsts.OpDateTag:
 				if fOpModel.DateTag.DateFormat != enums.DateFmtSkip {
 					return fmt.Errorf("only one date tag accepted per run to prevent user error")
 				}
@@ -243,9 +250,9 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 				dateFmt := parts[2]
 				var tagLocEnum enums.DateTagLocation
 				switch tagLoc {
-				case "prefix":
+				case sharedconsts.OpLocPrefix:
 					tagLocEnum = enums.DateTagLocPrefix
-				case "suffix":
+				case sharedconsts.OpLocSuffix:
 					tagLocEnum = enums.DateTagLocSuffix
 				default:
 					return fmt.Errorf("invalid filename date tag entry. Should be 'date-tag:prefix/suffix:ymd'")
@@ -261,7 +268,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
 
-			case "delete-date-tag":
+			case sharedconsts.OpDeleteDateTag:
 				if fOpModel.DeleteDateTags.DateFormat != enums.DateFmtSkip {
 					return fmt.Errorf("only one delete date tag accepted, try using 'all' to replace all instances")
 				}
@@ -269,11 +276,11 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 				dateFmt := parts[2]
 				var tagLocEnum enums.DateTagLocation
 				switch tagLoc {
-				case "prefix":
+				case sharedconsts.OpLocPrefix:
 					tagLocEnum = enums.DateTagLocPrefix
-				case "suffix":
+				case sharedconsts.OpLocSuffix:
 					tagLocEnum = enums.DateTagLocSuffix
-				case "all":
+				case sharedconsts.OpLocAll:
 					tagLocEnum = enums.DateTagLocAll
 				default:
 					return fmt.Errorf("invalid filename delete-date-tag entry. Should be 'delete-date-tag:prefix/suffix/all:ymd'")
@@ -289,7 +296,8 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added delete date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
 
-			case "replace":
+				// Replace.
+			case sharedconsts.OpReplace:
 				findStr := parts[1]
 				replaceStr := parts[2]
 				fOpModel.Replaces = append(fOpModel.Replaces, models.FOpReplace{
@@ -299,17 +307,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new replace operation:\nFind Strings: %s\nReplace With: %s\n", findStr, replaceStr)
 
-			case "replace-suffix":
-				findSuffix := parts[1]
-				replaceStr := parts[2]
-				fOpModel.ReplaceSuffixes = append(fOpModel.ReplaceSuffixes, models.FOpReplaceSuffix{
-					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
-
-			case "replace-prefix":
+			case sharedconsts.OpReplacePrefix:
 				findPrefix := parts[1]
 				replaceStr := parts[2]
 				fOpModel.ReplacePrefixes = append(fOpModel.ReplacePrefixes, models.FOpReplacePrefix{
@@ -318,6 +316,16 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 				})
 				validOpsForPrintout = append(validOpsForPrintout, op)
 				logger.Pl.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
+
+			case sharedconsts.OpReplaceSuffix:
+				findSuffix := parts[1]
+				replaceStr := parts[2]
+				fOpModel.ReplaceSuffixes = append(fOpModel.ReplaceSuffixes, models.FOpReplaceSuffix{
+					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
+					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
+				})
+				validOpsForPrintout = append(validOpsForPrintout, op)
+				logger.Pl.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
 
 			default:
 				return fmt.Errorf(invalidWarning, op)

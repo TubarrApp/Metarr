@@ -154,14 +154,12 @@ type MetaSetField struct {
 
 // MetaDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDateTag struct {
-	// Don't need field, using map
 	Loc    enums.DateTagLocation
 	Format enums.DateFormat
 }
 
 // MetaDeleteDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDeleteDateTag struct {
-	// Don't need field, using map
 	Loc    enums.DateTagLocation
 	Format enums.DateFormat
 }
