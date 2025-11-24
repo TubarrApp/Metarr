@@ -135,6 +135,9 @@ func initVideoTransformers() error {
 	// GPU acceleration.
 	rootCmd.PersistentFlags().String(keys.TranscodeGPU, "", "Use hardware for accelerated encoding/decoding")
 	transcodeGPUFlag := rootCmd.PersistentFlags().Lookup(keys.TranscodeGPU)
+	if transcodeGPUFlag == nil {
+		return fmt.Errorf("internal error: flag %q missing", keys.TranscodeGPU)
+	}
 	// Check OS compatibility with HW acceleration type.
 	if sharedvalidation.OSSupportsAccelType(transcodeGPUFlag.Value.String()) {
 		if err := viper.BindPFlag(keys.TranscodeGPU, transcodeGPUFlag); err != nil {
@@ -142,7 +145,9 @@ func initVideoTransformers() error {
 		}
 	} else {
 		logger.Pl.W("Acceleration of type %q is not supported by this OS, omitting from flags.", transcodeGPUFlag.Value.String())
-		rootCmd.PersistentFlags().Set(keys.TranscodeGPU, transcodeGPUFlag.DefValue)
+		if err := rootCmd.PersistentFlags().Set(keys.TranscodeGPU, transcodeGPUFlag.DefValue); err != nil {
+			return fmt.Errorf("failed to clear incompatible flag set for %q", keys.TranscodeGPU)
+		}
 		transcodeGPUFlag.Changed = false
 	}
 
