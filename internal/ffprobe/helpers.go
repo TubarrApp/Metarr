@@ -340,10 +340,20 @@ func (tags ffprobeTags) get(key string) string {
 	}
 
 	// Special WM/ case attempts:
-	key, _, _ = strings.Cut(key, "WM/")
-	key = tags.get(key)
-	if key != "" {
-		return key
+	// If key contains "WM/", try the part after it.
+	_, after, found := strings.Cut(key, "WM/")
+	if found && after != "" {
+		result := tags.get(after)
+		if result != "" {
+			return result
+		}
+	}
+	// Also try adding "WM/" prefix if not already present.
+	if !found { // WM/ was not in the original key (cut returned string untouched).
+		result := tags.get("WM/" + key)
+		if result != "" {
+			return result
+		}
 	}
 
 	return ""
