@@ -6,6 +6,7 @@ import (
 	"metarr/internal/domain/logger"
 	"os"
 
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 	"github.com/spf13/viper"
 )
 
@@ -131,12 +132,21 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	// HW acceleration.
+	// GPU acceleration.
 	rootCmd.PersistentFlags().String(keys.TranscodeGPU, "", "Use hardware for accelerated encoding/decoding")
-	if err := viper.BindPFlag(keys.TranscodeGPU, rootCmd.PersistentFlags().Lookup(keys.TranscodeGPU)); err != nil {
-		return err
+	transcodeGPUFlag := rootCmd.PersistentFlags().Lookup(keys.TranscodeGPU)
+	// Check OS compatibility with HW acceleration type.
+	if sharedvalidation.OSSupportsAccelType(transcodeGPUFlag.Value.String()) {
+		if err := viper.BindPFlag(keys.TranscodeGPU, transcodeGPUFlag); err != nil {
+			return err
+		}
+	} else {
+		logger.Pl.W("Acceleration of type %q is not supported by this OS, omitting from flags.", transcodeGPUFlag.Value.String())
+		rootCmd.PersistentFlags().Set(keys.TranscodeGPU, transcodeGPUFlag.DefValue)
+		transcodeGPUFlag.Changed = false
 	}
 
+	// Device directory.
 	rootCmd.PersistentFlags().String(keys.TranscodeDeviceDir, "", "Directory for the transcoding GPU (e.g. '/dev/dri/renderD128')")
 	if err := viper.BindPFlag(keys.TranscodeDeviceDir, rootCmd.PersistentFlags().Lookup(keys.TranscodeDeviceDir)); err != nil {
 		return err

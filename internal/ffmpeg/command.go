@@ -431,21 +431,14 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec,
 		return
 	}
 
-	// Build GPU codec string.
-	var gpuCodecString string
-
-	if accelType == sharedconsts.AccelTypeAMF { // AMF uses a different codec naming scheme 'amf_codec'.
-		gpuCodecString = accelType + "_" + useTranscodeCodec
-		b.videoCodecGPU = []string{consts.FFmpegCV0, gpuCodecString}
-	} else { // Other GPU types use 'codec_acceltype' naming scheme.
-		gpuCodecString = useTranscodeCodec + "_"
-		if accelType == sharedconsts.AccelTypeNvidia {
-			gpuCodecString += consts.AccelFlagNvenc
-		} else {
-			gpuCodecString += accelType
-		}
-		b.videoCodecGPU = []string{consts.FFmpegCV0, gpuCodecString}
+	// Build codec string '<codec>_<accelerator>'
+	gpuCodecString := useTranscodeCodec + "_"
+	if accelType == sharedconsts.AccelTypeNvidia {
+		gpuCodecString += consts.AccelFlagNvenc
+	} else {
+		gpuCodecString += accelType
 	}
+	b.videoCodecGPU = []string{consts.FFmpegCV0, gpuCodecString}
 
 	// Check codec availability and set nil if not available.
 	if !strings.Contains(availableCodecs, gpuCodecString) {
