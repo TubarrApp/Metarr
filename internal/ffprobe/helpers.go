@@ -340,19 +340,37 @@ func (tags ffprobeTags) get(key string) string {
 	}
 
 	// Special WM/ case attempts:
-	// If key contains "WM/", try the part after it.
+	// If key contains "WM/", try the part after it with case variants.
 	_, after, found := strings.Cut(key, "WM/")
 	if found && after != "" {
-		result := tags.get(after)
-		if result != "" {
-			return result
+		// Try direct match without recursion.
+		if k, exists := tags[after]; exists {
+			return k
+		}
+		if k, exists := tags[strings.ToLower(after)]; exists {
+			return k
+		}
+		if k, exists := tags[strings.ToUpper(after)]; exists {
+			return k
+		}
+		if k, exists := tags[strings.ToTitle(after)]; exists {
+			return k
 		}
 	}
 	// Also try adding "WM/" prefix if not already present.
-	if !found { // WM/ was not in the original key (cut returned string untouched).
-		result := tags.get("WM/" + key)
-		if result != "" {
-			return result
+	if !found { // WM/ was not in the original key.
+		wmKey := "WM/" + key
+		if k, exists := tags[wmKey]; exists {
+			return k
+		}
+		if k, exists := tags[strings.ToLower(wmKey)]; exists {
+			return k
+		}
+		if k, exists := tags[strings.ToUpper(wmKey)]; exists {
+			return k
+		}
+		if k, exists := tags[strings.ToTitle(wmKey)]; exists {
+			return k
 		}
 	}
 
