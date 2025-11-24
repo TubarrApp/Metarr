@@ -25,6 +25,11 @@ func ValidateGPU(g string) (accelType string, err error) {
 		return "", err
 	}
 
+	// Check OS compatibility with acceleration type.
+	if !sharedvalidation.OSSupportsAccelType(g) {
+		return "", fmt.Errorf("GPU acceleration type %q is not supported on this operating system", g)
+	}
+
 	// Check device exists.
 	if err := checkDriverNodeExists(g); err != nil {
 		return g, err
