@@ -33,6 +33,7 @@ type fileProcessor struct {
 	metatagParser *parsing.MetaTemplateParser
 	metadata      map[string]any
 	skipVideos    bool
+	outputDir     string
 }
 
 // RenameFiles begins file renaming operations for a batch.
@@ -92,11 +93,23 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 
 // renameFile formats a video/metadata file pair's name.
 func renameFile(ctx context.Context, fileData *models.FileData, style enums.ReplaceToStyle, skipVideos bool) error {
+	// Parse output directory.
+	var outputDir string
+	if abstractions.IsSet(keys.OutputDirectory) {
+		prs := parsing.NewDirectoryParser(fileData)
+		var err error
+		outputDir, err = prs.ParseDirectory(abstractions.GetString(keys.OutputDirectory))
+		if err != nil {
+			return fmt.Errorf("failed to parse output directory: %w", err)
+		}
+	}
+
 	fp := &fileProcessor{
 		fd:            fileData,
 		style:         style,
 		skipVideos:    skipVideos,
 		metatagParser: parsing.NewMetaTemplateParser(fileData.MetaFilePath),
+		outputDir:     outputDir,
 	}
 
 	metaFile, err := os.Open(fp.fd.MetaFilePath)
@@ -181,13 +194,11 @@ func (fp *fileProcessor) writeResult() error {
 		err         error
 		deletedMeta bool
 	)
-	fsWriter, err := file.NewFSFileWriter(fp.fd, fp.skipVideos)
+	fsWriter, err := file.NewFSFileWriter(fp.fd, fp.skipVideos, fp.outputDir)
 	if err != nil {
 		return err
 	}
-	if err := fsWriter.RenameFiles(); err != nil {
-		return err
-	}
+
 	if abstractions.IsSet(keys.MetaPurge) {
 		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.MetaFilePath); err != nil {
 			return fmt.Errorf("failed to purge metafile: %w", err)
@@ -197,27 +208,22 @@ func (fp *fileProcessor) writeResult() error {
 	// Determine final paths based on whether files were moved.
 	var finalVideoPath, finalMetaPath string
 
-	if abstractions.IsSet(keys.OutputDirectory) {
-		// Parse output directory to get final paths.
-		prs := parsing.NewDirectoryParser(fp.fd)
-		dst, err := prs.ParseDirectory(abstractions.GetString(keys.OutputDirectory))
-		if err != nil {
-			return fmt.Errorf("failed to parse output directory for final paths: %w", err)
-		}
-
-		// Files will be moved to output directory.
+	if fp.outputDir != "" {
+		// Move+rename directly to output directory (skips in-place rename).
 		if err := fsWriter.MoveFile(deletedMeta); err != nil {
 			return fmt.Errorf("failed to move to destination folder: %w", err)
 		}
 
-		if fp.fd.RenamedVideoPath != "" {
-			finalVideoPath = filepath.Join(dst, filepath.Base(fp.fd.RenamedVideoPath))
-		}
-		if !deletedMeta && fp.fd.RenamedMetaPath != "" {
-			finalMetaPath = filepath.Join(dst, filepath.Base(fp.fd.RenamedMetaPath))
+		finalVideoPath = fp.fd.RenamedVideoPath
+		if !deletedMeta {
+			finalMetaPath = fp.fd.RenamedMetaPath
 		}
 	} else {
-		// Files remain in place after rename (no move operation).
+		// Rename in place (no move operation).
+		if err := fsWriter.RenameFiles(); err != nil {
+			return err
+		}
+
 		finalVideoPath = fp.fd.RenamedVideoPath
 		if !deletedMeta {
 			finalMetaPath = fp.fd.RenamedMetaPath
@@ -299,8 +305,15 @@ func (fp *fileProcessor) processRenames(videoBase, metaBase string) (renamedVide
 
 // constructFinalPaths creates and validates the final file paths.
 func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, metaDir, metaExt string) (err error) {
-	renamedVPath := filepath.Join(fp.fd.VideoDirectory, renamedVideo+vidExt)
-	renamedMPath := filepath.Join(metaDir, renamedMeta+metaExt)
+	// Build paths in output directory if set, otherwise in original directory.
+	var renamedVPath, renamedMPath string
+	if fp.outputDir != "" {
+		renamedVPath = filepath.Join(fp.outputDir, renamedVideo+vidExt)
+		renamedMPath = filepath.Join(fp.outputDir, renamedMeta+metaExt)
+	} else {
+		renamedVPath = filepath.Join(fp.fd.VideoDirectory, renamedVideo+vidExt)
+		renamedMPath = filepath.Join(metaDir, renamedMeta+metaExt)
+	}
 
 	logger.Pl.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
@@ -407,9 +420,16 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 	vExt := filepath.Ext(fp.fd.PostFFmpegVideoPath)
 	jExt := filepath.Ext(fp.fd.MetaFilePath)
 
-	if fp.fd.VideoDirectory != "" && vExt != "" {
+	// Check in the final output directory first if set.
+	if fp.outputDir != "" && vExt != "" {
+		dir = fp.outputDir
+		ext = vExt
+	} else if fp.fd.VideoDirectory != "" && vExt != "" {
 		dir = fp.fd.VideoDirectory
 		ext = vExt
+	} else if fp.outputDir != "" && jExt != "" {
+		dir = fp.outputDir
+		ext = jExt
 	} else if fp.fd.MetaDirectory != "" && jExt != "" {
 		dir = fp.fd.MetaDirectory
 		ext = jExt

@@ -38,7 +38,7 @@ const (
 	OutputDirectory string = "output-directory"
 
 	TranscodeGPU             string = "transcode-gpu"
-	TranscodeDeviceDir       string = "transcode-gpu-directory"
+	TranscodeDeviceNode      string = "transcode-gpu-node"
 	TranscodeAudioCodecInput string = "transcode-audio-codecs"
 	TranscodeVideoCodecInput string = "transcode-video-codecs"
 	TranscodeQuality         string = "transcode-quality"

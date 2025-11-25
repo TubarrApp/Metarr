@@ -8,7 +8,6 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/parsing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,11 +25,12 @@ type FSFileWriter struct {
 	InputVideo   string
 	RenamedMeta  string
 	InputMeta    string
+	OutputDir    string
 	muFs         sync.RWMutex
 }
 
 // NewFSFileWriter returns a file writer, used for writing changes to filenames etc.
-func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) {
+func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSFileWriter, error) {
 	inputVid := fd.PostFFmpegVideoPath
 	renamedVid := fd.RenamedVideoPath
 	inputMeta := fd.MetaFilePath
@@ -66,6 +66,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool) (*FSFileWriter, error) 
 		InputVideo:   inputVid,
 		RenamedMeta:  renamedMeta,
 		InputMeta:    inputMeta,
+		OutputDir:    outputDir,
 	}, nil
 }
 
@@ -95,12 +96,12 @@ func (fs *FSFileWriter) RenameFiles() error {
 	return nil
 }
 
-// MoveFile moves files to specified location.
+// MoveFile moves files to specified location with new names.
 func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
-	if !abstractions.IsSet(keys.OutputDirectory) {
+	if fs.OutputDir == "" {
 		return nil
 	}
 
@@ -109,36 +110,26 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 		return nil
 	}
 
-	dstIn := abstractions.GetString(keys.OutputDirectory)
-
-	prs := parsing.NewDirectoryParser(fs.Fd)
-	dst, err := prs.ParseDirectory(dstIn)
-	if err != nil {
-		return err
-	}
-
-	if _, err := os.Stat(dst); os.IsNotExist(err) {
-		if err := os.MkdirAll(dst, 0o755); err != nil {
+	if _, err := os.Stat(fs.OutputDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(fs.OutputDir, 0o755); err != nil {
 			return fmt.Errorf("failed to create or find destination directory: %w", err)
 		}
 	}
 
-	// Move or copy video.
+	// Move+rename video directly from original location to output directory.
 	if !fs.SkipVids {
-		if fs.RenamedVideo != "" {
-			videoDestPath := filepath.Join(dst, filepath.Base(fs.RenamedVideo))
-			if err := moveOrCopyFile(fs.RenamedVideo, videoDestPath); err != nil {
-				return fmt.Errorf("failed to move video file from %q → %q: %w", fs.RenamedVideo, videoDestPath, err)
+		if fs.InputVideo != "" && fs.RenamedVideo != "" {
+			if err := moveOrCopyFile(fs.InputVideo, fs.RenamedVideo); err != nil {
+				return fmt.Errorf("failed to move video file from %q → %q: %w", fs.InputVideo, fs.RenamedVideo, err)
 			}
 		}
 	}
 
-	// Move or copy metadata file.
+	// Move+rename metadata file directly from original location to output directory.
 	if !noMeta {
-		if fs.RenamedMeta != "" {
-			metaDestPath := filepath.Join(dst, filepath.Base(fs.RenamedMeta))
-			if err := moveOrCopyFile(fs.RenamedMeta, metaDestPath); err != nil {
-				return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.RenamedMeta, metaDestPath, err)
+		if fs.InputMeta != "" && fs.RenamedMeta != "" {
+			if err := moveOrCopyFile(fs.InputMeta, fs.RenamedMeta); err != nil {
+				return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.InputMeta, fs.RenamedMeta, err)
 			}
 		}
 	}

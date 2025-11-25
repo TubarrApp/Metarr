@@ -31,8 +31,8 @@ const (
 	FFmpegCT                  = "-c:t"
 	FFmpegCV0                 = "-c:v:0"
 	FFmpegHWAccel             = "-hwaccel"
+	FFmpegHWAccelDevice       = "-hwaccel_device"
 	FFmpegHWAccelOutputFormat = "-hwaccel_output_format"
-	FFmpegDeviceHW            = "-hwaccel_device"
 	FFmpegDeviceQSV           = "-qsv_device"
 	FFmpegDeviceVAAPI         = "-vaapi_device"
 	FFmpegVF                  = "-vf"
@@ -55,11 +55,11 @@ var (
 	}
 )
 
-// compatibility for HW acceleration types.
-var (
-	VAAPIcompatibility = []string{"format=nv12|vaapi,hwupload"}
-	Cudacompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
-)
+// // compatibility for HW acceleration types.
+// var (
+// 	VAAPICompatibility = []string{"scale_vaapi=format=nv12"}
+// 	CudaCompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
+// )
 
 // IncompatibleCodecsForContainer by container/extension.
 var IncompatibleCodecsForContainer = map[string][]string{

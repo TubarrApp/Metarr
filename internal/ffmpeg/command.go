@@ -41,7 +41,7 @@ type ffCommandBuilder struct {
 
 	// HW accel
 	gpuAccelFlags    []string
-	gpuDir           []string
+	gpuNode          []string
 	gpucompatibility []string
 
 	// Video codecs
@@ -368,9 +368,9 @@ func (b *ffCommandBuilder) ffmpegAvailableCodecs(ctx context.Context) (output st
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
-	var transcodeDir string
-	if abstractions.IsSet(keys.TranscodeDeviceDir) {
-		transcodeDir = abstractions.GetString(keys.TranscodeDeviceDir)
+	var gpuNode string
+	if abstractions.IsSet(keys.TranscodeDeviceNode) {
+		gpuNode = abstractions.GetString(keys.TranscodeDeviceNode)
 	}
 	logger.Pl.D(1, "Checking GPU flag: %q", accelType)
 
@@ -393,38 +393,34 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 		// ---- CUDA ----
 	case sharedconsts.AccelTypeCuda:
 		// Handle device path.
-		if vars.OS == "linux" && transcodeDir != "" {
-			switch {
-			case strings.Contains(transcodeDir, "/dev/nvidia"):
-				devNumber := strings.TrimPrefix(transcodeDir, "/dev/nvidia")
+		if vars.OS == "linux" && gpuNode != "" {
+			if strings.Contains(gpuNode, "/dev/nvidia") {
+				devNumber := strings.TrimPrefix(gpuNode, "/dev/nvidia")
 				if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil.
-					b.gpuDir = []string{consts.FFmpegDeviceHW, devNumber}
+					b.gpuNode = []string{consts.FFmpegHWAccelDevice, devNumber}
 				} else {
 					logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
 					return
 				}
-			default:
-				b.gpuDir = []string{consts.FFmpegDeviceHW, transcodeDir}
 			}
 		}
 
 		// Handle acceleration flags.
 		b.gpuAccelFlags = []string{
 			consts.FFmpegHWAccel, accelType,
-			consts.FFmpegHWAccelOutputFormat, accelType,
 		}
-		b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
-		b.gpucompatibility = append(b.gpucompatibility, consts.Cudacompatibility...)
+		// b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
+		// b.gpucompatibility = append(b.gpucompatibility, consts.CudaCompatibility...)
 
 		// ---- QSV ----
 	case sharedconsts.AccelTypeQSV:
 		// Handle device path.
 		if vars.OS == "linux" {
-			if transcodeDir == "" {
+			if gpuNode == "" {
 				logger.Pl.W("QSV requires a device directory on Linux; falling back to software.")
 				return
 			}
-			b.gpuDir = []string{consts.FFmpegDeviceQSV, transcodeDir}
+			b.gpuNode = []string{consts.FFmpegDeviceQSV, gpuNode}
 		}
 
 		// Handle acceleration flags.
@@ -441,19 +437,19 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 		}
 
 		// Handle device path.
-		if transcodeDir == "" {
+		if gpuNode == "" {
 			logger.Pl.W("VAAPI requires a device directory on Linux; falling back to software.")
 			return
 		}
-		b.gpuDir = []string{consts.FFmpegDeviceVAAPI, transcodeDir}
+		b.gpuNode = []string{consts.FFmpegDeviceVAAPI, gpuNode}
 
 		// Handle acceleration flags.
 		b.gpuAccelFlags = []string{
 			consts.FFmpegHWAccel, accelType,
 			consts.FFmpegHWAccelOutputFormat, accelType,
 		}
-		b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
-		b.gpucompatibility = append(b.gpucompatibility, consts.VAAPIcompatibility...)
+		// b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
+		// b.gpucompatibility = append(b.gpucompatibility, consts.VAAPICompatibility...)
 
 	default:
 		logger.Pl.E("Invalid hardware transcode flag %q, using software transcode...", accelType)
@@ -654,8 +650,8 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([
 		if len(b.gpuAccelFlags) != 0 {
 			args = append(args, b.gpuAccelFlags...)
 		}
-		if len(b.gpuDir) != 0 {
-			args = append(args, b.gpuDir...)
+		if len(b.gpuNode) != 0 {
+			args = append(args, b.gpuNode...)
 		}
 	}
 
@@ -719,7 +715,7 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity := base
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccelFlags)
-	totalCapacity += len(b.gpuDir)
+	totalCapacity += len(b.gpuNode)
 	totalCapacity += len(b.gpucompatibility)
 	totalCapacity += len(b.videoCodecGPU)
 	totalCapacity += len(b.videoCodecSoftware)

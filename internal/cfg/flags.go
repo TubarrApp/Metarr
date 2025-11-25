@@ -138,8 +138,8 @@ func initVideoTransformers() error {
 	}
 
 	// Device directory.
-	rootCmd.PersistentFlags().String(keys.TranscodeDeviceDir, "", "Directory for the transcoding GPU (e.g. '/dev/dri/renderD128')")
-	if err := viper.BindPFlag(keys.TranscodeDeviceDir, rootCmd.PersistentFlags().Lookup(keys.TranscodeDeviceDir)); err != nil {
+	rootCmd.PersistentFlags().String(keys.TranscodeDeviceNode, "", "Directory for the transcoding GPU (e.g. '/dev/dri/renderD128')")
+	if err := viper.BindPFlag(keys.TranscodeDeviceNode, rootCmd.PersistentFlags().Lookup(keys.TranscodeDeviceNode)); err != nil {
 		return err
 	}
 

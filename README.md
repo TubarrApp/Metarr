@@ -7,7 +7,7 @@ Metarr is a Go-based command line tool for pairing video files with their JSON/N
 - **Batch-oriented pairing** – match individual files or entire directories of videos/metadata via `--batch-pairs`, `--video-directory`, `--meta-directory`, or explicit file lists.
 - **Metadata enrichment** – normalize, infer, or scrape titles/descriptions, copy/paste fields, insert date tags, and purge stale keys using `--meta-ops`.
 - **Filename automation** – add prefixes/suffixes, enforce date tags, and repair names with `--filename-ops` or the built-in rename styles.
-- **Smart transcoding** – drive FFmpeg with per-codec remap rules, GPU acceleration (`--transcode-gpu`, `--transcode-gpu-directory`), quality presets, filters, and thumbnail embedding/removal.
+- **Smart transcoding** – drive FFmpeg with per-codec remap rules, GPU acceleration (`--transcode-gpu`, `--transcode-gpu-node`), quality presets, filters, and thumbnail embedding/removal.
 - **Deterministic filtering** – constrain work by file extension, prefix/suffix/contains rules, or skip videos entirely (`--skip-videos`) to do metadata-only edits.
 - **Resource aware** – honor concurrency, CPU, and minimum free RAM thresholds before spinning up workers.
 - **Observability** – structured logging to `~/.metarr/metarr.log`, optional benchmarking artifacts, and an in-process HTTP endpoint (`127.0.0.1:6387/logs`) for live log tails.
@@ -69,7 +69,7 @@ meta-directory:
 output-ext: mp4
 rename-style: underscores
 transcode-gpu: vaapi
-transcode-gpu-directory: /dev/dri/renderD128
+transcode-gpu-node: /dev/dri/renderD128
 transcode-video-codecs:
   - av1:h265
 transcode-audio-codecs:
@@ -134,7 +134,7 @@ Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `u
 
 - `--output-ext` – change the container/extension (`mp4`, `mkv`, `webm`, etc.). Metarr protects you from illegal codec/container combos.
 - `--transcode-video-codecs` / `--transcode-audio-codecs` – remap codecs via `input:output` pairs (e.g. `av1:h265`, `flac:aac`). A single value applies to every input.
-- `--transcode-gpu` – pick `auto`, `cuda`, `vaapi`, `qsv`, or `amf`. Supply device paths via `--transcode-gpu-directory` when required.
+- `--transcode-gpu` – pick `auto`, `cuda`, `vaapi`, `qsv`, or `amf`. Supply device paths via `--transcode-gpu-node` when required.
 - `--transcode-quality` – use FFmpeg preset-like quality buckets (`p1`..`p7`, respecting selected accelerator).
 - `--transcode-video-filter` – inject arbitrary `-vf` expressions.
 - `--extra-ffmpeg-args` – append custom switches to the generated command.

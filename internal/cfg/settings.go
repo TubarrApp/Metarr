@@ -125,8 +125,8 @@ func execute() (err error) {
 		// Retrieve Viper strings.
 		accel := viper.GetString(keys.TranscodeGPU)
 		nodePath := ""
-		if viper.IsSet(keys.TranscodeDeviceDir) {
-			nodePath = viper.GetString(keys.TranscodeDeviceDir)
+		if viper.IsSet(keys.TranscodeDeviceNode) {
+			nodePath = viper.GetString(keys.TranscodeDeviceNode)
 		}
 
 		// Validate GPU and node path.
