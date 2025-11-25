@@ -8,6 +8,7 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"os"
 	"slices"
@@ -20,20 +21,22 @@ import (
 )
 
 // ValidateGPU validates the user input GPU selection.
-func ValidateGPU(g string) (accelType string, err error) {
+func ValidateGPUAndNode(g string, nodePath string) (accelType string, err error) {
 	if g, err = sharedvalidation.ValidateGPUAccelType(g); err != nil {
 		return "", err
 	}
 
 	// Check OS compatibility with acceleration type.
 	if !sharedvalidation.OSSupportsAccelType(g) {
-		return "", fmt.Errorf("GPU acceleration type %q is not supported on this operating system", g)
+		logger.Pl.W("GPU acceleration type %q is not supported on this operating system, omitting.", g)
+		return "", nil
 	}
 
 	// Check device exists.
-	if err := checkDriverNodeExists(g); err != nil {
+	if err := checkNodeExists(g, nodePath); err != nil {
 		return g, err
 	}
+
 	return g, nil
 }
 
@@ -439,19 +442,34 @@ func ValidateAndSetRenameFlag(renameFlag string) {
 
 // ** Private ************************************************************************************************************************************
 
-// checkDriverNodeExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
-func checkDriverNodeExists(g string) error {
-	if g == sharedconsts.AccelTypeAuto || g == sharedconsts.AccelTypeAMF {
-		return nil // No directory required.
+// checkNodeExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
+func checkNodeExists(g, nodePath string) error {
+	if g == sharedconsts.AccelTypeAuto {
+		return nil // No node path required.
 	}
 
-	if !abstractions.IsSet(keys.TranscodeDeviceDir) {
-		return fmt.Errorf("must specify the GPU directory (e.g. '/dev/dri/renderD128') for transcoding of type %q", g)
+	// Check if node path is needed.
+	if vars.OS != "linux" {
+		logger.Pl.W("Non-linux systems do not need a device directory passed for HW acceleration.")
+		return nil
 	}
 
-	gpuDir := abstractions.GetString(keys.TranscodeDeviceDir)
-	if _, err := os.Stat(gpuDir); os.IsNotExist(err) {
-		return fmt.Errorf("driver location %q does not appear to exist?", gpuDir)
+	// ---- LINUX SYSTEM ONLY ----
+
+	// Ensure device node exists if required.
+	if nodePath == "" {
+		switch g {
+		case sharedconsts.AccelTypeQSV,
+			sharedconsts.AccelTypeVAAPI:
+			return fmt.Errorf("acceleration type %q requires a device directory on Linux systems", g)
+		default:
+			return nil
+		}
+	}
+
+	// Check device node.
+	if _, err := os.Stat(nodePath); os.IsNotExist(err) {
+		return fmt.Errorf("driver location %q does not appear to exist?", nodePath)
 	}
 	return nil
 }

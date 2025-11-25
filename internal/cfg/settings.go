@@ -122,8 +122,18 @@ func execute() (err error) {
 
 	// Parse GPU settings and set commands.
 	if viper.IsSet(keys.TranscodeGPU) {
-		if _, err = validation.ValidateGPU(viper.GetString(keys.TranscodeGPU)); err != nil {
+		// Retrieve Viper strings.
+		accel := viper.GetString(keys.TranscodeGPU)
+		nodePath := ""
+		if viper.IsSet(keys.TranscodeDeviceDir) {
+			nodePath = viper.GetString(keys.TranscodeDeviceDir)
+		}
+
+		// Validate GPU and node path.
+		if a, err := validation.ValidateGPUAndNode(accel, nodePath); err != nil {
 			return err
+		} else if a != accel {
+			viper.Set(keys.TranscodeGPU, a)
 		}
 	}
 	if viper.IsSet(keys.TranscodeVideoCodecInput) {

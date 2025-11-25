@@ -8,6 +8,7 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"net/http"
@@ -367,53 +368,80 @@ func (b *ffCommandBuilder) ffmpegAvailableCodecs(ctx context.Context) (output st
 
 // setGPUAcceleration sets appropriate GPU acceleration flags.
 func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
-	// NOTE: AMF does not use hwaccel flags or device directories.
-	if accelType == sharedconsts.AccelTypeAMF {
-		return
-	}
-
 	var transcodeDir string
 	if abstractions.IsSet(keys.TranscodeDeviceDir) {
 		transcodeDir = abstractions.GetString(keys.TranscodeDeviceDir)
 	}
+	logger.Pl.D(1, "Checking GPU flag: %q", accelType)
 
-	logger.Pl.I("Got GPU flag: %q", accelType)
 	switch accelType {
+	// ---- AUTO ----
 	case sharedconsts.AccelTypeAuto:
 		b.gpuAccelFlags = []string{consts.FFmpegHWAccel, accelType}
 
-	case sharedconsts.AccelTypeNvidia:
-		if transcodeDir != "" {
-			b.gpuAccelFlags = []string{
-				consts.FFmpegHWAccel, accelType,
-				consts.FFmpegHWAccelOutputFormat, accelType,
-			}
-			devNumber := strings.TrimPrefix(transcodeDir, "/dev/nvidia")
-			if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil.
-				b.gpuDir = []string{consts.FFmpegDeviceHW, devNumber}
-			} else {
-				logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
-			}
-			b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
-			b.gpucompatibility = append(b.gpucompatibility, consts.Cudacompatibility...)
+		// ---- AMF ----
+	case sharedconsts.AccelTypeAMF:
+		if vars.OS != "windows" {
+			logger.Pl.W("AMF acceleration is only available on Windows.")
+			return
+		}
+		b.gpuAccelFlags = []string{
+			consts.FFmpegHWAccel, "d3d11va",
+			consts.FFmpegHWAccelOutputFormat, "d3d11",
 		}
 
-	case sharedconsts.AccelTypeIntel:
-		if transcodeDir != "" {
-			b.gpuAccelFlags = []string{
-				consts.FFmpegHWAccel, accelType,
-				consts.FFmpegHWAccelOutputFormat, accelType,
+		// ---- CUDA ----
+	case sharedconsts.AccelTypeCuda:
+		if vars.OS == "linux" && transcodeDir != "" {
+			switch {
+			case strings.Contains(transcodeDir, "/dev/nvidia"):
+				devNumber := strings.TrimPrefix(transcodeDir, "/dev/nvidia")
+				if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil.
+					b.gpuDir = []string{consts.FFmpegDeviceHW, devNumber}
+				} else {
+					logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
+					return
+				}
+			default:
+				b.gpuDir = []string{consts.FFmpegDeviceHW, transcodeDir}
+			}
+		}
+		b.gpuAccelFlags = []string{
+			consts.FFmpegHWAccel, accelType,
+			consts.FFmpegHWAccelOutputFormat, accelType,
+		}
+		b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
+		b.gpucompatibility = append(b.gpucompatibility, consts.Cudacompatibility...)
+
+		// ---- QSV ----
+	case sharedconsts.AccelTypeQSV:
+		if vars.OS == "linux" {
+			if transcodeDir == "" {
+				logger.Pl.W("QSV requires a device directory on Linux; falling back to software.")
+				return
 			}
 			b.gpuDir = []string{consts.FFmpegDeviceQSV, transcodeDir}
 		}
 
+		b.gpuAccelFlags = []string{
+			consts.FFmpegHWAccel, accelType,
+			consts.FFmpegHWAccelOutputFormat, accelType,
+		}
+
+		// ---- VAAPI ----
 	case sharedconsts.AccelTypeVAAPI:
+		if vars.OS != "linux" {
+			logger.Pl.W("VAAPI acceleration is only available on Linux.")
+			return
+		}
 		if transcodeDir != "" {
+			b.gpuDir = []string{consts.FFmpegDeviceVAAPI, transcodeDir}
+		}
+		if len(b.gpuDir) > 0 {
 			b.gpuAccelFlags = []string{
 				consts.FFmpegHWAccel, accelType,
 				consts.FFmpegHWAccelOutputFormat, accelType,
 			}
-			b.gpuDir = []string{consts.FFmpegDeviceVAAPI, transcodeDir}
 			b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
 			b.gpucompatibility = append(b.gpucompatibility, consts.VAAPIcompatibility...)
 		}
@@ -433,7 +461,7 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec,
 
 	// Build codec string '<codec>_<accelerator>'
 	gpuCodecString := useTranscodeCodec + "_"
-	if accelType == sharedconsts.AccelTypeNvidia {
+	if accelType == sharedconsts.AccelTypeCuda {
 		gpuCodecString += consts.AccelFlagNvenc
 	} else {
 		gpuCodecString += accelType
@@ -462,11 +490,11 @@ func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelTyp
 
 	// Check GPU flag.
 	accelType = abstractions.GetString(keys.TranscodeGPU)
-	accelType = strings.ToLower(accelType)
 	if accelType == "" {
 		logger.Pl.I("HW acceleration flags disabled, using software encode/decode")
 		return "", "", false
 	}
+	accelType = strings.ToLower(accelType)
 
 	// Do not use HW on copy.
 	if transcodeVideoCodec == sharedconsts.VCodecCopy {
@@ -515,14 +543,14 @@ func (b *ffCommandBuilder) setTranscodeQuality(accelType string) {
 	case sharedconsts.AccelTypeAMF:
 		b.qualityParameter = append(b.qualityParameter, "-qp_p", qNum)
 
-	case sharedconsts.AccelTypeNvidia:
+	case sharedconsts.AccelTypeCuda:
 		// Nvidia uses CQ.
 		b.qualityParameter = append(b.qualityParameter,
 			"-rc", "vbr",
 			"-cq", qNum,
 		)
 
-	case sharedconsts.AccelTypeIntel:
+	case sharedconsts.AccelTypeQSV:
 		// Intel uses QSV.
 		b.qualityParameter = append(b.qualityParameter, "-global_quality", qNum)
 

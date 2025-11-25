@@ -8,9 +8,9 @@ import (
 
 // unsafeHardwareEncode contains codecs unsafe for transcoding on this GPU acceleration type.
 var unsafeHardwareEncode = map[string]map[string]struct{}{
-	sharedconsts.AccelTypeNvidia: {"mjpeg": {}},
-	sharedconsts.AccelTypeVAAPI:  {sharedconsts.VCodecVP8: {}, sharedconsts.VCodecVP9: {}, sharedconsts.VCodecAV1: {}},
-	sharedconsts.AccelTypeIntel:  {sharedconsts.VCodecVP8: {}, sharedconsts.VCodecVP9: {}},
+	sharedconsts.AccelTypeCuda:  {"mjpeg": {}},
+	sharedconsts.AccelTypeVAAPI: {sharedconsts.VCodecVP8: {}, sharedconsts.VCodecVP9: {}, sharedconsts.VCodecAV1: {}},
+	sharedconsts.AccelTypeQSV:   {sharedconsts.VCodecVP8: {}, sharedconsts.VCodecVP9: {}},
 }
 
 // Presets for transcoding.
