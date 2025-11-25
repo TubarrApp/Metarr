@@ -130,7 +130,7 @@ func execute() (err error) {
 		}
 
 		// Validate GPU and node path.
-		if a, err := validation.ValidateGPUAndNode(accel, nodePath); err != nil {
+		if a, err := validation.ValidateGPUAcceleration(accel, nodePath); err != nil {
 			return err
 		} else if a != accel {
 			viper.Set(keys.TranscodeGPU, a)

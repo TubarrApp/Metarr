@@ -8,7 +8,6 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
-	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"os"
 	"slices"
@@ -20,8 +19,8 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-// ValidateGPU validates the user input GPU selection.
-func ValidateGPUAndNode(g string, nodePath string) (accelType string, err error) {
+// ValidateGPUAcceleration validates the user input GPU selection.
+func ValidateGPUAcceleration(g string, nodePath string) (accelType string, err error) {
 	if g, err = sharedvalidation.ValidateGPUAccelType(g); err != nil {
 		return "", err
 	}
@@ -33,7 +32,7 @@ func ValidateGPUAndNode(g string, nodePath string) (accelType string, err error)
 	}
 
 	// Check device exists.
-	if err := checkNodeExists(g, nodePath); err != nil {
+	if _, err := sharedvalidation.ValidateAccelTypeDeviceNode(g, nodePath); err != nil {
 		return g, err
 	}
 
@@ -438,38 +437,4 @@ func ValidateAndSetRenameFlag(renameFlag string) {
 		renameFlagEnum = enums.RenamingSkip
 	}
 	abstractions.Set(keys.Rename, renameFlagEnum)
-}
-
-// ** Private ************************************************************************************************************************************
-
-// checkNodeExists checks the entered driver directory is valid (will NOT show as dir, do not use IsDir check).
-func checkNodeExists(g, nodePath string) error {
-	if g == sharedconsts.AccelTypeAuto {
-		return nil // No node path required.
-	}
-
-	// Check if node path is needed.
-	if vars.OS != "linux" {
-		logger.Pl.W("Non-linux systems do not need a device directory passed for HW acceleration.")
-		return nil
-	}
-
-	// ---- LINUX SYSTEM ONLY ----
-
-	// Ensure device node exists if required.
-	if nodePath == "" {
-		switch g {
-		case sharedconsts.AccelTypeQSV,
-			sharedconsts.AccelTypeVAAPI:
-			return fmt.Errorf("acceleration type %q requires a device directory on Linux systems", g)
-		default:
-			return nil
-		}
-	}
-
-	// Check device node.
-	if _, err := os.Stat(nodePath); os.IsNotExist(err) {
-		return fmt.Errorf("driver location %q does not appear to exist?", nodePath)
-	}
-	return nil
 }

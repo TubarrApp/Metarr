@@ -392,6 +392,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 
 		// ---- CUDA ----
 	case sharedconsts.AccelTypeCuda:
+		// Handle device path.
 		if vars.OS == "linux" && transcodeDir != "" {
 			switch {
 			case strings.Contains(transcodeDir, "/dev/nvidia"):
@@ -406,6 +407,8 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 				b.gpuDir = []string{consts.FFmpegDeviceHW, transcodeDir}
 			}
 		}
+
+		// Handle acceleration flags.
 		b.gpuAccelFlags = []string{
 			consts.FFmpegHWAccel, accelType,
 			consts.FFmpegHWAccelOutputFormat, accelType,
@@ -415,6 +418,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 
 		// ---- QSV ----
 	case sharedconsts.AccelTypeQSV:
+		// Handle device path.
 		if vars.OS == "linux" {
 			if transcodeDir == "" {
 				logger.Pl.W("QSV requires a device directory on Linux; falling back to software.")
@@ -423,6 +427,7 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 			b.gpuDir = []string{consts.FFmpegDeviceQSV, transcodeDir}
 		}
 
+		// Handle acceleration flags.
 		b.gpuAccelFlags = []string{
 			consts.FFmpegHWAccel, accelType,
 			consts.FFmpegHWAccelOutputFormat, accelType,
@@ -434,17 +439,21 @@ func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
 			logger.Pl.W("VAAPI acceleration is only available on Linux.")
 			return
 		}
-		if transcodeDir != "" {
-			b.gpuDir = []string{consts.FFmpegDeviceVAAPI, transcodeDir}
+
+		// Handle device path.
+		if transcodeDir == "" {
+			logger.Pl.W("VAAPI requires a device directory on Linux; falling back to software.")
+			return
 		}
-		if len(b.gpuDir) > 0 {
-			b.gpuAccelFlags = []string{
-				consts.FFmpegHWAccel, accelType,
-				consts.FFmpegHWAccelOutputFormat, accelType,
-			}
-			b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
-			b.gpucompatibility = append(b.gpucompatibility, consts.VAAPIcompatibility...)
+		b.gpuDir = []string{consts.FFmpegDeviceVAAPI, transcodeDir}
+
+		// Handle acceleration flags.
+		b.gpuAccelFlags = []string{
+			consts.FFmpegHWAccel, accelType,
+			consts.FFmpegHWAccelOutputFormat, accelType,
 		}
+		b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
+		b.gpucompatibility = append(b.gpucompatibility, consts.VAAPIcompatibility...)
 
 	default:
 		logger.Pl.E("Invalid hardware transcode flag %q, using software transcode...", accelType)
