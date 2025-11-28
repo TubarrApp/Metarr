@@ -131,7 +131,7 @@ func main() {
 		logger.Pl.E("error during batch loop: %v", err)
 		cancel()
 		wg.Wait()
-		os.Exit(1)
+		return
 	}
 	fdArray = append(fdArray, fdArrayResult...)
 

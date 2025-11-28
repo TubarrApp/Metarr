@@ -41,6 +41,7 @@ const (
 	TranscodeDeviceNode      string = "transcode-gpu-node"
 	TranscodeAudioCodecInput string = "transcode-audio-codecs"
 	TranscodeVideoCodecInput string = "transcode-video-codecs"
+	TranscodePreset          string = "transcode-preset"
 	TranscodeQuality         string = "transcode-quality"
 	TranscodeVideoFilter     string = "transcode-video-filter"
 

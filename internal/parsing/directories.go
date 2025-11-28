@@ -106,6 +106,7 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 		return "", errors.New("null FileData model")
 	}
 
+	t := dp.FD.MTitleDesc
 	d := dp.FD.MDates
 	c := dp.FD.MCredits
 	w := dp.FD.MWebData
@@ -134,6 +135,18 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 			return w.Domain, nil
 		}
 		return "", fmt.Errorf("templating: domain empty for %q", dp.FD.OriginalVideoPath)
+
+	case sharedtemplates.MetVideoTitle:
+		if t.Title != "" {
+			return t.Title, nil
+		}
+		return "", fmt.Errorf("templating: title empty for %q", dp.FD.OriginalVideoPath)
+
+	case sharedtemplates.MetVideoURL:
+		if w.VideoURL != "" {
+			return w.VideoURL, nil
+		}
+		return "", fmt.Errorf("templating: video URL empty for %q", dp.FD.OriginalVideoPath)
 
 	default:
 		return "", fmt.Errorf("invalid template tag %q", tag)

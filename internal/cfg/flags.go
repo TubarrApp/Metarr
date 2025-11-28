@@ -154,8 +154,13 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	rootCmd.PersistentFlags().String(keys.TranscodeQuality, "", "Quality profile for encoding/decoding (p1 [worst] to p7 [best])")
+	rootCmd.PersistentFlags().String(keys.TranscodeQuality, "", "CRF value for ffmpeg")
 	if err := viper.BindPFlag(keys.TranscodeQuality, rootCmd.PersistentFlags().Lookup(keys.TranscodeQuality)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().String(keys.TranscodePreset, "", "Standard ffmpeg presets, for example: veryslow, medium, fast")
+	if err := viper.BindPFlag(keys.TranscodePreset, rootCmd.PersistentFlags().Lookup(keys.TranscodePreset)); err != nil {
 		return err
 	}
 
