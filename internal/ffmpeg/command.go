@@ -295,7 +295,6 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		sharedconsts.ACodecOpus,
 		sharedconsts.ACodecPCM,
 		sharedconsts.ACodecVorbis,
-		sharedconsts.ACodecWAV,
 		sharedconsts.ACodecTrueHD:
 
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
@@ -305,6 +304,9 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		sharedconsts.ACodecEAC3:
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
+
+	case sharedconsts.ACodecWAV:
+		b.audioCodec = []string{consts.FFmpegCA, "pcm_s16le"}
 
 	default:
 		b.audioCodec = nil // -- Invalid or un-set codec. --
