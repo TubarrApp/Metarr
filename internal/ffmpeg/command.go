@@ -336,7 +336,7 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, desiredVCodec, a
 		sharedconsts.VCodecMPEG2,
 		sharedconsts.VCodecVP8,
 		sharedconsts.VCodecVP9:
-		b.videoCodecSoftware = []string{consts.FFmpegCV0, desiredVCodec}
+		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.VCodecToFFVCodec[desiredVCodec]}
 
 	default:
 		b.videoCodecSoftware = nil // -- Invalid or un-set codec. --

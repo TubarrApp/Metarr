@@ -13,6 +13,17 @@ const (
 	FFVCodecKeyVP9   = "libvpx-vp9"
 )
 
+// Desired video codec to
+var VCodecToFFVCodec = map[string]string{
+	sharedconsts.VCodecCopy:  FFVCodecKeyCopy,
+	sharedconsts.VCodecAV1:   FFVCodecKeyAV1,
+	sharedconsts.VCodecH264:  FFVCodecKeyH264,
+	sharedconsts.VCodecHEVC:  FFVCodecKeyH265,
+	sharedconsts.VCodecMPEG2: FFVCodecKeyMPEG2,
+	sharedconsts.VCodecVP8:   FFVCodecKeyVP8,
+	sharedconsts.VCodecVP9:   FFVCodecKeyVP9,
+}
+
 // Accel types.
 const (
 	AaccelTypeAMF = "amf"
