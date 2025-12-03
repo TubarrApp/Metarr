@@ -20,7 +20,7 @@ import (
 )
 
 // ValidateGPUAcceleration validates the user input GPU selection.
-func ValidateGPUAcceleration(g string, nodePath string) (accelType string, err error) {
+func ValidateGPUAcceleration(g string) (accelType string, err error) {
 	if g, err = sharedvalidation.ValidateGPUAccelType(g); err != nil {
 		return "", err
 	}
@@ -29,11 +29,6 @@ func ValidateGPUAcceleration(g string, nodePath string) (accelType string, err e
 	if !sharedvalidation.OSSupportsAccelType(g) {
 		logger.Pl.W("GPU acceleration type %q is not supported on this operating system, omitting.", g)
 		return "", nil
-	}
-
-	// Check device exists.
-	if _, err := sharedvalidation.ValidateAccelTypeDeviceNode(g, nodePath); err != nil {
-		return g, err
 	}
 
 	return g, nil

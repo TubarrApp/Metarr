@@ -8,7 +8,6 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
-	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -40,9 +38,7 @@ type ffCommandBuilder struct {
 	metadataMap    map[string]string
 
 	// HW accel
-	gpuAccelFlags    []string
-	gpuNode          []string
-	gpucompatibility []string
+	gpuAccelFlags []string
 
 	// Video codecs
 	videoCodecGPU      []string
@@ -89,13 +85,10 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	availableCodecs := availableCodecsCache
 
 	// Get GPU flags/codecs.
-	accelType, useTranscodeCodec, useHW := b.getHWAccelFlags(desiredVCodec)
-	if useHW {
-		b.setGPUAcceleration(accelType)
-		b.setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs)
-	}
+	accelType, useHWDecode := b.setHWAccelFlags()
+	b.setGPUAccelerationCodec(accelType, desiredVCodec, availableCodecs)
 
-	logger.Pl.D(1, "Transcoding to codec %q from current codec %q", useTranscodeCodec, currentVCodec)
+	logger.Pl.D(1, "Transcoding to codec %q from current codec %q", desiredVCodec, currentVCodec)
 
 	// Get software codecs.
 	if b.videoCodecGPU == nil {
@@ -117,7 +110,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	}
 
 	// Return the fully appended argument string.
-	return b.buildFinalCommand(args, useHW)
+	return b.buildFinalCommand(args, useHWDecode)
 }
 
 // setThumbnail sets the thumbnail image in the video metadata.
@@ -368,97 +361,6 @@ func (b *ffCommandBuilder) ffmpegAvailableCodecs(ctx context.Context) (output st
 	return result
 }
 
-// setGPUAcceleration sets appropriate GPU acceleration flags.
-func (b *ffCommandBuilder) setGPUAcceleration(accelType string) {
-	var gpuNode string
-	if abstractions.IsSet(keys.TranscodeDeviceNode) {
-		gpuNode = abstractions.GetString(keys.TranscodeDeviceNode)
-	}
-	logger.Pl.D(1, "Checking GPU flag: %q", accelType)
-
-	switch accelType {
-	// ---- AUTO ----
-	case sharedconsts.AccelTypeAuto:
-		b.gpuAccelFlags = []string{consts.FFmpegHWAccel, accelType}
-
-		// ---- AMF ----
-	case sharedconsts.AccelTypeAMF:
-		if vars.OS != "windows" {
-			logger.Pl.W("AMF acceleration is only available on Windows.")
-			return
-		}
-		b.gpuAccelFlags = []string{
-			consts.FFmpegHWAccel, "d3d11va",
-			consts.FFmpegHWAccelOutputFormat, "d3d11",
-		}
-
-		// ---- CUDA ----
-	case sharedconsts.AccelTypeCuda:
-		// Handle device path.
-		if vars.OS == "linux" && gpuNode != "" {
-			if strings.Contains(gpuNode, "/dev/nvidia") {
-				devNumber := strings.TrimPrefix(gpuNode, "/dev/nvidia")
-				if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil { // if err IS nil.
-					b.gpuNode = []string{consts.FFmpegHWAccelDevice, devNumber}
-				} else {
-					logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0")
-					return
-				}
-			}
-		}
-
-		// Handle acceleration flags.
-		b.gpuAccelFlags = []string{
-			consts.FFmpegHWAccel, accelType,
-		}
-		// b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
-		// b.gpucompatibility = append(b.gpucompatibility, consts.CudaCompatibility...)
-
-		// ---- QSV ----
-	case sharedconsts.AccelTypeQSV:
-		// Handle device path.
-		if vars.OS == "linux" {
-			if gpuNode == "" {
-				logger.Pl.W("QSV requires a device directory on Linux; falling back to software.")
-				return
-			}
-			b.gpuNode = []string{consts.FFmpegDeviceQSV, gpuNode}
-		}
-
-		// Handle acceleration flags.
-		b.gpuAccelFlags = []string{
-			consts.FFmpegHWAccel, accelType,
-			consts.FFmpegHWAccelOutputFormat, accelType,
-		}
-
-		// ---- VAAPI ----
-	case sharedconsts.AccelTypeVAAPI:
-		if vars.OS != "linux" {
-			logger.Pl.W("VAAPI acceleration is only available on Linux.")
-			return
-		}
-
-		// Handle device path.
-		if gpuNode == "" {
-			logger.Pl.W("VAAPI requires a device directory on Linux; falling back to software.")
-			return
-		}
-		b.gpuNode = []string{consts.FFmpegDeviceVAAPI, gpuNode}
-
-		// Handle acceleration flags.
-		b.gpuAccelFlags = []string{
-			consts.FFmpegHWAccel, accelType,
-			consts.FFmpegHWAccelOutputFormat, accelType,
-		}
-		// b.gpucompatibility = append(b.gpucompatibility, consts.FFmpegVF)
-		// b.gpucompatibility = append(b.gpucompatibility, consts.VAAPICompatibility...)
-
-	default:
-		logger.Pl.E("Invalid hardware transcode flag %q, using software transcode...", accelType)
-		return
-	}
-}
-
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs string) {
 	if accelType == "" || accelType == sharedconsts.AccelTypeAuto {
@@ -489,50 +391,25 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec,
 	}
 }
 
-// getHWAccelFlags checks and returns the flags for HW acceleration.
-func (b *ffCommandBuilder) getHWAccelFlags(transcodeVideoCodec string) (accelType, vCodec string, useHW bool) {
+// setHWAccelFlags checks and returns the flags for HW acceleration.
+func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool) {
 	if !abstractions.IsSet(keys.TranscodeGPU) {
-		return "", "", false
+		return "", false
 	}
 
-	// Check GPU flag.
-	accelType = abstractions.GetString(keys.TranscodeGPU)
+	accelType = strings.ToLower(abstractions.GetString(keys.TranscodeGPU))
 	if accelType == "" {
 		logger.Pl.I("HW acceleration flags disabled, using software encode/decode")
-		return "", "", false
-	}
-	accelType = strings.ToLower(accelType)
-
-	// Do not use HW on copy.
-	if transcodeVideoCodec == sharedconsts.VCodecCopy {
-		logger.Pl.I("Video codec is '%s', hardware acceleration not needed", sharedconsts.VCodecCopy)
-		return "", "", false
+		return "", false
 	}
 
-	// Non-auto GPU flag but no codec.
-	if accelType != sharedconsts.AccelTypeAuto && transcodeVideoCodec == "" {
-		logger.Pl.E("Non-auto hardware acceleration (HW accel type entered: %q) requires a codec specified (e.g. h264), falling back to software transcode...", accelType)
-		return "", "", false
+	// Only auto gets hardware decode (-hwaccel flags).
+	if accelType == sharedconsts.AccelTypeAuto {
+		b.gpuAccelFlags = []string{consts.FFmpegHWAccel, accelType}
+		return sharedconsts.AccelTypeAuto, true
 	}
 
-	// Check safe hardware encode for GPU type.
-	if gpuMap, ok := unsafeHardwareEncode[accelType]; ok {
-		if _, unsafe := gpuMap[transcodeVideoCodec]; unsafe {
-			logger.Pl.I("Codec in input file %q is %q, which is not reliably safe for hardware transcoding of type %q. Falling back to software transcode.",
-				b.inputFile, transcodeVideoCodec, accelType)
-
-			return "", "", false
-		}
-	}
-
-	switch {
-	case transcodeVideoCodec != "" && accelType != "":
-		return accelType, transcodeVideoCodec, true
-	case accelType == sharedconsts.AccelTypeAuto:
-		return accelType, "", true
-	default:
-		return "", "", false
-	}
+	return accelType, false
 }
 
 // setTranscodeQuality sets the transcode quality flags for the transcode type.
@@ -590,11 +467,6 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 
 // setFormatFlags sets flags for the transcoding format, e.g. codec, etc.
 func (b *ffCommandBuilder) setFormatFlags() (args []string) {
-	// Add compatibility filters.
-	if b.gpucompatibility != nil {
-		args = append(args, b.gpucompatibility...)
-	}
-
 	// Add flags with possible compatibility clash.
 	if abstractions.IsSet(keys.TranscodeVideoFilter) && !slices.Contains(args, consts.FFmpegVF) {
 		args = append(args, consts.FFmpegVF, abstractions.GetString(keys.TranscodeVideoFilter))
@@ -644,16 +516,13 @@ func (b *ffCommandBuilder) setFormatFlags() (args []string) {
 }
 
 // buildFinalCommand assembles the final FFmpeg command.
-func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHW bool) ([]string, error) {
+func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bool) ([]string, error) {
 	args := make([]string, 0, b.calculateCommandCapacity())
 
 	// Add HW acceleration flags.
-	if useHW {
+	if useHWDecode {
 		if len(b.gpuAccelFlags) != 0 {
 			args = append(args, b.gpuAccelFlags...)
-		}
-		if len(b.gpuNode) != 0 {
-			args = append(args, b.gpuNode...)
 		}
 	}
 
@@ -717,8 +586,6 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity := base
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccelFlags)
-	totalCapacity += len(b.gpuNode)
-	totalCapacity += len(b.gpucompatibility)
 	totalCapacity += len(b.videoCodecGPU)
 	totalCapacity += len(b.videoCodecSoftware)
 	totalCapacity += len(b.audioCodec)
