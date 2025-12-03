@@ -381,7 +381,6 @@ func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec,
 	if !strings.Contains(availableCodecs, gpuCodecString) {
 		logger.Pl.W("GPU-bound video codec %q not available in FFmpeg build, falling back to software.", gpuCodecString)
 		b.videoCodecGPU = nil
-		b.gpuAccelFlags = nil
 	}
 
 	// Log GPU args.
