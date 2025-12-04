@@ -8,12 +8,14 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -38,6 +40,7 @@ type ffCommandBuilder struct {
 
 	// HW accel
 	gpuAccelFlags      []string
+	gpuNode            []string
 	accelCompatibility []string
 
 	// Video codecs
@@ -402,12 +405,47 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 		return "", false
 	}
 
-	// Add compatibility.
+	// Get GPU device node if set.
+	var gpuNode string
+	if abstractions.IsSet(keys.TranscodeGPUNode) {
+		gpuNode = abstractions.GetString(keys.TranscodeGPUNode)
+	}
+
+	// Add compatibility and device nodes for encode-only modes.
 	switch accelType {
 	case sharedconsts.AccelTypeCuda:
 		b.accelCompatibility = append(b.accelCompatibility, consts.CudaCompatibility...)
+		// CUDA can optionally use device node on Linux.
+		if vars.OS == "linux" && gpuNode != "" {
+			if strings.Contains(gpuNode, "/dev/nvidia") {
+				devNumber := strings.TrimPrefix(gpuNode, "/dev/nvidia")
+				if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil {
+					b.gpuNode = []string{consts.FFmpegHWAccelDevice, devNumber}
+				} else {
+					logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0'", gpuNode)
+				}
+			}
+		}
+
 	case sharedconsts.AccelTypeVAAPI:
 		b.accelCompatibility = append(b.accelCompatibility, consts.VAAPICompatibility...)
+		// VAAPI requires device node on Linux for encode-only.
+		if vars.OS != "linux" {
+			logger.Pl.W("VAAPI acceleration is only available on Linux.")
+			return "", false
+		}
+		if gpuNode == "" {
+			logger.Pl.W("VAAPI requires a device directory on Linux; falling back to software.")
+			return "", false
+		}
+		b.gpuNode = []string{consts.FFmpegDeviceVAAPI, gpuNode}
+
+	case sharedconsts.AccelTypeAMF:
+		// AMF is Windows-only.
+		if vars.OS != "windows" {
+			logger.Pl.W("AMF acceleration is only available on Windows.")
+			return "", false
+		}
 	}
 
 	// Only auto gets hardware decode (-hwaccel flags).
@@ -521,11 +559,16 @@ func (b *ffCommandBuilder) setFormatFlags() (args []string) {
 func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bool) ([]string, error) {
 	args := make([]string, 0, b.calculateCommandCapacity())
 
-	// Add HW acceleration flags.
+	// Add HW acceleration flags (only for decode mode).
 	if useHWDecode {
 		if len(b.gpuAccelFlags) != 0 {
 			args = append(args, b.gpuAccelFlags...)
 		}
+	}
+
+	// Add GPU device nodes (for encode-only modes like VAAPI, Cuda).
+	if len(b.gpuNode) != 0 {
+		args = append(args, b.gpuNode...)
 	}
 
 	// Add input file (main video).
@@ -607,6 +650,8 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity := base
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccelFlags)
+	totalCapacity += len(b.gpuNode)
+	totalCapacity += len(b.accelCompatibility)
 	totalCapacity += len(b.videoCodecGPU)
 	totalCapacity += len(b.videoCodecSoftware)
 	totalCapacity += len(b.audioCodec)

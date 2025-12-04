@@ -137,6 +137,11 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	rootCmd.PersistentFlags().String(keys.TranscodeGPUNode, "", "GPU device node path (e.g., /dev/dri/renderD128 for VAAPI)")
+	if err := viper.BindPFlag(keys.TranscodeGPUNode, rootCmd.PersistentFlags().Lookup(keys.TranscodeGPUNode)); err != nil {
+		return err
+	}
+
 	// Codecs and quality.
 	rootCmd.PersistentFlags().StringSlice(keys.TranscodeVideoCodecInput, nil, "Codec to use for encoding/decoding")
 	if err := viper.BindPFlag(keys.TranscodeVideoCodecInput, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoCodecInput)); err != nil {

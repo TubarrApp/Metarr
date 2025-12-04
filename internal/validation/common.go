@@ -19,8 +19,8 @@ import (
 	"github.com/shirou/gopsutil/mem"
 )
 
-// ValidateGPUAcceleration validates the user input GPU selection.
-func ValidateGPUAcceleration(g string) (accelType string, err error) {
+// ValidateGPUAcceleration validates the user input GPU selection and device node.
+func ValidateGPUAcceleration(g, nodePath string) (accelType string, err error) {
 	if g, err = sharedvalidation.ValidateGPUAccelType(g); err != nil {
 		return "", err
 	}
@@ -29,6 +29,17 @@ func ValidateGPUAcceleration(g string) (accelType string, err error) {
 	if !sharedvalidation.OSSupportsAccelType(g) {
 		logger.Pl.W("GPU acceleration type %q is not supported on this operating system, omitting.", g)
 		return "", nil
+	}
+
+	// Validate device node path if provided.
+	if nodePath != "" {
+		// Check if device node is required for this acceleration type.
+		switch strings.ToLower(g) {
+		case sharedconsts.AccelTypeVAAPI, sharedconsts.AccelTypeQSV:
+			if _, err := os.Stat(nodePath); os.IsNotExist(err) {
+				return "", fmt.Errorf("GPU device node %q does not exist", nodePath)
+			}
+		}
 	}
 
 	return g, nil

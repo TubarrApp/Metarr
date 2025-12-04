@@ -127,9 +127,14 @@ func execute() (err error) {
 		accel = viper.GetString(keys.TranscodeGPU)
 	}
 
+	nodePath := ""
+	if viper.IsSet(keys.TranscodeGPUNode) {
+		nodePath = viper.GetString(keys.TranscodeGPUNode)
+	}
+
 	// Validate GPU.
 	if accel != "" {
-		if a, err := validation.ValidateGPUAcceleration(accel); err != nil {
+		if a, err := validation.ValidateGPUAcceleration(accel, nodePath); err != nil {
 			return err
 		} else if a != accel {
 			viper.Set(keys.TranscodeGPU, a)
