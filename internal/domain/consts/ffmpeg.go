@@ -61,11 +61,11 @@ var (
 	}
 )
 
-// // compatibility for HW acceleration types.
-// var (
-// 	VAAPICompatibility = []string{"scale_vaapi=format=nv12"}
-// 	CudaCompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
-// )
+// compatibility for HW acceleration types.
+var (
+	VAAPICompatibility = []string{"format=nv12,hwupload"}
+	CudaCompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
+)
 
 // IncompatibleCodecsForContainer by container/extension.
 var IncompatibleCodecsForContainer = map[string][]string{

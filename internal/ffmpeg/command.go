@@ -14,7 +14,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 
@@ -38,7 +37,8 @@ type ffCommandBuilder struct {
 	metadataMap    map[string]string
 
 	// HW accel
-	gpuAccelFlags []string
+	gpuAccelFlags      []string
+	accelCompatibility []string
 
 	// Video codecs
 	videoCodecGPU      []string
@@ -402,6 +402,14 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 		return "", false
 	}
 
+	// Add compatibility.
+	switch accelType {
+	case sharedconsts.AccelTypeCuda:
+		b.accelCompatibility = append(b.accelCompatibility, consts.CudaCompatibility...)
+	case sharedconsts.AccelTypeVAAPI:
+		b.accelCompatibility = append(b.accelCompatibility, consts.VAAPICompatibility...)
+	}
+
 	// Only auto gets hardware decode (-hwaccel flags).
 	if accelType == sharedconsts.AccelTypeAuto {
 		b.gpuAccelFlags = []string{consts.FFmpegHWAccel, accelType}
@@ -466,11 +474,6 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 
 // setFormatFlags sets flags for the transcoding format, e.g. codec, etc.
 func (b *ffCommandBuilder) setFormatFlags() (args []string) {
-	// Add flags with possible compatibility clash.
-	if abstractions.IsSet(keys.TranscodeVideoFilter) && !slices.Contains(args, consts.FFmpegVF) {
-		args = append(args, consts.FFmpegVF, abstractions.GetString(keys.TranscodeVideoFilter))
-	}
-
 	// Add video codec.
 	if len(b.videoCodecGPU) != 0 { // Priority #1: GPU codec.
 		args = append(args, b.videoCodecGPU...)
@@ -536,10 +539,29 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	// Add format and codec flags.
 	args = append(args, formatArgs...)
 
-	// Add all -metadata arguments (these apply to the output file).
+	// -vf arguments.
+	var vfFilters []string
+	if len(b.accelCompatibility) > 0 || abstractions.IsSet(keys.TranscodeVideoFilter) {
+		vfFilters = []string{consts.FFmpegVF}
+
+		// Hardware compatibility filters (e.g., format=nv12,hwupload).
+		if len(b.accelCompatibility) > 0 {
+			vfFilters = append(vfFilters, b.accelCompatibility...)
+		}
+
+		// User-specified -vf filter.
+		if abstractions.IsSet(keys.TranscodeVideoFilter) {
+			vfFilters = append(vfFilters, abstractions.GetString(keys.TranscodeVideoFilter))
+		}
+
+		// Apply combined filter chain.
+		if len(vfFilters) > 1 {
+			args = append(args, vfFilters...)
+		}
+	}
+
 	outputExt := filepath.Ext(b.outputFile)
 
-	// Get valid container-specific tag names for each key in the metadata.
 	for key, value := range b.metadataMap {
 		if value == "" {
 			continue
