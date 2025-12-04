@@ -35,11 +35,6 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 			t.LongDescription = t.Description
 		}
 	}
-	if t.LongUnderscoreDescription == "" {
-		if t.LongDescription != "" {
-			t.LongUnderscoreDescription = t.LongDescription
-		}
-	}
 	if t.LongDescription != "" {
 		t.Description = t.LongDescription
 	}
