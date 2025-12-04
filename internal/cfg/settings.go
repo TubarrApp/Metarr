@@ -128,10 +128,12 @@ func execute() (err error) {
 	}
 
 	// Validate GPU.
-	if a, err := validation.ValidateGPUAcceleration(accel); err != nil {
-		return err
-	} else if a != accel {
-		viper.Set(keys.TranscodeGPU, a)
+	if accel != "" {
+		if a, err := validation.ValidateGPUAcceleration(accel); err != nil {
+			return err
+		} else if a != accel {
+			viper.Set(keys.TranscodeGPU, a)
+		}
 	}
 
 	if viper.IsSet(keys.TranscodeVideoCodecInput) {
