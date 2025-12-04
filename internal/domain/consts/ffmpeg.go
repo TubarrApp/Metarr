@@ -13,7 +13,7 @@ const (
 	FFVCodecKeyVP9   = "libvpx-vp9"
 )
 
-// Desired video codec to
+// VCodecToFFVCodec maps desired codecs to the recommended FFmpeg codec.
 var VCodecToFFVCodec = map[string]string{
 	sharedconsts.VCodecCopy:  FFVCodecKeyCopy,
 	sharedconsts.VCodecAV1:   FFVCodecKeyAV1,

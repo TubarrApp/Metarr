@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"metarr/internal/abstractions"
@@ -91,20 +92,35 @@ func main() {
 	// Setup context for cancellation.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer cancel()
-	go func() {
-		http.HandleFunc("/logs", func(w http.ResponseWriter, _ *http.Request) {
-			pl, _ := logging.GetProgramLogger("Metarr")
-			logs := pl.GetRecentLogs()
 
-			w.Header().Set("Content-Type", "text/plain")
-			for _, l := range logs {
-				if _, err := w.Write(l); err != nil {
-					logger.Pl.E("Could not write log line %v: %v", l, err)
+	// POST logs.
+	go func() {
+		tubarrLogServer := "http://127.0.0.1:8827/metarr-logs"
+
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				pl, _ := logging.GetProgramLogger("Metarr")
+				logs := pl.GetRecentLogs()
+
+				if len(logs) > 0 {
+					// POST logs to Tubarr.
+					body := bytes.Join(logs, []byte{})
+					resp, err := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body))
+					if err != nil {
+						logger.Pl.E("Could not send logs to Tubarr: %v", err)
+						continue
+					}
+					if closeErr := resp.Body.Close(); closeErr != nil {
+						logger.Pl.E("Could not close response body: %v", closeErr)
+					}
 				}
 			}
-		})
-		if err := http.ListenAndServe("127.0.0.1:6387", nil); err != nil {
-			logger.Pl.E("Could not start server for Metarr logs, logs will be inaccessible from Tubarr. (Error: %v)", err)
 		}
 	}()
 
