@@ -24,11 +24,6 @@ var VCodecToFFVCodec = map[string]string{
 	sharedconsts.VCodecVP9:   FFVCodecKeyVP9,
 }
 
-// Accel types.
-const (
-	AaccelTypeAMF = "amf"
-)
-
 // Accel flags.
 const (
 	AccelFlagNvenc = "nvenc"
@@ -103,7 +98,7 @@ var IncompatibleCodecsForContainer = map[string][]string{
 	sharedconsts.ExtTS:   {sharedconsts.VCodecAV1, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9},                                                    // TS supports MPEG-2, H.264, HEVC.
 	sharedconsts.ExtMTS:  {sharedconsts.VCodecAV1, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9, sharedconsts.VCodecMPEG2, sharedconsts.VCodecHEVC}, // AVCHD = H.264 only.
 
-	// Real/Windows/QuickTime ecosystems.
+	// Real/Windows/QuickTime.
 	sharedconsts.ExtASF:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // ASF expects WMV/VC-1.
 	sharedconsts.ExtWMV:  {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // same as ASF.
 	sharedconsts.ExtRM:   {sharedconsts.VCodecAV1, sharedconsts.VCodecH264, sharedconsts.VCodecHEVC, sharedconsts.VCodecMPEG2, sharedconsts.VCodecVP8, sharedconsts.VCodecVP9}, // RealMedia → RealVideo only.
