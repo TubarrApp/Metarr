@@ -42,6 +42,7 @@ const (
 	FFmpegDeviceQSV           = "-qsv_device"
 	FFmpegDeviceVAAPI         = "-vaapi_device"
 	FFmpegVF                  = "-vf"
+	FFmpegFilter              = "-filter:v:0"
 	FFmpegCRF                 = "-crf"
 	FFmpegBA                  = "-b:a"
 	FFmpegAR                  = "-ar"

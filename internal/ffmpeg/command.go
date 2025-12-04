@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -413,20 +412,6 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 
 	// Add compatibility and device nodes for encode-only modes.
 	switch accelType {
-	case sharedconsts.AccelTypeCuda:
-		b.accelCompatibility = append(b.accelCompatibility, consts.CudaCompatibility...)
-		// CUDA can optionally use device node on Linux.
-		if vars.OS == "linux" && gpuNode != "" {
-			if strings.Contains(gpuNode, "/dev/nvidia") {
-				devNumber := strings.TrimPrefix(gpuNode, "/dev/nvidia")
-				if _, err := strconv.ParseInt(devNumber, 10, 64); err == nil {
-					b.gpuNode = []string{consts.FFmpegHWAccelDevice, devNumber}
-				} else {
-					logger.Pl.E("Nvidia device directory %q not valid, should end in a digit e.g. '/dev/nvidia0'", gpuNode)
-				}
-			}
-		}
-
 	case sharedconsts.AccelTypeVAAPI:
 		b.accelCompatibility = append(b.accelCompatibility, consts.VAAPICompatibility...)
 		// VAAPI requires device node on Linux for encode-only.
@@ -582,25 +567,10 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	// Add format and codec flags.
 	args = append(args, formatArgs...)
 
-	// -vf arguments.
-	var vfFilters []string
-	if len(b.accelCompatibility) > 0 || abstractions.IsSet(keys.TranscodeVideoFilter) {
-		vfFilters = []string{consts.FFmpegVF}
-
-		// Hardware compatibility filters (e.g., format=nv12,hwupload).
-		if len(b.accelCompatibility) > 0 {
-			vfFilters = append(vfFilters, b.accelCompatibility...)
-		}
-
-		// User-specified -vf filter.
-		if abstractions.IsSet(keys.TranscodeVideoFilter) {
-			vfFilters = append(vfFilters, abstractions.GetString(keys.TranscodeVideoFilter))
-		}
-
-		// Apply combined filter chain.
-		if len(vfFilters) > 1 {
-			args = append(args, vfFilters...)
-		}
+	// Apply GPU compatibility filters only to the main video stream (stream 0).
+	if len(b.accelCompatibility) > 0 {
+		args = append(args, consts.FFmpegFilter)
+		args = append(args, b.accelCompatibility...)
 	}
 
 	outputExt := filepath.Ext(b.outputFile)
