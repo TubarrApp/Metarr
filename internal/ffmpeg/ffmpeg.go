@@ -2,8 +2,10 @@
 package ffmpeg
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
@@ -89,8 +91,9 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	logger.Pl.I("%sConstructed FFmpeg command for%s %q:\n\n%v\n", sharedconsts.ColorCyan, sharedconsts.ColorReset, fd.OriginalVideoPath, command.String())
 
 	// Set command output to stdout/stderr.
+	var stderr bytes.Buffer
 	command.Stdout = os.Stdout
-	command.Stderr = os.Stderr
+	command.Stderr = io.MultiWriter(os.Stderr, &stderr)
 
 	// Set post-FFmpeg video path in model.
 	baseName := parsing.GetBaseNameWithoutExt(origPath)
@@ -105,7 +108,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	logger.Pl.P("%s!!! Starting FFmpeg command for %q...\n%s", sharedconsts.ColorCyan, baseName, sharedconsts.ColorReset)
 	if err := command.Run(); err != nil {
 		vars.AddToErrorArray(err)
-		return fmt.Errorf("failed to run FFmpeg command: %w", err)
+		return fmt.Errorf("ffmpeg failed: %w\nCaptured output:\n%s", err, stderr.String())
 	}
 
 	// Rename temporary file to overwrite the original video file, make backup if needed.
