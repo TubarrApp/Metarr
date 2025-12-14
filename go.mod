@@ -3,7 +3,7 @@ module metarr
 go 1.25
 
 require (
-	github.com/TubarrApp/gocommon v0.0.0-20251214204634-fbbd39437f39
+	github.com/TubarrApp/gocommon v0.0.0-20251214211024-872192cf3eaa
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/browserutils/kooky v0.2.2
 	github.com/gocolly/colly v1.2.0

@@ -100,13 +100,22 @@ func main() {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
 
+		// Track position to avoid re-sending the same logs.
+		lastSentPos := 0
+		lastSentWrapped := false
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				pl, _ := logging.GetProgramLogger("Metarr")
-				logs := pl.GetRecentLogs()
+				pl, ok := logging.GetProgramLogger("Metarr")
+				if !ok {
+					continue
+				}
+
+				// Get new logs since last successful send.
+				logs := pl.GetLogsSincePosition(lastSentPos, lastSentWrapped)
 
 				if len(logs) > 0 {
 					// POST logs to Tubarr.
@@ -116,6 +125,13 @@ func main() {
 						logger.Pl.E("Could not send logs to Tubarr: %v", err)
 						continue
 					}
+
+					// Update tracking if POST was successful.
+					if resp.StatusCode == http.StatusOK {
+						lastSentPos = pl.GetBufferPosition()
+						lastSentWrapped = pl.IsBufferFull()
+					}
+
 					if closeErr := resp.Body.Close(); closeErr != nil {
 						logger.Pl.E("Could not close response body: %v", closeErr)
 					}
