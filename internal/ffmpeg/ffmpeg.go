@@ -81,20 +81,6 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		}
 	}()
 
-	// Build FFmpeg command.
-	builder := newFfCommandBuilder(fd, tmpOutPath)
-	args, err := builder.buildCommand(ctx, fd, desiredVCodec, desiredACodec, outExt)
-	if err != nil {
-		return err
-	}
-	command := exec.CommandContext(ctx, "ffmpeg", args...)
-	logger.Pl.I("%sConstructed FFmpeg command for%s %q:\n\n%v\n", sharedconsts.ColorCyan, sharedconsts.ColorReset, fd.OriginalVideoPath, command.String())
-
-	// Set command output to stdout/stderr.
-	var stderr bytes.Buffer
-	command.Stdout = os.Stdout
-	command.Stderr = io.MultiWriter(os.Stderr, &stderr)
-
 	// Set post-FFmpeg video path in model.
 	baseName := parsing.GetBaseNameWithoutExt(origPath)
 	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outExt
@@ -104,11 +90,40 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		fd.PostFFmpegVideoPath,
 		tmpOutPath)
 
-	// Run the ffmpeg command.
-	logger.Pl.P("%s!!! Starting FFmpeg command for %q...\n%s", sharedconsts.ColorCyan, baseName, sharedconsts.ColorReset)
-	if err := command.Run(); err != nil {
-		vars.AddToErrorArray(err)
-		return fmt.Errorf("ffmpeg failed: %w\nCaptured output:\n%s", err, stderr.String())
+	// Run the FFmpeg command (n total attempts).
+	maxAttempts := 3
+	builder := newFfCommandBuilder(fd, tmpOutPath)
+
+	for i := 1; i <= maxAttempts; i++ {
+		// Build command.
+		args, err := builder.buildCommand(ctx, fd, desiredVCodec, desiredACodec, outExt)
+		if err != nil {
+			return err
+		}
+		command := exec.CommandContext(ctx, "ffmpeg", args...)
+		logger.Pl.I("Constructed FFmpeg command for %q:\n\n%v\n", fd.OriginalVideoPath, command.String())
+
+		// Set command output to stdout/stderr.
+		var stderr bytes.Buffer
+		command.Stdout = os.Stdout
+		command.Stderr = io.MultiWriter(os.Stderr, &stderr)
+
+		// Run command.
+		logger.Pl.P("%s!!! Starting FFmpeg attempt %d for %q...\n%s", sharedconsts.ColorCyan, i, baseName, sharedconsts.ColorReset)
+		if err := command.Run(); err != nil {
+			// Exit if final attempt errored.
+			if i == maxAttempts {
+				vars.AddToErrorArray(err)
+				return fmt.Errorf("ffmpeg failed after %d attempts for %q due to error: %w\n\nCaptured output:\n%s", maxAttempts, baseName, err, stderr.String())
+			}
+
+			// Retry.
+			logger.Pl.E("Command attempt %d failed for %q due to error: %v:\n\nCaptured output:\n%s", i, baseName, err, stderr.String())
+			continue
+		}
+		// FFmpeg completed successfully: Exit loop.
+		logger.Pl.S("FFmpeg successfully processed %q", baseName)
+		break
 	}
 
 	// Rename temporary file to overwrite the original video file, make backup if needed.
