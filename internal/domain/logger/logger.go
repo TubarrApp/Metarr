@@ -9,12 +9,12 @@ import (
 	"github.com/TubarrApp/gocommon/logging"
 )
 
-// Pl is the logger for the program.
-var Pl = new(logging.ProgramLogger)
+// Tubarr endpoint.
+const tubarrLogServer = "http://127.0.0.1:8827/metarr-logs"
 
 // Log vars.
 var (
-	tubarrLogServer = "http://127.0.0.1:8827/metarr-logs"
+	Pl              = new(logging.ProgramLogger)
 	logMutex        sync.Mutex
 	lastSentPos     int
 	lastSentWrapped bool
@@ -25,13 +25,8 @@ func SendLogs() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
-	pl, ok := logging.GetProgramLogger("Metarr")
-	if !ok {
-		return
-	}
-
 	// Get new logs since last successful send.
-	logs := pl.GetLogsSincePosition(lastSentPos, lastSentWrapped)
+	logs := Pl.GetLogsSincePosition(lastSentPos, lastSentWrapped)
 
 	if len(logs) > 0 {
 		// POST logs to Tubarr.
@@ -44,8 +39,8 @@ func SendLogs() {
 
 		// Update tracking if POST was successful.
 		if resp.StatusCode == http.StatusOK {
-			lastSentPos = pl.GetBufferPosition()
-			lastSentWrapped = pl.IsBufferFull()
+			lastSentPos = Pl.GetBufferPosition()
+			lastSentWrapped = Pl.IsBufferFull()
 		}
 
 		if closeErr := resp.Body.Close(); closeErr != nil {
