@@ -70,6 +70,7 @@ func main() {
 	}
 	logger.Pl = pl
 
+	// Log start time.
 	logger.Pl.I(startLogFormat, startTime.Format(timeFormat))
 
 	// Panic recovery with proper cleanup.
@@ -100,10 +101,6 @@ func main() {
 	// Setup context for cancellation.
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
 	defer cancel()
-
-	// POST logs.
-
-	// Log POST function.
 
 	// Log POST goroutine.
 	go func() {
@@ -177,6 +174,7 @@ func main() {
 	logger.Pl.I(elapsedFormat, endTime.Sub(startTime).Seconds())
 }
 
+// sendLogs POSTs logs to Tubarr.
 func sendLogs() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
