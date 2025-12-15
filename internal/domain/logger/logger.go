@@ -34,13 +34,15 @@ func SendLogs() {
 		resp, _ := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body)) // Do not check error, error expected if running in CLI-only.
 
 		// Update tracking if POST was successful.
-		if resp.StatusCode == http.StatusOK {
-			lastSentPos = Pl.GetBufferPosition()
-			lastSentWrapped = Pl.IsBufferFull()
-		}
+		if resp != nil {
+			if resp.StatusCode == http.StatusOK {
+				lastSentPos = Pl.GetBufferPosition()
+				lastSentWrapped = Pl.IsBufferFull()
+			}
 
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			Pl.E("Could not close response body: %v", closeErr)
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				Pl.E("Could not close response body: %v", closeErr)
+			}
 		}
 	}
 }
