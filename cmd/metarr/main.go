@@ -94,51 +94,62 @@ func main() {
 	defer cancel()
 
 	// POST logs.
-	go func() {
-		tubarrLogServer := "http://127.0.0.1:8827/metarr-logs"
+	tubarrLogServer := "http://127.0.0.1:8827/metarr-logs"
+	var logMutex sync.Mutex
+	lastSentPos := 0
+	lastSentWrapped := false
 
+	// Log POST function.
+	sendLogs := func() {
+		logMutex.Lock()
+		defer logMutex.Unlock()
+
+		pl, ok := logging.GetProgramLogger("Metarr")
+		if !ok {
+			return
+		}
+
+		// Get new logs since last successful send.
+		logs := pl.GetLogsSincePosition(lastSentPos, lastSentWrapped)
+
+		if len(logs) > 0 {
+			// POST logs to Tubarr.
+			body := bytes.Join(logs, []byte{})
+			resp, err := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body))
+			if err != nil {
+				logger.Pl.E("Could not send logs to Tubarr: %v", err)
+				return
+			}
+
+			// Update tracking if POST was successful.
+			if resp.StatusCode == http.StatusOK {
+				lastSentPos = pl.GetBufferPosition()
+				lastSentWrapped = pl.IsBufferFull()
+			}
+
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				logger.Pl.E("Could not close response body: %v", closeErr)
+			}
+		}
+	}
+
+	// Log POST goroutine.
+	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
-
-		// Track position to avoid re-sending the same logs.
-		lastSentPos := 0
-		lastSentWrapped := false
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				pl, ok := logging.GetProgramLogger("Metarr")
-				if !ok {
-					continue
-				}
-
-				// Get new logs since last successful send.
-				logs := pl.GetLogsSincePosition(lastSentPos, lastSentWrapped)
-
-				if len(logs) > 0 {
-					// POST logs to Tubarr.
-					body := bytes.Join(logs, []byte{})
-					resp, err := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body))
-					if err != nil {
-						logger.Pl.E("Could not send logs to Tubarr: %v", err)
-						continue
-					}
-
-					// Update tracking if POST was successful.
-					if resp.StatusCode == http.StatusOK {
-						lastSentPos = pl.GetBufferPosition()
-						lastSentWrapped = pl.IsBufferFull()
-					}
-
-					if closeErr := resp.Body.Close(); closeErr != nil {
-						logger.Pl.E("Could not close response body: %v", closeErr)
-					}
-				}
+				sendLogs()
 			}
 		}
 	}()
+
+	// Ensure log POST on main() exit.
+	defer sendLogs()
 
 	// Initialize cached variables.
 	if err := file.InitFetchFilesVars(); err != nil {
