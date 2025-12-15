@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"metarr/internal/abstractions"
@@ -15,7 +14,6 @@ import (
 	"metarr/internal/processing"
 	"metarr/internal/transformations"
 	"metarr/internal/utils/prompt"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -33,14 +31,6 @@ const (
 	startLogFormat = "Metarr started at: %s"
 	endLogFormat   = "Metarr finished at: %s"
 	elapsedFormat  = "Time elapsed: %.2f seconds\n"
-)
-
-// Log vars.
-var (
-	tubarrLogServer = "http://127.0.0.1:8827/metarr-logs"
-	logMutex        sync.Mutex
-	lastSentPos     int
-	lastSentWrapped bool
 )
 
 // init before program run.
@@ -112,13 +102,13 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				sendLogs()
+				logger.SendLogs()
 			}
 		}
 	}()
 
 	// Ensure log POST on main() exit.
-	defer sendLogs()
+	defer logger.SendLogs()
 
 	// Initialize cached variables.
 	if err := file.InitFetchFilesVars(); err != nil {
@@ -172,38 +162,4 @@ func main() {
 	fmt.Fprintf(os.Stderr, "\n")
 	logger.Pl.I(endLogFormat, endTime.Format(timeFormat))
 	logger.Pl.I(elapsedFormat, endTime.Sub(startTime).Seconds())
-}
-
-// sendLogs POSTs logs to Tubarr.
-func sendLogs() {
-	logMutex.Lock()
-	defer logMutex.Unlock()
-
-	pl, ok := logging.GetProgramLogger("Metarr")
-	if !ok {
-		return
-	}
-
-	// Get new logs since last successful send.
-	logs := pl.GetLogsSincePosition(lastSentPos, lastSentWrapped)
-
-	if len(logs) > 0 {
-		// POST logs to Tubarr.
-		body := bytes.Join(logs, []byte{})
-		resp, err := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body))
-		if err != nil {
-			logger.Pl.E("Could not send logs to Tubarr: %v", err)
-			return
-		}
-
-		// Update tracking if POST was successful.
-		if resp.StatusCode == http.StatusOK {
-			lastSentPos = pl.GetBufferPosition()
-			lastSentWrapped = pl.IsBufferFull()
-		}
-
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Pl.E("Could not close response body: %v", closeErr)
-		}
-	}
 }
