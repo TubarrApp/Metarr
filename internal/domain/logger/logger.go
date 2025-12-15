@@ -31,11 +31,7 @@ func SendLogs() {
 	if len(logs) > 0 {
 		// POST logs to Tubarr.
 		body := bytes.Join(logs, []byte{})
-		resp, err := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body))
-		if err != nil {
-			Pl.E("Could not send logs to Tubarr: %v", err)
-			return
-		}
+		resp, _ := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body)) // Do not check error, error expected if running in CLI-only.
 
 		// Update tracking if POST was successful.
 		if resp.StatusCode == http.StatusOK {

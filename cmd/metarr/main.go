@@ -44,6 +44,7 @@ func init() {
 // main is the program entrypoint.
 func main() {
 	startTime := time.Now()
+
 	// Setup logging.
 	logConfig := logging.LoggingConfig{
 		LogFilePath: paths.MetarrLogFilePath,
@@ -52,7 +53,6 @@ func main() {
 		Console:     os.Stderr,
 		Program:     "Metarr",
 	}
-
 	pl, err := logging.SetupLogging(logConfig)
 	if err != nil {
 		fmt.Printf("Tubarr exiting with error: %v\n", err)
