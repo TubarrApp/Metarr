@@ -150,8 +150,7 @@ func main() {
 		}
 		logger.Pl.S("File renaming complete!")
 
-		// Write sidecar NFO files. Must follow renaming, as the NFO filenames are
-		// derived from the final video paths.
+		// Write additional metadata files (NFOs) if requested.
 		metaconversion.WriteNFOs(fdArray)
 	}
 

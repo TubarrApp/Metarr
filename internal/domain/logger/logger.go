@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/TubarrApp/gocommon/logging"
 )
@@ -12,12 +13,22 @@ import (
 // Tubarr endpoint.
 const tubarrLogServer = "http://127.0.0.1:8827/metarr-logs"
 
+// logPostTimeout bounds a log POST.
+//
+// Posting logs is best-effort, and SendLogs runs from a defer in main. Without a
+// timeout, a Tubarr instance which accepts the connection but never responds
+// hangs program exit indefinitely, and the signals which would otherwise kill
+// the program are trapped for context cancellation.
+const logPostTimeout = 3 * time.Second
+
 // Log vars.
 var (
 	Pl              = new(logging.ProgramLogger)
 	logMutex        sync.Mutex
 	lastSentPos     int
 	lastSentWrapped bool
+
+	logClient = &http.Client{Timeout: logPostTimeout}
 )
 
 // SendLogs POSTs logs to Tubarr.
@@ -31,7 +42,7 @@ func SendLogs() {
 	if len(logs) > 0 {
 		// POST logs to Tubarr.
 		body := bytes.Join(logs, []byte{})
-		resp, _ := http.Post(tubarrLogServer, "text/plain", bytes.NewReader(body)) // Do not check error, error expected if running in CLI-only.
+		resp, _ := logClient.Post(tubarrLogServer, "text/plain", bytes.NewReader(body)) // Do not check error, error expected if running in CLI-only.
 
 		// Update tracking if POST was successful.
 		if resp != nil {

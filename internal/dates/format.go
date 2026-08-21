@@ -85,7 +85,7 @@ func ParseNumDate(dateNum string) (string, error) {
 	day = dayStringSwitch(day)
 
 	dateStr = fmt.Sprintf("%s %s, %s", month, day, year)
-	logger.Pl.S("Made string form date: %q", dateStr)
+	logger.Pl.S("Made string %q from date input %q", dateStr, dateNum)
 
 	return dateStr, nil
 }

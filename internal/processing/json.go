@@ -24,7 +24,7 @@ import (
 var jsonEditMutexMap sync.Map
 
 // processJSONFile opens and processes a JSON file.
-func processJSONFile(ctx context.Context, fd *models.FileData) error {
+func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) error {
 	if fd == nil {
 		return errors.New("model passed in null")
 	}
@@ -130,9 +130,12 @@ func processJSONFile(ctx context.Context, fd *models.FileData) error {
 	}
 
 	// Check if metadata is already existent in target file.
-	if filetypeMetaCheckSwitch(ctx, fd) {
-		logger.Pl.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
-		fd.MetaAlreadyExists = true
+	if !skipVideos {
+		logger.Pl.D(1, "Checking if metadata already exists in target file %q...", fd.OriginalVideoPath)
+		if filetypeMetaCheckSwitch(ctx, fd) {
+			logger.Pl.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
+			fd.MetaAlreadyExists = true
+		}
 	}
 	return nil
 }

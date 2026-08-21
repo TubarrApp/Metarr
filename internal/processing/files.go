@@ -61,7 +61,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	ctx := core.Ctx
 	wg := core.Wg
 
-	processMetadataFiles(ctx, batch.bp, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
+	processMetadataFiles(ctx, batch.bp, skipVideos, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
 	setupCleanup(ctx, wg, batch, &muFailed)
 
 	matchedCount := int(batch.bp.counts.totalMatched)
@@ -147,13 +147,13 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 }
 
 // processMetadataFiles processes metafiles such as .json, .nfo, and so on.
-func processMetadataFiles(ctx context.Context, bp *batchProcessor, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) {
+func processMetadataFiles(ctx context.Context, bp *batchProcessor, skipVideos bool, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) {
 	for _, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
 		case sharedconsts.MExtJSON:
 			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
-			err = processJSONFile(ctx, fd)
+			err = processJSONFile(ctx, fd, skipVideos)
 		case sharedconsts.MExtNFO:
 			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			err = processNFOFiles(ctx, fd)
@@ -307,16 +307,15 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 			}
 			fmt.Fprintf(os.Stderr, "\n")
 			logger.Pl.S("Successfully processed video %s", filename)
+
+			currentVideo := atomic.AddInt32(&bp.counts.processedVideo, 1)
+			totalVideo := atomic.LoadInt32(&bp.counts.totalVideo)
+			printProgress(typeVideo, currentVideo, totalVideo, fd.MetaDirectory)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "\n")
 		logger.Pl.S("Successfully processed metadata for %s", filename)
 	}
-
-	// Print progress for video.
-	currentVideo := atomic.AddInt32(&bp.counts.processedVideo, 1)
-	totalVideo := atomic.LoadInt32(&bp.counts.totalVideo)
-	printProgress(typeVideo, currentVideo, totalVideo, fd.MetaDirectory)
 
 	return fd, nil
 }

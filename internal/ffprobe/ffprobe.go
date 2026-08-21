@@ -45,6 +45,9 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		return false
 	}
 
+	// Output FFprobe data for debugging.
+	logger.Pl.D(4, "FFprobe output for %q:\n%+v", fd.OriginalVideoPath, ffData)
+
 	// Check if thumbnail is already present in file.
 	for _, s := range ffData.Streams {
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
@@ -53,6 +56,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 
 			// Thumbnail embedded in file, missing in metafile.
 			if fd.MWebData.Thumbnail == "" {
+				logger.Pl.I("Thumbnail exists in video %q, but no thumbnail found in metadata. Will process video.", fd.OriginalVideoPath)
 				return false
 			}
 			break
