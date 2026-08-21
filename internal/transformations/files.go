@@ -3,7 +3,6 @@ package transformations
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
@@ -21,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 var filenameTaken sync.Map
@@ -123,28 +124,30 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 	}()
 
 	switch fileData.MetaFileType {
-	case "json":
+	case sharedconsts.MExtJSON:
 		jsonRW := metawriters.NewJSONFileRW(ctx, metaFile)
 		fp.metadata, err = jsonRW.DecodeJSON(metaFile)
 		if err != nil {
 			return err
 		}
-	case "nfo":
-		nfoRW := metawriters.NewNFOFileRW(ctx, metaFile)
-		nfoData, err := nfoRW.DecodeMetadata(metaFile)
-		if err != nil {
-			return err
-		}
+		// TO DO: Add support for other metadata file types if needed in the future.
+		//
+		// case sharedconsts.MExtNFO:
+		// 	nfoRW := metawriters.NewNFOFileRW(ctx, metaFile)
+		// 	nfoData, err := nfoRW.DecodeMetadata(metaFile)
+		// 	if err != nil {
+		// 		return err
+		// 	}
 
-		jsonBytes, err := json.MarshalIndent(nfoData, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal to JSON: %w", err)
-		}
+		// 	jsonBytes, err := json.MarshalIndent(nfoData, "", "  ")
+		// 	if err != nil {
+		// 		return fmt.Errorf("failed to marshal to JSON: %w", err)
+		// 	}
 
-		var metaMap map[string]any
-		if err := json.Unmarshal(jsonBytes, &metaMap); err != nil {
-			return fmt.Errorf("failed to unmarshal JSON to map: %w", err)
-		}
+		// 	var metaMap map[string]any
+		// 	if err := json.Unmarshal(jsonBytes, &metaMap); err != nil {
+		// 		return fmt.Errorf("failed to unmarshal JSON to map: %w", err)
+		// 	}
 	}
 
 	if err := fp.process(); err != nil {

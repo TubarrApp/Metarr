@@ -10,6 +10,7 @@ import (
 	"metarr/internal/domain/paths"
 	"metarr/internal/domain/vars"
 	"metarr/internal/file"
+	"metarr/internal/metadata/metaconversion"
 	"metarr/internal/models"
 	"metarr/internal/processing"
 	"metarr/internal/transformations"
@@ -148,6 +149,10 @@ func main() {
 			logger.Pl.E("Error during file renaming: %v", err)
 		}
 		logger.Pl.S("File renaming complete!")
+
+		// Write sidecar NFO files. Must follow renaming, as the NFO filenames are
+		// derived from the final video paths.
+		metaconversion.WriteNFOs(fdArray)
 	}
 
 	// Check if shutdown was triggered by signal.

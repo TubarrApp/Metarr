@@ -85,6 +85,9 @@ type FileData struct {
 	MetaAlreadyExists    bool `json:"-" xml:"-"`
 	ModelMOverwrite      bool
 	HasEmbeddedThumbnail bool
+
+	// Converted metadata file contents.
+	NFOFileContents string `json:"-" xml:"-"`
 }
 
 // SetFinalPaths sets the final video and metadata paths after all transformations are complete.

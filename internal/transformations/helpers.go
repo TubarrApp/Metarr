@@ -169,9 +169,16 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 		return filename
 	}
 	// Fill template.
-	result, _ := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
+	result, isTemplate := fp.metatagParser.FillMetaTemplateTag(setString.Value, fp.metadata)
 	if result == "" {
 		logger.Pl.W("setString result was empty for template %q", setString.Value)
+		return filename
+	}
+
+	// An unresolved template means the metadata key was missing or non-string.
+	// Keep the original name rather than writing the raw template into it.
+	if result == setString.Value && isTemplate {
+		logger.Pl.W("Could not resolve template %q against metadata, keeping name %q", setString.Value, filename)
 		return filename
 	}
 

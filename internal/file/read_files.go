@@ -175,7 +175,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 				logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), file.Name())
 				m.MetaFilePath = filePath
 				m.MetaDirectory = metaDir.Name()
-				m.MetaFileType = ext
+				m.MetaFileType = strings.ToLower(ext)
 			}
 		}
 
@@ -223,7 +223,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 			logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
 			m.MetaFilePath = filename
 			m.MetaDirectory = dir
-			m.MetaFileType = ext
+			m.MetaFileType = strings.ToLower(ext)
 		}
 	}
 

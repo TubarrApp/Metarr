@@ -28,6 +28,7 @@ const (
 	RenameStyle      string = "rename-style"
 
 	MetaOpsInput string = "meta-ops"
+	WriteNFO     string = "write-nfo"
 
 	DebugLevel      string = "debug"
 	SkipVideos      string = "skip-videos"
