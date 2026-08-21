@@ -56,7 +56,7 @@ func main() {
 	}
 	pl, err := logging.SetupLogging(logConfig)
 	if err != nil {
-		fmt.Printf("Tubarr exiting with error: %v\n", err)
+		fmt.Printf("Metarr exiting with error: %v\n", err)
 		return
 	}
 	logger.Pl = pl
