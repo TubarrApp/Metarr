@@ -19,6 +19,13 @@ type NFOData struct {
 	ReleaseDate string      `xml:"releasedate"`
 	ShowInfo    ShowInfo    `xml:"showinfo"`
 	WebpageInfo WebpageInfo `xml:"web"`
+
+	// Movie-level web fields, as written by the NFO builder and used by Kodi.
+	// The nested WebpageInfo form above is still read as a fallback.
+	URL    string `xml:"url"`
+	Thumb  string `xml:"thumb"`
+	Poster string `xml:"poster"`
+	Fanart string `xml:"fanart"`
 }
 
 // Title represents nested title information.

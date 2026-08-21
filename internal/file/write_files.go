@@ -138,6 +138,8 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 
 // DeleteMetafile safely removes metadata files once file operations are complete.
 func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
+	logger.Pl.I("Attempting to delete metafile %q...", file)
+
 	if !abstractions.IsSet(keys.MetaPurgeEnum) {
 		return false, errors.New("meta purge enum not set")
 	}

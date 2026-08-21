@@ -41,6 +41,7 @@ func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
 	fields := map[string]string{
 		sharedtags.JTitle:       t.Title,
 		sharedtags.JSubtitle:    t.Subtitle,
+		sharedtags.JComment:     t.Comment,
 		sharedtags.JDescription: t.Description,
 		sharedtags.JLongDesc:    t.LongDescription,
 		sharedtags.JSummary:     t.Summary,

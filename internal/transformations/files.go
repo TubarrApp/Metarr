@@ -162,7 +162,25 @@ func (fp *fileProcessor) process() error {
 
 	if !rename && !move {
 		logger.Pl.D(1, "Do not need to rename or move %q", fp.fd.PostFFmpegVideoPath)
-		fp.fd.SetFinalPaths(fp.fd.PostFFmpegVideoPath, fp.fd.MetaFilePath)
+
+		// The metafile purge is independent of renaming and moving, so it must
+		// still run here rather than only in writeResult.
+		fsWriter, err := file.NewFSFileWriter(fp.fd, fp.skipVideos, fp.outputDir)
+		if err != nil {
+			return err
+		}
+
+		deletedMeta, err := fp.purgeMetafile(fsWriter)
+		if err != nil {
+			return err
+		}
+
+		finalMetaPath := fp.fd.MetaFilePath
+		if deletedMeta {
+			finalMetaPath = ""
+		}
+
+		fp.fd.SetFinalPaths(fp.fd.PostFFmpegVideoPath, finalMetaPath)
 		return nil
 	}
 
@@ -191,6 +209,19 @@ func (fp *fileProcessor) process() error {
 	return nil
 }
 
+// purgeMetafile deletes the metafile if the user requested a purge.
+func (fp *fileProcessor) purgeMetafile(fsWriter *file.FSFileWriter) (deleted bool, err error) {
+	if !abstractions.IsSet(keys.MetaPurge) {
+		return false, nil
+	}
+
+	logger.Pl.I("Meta purge setting is enabled, attempting to delete metafile %q...", fp.fd.MetaFilePath)
+	if deleted, err = fsWriter.DeleteMetafile(fp.fd.MetaFilePath); err != nil {
+		return false, fmt.Errorf("failed to purge metafile: %w", err)
+	}
+	return deleted, nil
+}
+
 // writeResult handles the purge and move operations.
 func (fp *fileProcessor) writeResult() error {
 	var (
@@ -202,10 +233,8 @@ func (fp *fileProcessor) writeResult() error {
 		return err
 	}
 
-	if abstractions.IsSet(keys.MetaPurge) {
-		if deletedMeta, err = fsWriter.DeleteMetafile(fp.fd.MetaFilePath); err != nil {
-			return fmt.Errorf("failed to purge metafile: %w", err)
-		}
+	if deletedMeta, err = fp.purgeMetafile(fsWriter); err != nil {
+		return err
 	}
 
 	// Determine final paths based on whether files were moved.

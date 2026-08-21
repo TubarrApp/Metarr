@@ -144,6 +144,13 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	logger.Pl.D(4, "Entering filetypeMetaCheckSwitch with %q", fd.OriginalVideoPath)
 
+	// The FFmpeg builder falls back to title when fulltitle is absent, so the
+	// check must use the same value or it will never match (e.g. an NFO with
+	// no <originaltitle>).
+	if fd.MTitleDesc.Fulltitle == "" {
+		fd.MTitleDesc.Fulltitle = fd.MTitleDesc.Title
+	}
+
 	var outExt string
 	outFlagSet := abstractions.IsSet(keys.OutputFiletype)
 

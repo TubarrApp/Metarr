@@ -1,4 +1,4 @@
-package metaconversion
+package metabuilder
 
 import (
 	"fmt"
@@ -22,7 +22,6 @@ func BuildNFOContents(fd *models.FileData) (result string, err error) {
 	if fd == nil {
 		return "", fmt.Errorf("FileData is nil for input, cannot build NFO contents")
 	}
-
 	if strings.ToLower(filepath.Ext(fd.MetaFilePath)) == sharedconsts.MExtNFO {
 		logger.Pl.D(1, "Meta file path %q already NFO, skipping NFO conversion...", fd.MetaFilePath)
 		return "", nil
@@ -49,13 +48,23 @@ func BuildNFOContents(fd *models.FileData) (result string, err error) {
 		tags += addCreditsToNFO(fd.MCredits)
 	}
 
+	// Add other data to NFO.
+	if fd.MOther != nil {
+		tags += addOtherDataToNFO(fd.MOther)
+	}
+
+	// Add web data to NFO.
+	if fd.MWebData != nil {
+		tags += addWebDataToNFO(fd.MWebData)
+	}
+
 	if tags == "" {
 		logger.Pl.D(1, "No metadata fields populated for %q, no NFO contents to write", fd.MetaFilePath)
 		return "", nil
 	}
 
 	root := nfoRootFor(fd.MShowData)
-	return fmt.Sprintf("%s\n<%s>\n%s</%s>\n", xmlDeclaration, root, tags, root), nil
+	return fmt.Sprintf("%s\n<%s>\n%s</%s>", xmlDeclaration, root, tags, root), nil
 }
 
 // nfoRootFor picks the NFO root element based on whether the file looks like a TV episode.
@@ -69,6 +78,45 @@ func nfoRootFor(s *models.MetadataShowData) string {
 	return nfoRootMovie
 }
 
+// addOtherDataToNFO adds other data information to the NFO string based on the provided MetadataOtherData.
+func addOtherDataToNFO(od *models.MetadataOtherData) (o string) {
+	if od == nil {
+		logger.Pl.W("MetadataOther is nil, skipping other data addition to NFO.")
+		return ""
+	}
+
+	if od.Genre != "" {
+		o += indentNFO(fmt.Sprintf("<genre>%s</genre>\n", escapeNFO(od.Genre)), 1)
+	}
+	if od.HDVideo != "" {
+		o += indentNFO(fmt.Sprintf("<hdvideo>%s</hdvideo>\n", escapeNFO(od.HDVideo)), 1)
+	}
+	if od.Language != "" {
+		o += indentNFO(fmt.Sprintf("<language>%s</language>\n", escapeNFO(od.Language)), 1)
+	}
+
+	return o
+}
+
+// addWebDataToNFO adds web data information to the NFO string based on the provided MetadataWebData.
+func addWebDataToNFO(w *models.MetadataWebData) (o string) {
+	if w == nil {
+		logger.Pl.W("MetadataWebData is nil, skipping web data addition to NFO.")
+		return ""
+	}
+
+	if w.WebpageURL != "" {
+		o += indentNFO(fmt.Sprintf("<url>%s</url>\n", escapeNFO(w.WebpageURL)), 1)
+	}
+	if w.Thumbnail != "" {
+		o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(w.Thumbnail)), 1)
+		o += indentNFO(fmt.Sprintf("<poster>%s</poster>\n", escapeNFO(w.Thumbnail)), 1)
+		o += indentNFO(fmt.Sprintf("<fanart>%s</fanart>\n", escapeNFO(w.Thumbnail)), 1)
+	}
+
+	return o
+}
+
 // addTitlesAndDescriptionsToNFO adds title and description information to the NFO string based on the provided MetadataTitleDesc.
 func addTitlesAndDescriptionsToNFO(t *models.MetadataTitlesDescs) (o string) {
 	if t == nil {
@@ -77,26 +125,18 @@ func addTitlesAndDescriptionsToNFO(t *models.MetadataTitlesDescs) (o string) {
 	}
 
 	// Add title.
-	if t.Fulltitle != "" {
-		o += indentNFO(fmt.Sprintf("<title>%s</title>\n", escapeNFO(t.Fulltitle)), 1)
-	} else if t.Title != "" {
-		o += indentNFO(fmt.Sprintf("<title>%s</title>\n", escapeNFO(t.Title)), 1)
+	if title := firstNonEmpty(t.Fulltitle, t.Title); title != "" {
+		o += indentNFO(fmt.Sprintf("<title>%s</title>\n", escapeNFO(title)), 1)
 	}
 
 	// Add plot.
-	if t.Description != "" {
-		o += indentNFO(fmt.Sprintf("<plot>%s</plot>\n", escapeNFO(t.Description)), 1)
-	} else if t.LongDescription != "" {
-		o += indentNFO(fmt.Sprintf("<plot>%s</plot>\n", escapeNFO(t.LongDescription)), 1)
+	if description := firstNonEmpty(t.Description, t.LongDescription); description != "" {
+		o += indentNFO(fmt.Sprintf("<plot>%s</plot>\n", escapeNFO(description)), 1)
 	}
 
 	// Add outline.
-	if t.Subtitle != "" {
-		o += indentNFO(fmt.Sprintf("<outline>%s</outline>\n", escapeNFO(t.Subtitle)), 1)
-	} else if t.Synopsis != "" {
-		o += indentNFO(fmt.Sprintf("<outline>%s</outline>\n", escapeNFO(t.Synopsis)), 1)
-	} else if t.Summary != "" {
-		o += indentNFO(fmt.Sprintf("<outline>%s</outline>\n", escapeNFO(t.Summary)), 1)
+	if subtitle := firstNonEmpty(t.Subtitle, t.Synopsis, t.Summary); subtitle != "" {
+		o += indentNFO(fmt.Sprintf("<outline>%s</outline>\n", escapeNFO(subtitle)), 1)
 	}
 
 	return o

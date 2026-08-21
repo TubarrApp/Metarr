@@ -315,25 +315,27 @@ func ValidateAndSetMetaOverwritePreserve(mOverwrite, mPreserve bool) {
 
 // ValidateAndSetPurgeMetafiles checks and sets the type of metafile purge to perform.
 func ValidateAndSetPurgeMetafiles(purgeType string) {
-	var e enums.PurgeMetafiles
+	var e enums.PurgeMetafiles = enums.PurgeMetaNone
 
 	// Normalize string.
 	purgeType = strings.TrimSpace(purgeType)
 	purgeType = strings.ToLower(purgeType)
-	purgeType = strings.ReplaceAll(purgeType, ".", "")
+	if !strings.HasPrefix(purgeType, ".") && purgeType != "all" {
+		purgeType = "." + purgeType
+	}
 
 	// Compare to list.
 	switch purgeType {
 	case "all":
 		e = enums.PurgeMetaAll
-	case "json":
+	case sharedconsts.MExtJSON:
 		e = enums.PurgeMetaJSON
-	case "nfo":
+	case sharedconsts.MExtNFO:
 		e = enums.PurgeMetaNFO
-	default:
-		e = enums.PurgeMetaNone
 	}
 	abstractions.Set(keys.MetaPurgeEnum, e)
+
+	logger.Pl.D(2, "Purge metafiles setting: %v", e)
 }
 
 // ValidateAndSetInputFiletypes checks that the inputted filetypes are accepted.
@@ -350,11 +352,11 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
 		switch data {
 		case "all":
 			inputVExts = append(inputVExts, "all")
-		case ".mkv":
+		case sharedconsts.ExtMKV:
 			inputVExts = append(inputVExts, data)
-		case ".mp4":
+		case sharedconsts.ExtMP4:
 			inputVExts = append(inputVExts, data)
-		case ".webm":
+		case sharedconsts.ExtWEBM:
 			inputVExts = append(inputVExts, data)
 		default:
 			continue
@@ -369,8 +371,15 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
 	// Metadata extensions.
 	inputMExts := make([]string, 0, len(argsMInputExts))
 	for _, data := range argsMInputExts {
+		// Normalize.
+		data = strings.TrimSpace(data)
+		data = strings.ToLower(data)
+		if !strings.HasPrefix(data, ".") && data != "all" {
+			data = "." + data
+		}
+
 		switch data {
-		case "json", "nfo":
+		case sharedconsts.MExtJSON, sharedconsts.MExtNFO:
 			inputMExts = append(inputMExts, data)
 		default:
 			continue

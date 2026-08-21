@@ -97,6 +97,14 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		printVals := fmt.Sprintf("Currently in video: Key=%s, Value=%s, New Value=%s", key, values.existing, values.new)
 		ffContent = append(ffContent, printVals)
 
+		// FFmpeg only ever adds or overwrites tags, never clears them (empty
+		// values are skipped when building the command), so a field with no new
+		// value can never be made to match and must not force a reprocess.
+		if values.new == "" {
+			logger.Pl.D(2, "No new value for key %q, skipping comparison against video value %q.", key, values.existing)
+			continue
+		}
+
 		if values.new != values.existing { // Maintain case sensitivity (avoid strings.EqualFold).
 			logger.Pl.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
 				fd.MetaFilePath, key, values.new, values.existing)

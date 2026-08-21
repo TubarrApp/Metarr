@@ -10,7 +10,7 @@ import (
 	"metarr/internal/domain/paths"
 	"metarr/internal/domain/vars"
 	"metarr/internal/file"
-	"metarr/internal/metadata/metaconversion"
+	"metarr/internal/metadata/metabuilder"
 	"metarr/internal/models"
 	"metarr/internal/processing"
 	"metarr/internal/transformations"
@@ -151,7 +151,7 @@ func main() {
 		logger.Pl.S("File renaming complete!")
 
 		// Write additional metadata files (NFOs) if requested.
-		metaconversion.WriteNFOs(fdArray)
+		metabuilder.WriteNFOs(fdArray)
 	}
 
 	// Check if shutdown was triggered by signal.

@@ -16,7 +16,7 @@ import (
 var nfoEditMutexMap sync.Map
 
 // processNFOFiles processes NFO files and sends data into the metadata model.
-func processNFOFiles(ctx context.Context, fd *models.FileData) error {
+func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) error {
 	if fd == nil {
 		return errors.New("model passed in null")
 	}
@@ -71,6 +71,15 @@ func processNFOFiles(ctx context.Context, fd *models.FileData) error {
 	// Fill to file metadata.
 	if ok := fieldsnfo.FillNFO(fd); !ok {
 		logger.Pl.E("No metadata filled from NFO file...")
+	}
+
+	// Check if metadata is already existent in target file.
+	if !skipVideos {
+		logger.Pl.D(1, "Checking if metadata already exists in target file %q...", fd.OriginalVideoPath)
+		if filetypeMetaCheckSwitch(ctx, fd) {
+			logger.Pl.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
+			fd.MetaAlreadyExists = true
+		}
 	}
 	return nil
 }

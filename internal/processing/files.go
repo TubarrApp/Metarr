@@ -156,7 +156,7 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, skipVideos bo
 			err = processJSONFile(ctx, fd, skipVideos)
 		case sharedconsts.MExtNFO:
 			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
-			err = processNFOFiles(ctx, fd)
+			err = processNFOFiles(ctx, fd, skipVideos)
 		}
 		if err != nil {
 			vars.AddToErrorArray(err)

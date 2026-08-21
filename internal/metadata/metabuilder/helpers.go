@@ -1,4 +1,4 @@
-package metaconversion
+package metabuilder
 
 import (
 	"encoding/xml"

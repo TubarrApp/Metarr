@@ -1,5 +1,5 @@
-// Package metaconversion converts metadata held in a FileData model between metafile formats.
-package metaconversion
+// Package metabuilder builds metadata files in various formats.
+package metabuilder
 
 import (
 	"fmt"
