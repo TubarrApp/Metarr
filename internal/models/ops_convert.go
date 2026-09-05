@@ -12,6 +12,7 @@ import (
 	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedfilters"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // creditsOverrideFields set every credit field at once rather than a single field.
@@ -181,45 +182,76 @@ func dateTagParts(opType, opLoc, dateFormat string, allowAll bool) (enums.DateTa
 	return loc, dateFmt, nil
 }
 
-// channelHost reduces a channel URL to a comparable host, tolerating a bare domain
-// such as "google.com" as well as a full URL.
-func channelHost(s string) string {
+// normalizeChannelURL splits a channel URL into a comparable host and path.
+//
+// The scheme, a leading "www." and any trailing slash are dropped, and the host is
+// lowercased. Other subdomains are kept, since a channel may live at one
+// (channel.website.com is not website.com). A bare domain is accepted as well as a
+// full URL.
+func normalizeChannelURL(s string) (host, path string) {
 	s = strings.TrimSpace(s)
 	if s == "" {
-		return ""
+		return "", ""
 	}
 
-	host := s
-	if u, err := url.Parse(s); err == nil && u.Host != "" {
-		host = u.Host
-	} else if u, err := url.Parse("//" + s); err == nil && u.Host != "" {
-		host = u.Host
+	u, err := url.Parse(s)
+	if err != nil || u.Host == "" {
+		// No scheme, so re-parse as an authority to separate host from path.
+		u, err = url.Parse("//" + s)
+		if err != nil || u.Host == "" {
+			return "", ""
+		}
 	}
 
-	host = strings.ToLower(host)
-	if h, _, err := net.SplitHostPort(host); err == nil {
+	host = strings.ToLower(u.Host)
+	if h, _, splitErr := net.SplitHostPort(host); splitErr == nil {
 		host = h
 	}
-	return strings.TrimPrefix(host, "www.")
+	host = strings.TrimPrefix(host, "www.")
+
+	path = strings.TrimSuffix(u.EscapedPath(), "/")
+	return host, strings.ToLower(path)
 }
 
-// MatchesChannel reports whether any of the file's URLs belong to the same host as
-// chanURL, which is how a channel-scoped operation is resolved for a single file.
+// channelURLMatches reports whether candidate belongs to the channel named by chanURL.
 //
-// Metarr has no channel concept of its own, so the video's own URLs stand in for it.
-func (w *MetadataWebData) MatchesChannel(chanURL string) bool {
+// A host matches itself or any of its subdomains, so "website.com" covers
+// "channel.website.com" while "evilwebsite.com" is excluded. A path matches itself or
+// anything beneath it, so "youtube.com/@ChannelA" covers that channel's own pages but
+// not "@ChannelB"; a chanURL with no path covers the whole host.
+func channelURLMatches(chanURL, candidate string) bool {
+	wantHost, wantPath := normalizeChannelURL(chanURL)
+	gotHost, gotPath := normalizeChannelURL(candidate)
+	if wantHost == "" || gotHost == "" {
+		return false
+	}
+
+	if gotHost != wantHost && !strings.HasSuffix(gotHost, "."+wantHost) {
+		return false
+	}
+	if wantPath == "" {
+		return true
+	}
+	return gotPath == wantPath || strings.HasPrefix(gotPath, wantPath+"/")
+}
+
+// MatchesChannel reports whether any URL known for the file belongs to the channel
+// named by chanURL, which is how a channel-scoped operation is resolved per file.
+//
+// Metarr has no channel concept of its own, so the metafile's own URLs stand in for it.
+// channelURL and uploaderURL identify the channel directly where the source provides
+// them; the page URL only narrows to the host, so a path-scoped operation will not
+// match on it alone.
+func (w *MetadataWebData) MatchesChannel(chanURL string, extra ...string) bool {
 	if w == nil {
 		return false
 	}
 
-	want := channelHost(chanURL)
-	if want == "" {
-		return false
-	}
+	candidates := append([]string{w.WebpageURL, w.VideoURL, w.Referer}, w.TryURLs...)
+	candidates = append(candidates, extra...)
 
-	candidates := append([]string{w.WebpageURL, w.VideoURL, w.Domain, w.Referer}, w.TryURLs...)
 	for _, c := range candidates {
-		if got := channelHost(c); got != "" && got == want {
+		if c != "" && channelURLMatches(chanURL, c) {
 			return true
 		}
 	}
@@ -234,7 +266,7 @@ func (w *MetadataWebData) MatchesChannel(chanURL string) bool {
 func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []sharedmodels.FilteredMetaOps, meta map[string]any) error {
 	resolved := make([]sharedmodels.MetaOps, 0, len(ops))
 	for _, op := range ops {
-		if fd.appliesToChannel(op.ChannelURL) {
+		if fd.appliesToChannel(op.ChannelURL, meta) {
 			resolved = append(resolved, op)
 			continue
 		}
@@ -252,7 +284,7 @@ func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []shared
 		}
 
 		for _, op := range fmo.MetaOps {
-			if !fd.appliesToChannel(op.ChannelURL) {
+			if !fd.appliesToChannel(op.ChannelURL, meta) {
 				continue
 			}
 			logger.Pl.I("Filters matched, applying meta operation %q to field %q", op.OpType, op.Field)
@@ -269,8 +301,26 @@ func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []shared
 }
 
 // appliesToChannel reports whether an operation scoped to chanURL applies to this file.
-func (fd *FileData) appliesToChannel(chanURL string) bool {
-	return chanURL == "" || fd.MWebData.MatchesChannel(chanURL)
+func (fd *FileData) appliesToChannel(chanURL string, meta map[string]any) bool {
+	return chanURL == "" || fd.MWebData.MatchesChannel(chanURL, channelURLsFromMeta(meta)...)
+}
+
+// channelURLsFromMeta pulls the source's own channel identifiers out of the metadata.
+//
+// These are what make a path-scoped operation such as "youtube.com/@ChannelA" resolve
+// correctly, since a video's page URL only reveals the host.
+func channelURLsFromMeta(meta map[string]any) []string {
+	if len(meta) == 0 {
+		return nil
+	}
+
+	urls := make([]string, 0, 2)
+	for _, key := range []string{sharedtags.JChannelURL, sharedtags.JUploaderURL} {
+		if v, ok := meta[key].(string); ok && v != "" {
+			urls = append(urls, v)
+		}
+	}
+	return urls
 }
 
 // ResolveFilenameOps rebuilds the file's filename operations, keeping those that apply.
@@ -281,7 +331,7 @@ func (fd *FileData) appliesToChannel(chanURL string) bool {
 func (fd *FileData) ResolveFilenameOps(ops []sharedmodels.FilenameOps, filtered []sharedmodels.FilteredFilenameOps, meta map[string]any) error {
 	resolved := make([]sharedmodels.FilenameOps, 0, len(ops))
 	for _, op := range ops {
-		if fd.appliesToChannel(op.ChannelURL) {
+		if fd.appliesToChannel(op.ChannelURL, meta) {
 			resolved = append(resolved, op)
 			continue
 		}
@@ -299,7 +349,7 @@ func (fd *FileData) ResolveFilenameOps(ops []sharedmodels.FilenameOps, filtered 
 		}
 
 		for _, op := range ffo.FilenameOps {
-			if !fd.appliesToChannel(op.ChannelURL) {
+			if !fd.appliesToChannel(op.ChannelURL, meta) {
 				continue
 			}
 			logger.Pl.I("Filters matched, applying filename operation %q", op.OpType)

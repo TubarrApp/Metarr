@@ -232,32 +232,73 @@ func TestUnescapedPipeInValue(t *testing.T) {
 	}
 }
 
-// TestMatchesChannel covers resolving a channel-scoped operation against a file, where
-// the file's own URLs stand in for Metarr's missing channel concept.
-func TestMatchesChannel(t *testing.T) {
-	w := &MetadataWebData{
-		WebpageURL: "https://www.google.com/watch?v=abc",
+// TestChannelURLMatches covers how a channel-scoped operation is resolved.
+//
+// A host matches itself or a subdomain of itself, since a channel may live at one; a
+// path matches itself or anything beneath it, so one channel's operation must not apply
+// to another sharing the same host.
+func TestChannelURLMatches(t *testing.T) {
+	tests := []struct {
+		name      string
+		chanURL   string
+		candidate string
+		want      bool
+	}{
+		// Host forms that should all be treated alike.
+		{"exact", "https://www.google.com", "https://www.google.com/watch?v=a", true},
+		{"trailing slash on op", "https://www.google.com/", "https://www.google.com/watch?v=a", true},
+		{"no www on op", "https://google.com", "https://www.google.com/watch?v=a", true},
+		{"bare domain op", "google.com", "https://www.google.com/watch?v=a", true},
+		{"mixed case", "http://WWW.GOOGLE.COM", "https://www.google.com/watch?v=a", true},
+		{"port on candidate", "google.com", "https://google.com:8443/watch", true},
+
+		// Different sites must never match.
+		{"different host", "https://www.google.com", "https://www.youtube.com/watch?v=a", false},
+		{"lookalike host is not a subdomain", "website.com", "https://evilwebsite.com/video", false},
+
+		// Subdomains: a channel may live at one.
+		{"subdomain covered by apex op", "website.com", "https://channel.website.com/video/1", true},
+		{"subdomain op matches itself", "channel.website.com", "https://channel.website.com/video/1", true},
+		{"subdomain op excludes apex", "channel.website.com", "https://website.com/video/1", false},
+		{"subdomain op excludes sibling", "channel.website.com", "https://other.website.com/video/1", false},
+
+		// Paths: channels sharing a host must stay distinct.
+		{"path op matches its own channel", "https://youtube.com/@ChannelA", "https://www.youtube.com/@ChannelA", true},
+		{"path op matches beneath itself", "https://youtube.com/@ChannelA", "https://www.youtube.com/@ChannelA/videos", true},
+		{"path op excludes another channel", "https://youtube.com/@ChannelA", "https://www.youtube.com/@ChannelB", false},
+		{"path op excludes a bare watch URL", "https://youtube.com/@ChannelA", "https://www.youtube.com/watch?v=a", false},
+		{"path op is not a bare prefix match", "https://youtube.com/@Chan", "https://www.youtube.com/@ChannelA", false},
+		{"host-only op covers any path", "youtube.com", "https://www.youtube.com/@ChannelB/videos", true},
+
+		{"empty op", "", "https://www.google.com/a", false},
+		{"empty candidate", "google.com", "", false},
 	}
 
-	for _, target := range []string{
-		"https://www.google.com/",
-		"https://google.com",
-		"google.com",
-		"http://WWW.GOOGLE.COM/path",
-	} {
-		if !w.MatchesChannel(target) {
-			t.Errorf("MatchesChannel(%q) = false, want true", target)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := channelURLMatches(tt.chanURL, tt.candidate); got != tt.want {
+				t.Errorf("channelURLMatches(%q, %q) = %v, want %v", tt.chanURL, tt.candidate, got, tt.want)
+			}
+		})
 	}
+}
 
-	for _, target := range []string{
-		"https://www.youtube.com/",
-		"notgoogle.com",
-		"",
-	} {
-		if w.MatchesChannel(target) {
-			t.Errorf("MatchesChannel(%q) = true, want false", target)
-		}
+// TestMatchesChannelUsesMetadataChannelURL covers the case a page URL cannot resolve:
+// two videos from different channels share a host, so the channel must come from the
+// metadata's own channel_url or uploader_url.
+func TestMatchesChannelUsesMetadataChannelURL(t *testing.T) {
+	const opURL = "https://www.youtube.com/@ChannelA"
+
+	w := &MetadataWebData{WebpageURL: "https://www.youtube.com/watch?v=abc"}
+
+	if w.MatchesChannel(opURL) {
+		t.Error("a bare watch URL must not satisfy a channel-scoped operation on its own")
+	}
+	if !w.MatchesChannel(opURL, "https://www.youtube.com/@ChannelA") {
+		t.Error("channel_url naming the same channel should match")
+	}
+	if w.MatchesChannel(opURL, "https://www.youtube.com/@ChannelB") {
+		t.Error("channel_url naming a different channel must not match")
 	}
 }
 
