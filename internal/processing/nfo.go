@@ -55,6 +55,12 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		fd.NFOData = nfoData
 	}
 
+	// Read web details before editing, so channel-scoped operations can be narrowed.
+	if fd.NFOData != nil {
+		fieldsnfo.FillWebData(fd)
+	}
+	resolveOps(fd, nil)
+
 	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd)
 	if err != nil {
 		logger.Pl.E("Encountered issue making meta edits: %v", err)

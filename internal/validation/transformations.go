@@ -3,14 +3,12 @@ package validation
 import (
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
-	"metarr/internal/parsing"
-	"strings"
 
-	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedparsing"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // ValidateAndSetMetaOps parses the meta transformation operations.
@@ -19,177 +17,33 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 	if len(metaOpsInput) == 0 {
 		return nil
 	}
-	const invalidWarning = "removing invalid meta operation %q. (Correct format style: 'title:prefix:[DOG CLIPS] ', 'title:date-tag:prefix:ymd')"
 
-	ops := models.NewMetaOps()
-	validOpsForPrintout := make([]string, 0, len(metaOpsInput))
-
-	for _, op := range metaOpsInput {
-		parts := parsing.EscapedSplit(op, ':')
-		if len(parts) < 3 || len(parts) > 4 {
-			return fmt.Errorf(invalidWarning, op)
-		}
-
-		field := parts[0]
-		operation := parts[1]
-
-		switch len(parts) {
-		case 3:
-			value := parts[2]
-
-			switch strings.ToLower(operation) {
-			// Set.
-			case sharedconsts.OpSet:
-				switch field {
-				case "all-credits", "credits-all":
-					ops.SetOverrides[enums.OverrideMetaCredits] = value
-				}
-				newFieldModel := models.MetaSetField{
-					Field: parsing.UnescapeSplit(field, ":"),
-					Value: parsing.UnescapeSplit(value, ":"),
-				}
-				ops.SetFields = append(ops.SetFields, newFieldModel)
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new field op:\nField: %s\nValue: %s", newFieldModel.Field, newFieldModel.Value)
-
-				// Append/prefix.
-			case sharedconsts.OpAppend:
-				apndModel := models.MetaAppend{
-					Field:  parsing.UnescapeSplit(field, ":"),
-					Append: parsing.UnescapeSplit(value, ":"),
-				}
-				ops.Appends = append(ops.Appends, apndModel)
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new append op:\nField: %s\nAppend: %s", apndModel.Field, apndModel.Append)
-
-			case sharedconsts.OpPrefix:
-				pfxModel := models.MetaPrefix{
-					Field:  parsing.UnescapeSplit(field, ":"),
-					Prefix: parsing.UnescapeSplit(value, ":"),
-				}
-				ops.Prefixes = append(ops.Prefixes, pfxModel)
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new prefix op:\nField: %s\nPrefix: %s", pfxModel.Field, pfxModel.Prefix)
-
-				// Copy/paste.
-			case sharedconsts.OpCopyTo:
-				c := models.CopyToField{
-					Field: parsing.UnescapeSplit(field, ":"),
-					Dest:  parsing.UnescapeSplit(value, ":"),
-				}
-				ops.CopyToFields = append(ops.CopyToFields, c)
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new copy/paste op:\nField: %s\nCopy To: %s", c.Field, c.Dest)
-
-			case sharedconsts.OpPasteFrom:
-				p := models.PasteFromField{
-					Field:  parsing.UnescapeSplit(field, ":"),
-					Origin: parsing.UnescapeSplit(value, ":"),
-				}
-				ops.PasteFromFields = append(ops.PasteFromFields, p)
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new copy/paste op:\nField: %s\nPaste From: %s", p.Field, p.Origin)
-			}
-		case 4:
-			switch strings.ToLower(operation) {
-			// Date operations.
-			case sharedconsts.OpDateTag:
-				loc := parts[2]
-				dateFmt := parts[3]
-				var dateTagLocation enums.DateTagLocation
-				switch strings.ToLower(loc) {
-				case sharedconsts.OpLocPrefix:
-					dateTagLocation = enums.DateTagLocPrefix
-				case sharedconsts.OpLocSuffix:
-					dateTagLocation = enums.DateTagLocSuffix
-				default:
-					return fmt.Errorf("date tag location must be prefix, or suffix, skipping op %v", op)
-				}
-				e, err := dateEnum(dateFmt)
-				if err != nil {
-					return err
-				}
-				ops.DateTags[field] = models.MetaDateTag{
-					Loc:    dateTagLocation,
-					Format: e,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new date tag operation:\nField: %s\nLocation: %s\nReplacement: %s\n", field, loc, dateFmt)
-
-			case sharedconsts.OpDeleteDateTag:
-				loc := parts[2]
-				dateFmt := parts[3]
-				var dateTagLocation enums.DateTagLocation
-				switch strings.ToLower(loc) {
-				case sharedconsts.OpLocPrefix:
-					dateTagLocation = enums.DateTagLocPrefix
-				case sharedconsts.OpLocSuffix:
-					dateTagLocation = enums.DateTagLocSuffix
-				case sharedconsts.OpLocAll:
-					dateTagLocation = enums.DateTagLocAll
-				default:
-					return fmt.Errorf("date tag location must be prefix, suffix, pr all. Skipping op %v", op)
-				}
-				e, err := dateEnum(dateFmt)
-				if err != nil {
-					return err
-				}
-				ops.DeleteDateTags[field] = models.MetaDeleteDateTag{
-					Loc:    dateTagLocation,
-					Format: e,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added delete date tag operation:\nField: %s\nLocation: %s\nFormat %s\n", field, loc, dateFmt)
-
-				// Replace.
-			case sharedconsts.OpReplace:
-				findStr := parts[2]
-				replacement := parts[3]
-				rModel := models.MetaReplace{
-					Field:       parsing.UnescapeSplit(field, ":"),
-					Value:       parsing.UnescapeSplit(findStr, ":"),
-					Replacement: parsing.UnescapeSplit(replacement, ":"),
-				}
-				ops.Replaces = append(ops.Replaces, rModel)
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new replace operation:\nField: %s\nValue: %s\nReplacement: %s\n", rModel.Field, rModel.Value, rModel.Replacement)
-
-			case sharedconsts.OpReplacePrefix:
-				findPrefix := parts[2]
-				replaceStr := parts[3]
-				ops.ReplacePrefixes = append(ops.ReplacePrefixes, models.MetaReplacePrefix{
-					Field:       parsing.UnescapeSplit(field, ":"),
-					Prefix:      parsing.UnescapeSplit(findPrefix, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
-
-			case sharedconsts.OpReplaceSuffix:
-				findSuffix := parts[2]
-				replaceStr := parts[3]
-				ops.ReplaceSuffixes = append(ops.ReplaceSuffixes, models.MetaReplaceSuffix{
-					Field:       parsing.UnescapeSplit(field, ":"),
-					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new replace suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
-
-			default:
-				return fmt.Errorf(invalidWarning, op)
-			}
-		default:
-			return fmt.Errorf(invalidWarning, op)
-		}
+	parsed, warnings, err := sharedparsing.ParseMetaOps(metaOpsInput)
+	for _, w := range warnings {
+		logger.Pl.W("%s", w)
 	}
-	if len(validOpsForPrintout) == 0 {
-		return fmt.Errorf("no valid meta operations were entered. Got: %v", metaOpsInput)
+	if err != nil {
+		return err
 	}
-	logger.Pl.I("Added %d meta operations: %v", len(validOpsForPrintout), validOpsForPrintout)
+	// Metarr is a one-shot run over real files, so a malformed operation stops it rather
+	// than quietly applying a partial set. Duplicates are dropped without complaint.
+	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
+		return fmt.Errorf("invalid meta operations: %v", invalid)
+	}
+	if err := sharedvalidation.ValidateMetaOps(parsed); err != nil {
+		return err
+	}
 
-	// Set values into Viper.
+	ops, err := models.MetaOpsFromShared(parsed)
+	if err != nil {
+		return err
+	}
+	logger.Pl.I("Added %d meta operations: %v", len(parsed), sharedparsing.FormatMetaOps(parsed, "", false))
+
+	// Set values into Viper. The flat form is kept too, since channel-scoped operations
+	// can only be resolved per file, once that file's URLs are known.
 	abstractions.Set(keys.MetaOpsModels, ops)
+	abstractions.Set(keys.MetaOpsFlat, parsed)
 	return nil
 }
 
@@ -199,181 +53,88 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 		logger.Pl.D(2, "No filename operations to add.")
 		return nil
 	}
-	const invalidWarning = "removing invalid filename operation %q. (Correct format style: 'prefix:[COOL VIDEOS] ', 'date-tag:prefix:ymd')"
 
-	fOpModel := models.NewFilenameOps()
-	validOpsForPrintout := make([]string, 0, len(filenameOpsInput))
-
-	for _, op := range filenameOpsInput {
-		parts := parsing.EscapedSplit(op, ':')
-		if len(parts) < 2 || len(parts) > 3 {
-			return fmt.Errorf(invalidWarning, op)
-		}
-		operation := parts[0]
-		switch len(parts) {
-		case 2:
-			opValue := parts[1]
-			switch strings.ToLower(operation) {
-			// Prefix, append, set.
-			case sharedconsts.OpPrefix:
-				fOpModel.Prefixes = append(fOpModel.Prefixes, models.FOpPrefix{
-					Value: parsing.UnescapeSplit(opValue, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new prefix operation:\nPrefix: %s\n", opValue)
-
-			case sharedconsts.OpAppend:
-				fOpModel.Appends = append(fOpModel.Appends, models.FOpAppend{
-					Value: parsing.UnescapeSplit(opValue, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new append operation:\nAppend: %s\n", opValue)
-
-			case sharedconsts.OpSet:
-				if fOpModel.Set.IsSet {
-					return fmt.Errorf("only one set operation can be run per batch. Skipping operation %q", op)
-				}
-				fOpModel.Set = models.FOpSet{
-					IsSet: true,
-					Value: opValue,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-			}
-		case 3:
-			switch strings.ToLower(operation) {
-			// Date operations.
-			case sharedconsts.OpDateTag:
-				if fOpModel.DateTag.DateFormat != enums.DateFmtSkip {
-					return fmt.Errorf("only one date tag accepted per run to prevent user error")
-				}
-				tagLoc := parts[1]
-				dateFmt := parts[2]
-				var tagLocEnum enums.DateTagLocation
-				switch tagLoc {
-				case sharedconsts.OpLocPrefix:
-					tagLocEnum = enums.DateTagLocPrefix
-				case sharedconsts.OpLocSuffix:
-					tagLocEnum = enums.DateTagLocSuffix
-				default:
-					return fmt.Errorf("invalid filename date tag entry. Should be 'date-tag:prefix/suffix:ymd'")
-				}
-				e, err := dateEnum(dateFmt)
-				if err != nil {
-					return fmt.Errorf("invalid date format, should be 'ymd', 'Ydm' (etc)")
-				}
-				fOpModel.DateTag = models.FOpDateTag{
-					Loc:        tagLocEnum,
-					DateFormat: e,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
-
-			case sharedconsts.OpDeleteDateTag:
-				if fOpModel.DeleteDateTags.DateFormat != enums.DateFmtSkip {
-					return fmt.Errorf("only one delete date tag accepted, try using 'all' to replace all instances")
-				}
-				tagLoc := parts[1]
-				dateFmt := parts[2]
-				var tagLocEnum enums.DateTagLocation
-				switch tagLoc {
-				case sharedconsts.OpLocPrefix:
-					tagLocEnum = enums.DateTagLocPrefix
-				case sharedconsts.OpLocSuffix:
-					tagLocEnum = enums.DateTagLocSuffix
-				case sharedconsts.OpLocAll:
-					tagLocEnum = enums.DateTagLocAll
-				default:
-					return fmt.Errorf("invalid filename delete-date-tag entry. Should be 'delete-date-tag:prefix/suffix/all:ymd'")
-				}
-				e, err := dateEnum(dateFmt)
-				if err != nil {
-					return fmt.Errorf("invalid date format, should be 'ymd', 'Ydm' (etc)")
-				}
-				fOpModel.DeleteDateTags = models.FOpDeleteDateTag{
-					Loc:        tagLocEnum,
-					DateFormat: e,
-				}
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added delete date tag operation:\nLocation: %s\nFormat %s\n", tagLoc, dateFmt)
-
-				// Replace.
-			case sharedconsts.OpReplace:
-				findStr := parts[1]
-				replaceStr := parts[2]
-				fOpModel.Replaces = append(fOpModel.Replaces, models.FOpReplace{
-					FindString:  parsing.UnescapeSplit(findStr, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new replace operation:\nFind Strings: %s\nReplace With: %s\n", findStr, replaceStr)
-
-			case sharedconsts.OpReplacePrefix:
-				findPrefix := parts[1]
-				replaceStr := parts[2]
-				fOpModel.ReplacePrefixes = append(fOpModel.ReplacePrefixes, models.FOpReplacePrefix{
-					Prefix:      parsing.UnescapeSplit(findPrefix, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new trim prefix operation:\nFind Prefix: %s\nReplace With: %s\n", findPrefix, replaceStr)
-
-			case sharedconsts.OpReplaceSuffix:
-				findSuffix := parts[1]
-				replaceStr := parts[2]
-				fOpModel.ReplaceSuffixes = append(fOpModel.ReplaceSuffixes, models.FOpReplaceSuffix{
-					Suffix:      parsing.UnescapeSplit(findSuffix, ":"),
-					Replacement: parsing.UnescapeSplit(replaceStr, ":"),
-				})
-				validOpsForPrintout = append(validOpsForPrintout, op)
-				logger.Pl.D(3, "Added new trim suffix operation:\nFind Suffix: %s\nReplace With: %s\n", findSuffix, replaceStr)
-
-			default:
-				return fmt.Errorf(invalidWarning, op)
-			}
-		}
+	parsed, warnings, err := sharedparsing.ParseFilenameOps(filenameOpsInput)
+	for _, w := range warnings {
+		logger.Pl.W("%s", w)
 	}
-	if len(validOpsForPrintout) == 0 {
-		return fmt.Errorf("no valid filename operations were entered. Got: %v", filenameOpsInput)
+	if err != nil {
+		return err
 	}
-	logger.Pl.I("Added %d filename operations: %v", len(validOpsForPrintout), validOpsForPrintout)
+	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
+		return fmt.Errorf("invalid filename operations: %v", invalid)
+	}
+	if err := sharedvalidation.ValidateFilenameOps(parsed); err != nil {
+		return err
+	}
 
-	// Set values into Viper.
+	fOpModel, err := models.FilenameOpsFromShared(parsed)
+	if err != nil {
+		return err
+	}
+	logger.Pl.I("Added %d filename operations: %v", len(parsed), sharedparsing.FormatFilenameOps(parsed, "", false))
+
+	// Set values into Viper. The flat form is kept too, since channel-scoped operations
+	// can only be resolved per file, once that file's URLs are known.
 	abstractions.Set(keys.FilenameOpsModels, fOpModel)
+	abstractions.Set(keys.FilenameOpsFlat, parsed)
 	return nil
 }
 
-// ** Private ************************************************************************************************************************************
-
-// dateEnum returns the date format enum type.
-func dateEnum(dateFmt string) (formatEnum enums.DateFormat, err error) {
-	if len(dateFmt) < 2 || len(dateFmt) > 3 {
-		return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three characters (where 'Y' is yyyy and 'y' is yy)", dateFmt)
+// ValidateAndSetFilteredMetaOps parses meta operations gated behind a filter.
+//
+// The filters are evaluated per file once its metadata is read, so this only checks the
+// entries are well formed.
+func ValidateAndSetFilteredMetaOps(input []string) error {
+	if len(input) == 0 {
+		return nil
 	}
 
-	switch dateFmt {
-	case "Ymd":
-		return enums.DateYyyyMmDd, nil
-	case "ymd":
-		return enums.DateYyMmDd, nil
-	case "Ydm":
-		return enums.DateYyyyDdMm, nil
-	case "ydm":
-		return enums.DateYyDdMm, nil
-	case "dmY":
-		return enums.DateDdMmYyyy, nil
-	case "dmy":
-		return enums.DateDdMmYy, nil
-	case "mdY":
-		return enums.DateMmDdYyyy, nil
-	case "mdy":
-		return enums.DateMmDdYy, nil
-	case "md":
-		return enums.DateMmDd, nil
-	case "dm":
-		return enums.DateDdMm, nil
-
-		// Else, invalid operation.
-	default:
-		return enums.DateFmtSkip, fmt.Errorf("invalid date format entered as %q, please enter up to three ymd characters (where capital Y is yyyy and y is yy)", dateFmt)
+	parsed, warnings, err := sharedparsing.ParseFilteredMetaOps(input)
+	for _, w := range warnings {
+		logger.Pl.W("%s", w)
 	}
+	if err != nil {
+		return err
+	}
+	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
+		return fmt.Errorf("invalid filtered meta operations: %v", invalid)
+	}
+
+	if err := sharedvalidation.ValidateFilteredMetaOps(parsed); err != nil {
+		return err
+	}
+	logger.Pl.I("Added %d filtered meta operations", len(parsed))
+
+	abstractions.Set(keys.FilteredMetaOpsModels, parsed)
+	return nil
+}
+
+// ValidateAndSetFilteredFilenameOps parses filename operations gated behind a filter.
+//
+// The filters read metadata, so they are evaluated per file once its metadata is read;
+// this only checks the entries are well formed.
+func ValidateAndSetFilteredFilenameOps(input []string) error {
+	if len(input) == 0 {
+		return nil
+	}
+
+	parsed, warnings, err := sharedparsing.ParseFilteredFilenameOps(input)
+	for _, w := range warnings {
+		logger.Pl.W("%s", w)
+	}
+	if err != nil {
+		return err
+	}
+	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
+		return fmt.Errorf("invalid filtered filename operations: %v", invalid)
+	}
+
+	if err := sharedvalidation.ValidateFilteredFilenameOps(parsed); err != nil {
+		return err
+	}
+	logger.Pl.I("Added %d filtered filename operations", len(parsed))
+
+	abstractions.Set(keys.FilteredFilenameOpsModels, parsed)
+	return nil
 }

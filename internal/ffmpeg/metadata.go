@@ -9,7 +9,7 @@ import (
 
 // addAllMetadata combines all metadata into a single map.
 func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
-	b.addTitlesDescs(fd.MTitleDesc)
+	b.addTitlesDescs(fd)
 	b.addCredits(fd.MCredits)
 	b.addDates(fd.MDates)
 	b.addShowInfo(fd.MShowData)
@@ -17,33 +17,36 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 }
 
 // addTitlesDescs adds all title/description-related metadata.
-func (b *ffCommandBuilder) addTitlesDescs(t *models.MetadataTitlesDescs) {
-	// Prefer fulltitle.
-	if t.Fulltitle != "" {
-		t.Title = t.Fulltitle
-	}
-	if t.Fulltitle == "" && t.Title != "" {
-		t.Fulltitle = t.Title
+//
+// Fulltitle and longdescription win where present, as title and description may be truncated by the source.
+func (b *ffCommandBuilder) addTitlesDescs(fd *models.FileData) {
+	t := fd.MTitleDesc
+
+	title := t.Fulltitle
+	if title == "" {
+		title = t.Title
 	}
 
-	// Prefer long (non-truncated) description.
-	if t.LongDescription == "" {
+	longDescription := t.LongDescription
+	if longDescription == "" {
 		if t.LongUnderscoreDescription != "" {
-			t.LongDescription = t.LongUnderscoreDescription
-		} else if t.Description != "" {
-			t.LongDescription = t.Description
+			longDescription = t.LongUnderscoreDescription
+		} else {
+			longDescription = t.Description
 		}
 	}
-	if t.LongDescription != "" {
-		t.Description = t.LongDescription
+
+	description := longDescription
+	if description == "" {
+		description = t.Description
 	}
 
 	fields := map[string]string{
-		sharedtags.JTitle:       t.Title,
+		sharedtags.JTitle:       title,
 		sharedtags.JSubtitle:    t.Subtitle,
 		sharedtags.JComment:     t.Comment,
-		sharedtags.JDescription: t.Description,
-		sharedtags.JLongDesc:    t.LongDescription,
+		sharedtags.JDescription: description,
+		sharedtags.JLongDesc:    longDescription,
 		sharedtags.JSummary:     t.Summary,
 		sharedtags.JSynopsis:    t.Synopsis,
 	}

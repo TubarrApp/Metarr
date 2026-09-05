@@ -24,7 +24,7 @@ func FillNFO(fd *models.FileData) (filled bool) {
 		filled = true
 	}
 
-	if ok := fillNFOWebData(fd); ok {
+	if ok := FillWebData(fd); ok {
 		filled = true
 	}
 	return filled

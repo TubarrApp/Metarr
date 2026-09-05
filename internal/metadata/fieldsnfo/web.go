@@ -8,8 +8,8 @@ import (
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
-// fillNFOWebData attempts to fill in web data from NFO.
-func fillNFOWebData(fd *models.FileData) (filled bool) {
+// FillWebData attempts to fill in web data from NFO.
+func FillWebData(fd *models.FileData) (filled bool) {
 	w := fd.MWebData
 	n := fd.NFOData
 	nw := n.WebpageInfo

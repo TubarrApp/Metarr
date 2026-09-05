@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 )
@@ -199,4 +200,65 @@ func printProgress(fileType string, current, total int32, directory string) {
 	fmt.Fprintf(os.Stderr, "    Processed %s file %d of %d\n", fileType, current, total)
 	fmt.Fprintf(os.Stderr, "    Remaining in %q: %d\n", directory, total-current)
 	fmt.Fprintf(os.Stderr, "==============================================================\n\n")
+}
+
+// resolveOps narrows the file's meta and filename operations to those that apply to it,
+// which is only possible once its URLs and metadata have been read.
+//
+// meta may be nil for formats with no field map, in which case filter-gated operations
+// cannot be evaluated and are skipped.
+func resolveOps(fd *models.FileData, meta map[string]any) {
+	if meta == nil {
+		if abstractions.IsSet(keys.FilteredMetaOpsModels) || abstractions.IsSet(keys.FilteredFilenameOpsModels) {
+			logger.Pl.W("Filter-gated operations are not yet supported for this metadata format, skipping them")
+		}
+		meta = map[string]any{}
+	}
+
+	metaFlat, ok := flatOps[sharedmodels.MetaOps](keys.MetaOpsFlat)
+	if !ok {
+		return
+	}
+	filteredMeta, ok := flatOps[sharedmodels.FilteredMetaOps](keys.FilteredMetaOpsModels)
+	if !ok {
+		return
+	}
+	if len(metaFlat) > 0 || len(filteredMeta) > 0 {
+		if err := fd.ResolveMetaOps(metaFlat, filteredMeta, meta); err != nil {
+			// Falling back to the startup set would apply operations meant for another
+			// channel, so apply none and report it.
+			logger.Pl.E("Failed to resolve meta operations for this file, applying none: %v", err)
+			fd.MetaOps = models.NewMetaOps()
+		}
+	}
+
+	filenameFlat, ok := flatOps[sharedmodels.FilenameOps](keys.FilenameOpsFlat)
+	if !ok {
+		return
+	}
+	filteredFilename, ok := flatOps[sharedmodels.FilteredFilenameOps](keys.FilteredFilenameOpsModels)
+	if !ok {
+		return
+	}
+	if len(filenameFlat) > 0 || len(filteredFilename) > 0 {
+		if err := fd.ResolveFilenameOps(filenameFlat, filteredFilename, meta); err != nil {
+			logger.Pl.E("Failed to resolve filename operations for this file, applying none: %v", err)
+			fd.FilenameOps = models.NewFilenameOps()
+		}
+	}
+}
+
+// flatOps reads a stored operation slice, reporting false only when the stored value is
+// the wrong type, which is a programming error rather than an absent setting.
+func flatOps[T any](key string) ([]T, bool) {
+	if !abstractions.IsSet(key) {
+		return nil, true
+	}
+
+	v, ok := abstractions.Get(key).([]T)
+	if !ok {
+		logger.Pl.E("Expected %T for %q, got %T", v, key, abstractions.Get(key))
+		return nil, false
+	}
+	return v, true
 }

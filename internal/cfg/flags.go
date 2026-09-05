@@ -100,6 +100,16 @@ func initAllFileTransformers() error {
 // initMetaTransformers initializes user flag settings for manipulation of metadata.
 func initMetaTransformers() error {
 	// Metadata transformations
+	rootCmd.PersistentFlags().StringSlice(keys.FilteredFilenameOpsInput, nil, "Filename operations applied only when a filter matches (filter|operation) - e.g. title:contains:cat|prefix:[CAT VIDEOS] ")
+	if err := viper.BindPFlag(keys.FilteredFilenameOpsInput, rootCmd.PersistentFlags().Lookup(keys.FilteredFilenameOpsInput)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().StringSlice(keys.FilteredMetaOpsInput, nil, "Metadata operations applied only when a filter matches (filter|operation) - e.g. title:contains:cat|title:prefix:[CAT VIDEOS] ")
+	if err := viper.BindPFlag(keys.FilteredMetaOpsInput, rootCmd.PersistentFlags().Lookup(keys.FilteredMetaOpsInput)); err != nil {
+		return err
+	}
+
 	rootCmd.PersistentFlags().StringSlice(keys.MetaOpsInput, nil, "Metadata operations (field:operation:value) - e.g. title:set:New Title, description:prefix:Draft-, tags:append:newtag")
 	if err := viper.BindPFlag(keys.MetaOpsInput, rootCmd.PersistentFlags().Lookup(keys.MetaOpsInput)); err != nil {
 		return err

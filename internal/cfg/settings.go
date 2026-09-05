@@ -177,5 +177,19 @@ func initTransformations() error {
 			return err
 		}
 	}
+
+	// Validate filter-gated meta operations.
+	if viper.IsSet(keys.FilteredMetaOpsInput) {
+		if err := validation.ValidateAndSetFilteredMetaOps(viper.GetStringSlice(keys.FilteredMetaOpsInput)); err != nil {
+			return err
+		}
+	}
+
+	// Validate filter-gated filename operations.
+	if viper.IsSet(keys.FilteredFilenameOpsInput) {
+		if err := validation.ValidateAndSetFilteredFilenameOps(viper.GetStringSlice(keys.FilteredFilenameOpsInput)); err != nil {
+			return err
+		}
+	}
 	return nil
 }

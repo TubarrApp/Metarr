@@ -74,6 +74,10 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		}
 	}
 
+	// Narrow channel-scoped and filter-gated operations now this file's URLs and
+	// metadata are known.
+	resolveOps(fd, data)
+
 	// Make metadata adjustments per user selection or transformation preset.
 	if edited, err := jsonRW.MakeJSONEdits(file, fd); err != nil {
 		return err

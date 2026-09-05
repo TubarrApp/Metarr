@@ -24,11 +24,13 @@ const (
 	MaxCPU          string = "max-cpu"
 	MinFreeMemInput string = "min-free-mem"
 
-	FilenameOpsInput string = "filename-ops"
-	RenameStyle      string = "rename-style"
+	FilenameOpsInput         string = "filename-ops"
+	FilteredFilenameOpsInput string = "filtered-filename-ops"
+	RenameStyle              string = "rename-style"
 
-	MetaOpsInput string = "meta-ops"
-	WriteNFO     string = "write-nfo"
+	MetaOpsInput         string = "meta-ops"
+	FilteredMetaOpsInput string = "filtered-meta-ops"
+	WriteNFO             string = "write-nfo"
 
 	DebugLevel      string = "debug"
 	SkipVideos      string = "skip-videos"
@@ -90,9 +92,13 @@ const (
 
 // Internal filename operation keys. Not exposed to end user.
 const (
-	BatchPairs             string = "INTERNAL-batch-files"
-	FilenameOpsModels      string = "INTERNAL-filename-ops"
-	MetaOpsModels          string = "INTERNAL-meta-ops"
-	TranscodeVideoCodecMap string = "INTERNAL-transcode-video-codec"
-	TranscodeAudioCodecMap string = "INTERNAL-transcode-audio-codec"
+	BatchPairs                string = "INTERNAL-batch-files"
+	FilenameOpsModels         string = "INTERNAL-filename-ops"
+	MetaOpsModels             string = "INTERNAL-meta-ops"
+	MetaOpsFlat               string = "INTERNAL-meta-ops-flat"
+	FilteredMetaOpsModels     string = "INTERNAL-filtered-meta-ops"
+	FilenameOpsFlat           string = "INTERNAL-filename-ops-flat"
+	FilteredFilenameOpsModels string = "INTERNAL-filtered-filename-ops"
+	TranscodeVideoCodecMap    string = "INTERNAL-transcode-video-codec"
+	TranscodeAudioCodecMap    string = "INTERNAL-transcode-audio-codec"
 )
