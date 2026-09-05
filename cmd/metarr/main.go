@@ -23,12 +23,14 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/benchmark"
+	"github.com/TubarrApp/gocommon/buildinfo"
 	"github.com/TubarrApp/gocommon/logging"
 )
 
 // Main program string constants.
 const (
 	timeFormat     = "2006-01-02 15:04:05.00 MST"
+	buildLogFormat = "Metarr binary %s"
 	startLogFormat = "Metarr started at: %s"
 	endLogFormat   = "Metarr finished at: %s"
 	elapsedFormat  = "Time elapsed: %.2f seconds\n"
@@ -61,7 +63,8 @@ func main() {
 	}
 	logger.Pl = pl
 
-	// Log start time.
+	// Log build provenance and start time.
+	logger.Pl.I(buildLogFormat, buildinfo.Get())
 	logger.Pl.I(startLogFormat, startTime.Format(timeFormat))
 
 	// Panic recovery with proper cleanup.
