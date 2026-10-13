@@ -93,7 +93,12 @@ func main() {
 	}
 
 	// Setup context for cancellation.
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGHUP, syscall.SIGQUIT)
+	// Skip SIGHUP if ignored at startup (e.g. nohup), else Notify re-enables it.
+	sigs := []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT}
+	if !signal.Ignored(syscall.SIGHUP) {
+		sigs = append(sigs, syscall.SIGHUP)
+	}
+	ctx, cancel := signal.NotifyContext(context.Background(), sigs...)
 	defer cancel()
 
 	// Log POST goroutine.
