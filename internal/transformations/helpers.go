@@ -40,7 +40,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 		move = true
 	}
 
-	if abstractions.IsSet(keys.FilenameOpsModels) {
+	if abstractions.IsSet(keys.FilenameOpsModels) || abstractions.IsSet(keys.FilteredFilenameOpsModels) {
 		rename = true
 	}
 
@@ -225,6 +225,20 @@ func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models
 			logger.Pl.D(2, "Replacement made: %s -> %s (replaced %q with %q)",
 				prevFilename, filename, rep.FindString, replacement)
 		}
+	}
+	return filename
+}
+
+// regexReplace applies configured regex replacements to a filename.
+func (fp *fileProcessor) regexReplace(filename string, rr []models.FOpRegexReplace) string {
+	for _, r := range rr {
+		replacement, isTemplate := fp.metatagParser.FillMetaTemplateTag(r.Replacement, fp.metadata)
+		if replacement == r.Replacement && isTemplate {
+			continue
+		}
+		prev := filename
+		filename = r.Regex.ReplaceAllString(filename, replacement)
+		logger.Pl.D(2, "Regex %q replacement: %q -> %q", r.Regex, prev, filename)
 	}
 	return filename
 }

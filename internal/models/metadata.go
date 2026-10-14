@@ -3,6 +3,8 @@ package models
 import (
 	"metarr/internal/domain/enums"
 	"net/http"
+	"regexp"
+	"strings"
 )
 
 // MetaOps contains maps related to the operations to be carried out during the program's run.
@@ -18,6 +20,8 @@ type MetaOps struct {
 	Replaces         []MetaReplace
 	ReplaceSuffixes  []MetaReplaceSuffix
 	ReplacePrefixes  []MetaReplacePrefix
+	RegexReplaces    []MetaRegexReplace
+	Trims            []MetaTrim
 	CopyToFields     []CopyToField
 	PasteFromFields  []PasteFromField
 }
@@ -41,6 +45,8 @@ func NewMetaOps() *MetaOps {
 		ReplaceSuffixes: make([]MetaReplaceSuffix, 0),
 		ReplacePrefixes: make([]MetaReplacePrefix, 0),
 		Replaces:        make([]MetaReplace, 0),
+		RegexReplaces:   make([]MetaRegexReplace, 0),
+		Trims:           make([]MetaTrim, 0),
 		CopyToFields:    make([]CopyToField, 0),
 		PasteFromFields: make([]PasteFromField, 0),
 	}
@@ -84,6 +90,12 @@ func (fd *FileData) EnsureMetaOps() {
 	}
 	if fd.MetaOps.ReplacePrefixes == nil {
 		fd.MetaOps.ReplacePrefixes = []MetaReplacePrefix{}
+	}
+	if fd.MetaOps.RegexReplaces == nil {
+		fd.MetaOps.RegexReplaces = []MetaRegexReplace{}
+	}
+	if fd.MetaOps.Trims == nil {
+		fd.MetaOps.Trims = []MetaTrim{}
 	}
 	if fd.MetaOps.CopyToFields == nil {
 		fd.MetaOps.CopyToFields = []CopyToField{}
@@ -169,6 +181,38 @@ type MetaReplace struct {
 	Field       string
 	Value       string
 	Replacement string
+}
+
+// MetaRegexReplace replaces every match of a pattern in a metafield's value.
+type MetaRegexReplace struct {
+	Field       string
+	Regex       *regexp.Regexp
+	Replacement string
+}
+
+// MetaTrim applies a TextTrim to a metafield's value.
+type MetaTrim struct {
+	Field string
+	TextTrim
+}
+
+// TextTrim deletes text up to and including the first Delim, or with After set, the
+// first Delim and everything following it.
+type TextTrim struct {
+	Delim string
+	After bool
+}
+
+// Apply trims s, reporting false when s does not contain the delimiter.
+func (t TextTrim) Apply(s string) (string, bool) {
+	before, after, found := strings.Cut(s, t.Delim)
+	if !found {
+		return s, false
+	}
+	if t.After {
+		return before, true
+	}
+	return after, true
 }
 
 // FilenameDatePrefix contains the year, month, day lengths, and ordering, desired by the user.

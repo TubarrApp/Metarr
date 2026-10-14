@@ -96,7 +96,7 @@ debug: 2
 
 ## Metadata Operations (`--meta-ops`)
 
-Each entry follows `field:operation:value[:value]`. Values are colon-escaped internally, so literal `:` can be written as `\:`.
+Each entry follows `field:operation:value[:value]`. The last part is everything after the previous `:`, so `title:set:HELLO: MY TEXT` needs no escaping. A `:` in a middle part (e.g. the find text of `replace`) is written `\:`. A `regex-replace` pattern is wrapped in `[[ ]]` and passed to the regex engine untouched.
 
 | Operation        | Example                                       | Effect |
 | ---------------- | --------------------------------------------- | ------ |
@@ -106,6 +106,9 @@ Each entry follows `field:operation:value[:value]`. Values are colon-escaped int
 | `replace`        | `summary:replace:foo:bar`                     | Replace substrings inside a field. |
 | `replace-prefix` | `title:replace-prefix:[OLD] :[NEW] `          | Swap a matching prefix. |
 | `replace-suffix` | `title:replace-suffix: DVD:: UHD`             | Swap a matching suffix. |
+| `regex-replace`  | `title:regex-replace:[[^Show \d+ \| ]]:`      | Replace every regex match ([RE2 syntax](https://github.com/google/re2/wiki/Syntax)); `$1` inserts a capture group, `(?i)` ignores case, an empty replacement deletes. |
+| `trim-before`    | `title:trim-before:\| `                       | Delete everything up to and including the first `\| `. |
+| `trim-after`     | `title:trim-after: \|`                        | Delete the first ` \|` and everything after it. |
 | `copy-to`        | `actors:copy-to:tags`                         | Copy a field’s contents into another field. |
 | `paste-from`     | `title:paste-from:original-title`             | Reverse direction of `copy-to`. |
 | `date-tag`       | `title:date-tag:prefix:ymd`                   | Insert a date tag using one of the supported `ymd`/`Ymd` styles. |
@@ -125,8 +128,15 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 | `replace`        | `replace:_ : `                     | Search/replace substrings. |
 | `replace-prefix` | `replace-prefix:[OLD] :[NEW] `     | Swap prefixes. |
 | `replace-suffix` | `replace-suffix: _v1:_final`       | Swap suffixes. |
+| `regex-replace`  | `regex-replace:[[^(.*) - (\d{4})$]]:$2 $1` | Replace every regex match. |
+| `trim-before`    | `trim-before:\| `                  | Delete up to and including the first `\| `. |
+| `trim-after`     | `trim-after: \|`                   | Delete from the first ` \|` onward. |
 | `date-tag`       | `date-tag:prefix:ymd`             | Attach a formatted date. |
 | `delete-date-tag`| `delete-date-tag:all:ymd`         | Remove matching tags. |
+
+## Filtered Operations (`--filtered-meta-ops`, `--filtered-filename-ops`)
+
+Each entry is one filter and one operation, applied only when the filter matches the file's metadata: `title:contains:Example|title:trim-before:| `. Everything after the first `|` is the operation, so it needs no escaping; a `|` inside the filter's own value is written `\|`. For several operations under one filter, repeat the filter on each entry.
 
 Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip`.
 

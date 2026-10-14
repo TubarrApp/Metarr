@@ -6,6 +6,7 @@ import (
 	"metarr/internal/domain/logger"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -95,6 +96,23 @@ func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 				Replacement: op.OpValue,
 			})
 
+		case sharedconsts.OpRegexReplace:
+			re, err := regexp.Compile(op.OpFindString)
+			if err != nil {
+				return nil, fmt.Errorf("invalid regex-replace pattern %q for field %q: %w", op.OpFindString, op.Field, err)
+			}
+			out.RegexReplaces = append(out.RegexReplaces, MetaRegexReplace{
+				Field:       op.Field,
+				Regex:       re,
+				Replacement: op.OpValue,
+			})
+
+		case sharedconsts.OpTrimBefore, sharedconsts.OpTrimAfter:
+			out.Trims = append(out.Trims, MetaTrim{
+				Field:    op.Field,
+				TextTrim: TextTrim{Delim: op.OpValue, After: op.OpType == sharedconsts.OpTrimAfter},
+			})
+
 		default:
 			return nil, fmt.Errorf("unhandled meta operation type %q for field %q", op.OpType, op.Field)
 		}
@@ -159,6 +177,16 @@ func FilenameOpsFromShared(ops []sharedmodels.FilenameOps) (*FilenameOps, error)
 				Suffix:      op.OpFindString,
 				Replacement: op.OpValue,
 			})
+
+		case sharedconsts.OpRegexReplace:
+			re, err := regexp.Compile(op.OpFindString)
+			if err != nil {
+				return nil, fmt.Errorf("invalid regex-replace pattern %q: %w", op.OpFindString, err)
+			}
+			out.RegexReplaces = append(out.RegexReplaces, FOpRegexReplace{Regex: re, Replacement: op.OpValue})
+
+		case sharedconsts.OpTrimBefore, sharedconsts.OpTrimAfter:
+			out.Trims = append(out.Trims, TextTrim{Delim: op.OpValue, After: op.OpType == sharedconsts.OpTrimAfter})
 
 		default:
 			return nil, fmt.Errorf("unhandled filename operation type %q", op.OpType)

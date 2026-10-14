@@ -213,6 +213,20 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
+	if len(ops.Trims) > 0 {
+		logger.Pl.I("Model for file %q trimming at delimiters", fd.OriginalVideoPath)
+		if changesMade := rw.trimJSON(currentMeta, ops.Trims); changesMade {
+			edited = true
+		}
+	}
+
+	if len(ops.RegexReplaces) > 0 {
+		logger.Pl.I("Model for file %q making regex replacements", fd.OriginalVideoPath)
+		if changesMade := rw.regexReplaceJSON(currentMeta, ops.RegexReplaces, mtp); changesMade {
+			edited = true
+		}
+	}
+
 	// 4. Add content (prefix/append).
 	if len(ops.Prefixes) > 0 {
 		logger.Pl.I("Model for file %q adding prefixes", fd.OriginalVideoPath)
@@ -395,6 +409,42 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaRepl
 		}
 	}
 	logger.Pl.D(5, "After suffix trim: %v", j)
+	return edited
+}
+
+// trimJSON deletes text before or after a delimiter in specified fields.
+func (rw *JSONFileRW) trimJSON(j map[string]any, trims []models.MetaTrim) (edited bool) {
+	for _, t := range trims {
+		strVal, ok := j[t.Field].(string)
+		if !ok {
+			continue
+		}
+		if result, trimmed := t.Apply(strVal); trimmed {
+			logger.Pl.D(3, "Trimmed field %q at %q: %q -> %q", t.Field, t.Delim, strVal, result)
+			j[t.Field] = result
+			edited = true
+		}
+	}
+	return edited
+}
+
+// regexReplaceJSON replaces every pattern match in specified fields.
+func (rw *JSONFileRW) regexReplaceJSON(j map[string]any, rr []models.MetaRegexReplace, mtp *parsing.MetaTemplateParser) (edited bool) {
+	for _, r := range rr {
+		strVal, ok := j[r.Field].(string)
+		if !ok {
+			continue
+		}
+		replacement, isTemplate := mtp.FillMetaTemplateTag(r.Replacement, j)
+		if replacement == r.Replacement && isTemplate {
+			continue
+		}
+		if result := r.Regex.ReplaceAllString(strVal, replacement); result != strVal {
+			logger.Pl.D(3, "Regex %q replaced field %q: %q -> %q", r.Regex, r.Field, strVal, result)
+			j[r.Field] = result
+			edited = true
+		}
+	}
 	return edited
 }
 

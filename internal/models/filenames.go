@@ -1,6 +1,9 @@
 package models
 
-import "metarr/internal/domain/enums"
+import (
+	"metarr/internal/domain/enums"
+	"regexp"
+)
 
 // FilenameOps contains maps related to filename renaming operations.
 type FilenameOps struct {
@@ -12,6 +15,8 @@ type FilenameOps struct {
 	Replaces        []FOpReplace
 	ReplaceSuffixes []FOpReplaceSuffix
 	ReplacePrefixes []FOpReplacePrefix
+	RegexReplaces   []FOpRegexReplace
+	Trims           []TextTrim
 }
 
 // NewFilenameOps creates a new FilenameOps with initialized slices.
@@ -22,6 +27,8 @@ func NewFilenameOps() *FilenameOps {
 		Replaces:        make([]FOpReplace, 0),
 		ReplaceSuffixes: make([]FOpReplaceSuffix, 0),
 		ReplacePrefixes: make([]FOpReplacePrefix, 0),
+		RegexReplaces:   make([]FOpRegexReplace, 0),
+		Trims:           make([]TextTrim, 0),
 	}
 	fo.DateTag.DateFormat = enums.DateFmtSkip        // Zero value.
 	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip // Zero value.
@@ -50,8 +57,11 @@ func (fd *FileData) EnsureFilenameOps() {
 	if fd.FilenameOps.ReplaceSuffixes == nil {
 		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
 	}
-	if fd.FilenameOps.ReplaceSuffixes == nil {
-		fd.FilenameOps.ReplaceSuffixes = []FOpReplaceSuffix{}
+	if fd.FilenameOps.RegexReplaces == nil {
+		fd.FilenameOps.RegexReplaces = []FOpRegexReplace{}
+	}
+	if fd.FilenameOps.Trims == nil {
+		fd.FilenameOps.Trims = []TextTrim{}
 	}
 }
 
@@ -92,6 +102,12 @@ type FOpReplaceSuffix struct {
 // FOpReplacePrefix is the prefix to trim and what to replace it with.
 type FOpReplacePrefix struct {
 	Prefix      string
+	Replacement string
+}
+
+// FOpRegexReplace replaces every match of a pattern in a filename.
+type FOpRegexReplace struct {
+	Regex       *regexp.Regexp
 	Replacement string
 }
 

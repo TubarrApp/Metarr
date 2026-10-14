@@ -515,3 +515,51 @@ func TestResolveFilenameOpsSingletonConflict(t *testing.T) {
 		t.Error("two applicable date tags should be reported as a conflict")
 	}
 }
+
+// TestTextOpsKinoCasino converts the new text operations from their string form and
+// applies them to a title whose prefix varies per video.
+func TestTextOpsKinoCasino(t *testing.T) {
+	const title = "Kino Casino 2024-03-01 | Episode name | Part 2"
+
+	parsed, _, err := sharedparsing.ParseMetaOps([]string{
+		`title:regex-replace:[[^Kino Casino [^|]*\| ]]:`,
+		"title:trim-before:| ",
+		"title:trim-after: |",
+	})
+	if err != nil {
+		t.Fatalf("ParseMetaOps: %v", err)
+	}
+	ops, err := MetaOpsFromShared(parsed)
+	if err != nil {
+		t.Fatalf("MetaOpsFromShared: %v", err)
+	}
+
+	if got := ops.RegexReplaces[0].Regex.ReplaceAllString(title, ops.RegexReplaces[0].Replacement); got != "Episode name | Part 2" {
+		t.Errorf("regex-replace = %q", got)
+	}
+	if got, ok := ops.Trims[0].Apply(title); !ok || got != "Episode name | Part 2" {
+		t.Errorf("trim-before = %q, %v", got, ok)
+	}
+	if got, ok := ops.Trims[1].Apply(title); !ok || got != "Kino Casino 2024-03-01" {
+		t.Errorf("trim-after = %q, %v", got, ok)
+	}
+	if got, ok := ops.Trims[0].Apply("No delimiter"); ok || got != "No delimiter" {
+		t.Errorf("trim without delimiter = %q, %v", got, ok)
+	}
+
+	fparsed, _, err := sharedparsing.ParseFilenameOps([]string{`regex-replace:[[(?i)^kino casino (\d{4})\S* \| (.*)]]:$2 ($1)`, "trim-after: |"})
+	if err != nil {
+		t.Fatalf("ParseFilenameOps: %v", err)
+	}
+	fops, err := FilenameOpsFromShared(fparsed)
+	if err != nil {
+		t.Fatalf("FilenameOpsFromShared: %v", err)
+	}
+	r := fops.RegexReplaces[0]
+	if got := r.Regex.ReplaceAllString(title, r.Replacement); got != "Episode name | Part 2 (2024)" {
+		t.Errorf("filename regex-replace = %q", got)
+	}
+	if !fops.Trims[0].After {
+		t.Errorf("trim-after not marked After: %+v", fops.Trims[0])
+	}
+}

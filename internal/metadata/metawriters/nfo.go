@@ -171,37 +171,52 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 	logger.Pl.W("Copy to %q and paste from %q not currently implemented.", copyTo, pasteFrom)
 
-	// Make edits:
+	// Make edits, each building on the last:
 	// Replace.
 	if len(replace) > 0 {
 		if newContent, ok = rw.replaceXML(data, replace); ok {
-			edited = true
+			data, edited = newContent, true
 		}
 	}
 
 	// Trim.
 	if len(trimPfx) > 0 {
 		if newContent, ok = rw.trimXMLPrefix(data, trimPfx); ok {
-			edited = true
+			data, edited = newContent, true
 		}
 	}
 
 	if len(trimSfx) > 0 {
 		if newContent, ok = rw.trimXMLSuffix(data, trimSfx); ok {
-			edited = true
+			data, edited = newContent, true
+		}
+	}
+
+	for _, t := range fd.MetaOps.Trims {
+		if newContent, ok = editXMLField(data, t.Field, t.Apply); ok {
+			data, edited = newContent, true
+		}
+	}
+
+	for _, r := range fd.MetaOps.RegexReplaces {
+		if newContent, ok = editXMLField(data, r.Field, func(s string) (string, bool) {
+			result := r.Regex.ReplaceAllString(s, r.Replacement)
+			return result, result != s
+		}); ok {
+			data, edited = newContent, true
 		}
 	}
 
 	// Append and prefix.
 	if len(apnd) > 0 {
 		if newContent, ok = rw.xmlAppend(data, apnd); ok {
-			edited = true
+			data, edited = newContent, true
 		}
 	}
 
 	if len(pfx) > 0 {
 		if newContent, ok = rw.xmlPrefix(data, pfx); ok {
-			edited = true
+			data, edited = newContent, true
 		}
 	}
 
@@ -210,13 +225,13 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, newField); err != nil {
 			logger.Pl.E("failed to add new XML fields with %+v: %v", newField, err)
 		} else if ok {
-			edited = true
+			data, edited = newContent, true
 		}
 	}
 
 	// Only write if changes were made.
 	if edited {
-		if err := rw.writeMetadataToFile(file, []byte(newContent)); err != nil {
+		if err := rw.writeMetadataToFile(file, []byte(data)); err != nil {
 			return false, fmt.Errorf("failed to refresh metadata: %w", err)
 		}
 	}
@@ -302,6 +317,24 @@ func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
 	}
 
 	return nil
+}
+
+// editXMLField rewrites the trimmed content of the first <field> element with fn,
+// reporting whether fn changed it.
+func editXMLField(data, field string, fn func(string) (string, bool)) (string, bool) {
+	startTag, endTag := "<"+field+">", "</"+field+">"
+	startIdx := strings.Index(data, startTag)
+	endIdx := strings.Index(data, endTag)
+	if field == "" || startIdx == -1 || endIdx < startIdx {
+		return data, false
+	}
+
+	contentStart := startIdx + len(startTag)
+	content, changed := fn(strings.TrimSpace(data[contentStart:endIdx]))
+	if !changed {
+		return data, false
+	}
+	return data[:contentStart] + content + data[endIdx:], true
 }
 
 // replaceXML applies meta replacement to the fields in the xml data.
