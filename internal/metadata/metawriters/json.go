@@ -213,9 +213,9 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
-	if len(ops.Trims) > 0 {
-		logger.Pl.I("Model for file %q trimming at delimiters", fd.OriginalVideoPath)
-		if changesMade := rw.trimJSON(currentMeta, ops.Trims); changesMade {
+	if len(ops.Cuts) > 0 {
+		logger.Pl.I("Model for file %q keeping text around delimiters", fd.OriginalVideoPath)
+		if changesMade := rw.cutJSON(currentMeta, ops.Cuts); changesMade {
 			edited = true
 		}
 	}
@@ -412,15 +412,15 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaRepl
 	return edited
 }
 
-// trimJSON deletes text before or after a delimiter in specified fields.
-func (rw *JSONFileRW) trimJSON(j map[string]any, trims []models.MetaTrim) (edited bool) {
-	for _, t := range trims {
+// cutJSON deletes text before or after a delimiter in specified fields.
+func (rw *JSONFileRW) cutJSON(j map[string]any, cuts []models.MetaCut) (edited bool) {
+	for _, t := range cuts {
 		strVal, ok := j[t.Field].(string)
 		if !ok {
 			continue
 		}
 		if result, trimmed := t.Apply(strVal); trimmed {
-			logger.Pl.D(3, "Trimmed field %q at %q: %q -> %q", t.Field, t.Delim, strVal, result)
+			logger.Pl.D(3, "Cut field %q at %q: %q -> %q", t.Field, t.Delim, strVal, result)
 			j[t.Field] = result
 			edited = true
 		}

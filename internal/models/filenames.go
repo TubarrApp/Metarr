@@ -16,7 +16,7 @@ type FilenameOps struct {
 	ReplaceSuffixes []FOpReplaceSuffix
 	ReplacePrefixes []FOpReplacePrefix
 	RegexReplaces   []FOpRegexReplace
-	Trims           []TextTrim
+	Cuts            []TextCut
 }
 
 // NewFilenameOps creates a new FilenameOps with initialized slices.
@@ -28,7 +28,7 @@ func NewFilenameOps() *FilenameOps {
 		ReplaceSuffixes: make([]FOpReplaceSuffix, 0),
 		ReplacePrefixes: make([]FOpReplacePrefix, 0),
 		RegexReplaces:   make([]FOpRegexReplace, 0),
-		Trims:           make([]TextTrim, 0),
+		Cuts:            make([]TextCut, 0),
 	}
 	fo.DateTag.DateFormat = enums.DateFmtSkip        // Zero value.
 	fo.DeleteDateTags.DateFormat = enums.DateFmtSkip // Zero value.
@@ -60,8 +60,8 @@ func (fd *FileData) EnsureFilenameOps() {
 	if fd.FilenameOps.RegexReplaces == nil {
 		fd.FilenameOps.RegexReplaces = []FOpRegexReplace{}
 	}
-	if fd.FilenameOps.Trims == nil {
-		fd.FilenameOps.Trims = []TextTrim{}
+	if fd.FilenameOps.Cuts == nil {
+		fd.FilenameOps.Cuts = []TextCut{}
 	}
 }
 

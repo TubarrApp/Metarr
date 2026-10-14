@@ -192,7 +192,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		}
 	}
 
-	for _, t := range fd.MetaOps.Trims {
+	for _, t := range fd.MetaOps.Cuts {
 		if newContent, ok = editXMLField(data, t.Field, t.Apply); ok {
 			data, edited = newContent, true
 		}

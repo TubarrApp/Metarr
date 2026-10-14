@@ -107,10 +107,10 @@ func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 				Replacement: op.OpValue,
 			})
 
-		case sharedconsts.OpTrimBefore, sharedconsts.OpTrimAfter:
-			out.Trims = append(out.Trims, MetaTrim{
-				Field:    op.Field,
-				TextTrim: TextTrim{Delim: op.OpValue, After: op.OpType == sharedconsts.OpTrimAfter},
+		case sharedconsts.OpKeepAfter, sharedconsts.OpKeepBefore:
+			out.Cuts = append(out.Cuts, MetaCut{
+				Field:   op.Field,
+				TextCut: TextCut{Delim: op.OpValue, KeepBefore: op.OpType == sharedconsts.OpKeepBefore},
 			})
 
 		default:
@@ -185,8 +185,8 @@ func FilenameOpsFromShared(ops []sharedmodels.FilenameOps) (*FilenameOps, error)
 			}
 			out.RegexReplaces = append(out.RegexReplaces, FOpRegexReplace{Regex: re, Replacement: op.OpValue})
 
-		case sharedconsts.OpTrimBefore, sharedconsts.OpTrimAfter:
-			out.Trims = append(out.Trims, TextTrim{Delim: op.OpValue, After: op.OpType == sharedconsts.OpTrimAfter})
+		case sharedconsts.OpKeepAfter, sharedconsts.OpKeepBefore:
+			out.Cuts = append(out.Cuts, TextCut{Delim: op.OpValue, KeepBefore: op.OpType == sharedconsts.OpKeepBefore})
 
 		default:
 			return nil, fmt.Errorf("unhandled filename operation type %q", op.OpType)

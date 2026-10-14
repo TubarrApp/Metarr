@@ -395,7 +395,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	// Early exit if nothing to do.
 	if !set.IsSet && len(fOps.Replaces) == 0 && len(fOps.ReplacePrefixes) == 0 &&
 		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Appends) == 0 &&
-		len(fOps.Trims) == 0 && len(fOps.RegexReplaces) == 0 &&
+		len(fOps.Cuts) == 0 && len(fOps.RegexReplaces) == 0 &&
 		fOps.DateTag.DateFormat == enums.DateFmtSkip && fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
 		style == enums.RenamingSkip {
 		logger.Pl.D(1, "No filename operations or naming style to apply")
@@ -422,7 +422,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	if len(fOps.ReplaceSuffixes) > 0 {
 		fileBase = fp.replaceSuffix(fileBase, fOps.ReplaceSuffixes)
 	}
-	for _, t := range fOps.Trims {
+	for _, t := range fOps.Cuts {
 		fileBase, _ = t.Apply(fileBase)
 	}
 	if len(fOps.RegexReplaces) > 0 {

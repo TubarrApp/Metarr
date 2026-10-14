@@ -107,8 +107,8 @@ Each entry follows `field:operation:value[:value]`. The last part is everything 
 | `replace-prefix` | `title:replace-prefix:[OLD] :[NEW] `          | Swap a matching prefix. |
 | `replace-suffix` | `title:replace-suffix: DVD:: UHD`             | Swap a matching suffix. |
 | `regex-replace`  | `title:regex-replace:[[^Show \d+ \| ]]:`      | Replace every regex match ([RE2 syntax](https://github.com/google/re2/wiki/Syntax)); `$1` inserts a capture group, `(?i)` ignores case, an empty replacement deletes. |
-| `trim-before`    | `title:trim-before:\| `                       | Delete everything up to and including the first `\| `. |
-| `trim-after`     | `title:trim-after: \|`                        | Delete the first ` \|` and everything after it. |
+| `keep-after`     | `title:keep-after:\| `                       | Keep only the text after the first `\| ` (the `\| ` is dropped too). |
+| `keep-before`    | `title:keep-before: \|`                      | Keep only the text before the first ` \|`. |
 | `copy-to`        | `actors:copy-to:tags`                         | Copy a field’s contents into another field. |
 | `paste-from`     | `title:paste-from:original-title`             | Reverse direction of `copy-to`. |
 | `date-tag`       | `title:date-tag:prefix:ymd`                   | Insert a date tag using one of the supported `ymd`/`Ymd` styles. |
@@ -129,14 +129,14 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 | `replace-prefix` | `replace-prefix:[OLD] :[NEW] `     | Swap prefixes. |
 | `replace-suffix` | `replace-suffix: _v1:_final`       | Swap suffixes. |
 | `regex-replace`  | `regex-replace:[[^(.*) - (\d{4})$]]:$2 $1` | Replace every regex match. |
-| `trim-before`    | `trim-before:\| `                  | Delete up to and including the first `\| `. |
-| `trim-after`     | `trim-after: \|`                   | Delete from the first ` \|` onward. |
+| `keep-after`     | `keep-after:\| `                  | Keep only the text after the first `\| `. |
+| `keep-before`    | `keep-before: \|`                 | Keep only the text before the first ` \|`. |
 | `date-tag`       | `date-tag:prefix:ymd`             | Attach a formatted date. |
 | `delete-date-tag`| `delete-date-tag:all:ymd`         | Remove matching tags. |
 
 ## Filtered Operations (`--filtered-meta-ops`, `--filtered-filename-ops`)
 
-Each entry is one filter and one operation, applied only when the filter matches the file's metadata: `title:contains:Example|title:trim-before:| `. Everything after the first `|` is the operation, so it needs no escaping; a `|` inside the filter's own value is written `\|`. For several operations under one filter, repeat the filter on each entry.
+Each entry is one filter and one operation, applied only when the filter matches the file's metadata: `title:contains:Example|title:keep-after:| `. Everything after the first `|` is the operation, so it needs no escaping; a `|` inside the filter's own value is written `\|`. For several operations under one filter, repeat the filter on each entry.
 
 Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip`.
 

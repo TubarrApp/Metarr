@@ -21,7 +21,7 @@ type MetaOps struct {
 	ReplaceSuffixes  []MetaReplaceSuffix
 	ReplacePrefixes  []MetaReplacePrefix
 	RegexReplaces    []MetaRegexReplace
-	Trims            []MetaTrim
+	Cuts             []MetaCut
 	CopyToFields     []CopyToField
 	PasteFromFields  []PasteFromField
 }
@@ -46,7 +46,7 @@ func NewMetaOps() *MetaOps {
 		ReplacePrefixes: make([]MetaReplacePrefix, 0),
 		Replaces:        make([]MetaReplace, 0),
 		RegexReplaces:   make([]MetaRegexReplace, 0),
-		Trims:           make([]MetaTrim, 0),
+		Cuts:            make([]MetaCut, 0),
 		CopyToFields:    make([]CopyToField, 0),
 		PasteFromFields: make([]PasteFromField, 0),
 	}
@@ -94,8 +94,8 @@ func (fd *FileData) EnsureMetaOps() {
 	if fd.MetaOps.RegexReplaces == nil {
 		fd.MetaOps.RegexReplaces = []MetaRegexReplace{}
 	}
-	if fd.MetaOps.Trims == nil {
-		fd.MetaOps.Trims = []MetaTrim{}
+	if fd.MetaOps.Cuts == nil {
+		fd.MetaOps.Cuts = []MetaCut{}
 	}
 	if fd.MetaOps.CopyToFields == nil {
 		fd.MetaOps.CopyToFields = []CopyToField{}
@@ -190,26 +190,26 @@ type MetaRegexReplace struct {
 	Replacement string
 }
 
-// MetaTrim applies a TextTrim to a metafield's value.
-type MetaTrim struct {
+// MetaCut applies a TextCut to a metafield's value.
+type MetaCut struct {
 	Field string
-	TextTrim
+	TextCut
 }
 
-// TextTrim deletes text up to and including the first Delim, or with After set, the
-// first Delim and everything following it.
-type TextTrim struct {
-	Delim string
-	After bool
+// TextCut keeps the text after the first Delim, or with KeepBefore set, the text before
+// it. The delimiter itself is dropped either way.
+type TextCut struct {
+	Delim      string
+	KeepBefore bool
 }
 
-// Apply trims s, reporting false when s does not contain the delimiter.
-func (t TextTrim) Apply(s string) (string, bool) {
+// Apply cuts s at the delimiter, reporting false when s does not contain the delimiter.
+func (t TextCut) Apply(s string) (string, bool) {
 	before, after, found := strings.Cut(s, t.Delim)
 	if !found {
 		return s, false
 	}
-	if t.After {
+	if t.KeepBefore {
 		return before, true
 	}
 	return after, true
