@@ -109,8 +109,9 @@ func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 
 		case sharedconsts.OpKeepAfter, sharedconsts.OpKeepBefore:
 			out.Cuts = append(out.Cuts, MetaCut{
-				Field:   op.Field,
-				TextCut: TextCut{Delim: op.OpValue, KeepBefore: op.OpType == sharedconsts.OpKeepBefore},
+				Field:      op.Field,
+				Delim:      op.OpValue,
+				KeepBefore: op.OpType == sharedconsts.OpKeepBefore,
 			})
 
 		default:

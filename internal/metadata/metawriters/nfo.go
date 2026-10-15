@@ -642,8 +642,7 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 			return data, false
 		}
 
-		movieEnd := strings.Index(data, "</movie>")
-		if movieEnd == -1 {
+		if !strings.Contains(data, "</movie>") {
 			logger.Pl.E("Invalid XML structure: no closing movie tag found")
 			return data, false
 		}

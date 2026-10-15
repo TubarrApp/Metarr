@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 )
 
-var atomID int64
+var atomID atomic.Int64
 
 type batch struct {
 	ID         int64
@@ -30,11 +30,11 @@ type batchProcessor struct {
 	batchID int64
 
 	counts struct {
-		totalMeta      int32
-		totalVideo     int32
-		totalMatched   int32
-		processedMeta  int32
-		processedVideo int32
+		totalMeta      atomic.Int32
+		totalVideo     atomic.Int32
+		totalMatched   atomic.Int32
+		processedMeta  atomic.Int32
+		processedVideo atomic.Int32
 	}
 
 	files struct {
@@ -306,7 +306,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 
 // convertCfgToBatch converts a config batch to a local batch.
 func convertCfgToBatch(config models.BatchConfig) *batch {
-	id := atomic.AddInt64(&atomID, 1)
+	id := atomID.Add(1)
 	newBatch := &batch{
 		ID:         id,
 		Video:      config.Video,
@@ -378,7 +378,7 @@ func (bp *batchProcessor) logFailedVideos() {
 // syncMapToRegularMap converts the sync map back to a regular map for further processing.
 func (bp *batchProcessor) syncMapToRegularMap(m *sync.Map) map[string]*models.FileData {
 	result := make(map[string]*models.FileData)
-	m.Range(func(key, value interface{}) bool {
+	m.Range(func(key, value any) bool {
 		if fd, ok := value.(*models.FileData); ok {
 			result[key.(string)] = fd
 		}
@@ -390,10 +390,11 @@ func (bp *batchProcessor) syncMapToRegularMap(m *sync.Map) map[string]*models.Fi
 // reset prepares the batch processor for new batch operation.
 func (bp *batchProcessor) reset(expectedCount int) {
 	// Reset counters
-	atomic.StoreInt32(&bp.counts.totalMeta, 0)
-	atomic.StoreInt32(&bp.counts.totalVideo, 0)
-	atomic.StoreInt32(&bp.counts.processedMeta, 0)
-	atomic.StoreInt32(&bp.counts.processedVideo, 0)
+	bp.counts.totalMeta.Store(0)
+	bp.counts.totalVideo.Store(0)
+	bp.counts.totalMatched.Store(0)
+	bp.counts.processedMeta.Store(0)
+	bp.counts.processedVideo.Store(0)
 
 	// Replace maps
 	bp.files.matched = sync.Map{}

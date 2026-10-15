@@ -76,9 +76,9 @@ func TrimMetafileSuffixes(metaBase, videoBase string) string {
 	// Trims suffix from metafiles. Handles cases where a video was filename.metadata.mp4
 	// and metafile was filename.metadata.json, so both become filename.metadata and match.
 	for _, pattern := range patterns {
-		if strings.HasSuffix(metaBase, pattern.full) {
+		if before, ok := strings.CutSuffix(metaBase, pattern.full); ok {
 			if !strings.HasSuffix(videoBase, pattern.noExt) {
-				return strings.TrimSuffix(metaBase, pattern.full)
+				return before
 			}
 		}
 	}

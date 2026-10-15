@@ -1,6 +1,6 @@
 module metarr
 
-go 1.25
+go 1.27.2
 
 require (
 	github.com/TubarrApp/gocommon v0.0.0-20261014194701-b95ec5500083

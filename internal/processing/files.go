@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"runtime/debug"
 	"sync"
-	"sync/atomic"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
@@ -50,8 +49,9 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return nil, err
 	}
 
-	logger.Pl.I("Found %d file(s) to process", batch.bp.counts.totalMatched)
-	logger.Pl.D(3, "Matched metafiles: %d", batch.bp.counts.totalMatched)
+	matchedCount := int(batch.bp.counts.totalMatched.Load())
+	logger.Pl.I("Found %d file(s) to process", matchedCount)
+	logger.Pl.D(3, "Matched metafiles: %d", matchedCount)
 
 	var (
 		muProcessed sync.Mutex
@@ -64,7 +64,6 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	processMetadataFiles(ctx, batch.bp, skipVideos, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
 	setupCleanup(ctx, wg, batch, &muFailed)
 
-	matchedCount := int(batch.bp.counts.totalMatched)
 	processedModels := make([]*models.FileData, 0, matchedCount)
 	numWorkers := max(abstractions.GetInt(keys.Concurrency), 1)
 
@@ -79,10 +78,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 
 	// Collector routine to collect results from the results channel.
 	var collectorWg sync.WaitGroup
-	collectorWg.Add(1)
-	go func() {
-		defer collectorWg.Done()
-
+	collectorWg.Go(func() {
 		for result := range results {
 			if result != nil {
 				muProcessed.Lock()
@@ -90,7 +86,7 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 				muProcessed.Unlock()
 			}
 		}
-	}()
+	})
 
 	// Send jobs to workers.
 	for name, data := range batch.bp.syncMapToRegularMap(&batch.bp.files.matched) {
@@ -257,9 +253,9 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		batch.bp.files.video.Store(k, v)
 	}
 
-	atomic.StoreInt32(&batch.bp.counts.totalMeta, int32(len(metaMap)))
-	atomic.StoreInt32(&batch.bp.counts.totalVideo, int32(len(videoMap)))
-	atomic.StoreInt32(&batch.bp.counts.totalMatched, int32(len(matchedFiles)))
+	batch.bp.counts.totalMeta.Store(int32(len(metaMap)))
+	batch.bp.counts.totalVideo.Store(int32(len(videoMap)))
+	batch.bp.counts.totalMatched.Store(int32(len(matchedFiles)))
 
 	batch.bp.filepaths.mu.Lock()
 	batch.bp.filepaths.directory = directory
@@ -280,8 +276,8 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	}
 
 	// Print progress for metadata.
-	currentMeta := atomic.AddInt32(&bp.counts.processedMeta, 1)
-	totalMeta := atomic.LoadInt32(&bp.counts.totalMeta)
+	currentMeta := bp.counts.processedMeta.Add(1)
+	totalMeta := bp.counts.totalMeta.Load()
 	printProgress(typeMeta, currentMeta, totalMeta, fd.MetaDirectory)
 
 	// System resource check.
@@ -308,8 +304,8 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 			fmt.Fprintf(os.Stderr, "\n")
 			logger.Pl.S("Successfully processed video %s", filename)
 
-			currentVideo := atomic.AddInt32(&bp.counts.processedVideo, 1)
-			totalVideo := atomic.LoadInt32(&bp.counts.totalVideo)
+			currentVideo := bp.counts.processedVideo.Add(1)
+			totalVideo := bp.counts.totalVideo.Load()
 			printProgress(typeVideo, currentVideo, totalVideo, fd.MetaDirectory)
 		}
 	} else {
