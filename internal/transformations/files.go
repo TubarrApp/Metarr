@@ -3,7 +3,9 @@ package transformations
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
@@ -18,14 +20,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"sync"
-	"sync/atomic"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
-
-var filenameTaken sync.Map
-var fileRenameMuMap sync.Map
 
 // fileProcessor handles the renaming and moving of files.
 type fileProcessor struct {
@@ -130,24 +127,6 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 		if err != nil {
 			return err
 		}
-		// TO DO: Add support for other metadata file types if needed in the future.
-		//
-		// case sharedconsts.MExtNFO:
-		// 	nfoRW := metawriters.NewNFOFileRW(ctx, metaFile)
-		// 	nfoData, err := nfoRW.DecodeMetadata(metaFile)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-
-		// 	jsonBytes, err := json.MarshalIndent(nfoData, "", "  ")
-		// 	if err != nil {
-		// 		return fmt.Errorf("failed to marshal to JSON: %w", err)
-		// 	}
-
-		// 	var metaMap map[string]any
-		// 	if err := json.Unmarshal(jsonBytes, &metaMap); err != nil {
-		// 		return fmt.Errorf("failed to unmarshal JSON to map: %w", err)
-		// 	}
 	}
 
 	if err := fp.process(); err != nil {
@@ -449,12 +428,8 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	return fp.getUniqueFilename(fileBase, initialBase)
 }
 
-// getUniqueFilename appends numbers onto a filename if the filename already exists.
+// getUniqueFilename makes newBase safe as a file name, appending numbers if a file by that name already exists.
 func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilename string, err error) {
-	if newBase == oldBase {
-		return newBase, nil
-	}
-
 	var dir, ext string
 	vExt := filepath.Ext(fp.fd.PostFFmpegVideoPath)
 	jExt := filepath.Ext(fp.fd.MetaFilePath)
@@ -474,40 +449,30 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 		ext = jExt
 	}
 
+	// Room is left for the extension and a " (n)" suffix.
+	newBase = parsing.SanitizePathComponent(newBase, parsing.MaxFilenameBytes-len(ext)-len(" (9999)"))
+	if newBase == oldBase {
+		return newBase, nil
+	}
+	if newBase == "" {
+		return oldBase, fmt.Errorf("new name for %q is empty", oldBase)
+	}
 	if dir == "" {
 		return oldBase, fmt.Errorf("no directory, cannot check for uniqueness")
 	}
 
-	getMu, _ := fileRenameMuMap.LoadOrStore(newBase, &sync.Mutex{})
-	mu, ok := getMu.(*sync.Mutex)
-	if !ok {
-		return oldBase, fmt.Errorf("%s wrong type in map, got %T", consts.LogTagDevError, mu)
-	}
-	mu.Lock()
-	defer mu.Unlock()
-
-	counter, _ := filenameTaken.LoadOrStore(newBase, &atomic.Int32{})
-	for {
-		candidate := newBase
+	currentPath := filepath.Join(dir, oldBase+ext)
+	candidate := newBase
+	for n := 1; ; n++ {
 		targetPath := filepath.Join(dir, candidate+ext)
-
-		// Check if target exists.
-		if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+		_, err := os.Stat(targetPath)
+		if errors.Is(err, fs.ErrNotExist) || targetPath == currentPath {
 			return candidate, nil
 		}
-
-		n := counter.(*atomic.Int32).Add(1)
-		candidate = fmt.Sprintf("%s (%d)", newBase, n)
-
-		// If target is the current name, use it (can overwrite self).
-		currentPath := filepath.Join(dir, oldBase+ext)
-		newTargetPath := filepath.Join(dir, candidate+ext)
-
-		// Check if target exists.
-		if _, err := os.Stat(newTargetPath); os.IsNotExist(err) || newTargetPath == currentPath {
-			return candidate, nil
+		if err != nil {
+			return oldBase, fmt.Errorf("failed to check whether %q exists: %w", targetPath, err)
 		}
-
 		logger.Pl.D(2, "File %s already exists, trying next number", targetPath)
+		candidate = fmt.Sprintf("%s (%d)", newBase, n)
 	}
 }

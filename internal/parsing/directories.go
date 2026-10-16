@@ -87,6 +87,9 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if replacement = SanitizePathComponent(replacement, MaxFilenameBytes); replacement == "" {
+			return "", fmt.Errorf("templating: %q is empty once made safe for a path, for %q", tag, dp.FD.OriginalVideoPath)
+		}
 		b.WriteString(replacement)
 
 		// String after template close.
