@@ -12,7 +12,6 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
-	"metarr/internal/parsing"
 	"slices"
 	"strings"
 	"unicode"
@@ -47,39 +46,16 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	return rename, move
 }
 
-// applyNamingStyle applies renaming conventions.
-func applyNamingStyle(style enums.ReplaceToStyle, input string, originalFilePath string) (output string) {
-	originalFileBase := parsing.GetBaseNameWithoutExt(originalFilePath)
-	output = handleOriginalUnwantedChars(input, originalFileBase)
-
+// applyNamingStyle converts underscores to spaces or vice versa, trimming any left at either end.
+func applyNamingStyle(style enums.ReplaceToStyle, input string) string {
 	switch style {
 	case enums.RenamingSpaces:
-		output = strings.ReplaceAll(output, "_", " ")
+		return strings.TrimSpace(strings.ReplaceAll(input, "_", " "))
 	case enums.RenamingUnderscores:
-		output = strings.ReplaceAll(output, " ", "_")
+		return strings.Trim(strings.ReplaceAll(input, " ", "_"), "_")
 	default:
-		logger.Pl.I("Skipping space or underscore renaming conventions...")
-		output = input
+		return input
 	}
-	return output
-}
-
-// handleOriginalUnwantedChars normalizes the output string if the original filename had leading/trailing underscores or space.
-func handleOriginalUnwantedChars(input string, originalFileBase string) (output string) {
-	output = input
-	if strings.HasPrefix(originalFileBase, "_") {
-		output = strings.TrimPrefix(output, "_")
-	}
-	if strings.HasSuffix(originalFileBase, "_") {
-		output = strings.TrimSuffix(output, "_")
-	}
-	if strings.HasPrefix(originalFileBase, " ") {
-		output = strings.TrimPrefix(output, " ")
-	}
-	if strings.HasSuffix(originalFileBase, " ") {
-		output = strings.TrimSuffix(output, " ")
-	}
-	return output
 }
 
 // fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.

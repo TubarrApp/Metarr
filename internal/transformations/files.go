@@ -410,7 +410,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 
 	// Apply naming style after string search replacements.
 	if style != enums.RenamingSkip {
-		fileBase = applyNamingStyle(style, fileBase, fd.OriginalVideoPath)
+		fileBase = applyNamingStyle(style, fileBase)
 	}
 
 	// Plain appends etc.
