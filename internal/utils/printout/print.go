@@ -161,7 +161,7 @@ func printStructFields(s any) string {
 		fieldValueStr := fmt.Sprintf("%v", fieldValue.Interface()) // Convert the value to a string.
 
 		// Append the field name and value in key-value format.
-		b.WriteString(fmt.Sprintf("%s: %s\n", fieldName, fieldValueStr))
+		fmt.Fprintf(&b, "%s: %s\n", fieldName, fieldValueStr)
 	}
 
 	return b.String()

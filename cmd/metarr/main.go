@@ -141,15 +141,13 @@ func run() (exitCode int) {
 		Wg:  wg,
 	}
 
-	fdArray := []*models.FileData{}
-	fdArrayResult, err := processing.ProcessBatches(core)
+	fdArray, err := processing.ProcessBatches(core)
 	if err != nil {
 		logger.Pl.E("error during batch loop: %v", err)
 		cancel()
 		wg.Wait()
 		return 1
 	}
-	fdArray = append(fdArray, fdArrayResult...)
 
 	// Wait for all goroutines to finish.
 	wg.Wait()

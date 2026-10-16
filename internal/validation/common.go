@@ -315,7 +315,7 @@ func ValidateAndSetMetaOverwritePreserve(mOverwrite, mPreserve bool) {
 
 // ValidateAndSetPurgeMetafiles checks and sets the type of metafile purge to perform.
 func ValidateAndSetPurgeMetafiles(purgeType string) {
-	var e enums.PurgeMetafiles = enums.PurgeMetaNone
+	e := enums.PurgeMetaNone
 
 	// Normalize string.
 	purgeType = strings.TrimSpace(purgeType)
