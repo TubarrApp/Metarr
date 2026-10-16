@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -111,7 +112,7 @@ func (fs *FSFileWriter) MoveFile(noMeta bool) error {
 	}
 
 	if _, err := os.Stat(fs.OutputDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(fs.OutputDir, 0o755); err != nil {
+		if err := os.MkdirAll(fs.OutputDir, consts.PermsVideoDir); err != nil {
 			return fmt.Errorf("failed to create or find destination directory: %w", err)
 		}
 	}

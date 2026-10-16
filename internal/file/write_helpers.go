@@ -148,10 +148,8 @@ func copyFile(src, dst string) error {
 	}
 
 	// Ensure destination directory exists.
-	if _, err := os.Stat(dst); os.IsNotExist(err) {
-		if err := os.MkdirAll(dst, 0o755); err != nil {
-			return fmt.Errorf("failed to create or find destination directory: %w", err)
-		}
+	if err := os.MkdirAll(filepath.Dir(dst), consts.PermsGenericDir); err != nil {
+		return fmt.Errorf("failed to create or find destination directory: %w", err)
 	}
 
 	// Open source file.

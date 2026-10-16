@@ -14,7 +14,8 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
-const nfoFilePerms = 0o644
+// nfoFilePerms leaves the final permissions to the process umask.
+const nfoFilePerms = 0o666
 
 // WriteNFOs writes an NFO file for each model.
 func WriteNFOs(fdArray []*models.FileData) {

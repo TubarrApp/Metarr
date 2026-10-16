@@ -5,12 +5,12 @@ Metarr is a Go-based command line tool for pairing video files with their JSON/N
 ## Highlights
 
 - **Batch-oriented pairing** – match individual files or entire directories of videos/metadata via `--batch-pairs`, `--video-directory`, `--meta-directory`, or explicit file lists.
-- **Metadata enrichment** – normalize, infer, or scrape titles/descriptions, copy/paste fields, insert date tags, and purge stale keys using `--meta-ops`.
+- **Metadata enrichment** – normalize, infer, or scrape titles/descriptions, copy/paste fields, insert date tags, and rewrite values using `--meta-ops`.
 - **Filename automation** – add prefixes/suffixes, enforce date tags, and repair names with `--filename-ops` or the built-in rename styles.
-- **Smart transcoding** – drive FFmpeg with per-codec remap rules, GPU acceleration (`--transcode-gpu`, `--transcode-gpu-node`), quality presets, filters, and thumbnail embedding/removal.
+- **Smart transcoding** – drive FFmpeg with per-codec remap rules, GPU acceleration (`--transcode-gpu`, `--transcode-gpu-node`), CRF quality, filters, and thumbnail embedding/removal.
 - **Deterministic filtering** – constrain work by file extension, prefix/suffix/contains rules, or skip videos entirely (`--skip-videos`) to do metadata-only edits.
 - **Resource aware** – honor concurrency, CPU, and minimum free RAM thresholds before spinning up workers.
-- **Observability** – structured logging to `~/.metarr/metarr.log`, optional benchmarking artifacts, and an in-process HTTP endpoint (`127.0.0.1:6387/logs`) for live log tails.
+- **Observability** – structured logging to `~/.metarr/metarr.log`, optional profiling output, and log forwarding to a running Tubarr instance.
 
 ## Requirements
 
@@ -23,6 +23,7 @@ Metarr is a Go-based command line tool for pairing video files with their JSON/N
 ```bash
 git clone https://github.com/TubarrApp/Metarr.git
 cd Metarr
+go build -o metarr ./cmd/metarr
 sudo mv metarr /usr/local/bin/metarr
 metarr --help
 ```
@@ -56,8 +57,7 @@ Pass `--skip-videos` to only touch metadata/filenames.
 ## Configuration Sources
 
 1. **Flags** – every option is exposed as a Cobra/Viper flag.
-2. **Environment variables** – automatically derived by uppercasing and replacing `_` with `-` (e.g. `VIDEO_DIRECTORY=/srv/media`).
-3. **Config file** – point to JSON/YAML/TOML/etc. via `--config-file path/to/config.yaml`.
+2. **Config file** – point to JSON/YAML/TOML/etc. via `--config-file path/to/config.yaml`. Keys match the flag names.
 
 Example YAML config:
 
@@ -75,28 +75,32 @@ transcode-video-codecs:
 transcode-audio-codecs:
   - flac:aac
 meta-ops:
-  - title:prefix:[Archive] 
+  - "title:prefix:[Archive] "
   - tags:append:new-release
 filename-ops:
-  - prefix:[ARCHIVE] 
+  - "prefix:[ARCHIVE] "
   - date-tag:suffix:ymd
 purge-metafile: json
 debug: 2
 ```
 
+Quote values with leading or trailing spaces, since YAML trims them otherwise.
+
 ## Inputs, Filtering, and Safety Nets
 
-- `--video-directory`, `--video-file`, `--meta-directory`, `--meta-file` – sources that can be mixed and matched. Directories are processed recursively.
+- `--video-directory`, `--video-file`, `--meta-directory`, `--meta-file` – sources that can be mixed and matched. Only the top level of each directory is read (subdirectories are not searched).
 - `--batch-pairs "/videos:/meta"` – pin a video path to a metadata path (file or directory).
-- `--input-video-exts` / `--input-meta-exts` – limit processing to certain extensions (`all`, `mkv`, `mp4`, `json`, `nfo`, etc.).
-- `--filter-prefix`, `--filter-suffix`, `--filter-contains`, `--filter-omits` – lightweight string filters applied before work begins.
+- `--input-video-exts` / `--input-meta-exts` – limit processing to certain extensions (`all`, `mkv`, `mp4`, `webm` / `all`, `json`, `nfo`).
+- `--filter-prefix`, `--filter-suffix`, `--filter-contains`, `--filter-omits` – lightweight filename filters applied before work begins.
 - `--no-file-overwrite` – keep originals around by renaming them before writing outputs.
 - `--output-directory` – place finished video/metadata pairs somewhere else.
-- `--purge-metafile` – delete matching metadata files after successful processing (e.g. `json`, `nfo`, `all`).
+- `--purge-metafile` – delete matching metadata files after successful processing (`json`, `nfo`, or `all`).
+- `--write-nfo` – write a Kodi/Jellyfin-style `.nfo` sidecar next to the final video.
+- `--meta-overwrite` / `--meta-preserve` – when adding metadata fields, overwrite or keep fields that already exist.
 
 ## Metadata Operations (`--meta-ops`)
 
-Each entry follows `field:operation:value[:value]`. The last part is everything after the previous `:`, so `title:set:HELLO: MY TEXT` needs no escaping. A `:` in a middle part (e.g. the find text of `replace`) is written `\:`. A `regex-replace` pattern is wrapped in `[[ ]]` and passed to the regex engine untouched.
+Each entry follows `field:operation:value[:value]`. The last part is everything after the previous `:`, so `title:set:HELLO: MY TEXT` needs no escaping. A `:` in a middle part (e.g. the find text of `replace`) is written `\:`. A `regex-replace` pattern is wrapped in `[[ ]]` and passed to the regex engine untouched. Repeat the flag once per operation.
 
 | Operation        | Example                                       | Effect |
 | ---------------- | --------------------------------------------- | ------ |
@@ -111,14 +115,16 @@ Each entry follows `field:operation:value[:value]`. The last part is everything 
 | `keep-before`    | `title:keep-before: \|`                      | Keep only the text before the first ` \|`. |
 | `copy-to`        | `actors:copy-to:tags`                         | Copy a field’s contents into another field. |
 | `paste-from`     | `title:paste-from:original-title`             | Reverse direction of `copy-to`. |
-| `date-tag`       | `title:date-tag:prefix:ymd`                   | Insert a date tag using one of the supported `ymd`/`Ymd` styles. |
-| `delete-date-tag`| `title:delete-date-tag:prefix:ymd`            | Strip generated date tags. |
+| `date-tag`       | `title:date-tag:prefix:ymd`                   | Insert a date tag at the `prefix` or `suffix`. |
+| `delete-date-tag`| `title:delete-date-tag:prefix:ymd`            | Strip date tags from the `prefix`, `suffix`, or `all`. |
 
-Metarr will also attempt to infer missing descriptions from sibling fields and, if allowed, scrape metadata from the source website using browser cookies (`--cookie-file` or auto-discovered Chrome/Firefox/Safari stores).
+Date formats are `Ymd`, `ymd`, `Ydm`, `ydm`, `dmY`, `dmy`, `mdY`, `mdy`, `md`, and `dm` (capital `Y` is a four-digit year, lowercase `y` two digits).
+
+Metarr will also attempt to infer missing descriptions from sibling fields and, if allowed, scrape metadata from the source website using browser cookies (`--cookie-file` or auto-discovered browser cookie stores).
 
 ## Filename Operations (`--filename-ops`)
 
-Syntax mirrors metadata operations but targets the physical filename (without extension):
+Syntax mirrors metadata operations but targets the physical filename (without extension). `copy-to` and `paste-from` are metadata-only.
 
 | Operation        | Example                           | Effect |
 | ---------------- | --------------------------------- | ------ |
@@ -138,17 +144,17 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 
 Each entry is one filter and one operation, applied only when the filter matches the file's metadata: `title:contains:Example|title:keep-after:| `. Everything after the first `|` is the operation, so it needs no escaping; a `|` inside the filter's own value is written `\|`. For several operations under one filter, repeat the filter on each entry.
 
-Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip`.
+Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip` (the default).
 
 ## Video and Audio Pipeline
 
-- `--output-ext` – change the container/extension (`mp4`, `mkv`, `webm`, etc.). Metarr protects you from illegal codec/container combos.
+- `--output-ext` – change the container/extension (`mp4`, `mkv`, `webm`, etc.). If a requested codec isn't allowed in the chosen container, Metarr falls back to copying the stream instead.
 - `--transcode-video-codecs` / `--transcode-audio-codecs` – remap codecs via `input:output` pairs (e.g. `av1:h265`, `flac:aac`). A single value applies to every input.
-- `--transcode-gpu` – pick `auto`, `cuda`, `vaapi`, `qsv`, or `amf`. Supply device paths via `--transcode-gpu-node` when required.
-- `--transcode-quality` – use FFmpeg preset-like quality buckets (`p1`..`p7`, respecting selected accelerator).
+- `--transcode-gpu` – pick `auto`, `cuda`, `vaapi`, `qsv`, `amf`, or `videotoolbox`. Supply device paths via `--transcode-gpu-node` when required.
+- `--transcode-quality` – CRF value from `0` (best) to `51` (worst); out-of-range values are clamped.
 - `--transcode-video-filter` – inject arbitrary `-vf` expressions.
 - `--extra-ffmpeg-args` – append custom switches to the generated command.
-- `--force-write-thumbnail` – always regenerate thumbnails even if metadata matches.
+- `--force-write-thumbnail` – run FFmpeg to write the thumbnail even when all metadata already matches.
 - `--strip-thumbnail` – remove embedded artwork.
 - `--skip-videos` – stop after metadata and filename updates.
 
@@ -157,15 +163,15 @@ Under the hood Metarr introspects the current codecs via FFprobe, caches availab
 ## Resource & Execution Controls
 
 - `--concurrency` – size of the worker pool (defaults to 5).
-- `--max-cpu` – percentage cap that throttles work creation.
+- `--max-cpu` – percentage cap that throttles work creation (default `101`, i.e. no cap).
 - `--min-free-mem` – minimum free RAM required to start/continue batches (supports suffixes like `4GB`).
 - `--debug` – log verbosity (0–5).
-- `--benchmark` – writes per-stage benchmark CSV files into `~/.metarr/benchmark`.
+- `--benchmark` – writes Go profiling output (`cpu.prof`, `mem.prof`, `trace.out`) into `~/.metarr/benchmark`.
 
 ## Logging, Metrics, and Troubleshooting
 
 - Timestamps go to both stderr and `~/.metarr/metarr.log`.
-- `curl 127.0.0.1:6387/logs` while Metarr is running to view the in-memory log ring buffer.
+- When Tubarr is running on the same machine, Metarr also sends its logs to it (`http://127.0.0.1:8827/metarr-logs`), so they show on Tubarr's Logs page.
 - Errors from multiple goroutines are collected and summarized once processing stops.
 - Combine `--debug 5` with `--benchmark` to capture the sequences that led to a problematic file.
 
@@ -173,7 +179,7 @@ Under the hood Metarr introspects the current codecs via FFprobe, caches availab
 
 - Run the test suite with `go test ./...`.
 - Run `golangci-lint` or your preferred tooling before submitting patches.
-- Avoid committing generated binaries (the repository already includes `metarr/metarr` for convenience; delete or overwrite as needed).
+- Avoid committing generated binaries (the repository already includes a prebuilt `metarr` binary at its root for convenience; rebuild it with `go build -o metarr ./cmd/metarr`).
 
 ---
 
