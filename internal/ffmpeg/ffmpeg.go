@@ -109,6 +109,9 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		// Run command.
 		logger.Pl.P("%s!!! Starting FFmpeg attempt %d for %q...\n%s", sharedconsts.ColorCyan, i, baseName, sharedconsts.ColorReset)
 		if err := command.Run(); err != nil {
+			if ctx.Err() != nil {
+				return fmt.Errorf("ffmpeg cancelled for %q: %w", baseName, ctx.Err())
+			}
 			// Exit if final attempt errored.
 			if i == maxAttempts {
 				vars.AddToErrorArray(err)
@@ -124,26 +127,29 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		break
 	}
 
-	// Rename temporary file to overwrite the original video file, make backup if needed.
-	if filepath.Ext(origPath) != filepath.Ext(fd.PostFFmpegVideoPath) {
-		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
-	} else if abstractions.GetBool(keys.NoFileOverwrite) && origPath == fd.PostFFmpegVideoPath {
+	// Back up the original if it will be overwritten.
+	samePath := origPath == fd.PostFFmpegVideoPath
+	if samePath && abstractions.GetBool(keys.NoFileOverwrite) {
 		if err := makeBackup(origPath); err != nil {
 			return err
 		}
 	}
-
-	// Delete original after potential backup ops.
-	err = os.Remove(origPath)
-	if err != nil {
-		vars.AddToErrorArray(err)
-		return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
+	if !samePath {
+		if _, err := os.Stat(fd.PostFFmpegVideoPath); err == nil {
+			return fmt.Errorf("output %q already exists, not overwriting it", fd.PostFFmpegVideoPath)
+		}
 	}
 
-	// Move temp file to post-FFmpeg video path.
-	err = os.Rename(tmpOutPath, fd.PostFFmpegVideoPath)
-	if err != nil {
+	// Move the temp file into place, then remove the original if its extension differed.
+	if err := os.Rename(tmpOutPath, fd.PostFFmpegVideoPath); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
+	}
+	if !samePath {
+		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
+		if err := os.Remove(origPath); err != nil {
+			vars.AddToErrorArray(err)
+			return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
+		}
 	}
 
 	// Log success.
@@ -221,6 +227,10 @@ func makeBackup(origPath string) error {
 	backupPath, err := file.RenameToBackup(origPath)
 	if err != nil {
 		return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+	}
+	if backupPath == "" {
+		logger.Pl.I("Identical backup of %q already exists, skipping backup", origPath)
+		return nil
 	}
 
 	// Verify backup exists and matches size.

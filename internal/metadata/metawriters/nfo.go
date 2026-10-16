@@ -1,7 +1,6 @@
 package metawriters
 
 import (
-	"bufio"
 	"context"
 	"encoding/xml"
 	"errors"
@@ -10,6 +9,7 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/utils/prompt"
 	"os"
@@ -291,28 +291,13 @@ func (rw *NFOFileRW) refreshMetadataInternal(file *os.File) error {
 }
 
 // writeMetadataToFile is a private metadata writing helper function.
-func (rw *NFOFileRW) writeMetadataToFile(file *os.File, content []byte) error {
-	if err := file.Truncate(0); err != nil {
-		return fmt.Errorf("truncate file: %w", err)
-	}
-
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return fmt.Errorf("seek file: %w", err)
-	}
-
-	// Use buffered writer for efficiency.
-	writer := bufio.NewWriter(file)
-	if _, err := writer.Write(content); err != nil {
-		return fmt.Errorf("write content: %w", err)
-	}
-
-	// Flush before reading the file again.
-	if err := writer.Flush(); err != nil {
-		return fmt.Errorf("flush content: %w", err)
+func (rw *NFOFileRW) writeMetadataToFile(f *os.File, content []byte) error {
+	if err := file.ReplaceContents(f, content); err != nil {
+		return err
 	}
 
 	// Refresh metadata in struct.
-	if err := rw.refreshMetadataInternal(file); err != nil {
+	if err := rw.refreshMetadataInternal(f); err != nil {
 		return fmt.Errorf("failed to refresh metadata: %w", err)
 	}
 

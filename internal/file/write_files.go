@@ -78,6 +78,9 @@ func (fs *FSFileWriter) RenameFiles() error {
 
 	// Rename video file.
 	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
+		if err := checkFreeDestination(fs.InputVideo, fs.RenamedVideo); err != nil {
+			return err
+		}
 		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputVideo, fs.RenamedVideo, err)
 		}
@@ -87,6 +90,9 @@ func (fs *FSFileWriter) RenameFiles() error {
 
 	// Rename meta file.
 	if shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
+		if err := checkFreeDestination(fs.InputMeta, fs.RenamedMeta); err != nil {
+			return err
+		}
 		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
 			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
