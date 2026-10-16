@@ -11,7 +11,6 @@ const (
 	MetaPurge       string = "purge-metafile"
 
 	ConfigPath string = "config-file"
-	CookiePath string = "cookie-file"
 
 	InputMetaExts  string = "input-meta-exts"
 	InputVideoExts string = "input-video-exts"

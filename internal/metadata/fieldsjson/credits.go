@@ -5,7 +5,6 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
-	"metarr/internal/utils/browser"
 	"metarr/internal/utils/printout"
 	"strings"
 
@@ -18,7 +17,6 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 	var filled, overidden bool
 
 	c := fd.MCredits
-	w := fd.MWebData
 
 	// Order by importance.
 	fieldMap := map[string]*string{
@@ -38,7 +36,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
-	if logging.Level > 1 {
+	if logging.Level() > 1 {
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("credits", printMap)
@@ -70,7 +68,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 				continue
 			}
 			if *ptr != "" {
-				if logging.Level > 1 {
+				if logging.Level() > 1 {
 					printMap[k] = *ptr
 				}
 				filled = true
@@ -79,7 +77,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 			logger.Pl.D(2, "Value for %q is empty, attempting to fill by inference...", k)
 
 			*ptr = fillWith
-			if logging.Level > 1 {
+			if logging.Level() > 1 {
 				printMap[k] = *ptr
 			}
 			logger.Pl.D(2, "Set value to %q", *ptr)
@@ -92,49 +90,18 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		}
 	}
 
-	// Return if data filled or no web data, else scrape.
-	switch {
-	case filled:
-		rtn, err := jsonRW.WriteJSON(fieldMap)
-		if err != nil {
-			logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
-			return json, true
-		}
-
-		if rtn != nil {
-			return rtn, true
-		}
-		return json, true
-
-	case w.WebpageURL == "":
-		logger.Pl.I("Page URL not found in metadata, so cannot scrape for missing credits in %q", fd.MetaFilePath)
+	if !filled {
 		return json, false
 	}
-
-	// Scrape for missing data (write back to file if found).
-	credits := browser.ScrapeMeta(w, enums.WebclassCredits)
-	if credits != "" {
-		for _, value := range fieldMap {
-			if value == nil {
-				continue
-			}
-			if *value == "" {
-				*value = credits
-			}
-		}
-
-		rtn, err := jsonRW.WriteJSON(fieldMap)
-		if err != nil {
-			logger.Pl.E("Failed to write new metadata (%s) into JSON file %q: %v", credits, fd.MetaFilePath, err)
-			return json, true
-		}
-
-		if rtn != nil {
-			json = rtn
-			return json, true
-		}
+	rtn, err := jsonRW.WriteJSON(fieldMap)
+	if err != nil {
+		logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
+		return json, true
 	}
-	return json, false
+	if rtn != nil {
+		return rtn, true
+	}
+	return json, true
 }
 
 // overrideAll makes override replacements if existent.
@@ -158,7 +125,7 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 				logger.Pl.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
 				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
 
-				if logging.Level > 1 {
+				if logging.Level() > 1 {
 					printMap[k] = *ptr
 				}
 
@@ -178,7 +145,7 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 				logger.Pl.I("Overriding old %q → %q", *ptr, val)
 				*ptr = val
 
-				if logging.Level > 1 {
+				if logging.Level() > 1 {
 					printMap[k] = *ptr
 				}
 
@@ -198,7 +165,7 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 				logger.Pl.I("Overriding old %q by appending it with %q", *ptr, val)
 				*ptr += val
 
-				if logging.Level > 1 {
+				if logging.Level() > 1 {
 					printMap[k] = *ptr
 				}
 				filled = true

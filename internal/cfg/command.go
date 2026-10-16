@@ -21,7 +21,7 @@ var rootCmd = &cobra.Command{
 	Short: "Metarr is a video and metatagging tool.",
 	PersistentPreRun: func(_ *cobra.Command, _ []string) {
 		// Set logging level.
-		logging.Level = min(max(viper.GetInt(keys.DebugLevel), 0), 5)
+		logging.SetLevel(min(max(viper.GetInt(keys.DebugLevel), 0), 5))
 
 		// Setup benchmarking if flag is set.
 		if viper.GetBool(keys.Benchmarking) {

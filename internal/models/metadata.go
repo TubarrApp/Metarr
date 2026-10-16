@@ -2,7 +2,6 @@ package models
 
 import (
 	"metarr/internal/domain/enums"
-	"net/http"
 	"regexp"
 	"strings"
 )
@@ -296,13 +295,12 @@ type MetadataDates struct {
 
 // MetadataWebData contains web related metadata.
 type MetadataWebData struct {
-	WebpageURL string         `json:"webpage_url" xml:"webpage_url"`
-	VideoURL   string         `json:"url" xml:"url"`
-	Domain     string         `json:"webpage_url_domain" xml:"domain"`
-	Referer    string         `json:"referer" xml:"referer"`
-	Thumbnail  string         `json:"thumbnail" xml:"thumbnail"`
-	Cookies    []*http.Cookie `json:"-" xml:"-"`
-	TryURLs    []string       `json:"-"`
+	WebpageURL string   `json:"webpage_url" xml:"webpage_url"`
+	VideoURL   string   `json:"url" xml:"url"`
+	Domain     string   `json:"webpage_url_domain" xml:"domain"`
+	Referer    string   `json:"referer" xml:"referer"`
+	Thumbnail  string   `json:"thumbnail" xml:"thumbnail"`
+	TryURLs    []string `json:"-"`
 }
 
 // MetadataShowData contains main show info metadata.

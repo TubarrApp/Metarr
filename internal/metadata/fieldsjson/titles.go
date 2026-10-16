@@ -1,11 +1,9 @@
 package fieldsjson
 
 import (
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
-	"metarr/internal/utils/browser"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
@@ -15,7 +13,6 @@ import (
 // fillTitles grabs titles, subtitles, etc, from JSON.
 func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
 	t := fd.MTitleDesc
-	w := fd.MWebData
 
 	fieldMap := map[string]*string{
 		sharedtags.JTitle:     &t.Title,
@@ -24,7 +21,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
-	if logging.Level > 1 {
+	if logging.Level() > 1 {
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("titles", printMap)
@@ -57,7 +54,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 			*ptr = val
 		}
 
-		if logging.Level > 1 {
+		if logging.Level() > 1 {
 			printMap[k] = val
 		}
 	}
@@ -69,15 +66,6 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 
 	if t.Fulltitle == "" && t.Title != "" {
 		t.Fulltitle = t.Title
-	}
-
-	if t.Title == "" {
-		logger.Pl.I("Title is blank, scraping web for missing title data...")
-
-		title := browser.ScrapeMeta(w, enums.WebclassTitle)
-		if title != "" {
-			t.Title = title
-		}
 	}
 
 	data, err := jsonRW.WriteJSON(fieldMap)

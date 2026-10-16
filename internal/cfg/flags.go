@@ -38,12 +38,6 @@ func initFilesDirs() error {
 	if err := viper.BindPFlag(keys.MetaFiles, rootCmd.PersistentFlags().Lookup(keys.MetaFiles)); err != nil {
 		return err
 	}
-
-	// Cookies.
-	rootCmd.PersistentFlags().String(keys.CookiePath, "", "Specify cookie location")
-	if err := viper.BindPFlag(keys.CookiePath, rootCmd.PersistentFlags().Lookup(keys.CookiePath)); err != nil {
-		return err
-	}
 	return nil
 }
 

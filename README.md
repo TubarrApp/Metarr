@@ -1,11 +1,11 @@
 # Metarr
 
-Metarr is a Go-based command line tool for pairing video files with their JSON/NFO metadata, enriching the metadata, and optionally transcoding/renaming the underlying media. It automates the workflow of preparing large video libraries for media servers (e.g. Plex, Jellyfin, Emby) by combining metadata scraping, FFmpeg/FFprobe driven transforms, and a rich set of batch-friendly file operations.
+Metarr is a Go-based command line tool for pairing video files with their JSON/NFO metadata, enriching the metadata, and optionally transcoding/renaming the underlying media. It automates the workflow of preparing large video libraries for media servers (e.g. Plex, Jellyfin, Emby) by combining metadata normalization, FFmpeg/FFprobe driven transforms, and a rich set of batch-friendly file operations.
 
 ## Highlights
 
 - **Batch-oriented pairing** – match individual files or entire directories of videos/metadata via `--batch-pairs`, `--video-directory`, `--meta-directory`, or explicit file lists.
-- **Metadata enrichment** – normalize, infer, or scrape titles/descriptions, copy/paste fields, insert date tags, and rewrite values using `--meta-ops`.
+- **Metadata enrichment** – normalize or infer titles/descriptions, copy/paste fields, insert date tags, and rewrite values using `--meta-ops`.
 - **Filename automation** – add prefixes/suffixes, enforce date tags, and repair names with `--filename-ops` or the built-in rename styles.
 - **Smart transcoding** – drive FFmpeg with per-codec remap rules, GPU acceleration (`--transcode-gpu`, `--transcode-gpu-node`), CRF quality, filters, and thumbnail embedding/removal.
 - **Deterministic filtering** – constrain work by file extension, prefix/suffix/contains rules, or skip videos entirely (`--skip-videos`) to do metadata-only edits.
@@ -16,7 +16,6 @@ Metarr is a Go-based command line tool for pairing video files with their JSON/N
 
 - FFmpeg and FFprobe available on your `PATH`
 - (Optional) GPU drivers/device nodes when using hardware acceleration
-- (Optional) Browser cookie stores or a cookie file for authenticated metadata scraping (`--cookie-file`)
 
 ## Install
 
@@ -120,7 +119,7 @@ Each entry follows `field:operation:value[:value]`. The last part is everything 
 
 Date formats are `Ymd`, `ymd`, `Ydm`, `ydm`, `dmY`, `dmy`, `mdY`, `mdy`, `md`, and `dm` (capital `Y` is a four-digit year, lowercase `y` two digits).
 
-Metarr will also attempt to infer missing descriptions from sibling fields and, if allowed, scrape metadata from the source website using browser cookies (`--cookie-file` or auto-discovered browser cookie stores).
+Metarr will also attempt to infer missing descriptions from sibling fields. To fill fields missing from a site's metadata, download through Tubarr, whose scraper writes them into the metadata file.
 
 ## Filename Operations (`--filename-ops`)
 
@@ -183,4 +182,4 @@ Under the hood Metarr introspects the current codecs via FFprobe, caches availab
 
 ---
 
-Metarr is built to be composable: start with simple metadata normalization, then gradually add filename rules, GPU transcoding, cookie-backed scraping, and benchmarking as your workflow matures.
+Metarr is built to be composable: start with simple metadata normalization, then gradually add filename rules, GPU transcoding, and benchmarking as your workflow matures.

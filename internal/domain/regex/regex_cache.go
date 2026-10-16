@@ -50,7 +50,7 @@ func ContractionMapAllCompile() map[string]models.ContractionPattern {
 	// Spaced map.
 	for contraction, replacement := range consts.ContractionsSpaced {
 		ContractionMapAll[contraction] = models.ContractionPattern{
-			Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+			Regexp:      regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(contraction) + `\b`),
 			Replacement: replacement,
 		}
 	}
@@ -58,7 +58,7 @@ func ContractionMapAllCompile() map[string]models.ContractionPattern {
 	// Underscored map.
 	for contraction, replacement := range consts.ContractionsUnderscored {
 		ContractionMapAll[contraction] = models.ContractionPattern{
-			Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+			Regexp:      regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(contraction) + `\b`),
 			Replacement: replacement,
 		}
 	}
@@ -80,7 +80,7 @@ func ContractionMapSpacesCompile() map[string]models.ContractionPattern {
 	ContractionMapSpaced = make(map[string]models.ContractionPattern, len(consts.ContractionsSpaced))
 	for contraction, replacement := range consts.ContractionsSpaced {
 		ContractionMapSpaced[contraction] = models.ContractionPattern{
-			Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+			Regexp:      regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(contraction) + `\b`),
 			Replacement: replacement,
 		}
 	}
@@ -101,7 +101,7 @@ func ContractionMapUnderscoresCompile() map[string]models.ContractionPattern {
 	ContractionMapUnderscored = make(map[string]models.ContractionPattern, len(consts.ContractionsUnderscored))
 	for contraction, replacement := range consts.ContractionsUnderscored {
 		ContractionMapUnderscored[contraction] = models.ContractionPattern{
-			Regexp:      regexp.MustCompile(`\b` + regexp.QuoteMeta(contraction) + `\b`),
+			Regexp:      regexp.MustCompile(`(?i)\b` + regexp.QuoteMeta(contraction) + `\b`),
 			Replacement: replacement,
 		}
 	}

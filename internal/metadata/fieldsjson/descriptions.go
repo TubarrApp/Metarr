@@ -2,11 +2,9 @@ package fieldsjson
 
 import (
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
-	"metarr/internal/utils/browser"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
@@ -16,7 +14,6 @@ import (
 // fillDescriptions grabs description data from JSON.
 func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
 	d := fd.MTitleDesc
-	w := fd.MWebData
 
 	fieldMap := map[string]*string{ // Order by importance.
 		sharedtags.JLongDesc:           &d.LongDescription,
@@ -29,7 +26,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 	filled := unpackJSON(fieldMap, data)
 
 	printMap := make(map[string]string, len(fieldMap))
-	if logging.Level > 1 {
+	if logging.Level() > 1 {
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("descriptions", printMap)
@@ -48,12 +45,12 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 			if fillEmptyDescriptions(ptr, fd.MTitleDesc) {
 				filled = true
 			}
-			if logging.Level > 1 {
+			if logging.Level() > 1 {
 				printMap[k] = *ptr
 			}
 		} else {
 			filled = true
-			if logging.Level > 1 {
+			if logging.Level() > 1 {
 				printMap[k] = *ptr
 			}
 		}
@@ -70,31 +67,6 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 		}
 		data = rtn
 		return data, true
-	}
-
-	// Attempt to scrape description from the webpage.
-	if w.WebpageURL != "" {
-		description := browser.ScrapeMeta(w, enums.WebclassDescription)
-		if description != "" {
-			for _, ptr := range fieldMap {
-				if ptr == nil {
-					logger.Pl.E("Unexpected nil pointer in descriptions fieldMap")
-					continue
-				}
-				if *ptr == "" {
-					*ptr = description
-					filled = true
-				}
-			}
-			rtn, err := jsonRW.WriteJSON(fieldMap)
-			if err != nil {
-				logger.Pl.E("Failed to insert new data (%s) into JSON file %q: %v", description, fd.MetaFilePath, err)
-			} else if rtn != nil {
-				data = rtn
-				return data, filled
-			}
-			logger.Pl.D(1, "No descriptions were grabbed from scrape, returning original data map")
-		}
 	}
 	return data, filled
 }

@@ -1,7 +1,9 @@
 package transformations
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/dates"
 	"metarr/internal/domain/consts"
@@ -11,9 +13,7 @@ import (
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"metarr/internal/transformations/transpresets"
-	"metarr/internal/utils/browser"
-	"os"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -45,25 +45,6 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 	}
 
 	return rename, move
-}
-
-// TryTransPresets checks if any URLs in the video metadata have a known match.
-//
-// Applies preset transformations for those which match.
-func TryTransPresets(urls []string, fd *models.FileData) (matches string) {
-	for _, url := range urls {
-		_, domain, _, _ := browser.ExtractDomainName(url)
-
-		switch {
-		case strings.Contains(domain, "censored.tv"):
-			transpresets.CensoredTvTransformations(fd)
-			logger.Pl.I("Found transformation preset for URL %q", url)
-			return url
-		default:
-			// Not yet implemented.
-		}
-	}
-	return ""
 }
 
 // applyNamingStyle applies renaming conventions.
@@ -122,34 +103,19 @@ func fixContractions(videoBase, metaBase string, videoFilePath string, style enu
 	videoBase = replaceLoneS(videoBase, style)
 	metaBase = replaceLoneS(metaBase, style)
 
-	fmt.Fprintf(os.Stderr, "After replacement - Video: %s, Meta: %s\n", videoBase, metaBase)
+	// Longest contractions first, for a stable result.
+	contractions := slices.SortedFunc(maps.Keys(contractionsMap), func(a, b string) int {
+		return cmp.Or(len(b)-len(a), strings.Compare(a, b))
+	})
 
 	// Function to replace contractions in a filename.
 	replaceContractions := func(filename string) string {
-		for _, replacement := range contractionsMap {
-			repIdx := replacement.Regexp.FindStringIndex(strings.ToLower(filename))
-			if repIdx == nil {
-				continue
-			}
-
-			var b strings.Builder
-			b.Grow(len(replacement.Replacement))
-			originalContraction := filename[repIdx[0]:repIdx[1]]
-
-			// Match original case for each character in the replacement.
-			for i, char := range replacement.Replacement {
-				if i < len(originalContraction) && unicode.IsUpper(rune(originalContraction[i])) {
-					b.WriteString(strings.ToUpper(string(char)))
-				} else {
-					b.WriteString(string(char))
-				}
-			}
-
-			// Replace in filename with adjusted case.
-			filename = filename[:repIdx[0]] + b.String() + filename[repIdx[1]:]
-			b.Reset()
+		for _, c := range contractions {
+			replacement := contractionsMap[c]
+			filename = replacement.Regexp.ReplaceAllStringFunc(filename, func(match string) string {
+				return matchCase(match, replacement.Replacement)
+			})
 		}
-
 		logger.Pl.D(2, "Made contraction replacements for file %q", filename)
 		return filename
 	}
@@ -160,6 +126,18 @@ func fixContractions(videoBase, metaBase string, videoFilePath string, style enu
 	return replaceContractions(videoBase),
 		replaceContractions(metaBase),
 		nil
+}
+
+// matchCase returns replacement, upper-casing each rune whose position in original holds an upper-case rune.
+func matchCase(original, replacement string) string {
+	orig := []rune(original)
+	out := []rune(replacement)
+	for i := range out {
+		if i < len(orig) && unicode.IsUpper(orig[i]) {
+			out[i] = unicode.ToUpper(out[i])
+		}
+	}
+	return string(out)
 }
 
 // setString applies strings as a name for the current file.

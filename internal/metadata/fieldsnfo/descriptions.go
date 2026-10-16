@@ -23,7 +23,7 @@ func fillNFODescriptions(fd *models.FileData) (filled bool) {
 	printMap := make(map[string]string, len(fieldMap))
 
 	defer func() {
-		if logging.Level > 0 && len(printMap) > 0 {
+		if logging.Level() > 0 && len(printMap) > 0 {
 			printout.PrintGrabbedFields("descriptions", printMap)
 		}
 	}()

@@ -14,7 +14,6 @@ import (
 	"metarr/internal/metadata/fieldsjson"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
-	"metarr/internal/transformations"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,11 +66,6 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	gotWebData := fieldsjson.FillWebpageDetails(fd, data)
 	if gotWebData {
 		logger.Pl.I("URLs grabbed: %s", fd.MWebData.TryURLs)
-	}
-	if len(fd.MWebData.TryURLs) > 0 {
-		if match := transformations.TryTransPresets(fd.MWebData.TryURLs, fd); match == "" {
-			logger.Pl.D(1, "No presets found for video %q URLs %v", fd.OriginalVideoPath, fd.MWebData.TryURLs)
-		}
 	}
 
 	// Narrow channel-scoped and filter-gated operations now this file's URLs and

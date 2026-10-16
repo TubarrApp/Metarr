@@ -47,7 +47,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSF
 		return nil, fmt.Errorf("some required meta paths are empty:\n\nMeta src: %q\nMeta dest: %q", inputMeta, renamedMeta)
 	}
 
-	if logging.Level > 1 {
+	if logging.Level() > 1 {
 		differ := 0
 		if !strings.EqualFold(renamedVid, inputVid) {
 			differ++

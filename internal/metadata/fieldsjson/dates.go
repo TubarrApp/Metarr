@@ -3,11 +3,9 @@ package fieldsjson
 import (
 	"metarr/internal/dates"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
-	"metarr/internal/utils/browser"
 	"metarr/internal/utils/printout"
 	"strings"
 
@@ -18,7 +16,6 @@ import (
 // FillTimestamps grabs timestamp metadata from JSON.
 func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) bool {
 	t := fd.MDates
-	w := fd.MWebData
 
 	fieldMap := map[string]*string{ // Order by importance.
 		sharedtags.JReleaseDate:         &t.ReleaseDate,
@@ -35,7 +32,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
-	if logging.Level > 1 {
+	if logging.Level() > 1 {
 		defer func() {
 			if len(printMap) > 0 {
 				printout.PrintGrabbedFields("dates", printMap)
@@ -72,7 +69,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		}
 
 		*ptr = finalVal
-		if logging.Level > 1 {
+		if logging.Level() > 1 {
 			printMap[k] = finalVal
 		}
 		gotDate = true
@@ -85,76 +82,23 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		gotDate = true
 	}
 
-	var err error
-	switch {
-	case gotDate:
-		logger.Pl.D(3, "Got a relevant date, proceeding...")
-
-		if t.FormattedDate == "" {
-			dates.FormatAllDates(fd)
-		} else if t.StringDate, err = dates.ParseNumDate(t.FormattedDate); err != nil {
-			logger.Pl.E("Failed to parse date %q: %v", t.FormattedDate, err)
-		}
-
-		if _, err := jsonRW.WriteJSON(fieldMap); err != nil {
-			logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
-		}
-
-		return true
-
-	case w.WebpageURL == "":
-		logger.Pl.I("Page URL not found in metadata, so cannot scrape for missing date in %q", fd.MetaFilePath)
+	if !gotDate {
+		logger.Pl.I("No date found in metadata %q", fd.MetaFilePath)
 		return false
 	}
+	logger.Pl.D(3, "Got a relevant date, proceeding...")
 
-	scrapedDate := browser.ScrapeMeta(w, enums.WebclassDate)
-	logger.Pl.D(1, "Scraped date: %s", scrapedDate)
-
-	var date string
-
-	if scrapedDate != "" {
-		date, err = dates.ParseWordDate(scrapedDate)
-		if err != nil || date == "" {
-			logger.Pl.E("Failed to parse date %q: %v", scrapedDate, err)
-			return false
-		}
-		if t.ReleaseDate == "" {
-			t.ReleaseDate = date
-		}
-		if t.Date == "" {
-			t.Date = date
-		}
-		if !strings.ContainsRune(t.CreationTime, 'T') {
-			t.CreationTime = formatTimeStamp(date, &b)
-		}
-		if t.UploadDate == "" {
-			t.UploadDate = date
-		}
-		if t.OriginallyAvailableAt == "" {
-			t.OriginallyAvailableAt = date
-		}
-		if t.FormattedDate == "" {
-			t.FormattedDate = date
-		}
-		if len(date) >= 4 {
-			t.Year = date[:4]
-		}
-
-		if logging.Level > 1 {
-			printMap[sharedtags.JReleaseDate] = t.ReleaseDate
-			printMap[sharedtags.JDate] = t.Date
-			printMap[sharedtags.JYear] = t.Year
-		}
-
-		if t.FormattedDate == "" {
-			dates.FormatAllDates(fd)
-		}
-		if _, err := jsonRW.WriteJSON(fieldMap); err != nil {
-			logger.Pl.E("Failed to write new metadata (%s) into JSON file %q: %v", date, fd.MetaFilePath, err)
-		}
-		return true
+	var err error
+	if t.FormattedDate == "" {
+		dates.FormatAllDates(fd)
+	} else if t.StringDate, err = dates.ParseNumDate(t.FormattedDate); err != nil {
+		logger.Pl.E("Failed to parse date %q: %v", t.FormattedDate, err)
 	}
-	return false
+
+	if _, err := jsonRW.WriteJSON(fieldMap); err != nil {
+		logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
+	}
+	return true
 }
 
 // fillEmptyTimestamps attempts to infer missing timestamps.

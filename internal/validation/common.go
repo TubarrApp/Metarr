@@ -16,7 +16,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 // ValidateGPUAcceleration validates the user input GPU selection and device node.

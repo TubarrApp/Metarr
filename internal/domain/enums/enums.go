@@ -95,23 +95,3 @@ const (
 	PurgeMetaNFO
 	PurgeMetaNone
 )
-
-// WebClassTags relates to the type of data to grab from a web page.
-type WebClassTags int
-
-// WebClassTags definitions.
-const (
-	WebclassDate WebClassTags = iota
-	WebclassTitle
-	WebclassDescription
-	WebclassCredits
-	WebclassWebInfo
-)
-
-// SitePresets holds presets for different video sites.
-type SitePresets int
-
-// SitePresets definitions.
-const (
-	PresetCensoredTV SitePresets = iota
-)

@@ -7,7 +7,6 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
-	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"os"
 	"strings"
@@ -15,8 +14,8 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedmodels"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v4/cpu"
+	"github.com/shirou/gopsutil/v4/mem"
 )
 
 var (
@@ -132,44 +131,29 @@ func sysResourceLoop(ctx context.Context, fileStr string) {
 	)
 
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
 		// Fetch system resources and determine if processing can proceed.
 		muResource.Lock()
 		proceed, availableMemory, CPUUsage, err := checkSysResources()
 		muResource.Unlock()
 
-		if err != nil {
-			vars.AddToErrorArray(err)
+		switch {
+		case err != nil:
 			logger.Pl.E("Error checking system resources: %v", err)
-
-			time.Sleep(backoff)
-			backoff *= 2
-			if backoff > maxBackoff {
-				backoff = maxBackoff
-			}
-			continue
-		}
-
-		if proceed {
-			break
-		}
-
-		// Log resource info only once when insufficient resources are detected.
-		if !resourceMsg {
+		case proceed:
+			return
+		case !resourceMsg:
+			// Log resource info only once when insufficient resources are detected.
 			logger.Pl.I("Not enough system resources to process %s, waiting...", fileStr)
 			logger.Pl.D(1, "Memory available: %.2f MB\tCPU usage: %.2f%%\n", float64(availableMemory)/(consts.MB), CPUUsage)
 			resourceMsg = true
 		}
 
-		time.Sleep(backoff)
-		backoff *= 2
-		if backoff > maxBackoff {
-			backoff = maxBackoff
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
 		}
+		backoff = min(backoff*2, maxBackoff)
 	}
 }
 

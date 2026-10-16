@@ -115,7 +115,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 	}
 
 	// Print all captured metadata.
-	if logging.Level > 0 {
+	if logging.Level() > 0 {
 		printArray(ffContent)
 	}
 	return matches

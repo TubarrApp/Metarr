@@ -59,7 +59,7 @@ func unpackJSON(fmap map[string]*string, json map[string]any) bool {
 
 		if *ptr == "" {
 			*ptr = val
-			if logging.Level > 1 {
+			if logging.Level() > 1 {
 				pmap[k] = val
 			}
 			filled = true
