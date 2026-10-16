@@ -54,7 +54,7 @@ func run() (exitCode int) {
 	startTime := time.Now()
 
 	// Setup logging.
-	logConfig := logging.LoggingConfig{
+	logConfig := logging.Config{
 		LogFilePath: paths.MetarrLogFilePath,
 		MaxSizeMB:   1,
 		MaxBackups:  3,
