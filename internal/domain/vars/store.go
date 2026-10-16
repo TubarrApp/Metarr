@@ -3,6 +3,8 @@ package vars
 
 import (
 	"runtime"
+	"slices"
+	"sync"
 
 	"github.com/TubarrApp/gocommon/benchmark"
 )
@@ -14,14 +16,21 @@ var BenchmarkFiles *benchmark.BenchFiles
 var OS = runtime.GOOS
 
 // errorArray contains the array of errors.
-var errorArray = make([]error, 0)
+var (
+	errorArray   []error
+	errorArrayMu sync.Mutex
+)
 
 // AddToErrorArray adds an error to the error array under lock.
 func AddToErrorArray(err error) {
+	errorArrayMu.Lock()
+	defer errorArrayMu.Unlock()
 	errorArray = append(errorArray, err)
 }
 
-// GetErrorArray returns the error array.
+// GetErrorArray returns a copy of the error array.
 func GetErrorArray() []error {
-	return errorArray
+	errorArrayMu.Lock()
+	defer errorArrayMu.Unlock()
+	return slices.Clone(errorArray)
 }

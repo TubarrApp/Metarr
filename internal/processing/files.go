@@ -330,8 +330,5 @@ func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, muFaile
 		muFailed.Lock()
 		batch.bp.logFailedVideos()
 		muFailed.Unlock()
-
-		// Release the batch processor back to the pool.
-		batch.bp.release()
 	}()
 }

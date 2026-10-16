@@ -46,6 +46,11 @@ func init() {
 
 // main is the program entrypoint.
 func main() {
+	os.Exit(run())
+}
+
+// run runs the program, returning its exit code.
+func run() (exitCode int) {
 	startTime := time.Now()
 
 	// Setup logging.
@@ -59,7 +64,7 @@ func main() {
 	pl, err := logging.SetupLogging(logConfig)
 	if err != nil {
 		fmt.Printf("Metarr exiting with error: %v\n", err)
-		return
+		return 1
 	}
 	logger.Pl = pl
 
@@ -72,7 +77,7 @@ func main() {
 		if r := recover(); r != nil {
 			logger.Pl.E("Panic recovered: %v", r)
 			logger.Pl.E("Stack trace:\n\n%s", debug.Stack())
-			os.Exit(1)
+			exitCode = 1
 		}
 	}()
 
@@ -83,13 +88,13 @@ func main() {
 	if err := cfg.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintf(os.Stderr, "\n")
-		return
+		return 1
 	}
 
 	// Early exit if not executing.
 	if !abstractions.GetBool("execute") {
 		fmt.Fprintf(os.Stderr, "\n")
-		return
+		return 0
 	}
 
 	// Setup context for cancellation.
@@ -123,7 +128,7 @@ func main() {
 	if err := file.InitFetchFilesVars(); err != nil {
 		logger.Pl.E("Failed to initialize variables to fetch files. Exiting...")
 		cancel()
-		return
+		return 1
 	}
 
 	// Initialize user input reader (used for prompting the user during program run).
@@ -142,7 +147,7 @@ func main() {
 		logger.Pl.E("error during batch loop: %v", err)
 		cancel()
 		wg.Wait()
-		return
+		return 1
 	}
 	fdArray = append(fdArray, fdArrayResult...)
 
@@ -166,7 +171,12 @@ func main() {
 	select {
 	case <-ctx.Done():
 		logger.Pl.I("Shutdown was triggered by signal")
+		exitCode = 1
 	default:
+	}
+	if errs := vars.GetErrorArray(); len(errs) > 0 {
+		logger.Pl.E("Finished with %d error(s)", len(errs))
+		exitCode = 1
 	}
 
 	// End program run.
@@ -174,4 +184,5 @@ func main() {
 	fmt.Fprintf(os.Stderr, "\n")
 	logger.Pl.I(endLogFormat, endTime.Format(timeFormat))
 	logger.Pl.I(elapsedFormat, endTime.Sub(startTime).Seconds())
+	return exitCode
 }

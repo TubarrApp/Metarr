@@ -45,7 +45,6 @@ type batchProcessor struct {
 
 	failures struct {
 		items []failedVideo
-		pool  []failedVideo
 		mu    sync.Mutex
 	}
 
@@ -55,21 +54,6 @@ type batchProcessor struct {
 		metaFile  string
 		directory string
 	}
-}
-
-var batchPool = &sync.Pool{
-	New: func() any {
-		return &batchProcessor{
-			failures: struct {
-				items []failedVideo
-				pool  []failedVideo
-				mu    sync.Mutex
-			}{
-				items: make([]failedVideo, 0, 32),
-				pool:  make([]failedVideo, 0, 32),
-			},
-		}
-	},
 }
 
 // ProcessBatches begins processing the batch.
@@ -91,74 +75,17 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 	skipVideos := abstractions.GetBool(keys.SkipVideos)
 	failCount := 0
 	for _, b := range batches {
-		var (
-			openVideo *os.File
-			openJSON  *os.File
-			err       error
-		)
-
 		batch := convertCfgToBatch(b)
+		batch.SkipVideos = batch.SkipVideos || skipVideos
 		logger.Pl.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
 
-		if batch.SkipVideos {
-			skipVideos = true
-		}
-
-		// Open video file if necessary
-		if !skipVideos {
-			if openVideo, err = os.Open(batch.Video); err != nil {
-				logger.Pl.E("Failed to open %s", batch.Video)
-				failCount++
-				continue
-			}
-		}
-
-		// Open JSON file
-		if openJSON, err = os.Open(batch.JSON); err != nil {
-			logger.Pl.E("Failed to open %s", batch.JSON)
-			// Close accompanying video...
-			if openVideo != nil {
-				if err := openVideo.Close(); err != nil {
-					return allProcessedFiles, fmt.Errorf("failed to close failed video %q after JSON failure: %w", openVideo.Name(), err)
-				}
-			}
-			failCount++
-			continue
-		}
-
-		// Initiate batch process
-		processedFiles, err := processBatch(batch, core, openVideo, openJSON)
+		processedFiles, err := runBatch(batch, core)
 		if err != nil {
-			logger.Pl.E("Batch with ID %d failed: %v", batch.bp.batchID, err)
+			logger.Pl.E("Batch with ID %d failed: %v", batch.ID, err)
 			failCount++
 			continue
 		}
-
-		// Append this batch's files to the overall collection
 		allProcessedFiles = append(allProcessedFiles, processedFiles...)
-
-		// Completion message
-		fileOrDirMsg := "Directory"
-		if !batch.IsDirs {
-			fileOrDirMsg = "File"
-		}
-
-		var videoDoneMsg string
-		if !batch.SkipVideos {
-			videoDoneMsg = fmt.Sprintf("Input Video %s: %q\n", fileOrDirMsg, batch.Video)
-		}
-
-		logger.Pl.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
-
-		// Close files explicitly at the end of each iteration
-		if openVideo != nil {
-			if err := openVideo.Close(); err != nil {
-				logger.Pl.E("Failed to close video file %q after successful iteration: %v", openVideo.Name(), err)
-			}
-		}
-		if err := openJSON.Close(); err != nil {
-			logger.Pl.E("Failed to close JSON file %q after successful iteration: %v", openJSON.Name(), err)
-		}
 		job++
 	}
 
@@ -168,6 +95,48 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 
 	logger.Pl.I("All batch tasks finished!")
 	return allProcessedFiles, nil
+}
+
+// runBatch opens a batch's video and JSON paths, processes them, and closes them.
+func runBatch(batch *batch, core *models.Core) ([]*models.FileData, error) {
+	var openVideo *os.File
+	if !batch.SkipVideos {
+		f, err := os.Open(batch.Video)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open %s: %w", batch.Video, err)
+		}
+		openVideo = f
+		defer closeBatchFile(openVideo)
+	}
+
+	openJSON, err := os.Open(batch.JSON)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %w", batch.JSON, err)
+	}
+	defer closeBatchFile(openJSON)
+
+	processedFiles, err := processBatch(batch, core, openVideo, openJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	fileOrDirMsg := "Directory"
+	if !batch.IsDirs {
+		fileOrDirMsg = "File"
+	}
+	var videoDoneMsg string
+	if !batch.SkipVideos {
+		videoDoneMsg = fmt.Sprintf("Input Video %s: %q\n", fileOrDirMsg, batch.Video)
+	}
+	logger.Pl.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
+	return processedFiles, nil
+}
+
+// closeBatchFile closes a batch's input file, logging any error.
+func closeBatchFile(f *os.File) {
+	if err := f.Close(); err != nil {
+		logger.Pl.E("Failed to close %q: %v", f.Name(), err)
+	}
 }
 
 // initializeBatchConfigs ensures the entered files and directories are valid and creates batch pairs.
@@ -323,10 +292,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return nil, errors.New("batch entered null")
 	}
 
-	if batch.bp, err = getNewBatchProcessor(batch.ID); err != nil {
-		return nil, err
-	}
-	defer batch.bp.release()
+	batch.bp = &batchProcessor{batchID: batch.ID}
 
 	if fdArray, err = processFiles(batch, core, openVideo, openMeta); err != nil {
 		return fdArray, err
@@ -339,16 +305,6 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		return fdArray, nil
 	}
 	return fdArray, nil
-}
-
-// getBatchProcessor returns the singleton batchProcessor instance.
-func getNewBatchProcessor(batchID int64) (*batchProcessor, error) {
-	bp, ok := batchPool.Get().(*batchProcessor)
-	if !ok || bp == nil {
-		return nil, fmt.Errorf("internal error: got type %T for batch processor with ID %d", bp, batchID)
-	}
-	bp.batchID = batchID
-	return bp, nil
 }
 
 // addFailedVideo aadds a new failed video to the array.
@@ -385,41 +341,4 @@ func (bp *batchProcessor) syncMapToRegularMap(m *sync.Map) map[string]*models.Fi
 		return true
 	})
 	return result
-}
-
-// reset prepares the batch processor for new batch operation.
-func (bp *batchProcessor) reset(expectedCount int) {
-	// Reset counters
-	bp.counts.totalMeta.Store(0)
-	bp.counts.totalVideo.Store(0)
-	bp.counts.totalMatched.Store(0)
-	bp.counts.processedMeta.Store(0)
-	bp.counts.processedVideo.Store(0)
-
-	// Replace maps
-	bp.files.matched = sync.Map{}
-	bp.files.video = sync.Map{}
-
-	// Reset failures
-	bp.failures.mu.Lock()
-	switch {
-	case bp.failures.pool == nil:
-		bp.failures.pool = make([]failedVideo, 0, max(32, expectedCount))
-
-	case cap(bp.failures.pool) >= expectedCount:
-		bp.failures.pool = bp.failures.pool[:0]
-
-	default:
-		newCap := max(expectedCount, cap(bp.failures.pool)*2)
-		bp.failures.pool = make([]failedVideo, 0, newCap)
-	}
-	bp.failures.items = bp.failures.pool
-	bp.failures.mu.Unlock()
-}
-
-// release returns the batchProcessor to the pool and sets values back to defaults.
-func (bp *batchProcessor) release() {
-	bp.reset(0)
-	bp.batchID = 0
-	batchPool.Put(bp)
 }

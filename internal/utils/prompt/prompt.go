@@ -8,20 +8,31 @@ import (
 	"metarr/internal/domain/logger"
 	"os"
 	"strings"
+	"sync/atomic"
 )
 
 var (
 	userInputChan = make(chan string)
-	decisionMade  bool
+	inputClosed   = make(chan struct{})
+	decisionMade  atomic.Bool
 )
 
 // InitUserInputReader initializes a user input reading function in a goroutine.
+//
+// The reader stops at the end of input (e.g. no terminal attached), after which prompts preserve existing values.
 func InitUserInputReader() {
 	go func() {
+		defer close(inputClosed)
 		reader := bufio.NewReader(os.Stdin)
 		for {
-			input, _ := reader.ReadString('\n')
+			input, err := reader.ReadString('\n')
+			if err != nil && input == "" {
+				return
+			}
 			userInputChan <- strings.TrimSpace(input)
+			if err != nil {
+				return
+			}
 		}
 	}()
 }
@@ -33,7 +44,7 @@ func InitUserInputReader() {
 func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, error) {
 	logger.Pl.D(3, "Entering PromptUser dialogue...")
 
-	if decisionMade {
+	if decisionMade.Load() {
 		// If overwriteAll, return "Y" without waiting.
 		if ow {
 			logger.Pl.D(3, "Overwrite all is set...")
@@ -50,8 +61,12 @@ func MetaReplace(ctx context.Context, promptMsg string, ow, ps bool) (string, er
 	// Wait for user input.
 	select {
 	case response := <-userInputChan:
-		decisionMade = true
+		decisionMade.Store(true)
 		return response, nil
+
+	case <-inputClosed:
+		logger.Pl.W("No input available to answer prompt, preserving existing value")
+		return "N", nil
 
 	case <-ctx.Done():
 		return "", fmt.Errorf("operation canceled during prompt %q", promptMsg)
