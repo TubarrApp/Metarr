@@ -2,6 +2,7 @@
 package parsing
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"metarr/internal/models"
@@ -178,8 +179,8 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 		return "", fmt.Errorf("templating: title empty for %q", dp.FD.OriginalVideoPath)
 
 	case sharedtemplates.MetVideoURL:
-		if w.VideoURL != "" {
-			return sharedtemplates.StripURLScheme(w.VideoURL), nil
+		if u := cmp.Or(w.WebpageURL, w.VideoURL); u != "" { // The page, not yt-dlp's "url" media stream, when known.
+			return sharedtemplates.StripURLScheme(u), nil
 		}
 		return "", fmt.Errorf("templating: video URL empty for %q", dp.FD.OriginalVideoPath)
 

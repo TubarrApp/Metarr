@@ -31,6 +31,10 @@ func TestDateTemplateTags(t *testing.T) {
 	if got, err := dp.replace("video_url"); err != nil || got != "www.youtube.com/watch?v=abc" {
 		t.Errorf("replace(video_url) = %q, %v; want the URL without its scheme", got, err)
 	}
+	dp.FD.MWebData.WebpageURL, dp.FD.MWebData.VideoURL = "https://www.youtube.com/watch?v=abc", "https://cdn.example/stream.mp4"
+	if got, err := dp.replace("video_url"); err != nil || got != "www.youtube.com/watch?v=abc" {
+		t.Errorf("replace(video_url) = %q, %v; want the webpage URL over the media stream URL", got, err)
+	}
 
 	for _, tag := range []string{"year:yyy", "month:short", "day:word", "video_title:yy"} {
 		if got, err := dp.replace(tag); err == nil {
