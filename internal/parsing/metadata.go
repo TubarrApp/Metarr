@@ -1,7 +1,9 @@
 package parsing
 
 import (
+	"encoding/json"
 	"metarr/internal/domain/logger"
+	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -30,64 +32,62 @@ func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string
 		return inputStr, false
 	}
 
-	result, anyValid := mtp.fillMetaTemplateTagRecursive(inputStr, j)
-	if !anyValid {
-		return inputStr, true // No valid replacements, return unchanged.
-	}
-	return result, true
+	return mtp.fillMetaTemplateTags(inputStr, j), true
 }
 
-// fillMetaTemplateTagRecursive fills in all templating tags in the string.
-func (mtp *MetaTemplateParser) fillMetaTemplateTagRecursive(inputStr string, j map[string]any) (result string, anyReplaced bool) {
-	openTagIdx := strings.Index(inputStr, "{{")
-	closeTagIdx := strings.Index(inputStr, "}}")
-	if openTagIdx < 0 || closeTagIdx < 0 || closeTagIdx < openTagIdx {
-		return inputStr, false
-	}
-
-	// Bounds check.
-	if openTagIdx+2 > len(inputStr) || closeTagIdx+2 > len(inputStr) {
-		return inputStr, false
-	}
-
-	// Ensure content between open and close tags.
-	if openTagIdx+2 > closeTagIdx {
-		return inputStr, false
-	}
-
-	tagContent := inputStr[openTagIdx+2 : closeTagIdx]
-	replacement, succeeded := mtp.fillTag(tagContent, j)
-
-	// If fillTag failed, return original with no replacement flag.
-	if !succeeded {
-		return inputStr, false
-	}
-
-	tag := inputStr[:openTagIdx] + replacement + inputStr[closeTagIdx+2:]
-	recursiveResult, _ := mtp.fillMetaTemplateTagRecursive(tag, j)
-	return recursiveResult, true
-}
-
-// fillTag finds the matching string for a given template tag.
+// fillMetaTemplateTags fills every tag it can in one pass, leaving unfillable tags as written.
 //
-// Returns the replacement string and whether it succeeded.
+// Filled values aren't scanned again, so a value containing "{{...}}" stays literal.
+func (mtp *MetaTemplateParser) fillMetaTemplateTags(s string, j map[string]any) string {
+	var b strings.Builder
+	for {
+		open := strings.Index(s, "{{")
+		if open < 0 {
+			break
+		}
+		closeRel := strings.Index(s[open+2:], "}}")
+		if closeRel < 0 {
+			break
+		}
+		end := open + 2 + closeRel
+
+		b.WriteString(s[:open])
+		if val, ok := mtp.fillTag(strings.TrimSpace(s[open+2:end]), j); ok {
+			b.WriteString(val)
+		} else {
+			b.WriteString(s[open : end+2])
+		}
+		s = s[end+2:]
+	}
+	b.WriteString(s)
+	return b.String()
+}
+
+// fillTag returns the metadata value for a template tag, and whether it has a usable value.
 func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (result string, success bool) {
-	if template == "" || j[template] == nil {
+	v, found := j[template]
+	if template == "" || !found || v == nil {
+		logger.Pl.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
 		return "", false
 	}
-	// Search map for template key.
-	for k, v := range j {
-		if k == template {
-			strVal, ok := v.(string)
-			if !ok || strVal == "" {
-				logger.Pl.E("JSON key %v does not contain a valid string value (variable is of type %T), not parsing (file %q)", template, v, mtp.jsonFileName)
-				return "", false
-			}
-			return strVal, true
-		}
+	switch v := v.(type) {
+	case string:
+		result = v
+	case float64:
+		result = strconv.FormatFloat(v, 'f', -1, 64)
+	case json.Number:
+		result = v.String()
+	case bool:
+		result = strconv.FormatBool(v)
+	default:
+		logger.Pl.E("JSON key %v does not contain a text or number value (variable is of type %T), not parsing (file %q)", template, v, mtp.jsonFileName)
+		return "", false
 	}
-	logger.Pl.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
-	return "", false
+	if result == "" {
+		logger.Pl.E("JSON key %v is empty, not parsing (file %q)", template, mtp.jsonFileName)
+		return "", false
+	}
+	return result, true
 }
 
 // GetContainerKeys returns valid tag names for the given key and container type.

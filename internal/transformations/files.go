@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedtemplates"
 )
 
 // fileProcessor handles the renaming and moving of files.
@@ -167,6 +168,14 @@ func (fp *fileProcessor) process() error {
 		logger.Pl.D(1, "Do not need to rename %q, just moving...", fp.fd.PostFFmpegVideoPath)
 		fp.fd.RenamedVideoPath = fp.fd.PostFFmpegVideoPath
 		fp.fd.RenamedMetaPath = fp.fd.MetaFilePath
+		if fp.outputDir != "" { // Same names, in the output directory.
+			if fp.fd.RenamedVideoPath != "" {
+				fp.fd.RenamedVideoPath = filepath.Join(fp.outputDir, filepath.Base(fp.fd.RenamedVideoPath))
+			}
+			if fp.fd.RenamedMetaPath != "" {
+				fp.fd.RenamedMetaPath = filepath.Join(fp.outputDir, filepath.Base(fp.fd.RenamedMetaPath))
+			}
+		}
 
 		if err := fp.writeResult(); err != nil {
 			return err
@@ -450,7 +459,7 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 	}
 
 	// Room is left for the extension and a " (n)" suffix.
-	newBase = parsing.SanitizePathComponent(newBase, parsing.MaxFilenameBytes-len(ext)-len(" (9999)"))
+	newBase = sharedtemplates.SanitizePathComponent(newBase, sharedtemplates.MaxNameBytes-len(ext)-len(" (9999)"))
 	if newBase == oldBase {
 		return newBase, nil
 	}

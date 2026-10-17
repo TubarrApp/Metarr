@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"metarr/internal/models"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/TubarrApp/gocommon/sharedtemplates"
+	"github.com/araddon/dateparse"
 )
 
 // DirectoryParser is used to access and use directory parsing elements.
@@ -87,7 +90,7 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if replacement = SanitizePathComponent(replacement, MaxFilenameBytes); replacement == "" {
+		if replacement = sharedtemplates.SanitizePathComponent(replacement, sharedtemplates.MaxNameBytes); replacement == "" {
 			return "", fmt.Errorf("templating: %q is empty once made safe for a path, for %q", tag, dp.FD.OriginalVideoPath)
 		}
 		b.WriteString(replacement)
@@ -114,12 +117,41 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 	c := dp.FD.MCredits
 	w := dp.FD.MWebData
 
-	switch strings.ToLower(tag) {
+	name, directive := sharedtemplates.ParseTag(tag)
+	if directive != "" && !sharedtemplates.ValidTag(tag, sharedtemplates.MetarrTemplateTags) {
+		return "", fmt.Errorf("invalid template tag %q, supported tags: %v", tag, sharedtemplates.DescribeTags(sharedtemplates.MetarrTemplateTags))
+	}
+
+	switch name {
 	case sharedtemplates.MetYear:
-		if d.Year != "" {
-			return d.Year, nil
+		if len(d.Year) != 4 {
+			return "", fmt.Errorf("templating: year empty or invalid for %q", dp.FD.OriginalVideoPath)
 		}
-		return "", fmt.Errorf("templating: year empty for %q", dp.FD.OriginalVideoPath)
+		if directive == sharedtemplates.YearShort {
+			return d.Year[2:], nil
+		}
+		return d.Year, nil
+
+	case sharedtemplates.MetMonth:
+		date, err := dp.date()
+		if err != nil {
+			return "", err
+		}
+		switch directive {
+		case sharedtemplates.MonthAbbreviated:
+			return date.Format("Jan"), nil
+		case sharedtemplates.MonthWord:
+			return date.Format("January"), nil
+		default:
+			return date.Format("01"), nil
+		}
+
+	case sharedtemplates.MetDay:
+		date, err := dp.date()
+		if err != nil {
+			return "", err
+		}
+		return date.Format("02"), nil
 
 	case sharedtemplates.MetAuthor:
 		if c.Author != "" {
@@ -147,11 +179,27 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 
 	case sharedtemplates.MetVideoURL:
 		if w.VideoURL != "" {
-			return w.VideoURL, nil
+			return sharedtemplates.StripURLScheme(w.VideoURL), nil
 		}
 		return "", fmt.Errorf("templating: video URL empty for %q", dp.FD.OriginalVideoPath)
 
 	default:
 		return "", fmt.Errorf("invalid template tag %q", tag)
 	}
+}
+
+// date returns the video's date for month and day tags, from the first date field agreeing with the year tag.
+func (dp *DirectoryParser) date() (time.Time, error) {
+	d := dp.FD.MDates
+	for _, s := range []string{d.Date, d.UploadDate, d.ReleaseDate, d.OriginallyAvailableAt, d.FormattedDate, d.CreationTime} {
+		if len(s) < 6 {
+			continue
+		}
+		parsed, err := dateparse.ParseAny(s)
+		if err != nil || (d.Year != "" && strconv.Itoa(parsed.Year()) != d.Year) {
+			continue
+		}
+		return parsed, nil
+	}
+	return time.Time{}, fmt.Errorf("templating: no full date for %q", dp.FD.OriginalVideoPath)
 }
