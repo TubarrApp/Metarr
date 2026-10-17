@@ -1,3 +1,3 @@
-all_code.txt
+.gitignore
 .golangci.yaml
 /metarr
