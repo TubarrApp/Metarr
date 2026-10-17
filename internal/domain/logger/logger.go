@@ -3,6 +3,8 @@ package logger
 
 import (
 	"bytes"
+	"cmp"
+	"crypto/tls"
 	"net/http"
 	"os"
 	"sync"
@@ -13,7 +15,8 @@ import (
 
 // Tubarr endpoint, and the token Tubarr passes Metarr to authorize its logs.
 const (
-	tubarrLogServer = "http://127.0.0.1:8827/metarr-logs"
+	tubarrLogServer = "http://127.0.0.1:8827/metarr-logs" // Used when Tubarr doesn't pass logURLEnv.
+	logURLEnv       = "TUBARR_LOG_URL"
 	logTokenEnv     = "TUBARR_LOG_TOKEN"
 	logTokenHeader  = "X-Tubarr-Log-Token"
 )
@@ -32,8 +35,18 @@ var (
 	logMutex sync.Mutex
 	sentLogs uint64 // Log lines already sent to Tubarr.
 
-	logClient = &http.Client{Timeout: logPostTimeout}
+	logClient = newLogClient()
 )
+
+// newLogClient returns the client for posting logs to Tubarr, which may serve HTTPS with a self-signed certificate.
+//
+// Certificates aren't verified: the log token, known only to the Tubarr that started Metarr, is what matters.
+func newLogClient() *http.Client {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.Proxy = nil                                             // Tubarr is local, never go through a proxy.
+	t.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // See above.
+	return &http.Client{Timeout: logPostTimeout, Transport: t}
+}
 
 // SendLogs POSTs logs to Tubarr.
 func SendLogs() {
@@ -45,7 +58,7 @@ func SendLogs() {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPost, tubarrLogServer, bytes.NewReader(bytes.Join(logs, []byte{})))
+	req, err := http.NewRequest(http.MethodPost, cmp.Or(os.Getenv(logURLEnv), tubarrLogServer), bytes.NewReader(bytes.Join(logs, []byte{})))
 	if err != nil {
 		return
 	}

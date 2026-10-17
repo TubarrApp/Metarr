@@ -110,7 +110,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		logger.Pl.P("%s!!! Starting FFmpeg attempt %d for %q...\n%s", sharedconsts.ColorCyan, i, baseName, sharedconsts.ColorReset)
 		if err := command.Run(); err != nil {
 			if ctx.Err() != nil {
-				return fmt.Errorf("ffmpeg cancelled for %q: %w", baseName, ctx.Err())
+				return fmt.Errorf("ffmpeg canceled for %q: %w", baseName, ctx.Err())
 			}
 			// Exit if final attempt errored.
 			if i == maxAttempts {
