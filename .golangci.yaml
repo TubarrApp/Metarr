@@ -1,0 +1,58 @@
+version: "2"
+run:
+  tests: true
+
+external:
+  - name: nilaway
+    command: nilaway
+    args:
+      - ./... # DOES NOT RUN, RUN MANUALLY IN TERMINAL: nilaway ./...
+
+linters:
+  enable:
+    # Core bug detection (universally recommended)
+    - govet
+    - staticcheck  # Essential - catches many bugs
+    - errcheck     # Ensures errors are checked
+    - unused       # Finds unused code
+    - ineffassign  # Detects ineffectual assignments
+    
+    # Modern Go best practices
+    - errorlint    # Error wrapping issues
+    - contextcheck # Context cancellation issues
+    - copyloopvar  # Loop variable capture (Go 1.22+)
+    - nilerr       # Returns nil even when err != nil
+    #- nilnil       # Returns (nil, nil)
+    
+    # Code quality
+    - misspell
+    - revive
+    - unconvert    # Unnecessary type conversions
+    - unparam      # Unused function parameters
+    - wastedassign # Wasted assignments
+    
+    # Security
+    #- gosec        # Security issues
+    
+    # Performance hints
+    - prealloc     # Slice preallocation
+    - bodyclose    # HTTP response body closes
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

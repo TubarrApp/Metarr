@@ -3,7 +3,7 @@ module metarr
 go 1.27.2
 
 require (
-	github.com/TubarrApp/gocommon v0.0.0-20261017080750-f1a752966d61
+	github.com/TubarrApp/gocommon v0.0.0-20261018042856-a98763e7c2ed
 	github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de
 	github.com/shirou/gopsutil/v4 v4.26.9
 	github.com/spf13/cobra v1.8.1
