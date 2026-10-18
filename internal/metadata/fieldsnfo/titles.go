@@ -1,6 +1,7 @@
 package fieldsnfo
 
 import (
+	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
@@ -61,6 +62,11 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 			t.Title = n.Title.PlainText
 			printMap[sharedtags.NTitle] = t.Title
 		}
+	}
+
+	// Fields the NFO holds already carry the override; fill those it cannot hold.
+	if v, ok := fd.MetaOps.SetOverrides[enums.OverrideMetaTitles]; ok {
+		fillEmpty(v, &t.Title, &t.Fulltitle, &t.Subtitle)
 	}
 	return true
 }

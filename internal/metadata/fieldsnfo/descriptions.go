@@ -1,6 +1,7 @@
 package fieldsnfo
 
 import (
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 
@@ -83,6 +84,11 @@ func fillNFODescriptions(fd *models.FileData) (filled bool) {
 		case d.Description != "":
 			d.Comment = d.Description
 		}
+	}
+
+	// Fields the NFO holds already carry the override; fill those it cannot hold.
+	if v, ok := fd.MetaOps.SetOverrides[enums.OverrideMetaDescriptions]; ok {
+		fillEmpty(v, &d.Description, &d.LongDescription, &d.LongUnderscoreDescription, &d.Synopsis, &d.Summary, &d.Comment)
 	}
 
 	if d.LongDescription != "" {

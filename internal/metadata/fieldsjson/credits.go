@@ -44,44 +44,41 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		}()
 	}
 
-	// Set using override will fill all values anyway.
-	if len(fd.MetaOps.SetOverrides) == 0 {
-		if filled = unpackJSON(fieldMap, json); filled {
-			logger.Pl.D(2, "Decoded credits JSON into field map")
-		}
+	if filled = unpackJSON(fieldMap, json); filled {
+		logger.Pl.D(2, "Decoded credits JSON into field map")
+	}
 
-		// Find highest priority filled element.
-		fillWith := c.Override
-		if fillWith == "" {
-			for _, ptr := range fieldMap {
-				if ptr != nil && *ptr != "" {
-					fillWith = *ptr
-					break
-				}
+	// Find highest priority filled element.
+	fillWith := c.Override
+	if fillWith == "" {
+		for _, ptr := range fieldMap {
+			if ptr != nil && *ptr != "" {
+				fillWith = *ptr
+				break
 			}
 		}
+	}
 
-		// Check if filled.
-		for k, ptr := range fieldMap {
-			if ptr == nil {
-				logger.Pl.E("Unexpected nil pointer in credits fieldMap")
-				continue
-			}
-			if *ptr != "" {
-				if logging.Level() > 1 {
-					printMap[k] = *ptr
-				}
-				filled = true
-				continue
-			}
-			logger.Pl.D(2, "Value for %q is empty, attempting to fill by inference...", k)
-
-			*ptr = fillWith
+	// Check if filled.
+	for k, ptr := range fieldMap {
+		if ptr == nil {
+			logger.Pl.E("Unexpected nil pointer in credits fieldMap")
+			continue
+		}
+		if *ptr != "" {
 			if logging.Level() > 1 {
 				printMap[k] = *ptr
 			}
-			logger.Pl.D(2, "Set value to %q", *ptr)
+			filled = true
+			continue
 		}
+		logger.Pl.D(2, "Value for %q is empty, attempting to fill by inference...", k)
+
+		*ptr = fillWith
+		if logging.Level() > 1 {
+			printMap[k] = *ptr
+		}
+		logger.Pl.D(2, "Set value to %q", *ptr)
 	}
 
 	if printMap, overidden = overrideAll(fieldMap, fd, printMap); overidden {
@@ -124,26 +121,6 @@ func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[
 				}
 				logger.Pl.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
 				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
-
-				if logging.Level() > 1 {
-					printMap[k] = *ptr
-				}
-
-				filled = true
-			}
-		}
-	}
-
-	if len(fd.MetaOps.SetOverrides) > 0 {
-		logger.Pl.I("Overriding credits with new values...")
-		if val, exists := fd.MetaOps.SetOverrides[enums.OverrideMetaCredits]; exists {
-			for k, ptr := range fieldMap {
-				if ptr == nil {
-					logger.Pl.E("Entry is nil in fieldMap %v", fieldMap)
-					continue
-				}
-				logger.Pl.I("Overriding old %q → %q", *ptr, val)
-				*ptr = val
 
 				if logging.Level() > 1 {
 					printMap[k] = *ptr

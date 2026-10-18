@@ -144,6 +144,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if err := os.Rename(tmpOutPath, fd.PostFFmpegVideoPath); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
+	models.ReportVideoPath(fd.PostFFmpegVideoPath)
 	if !samePath {
 		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
 		if err := os.Remove(origPath); err != nil {

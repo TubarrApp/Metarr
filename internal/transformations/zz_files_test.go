@@ -40,3 +40,23 @@ func TestProcessMovesWithoutRename(t *testing.T) {
 		t.Errorf("final paths = %q, %q; want them in %q", fd.FinalVideoPath, fd.FinalMetaPath, out)
 	}
 }
+
+// TestExistingPath tests that the first path on disk is chosen, so a failed move reports where files are.
+func TestExistingPath(t *testing.T) {
+	dir := t.TempDir()
+	current := filepath.Join(dir, "v.mp4")
+	if err := os.WriteFile(current, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(dir, "out", "v.mp4")
+
+	if got := existingPath(moved, current); got != current {
+		t.Errorf("existingPath(unmoved) = %q, want %q", got, current)
+	}
+	if got := existingPath("", current); got != current {
+		t.Errorf("existingPath with empty first = %q, want %q", got, current)
+	}
+	if got := existingPath(moved, filepath.Join(dir, "gone.mp4")); got != "" {
+		t.Errorf("existingPath(none present) = %q, want empty", got)
+	}
+}

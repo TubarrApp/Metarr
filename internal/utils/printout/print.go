@@ -7,6 +7,7 @@ import (
 	"metarr/internal/models"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 
@@ -89,7 +90,7 @@ func CreateModelPrintout(model any, filename, taskName string, args ...any) {
 		b.WriteString(sharedconsts.ColorYellow + "\nCredits:\n" + sharedconsts.ColorReset)
 
 		// Handle each slice type separately.
-		for _, actor := range m.Actors {
+		for _, actor := range slices.Concat(m.Actors, m.CastActors) {
 			b.WriteString(printStructFields(actor.Name))
 		}
 		for _, director := range m.Directors {

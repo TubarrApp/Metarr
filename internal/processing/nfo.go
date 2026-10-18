@@ -74,6 +74,20 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		fd.NFOData = data
 	}
 
+	// Date tags are made from the dates, so fill those first and tag before reading other fields.
+	if fd.NFOData != nil && (len(fd.MetaOps.DateTags) > 0 || len(fd.MetaOps.DeleteDateTags) > 0) {
+		fieldsnfo.FillNFOTimestamps(fd)
+		if tagged, err := nfoRW.DateTagEdits(file, fd); err != nil {
+			logger.Pl.E("Failed to make date tag edits for metadata in file %q: %v", file.Name(), err)
+		} else if tagged {
+			data, err := nfoRW.RefreshMetadata()
+			if err != nil {
+				return err
+			}
+			fd.NFOData = data
+		}
+	}
+
 	// Fill to file metadata.
 	if ok := fieldsnfo.FillNFO(fd); !ok {
 		logger.Pl.E("No metadata filled from NFO file...")

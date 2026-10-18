@@ -10,6 +10,9 @@ type OverrideMetaType int
 const (
 	OverrideMetaNone OverrideMetaType = iota
 	OverrideMetaCredits
+	OverrideMetaDates
+	OverrideMetaDescriptions
+	OverrideMetaTitles
 )
 
 // MetaOpType stores the meta operation type directive (e.g. set).

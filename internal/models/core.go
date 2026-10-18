@@ -98,11 +98,15 @@ func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 	if _, err := fmt.Fprintf(os.Stdout, "final video path: %s\n", videoPath); err != nil {
 		logger.Pl.E("Failed to output final video path for %q due to error: %v", videoPath, err)
 	}
-	if _, err := fmt.Fprintf(os.Stdout, "final json path: %s", metaPath); err != nil {
+	if _, err := fmt.Fprintf(os.Stdout, "final json path: %s\n", metaPath); err != nil {
 		logger.Pl.E("Failed to output final JSON path for %q due to error: %v", metaPath, err)
 	}
-	if _, err := fmt.Fprintf(os.Stderr, "\n"); err != nil {
-		logger.Pl.E("Failed to write final newline: %v", err)
+}
+
+// ReportVideoPath prints the video's path as soon as it changes on disk, so a caller can find it if the run fails later.
+func ReportVideoPath(path string) {
+	if _, err := fmt.Fprintf(os.Stdout, "current video path: %s\n", path); err != nil {
+		logger.Pl.E("Failed to output current video path %q due to error: %v", path, err)
 	}
 }
 

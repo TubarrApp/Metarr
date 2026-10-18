@@ -8,7 +8,8 @@ type NFOData struct {
 	Title       Title       `xml:"title"`
 	Plot        string      `xml:"plot"`
 	Description string      `xml:"description"`
-	Actors      []Person    `xml:"cast>actor"`
+	Actors      []Person    `xml:"actor"`
+	CastActors  []Person    `xml:"cast>actor"` // Non-Kodi form, also written by addNewActorField.
 	Directors   []string    `xml:"director"`
 	Producers   []string    `xml:"producer"`
 	Publishers  []string    `xml:"publisher"`
@@ -17,6 +18,7 @@ type NFOData struct {
 	Year        string      `xml:"year"`
 	Premiered   string      `xml:"premiered"`
 	ReleaseDate string      `xml:"releasedate"`
+	Released    string      `xml:"released"` // As written by the NFO builder.
 	ShowInfo    ShowInfo    `xml:"showinfo"`
 	WebpageInfo WebpageInfo `xml:"web"`
 

@@ -70,6 +70,8 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 		if err := renameFile(ctx, fd, replaceStyle, skipVideos); err != nil {
 			vars.AddToErrorArray(err)
 			logger.Pl.E("Failed to rename file %q: %v", fd.OriginalVideoPath, err)
+			// Report where the files are now, so a caller can still find them.
+			fd.SetFinalPaths(existingPath(fd.RenamedVideoPath, fd.PostFFmpegVideoPath), existingPath(fd.RenamedMetaPath, fd.MetaFilePath))
 			continue
 		}
 		// Track directory for success message.
@@ -88,6 +90,19 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 		logger.Pl.S("Successfully formatted file names in directory: %s", dir)
 	}
 	return nil
+}
+
+// existingPath returns the first non-empty path present on disk, or "" if none are.
+func existingPath(paths ...string) string {
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
 }
 
 // renameFile formats a video/metadata file pair's name.

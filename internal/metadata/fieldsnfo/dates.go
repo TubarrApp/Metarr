@@ -2,7 +2,9 @@ package fieldsnfo
 
 import (
 	"fmt"
+	"cmp"
 	"metarr/internal/dates"
+	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
@@ -11,8 +13,8 @@ import (
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
-// fillNFOTimestamps fills empty date fields from existing date metafields.
-func fillNFOTimestamps(fd *models.FileData) (filled bool) {
+// FillNFOTimestamps fills empty date fields from existing date metafields.
+func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 	t := fd.MDates
 	n := fd.NFOData
 
@@ -41,18 +43,23 @@ func fillNFOTimestamps(fd *models.FileData) (filled bool) {
 		printMap[sharedtags.NPremiereDate] = n.Premiered
 		gotRelevantDate = true
 	}
-	if n.ReleaseDate != "" {
-		if rtn, ok := dates.YmdFromMeta(n.ReleaseDate); ok && rtn != "" {
+	if releaseDate := cmp.Or(n.ReleaseDate, n.Released); releaseDate != "" {
+		if rtn, ok := dates.YmdFromMeta(releaseDate); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
 		}
-		printMap[sharedtags.NAired] = n.Premiered
+		printMap[sharedtags.NAired] = releaseDate
 		gotRelevantDate = true
 	}
 	if n.Year != "" {
 		t.Year = n.Year
 		printMap[sharedtags.NYear] = n.Year
+	}
+
+	// Fields the NFO holds already carry the override; fill those it cannot hold.
+	if v, ok := fd.MetaOps.SetOverrides[enums.OverrideMetaDates]; ok {
+		fillEmpty(v, &t.FormattedDate, &t.UploadDate, &t.OriginallyAvailableAt)
 	}
 
 	if t.FormattedDate != "" {

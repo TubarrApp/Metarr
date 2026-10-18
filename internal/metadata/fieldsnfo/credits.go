@@ -1,9 +1,11 @@
 package fieldsnfo
 
 import (
+	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
+	"slices"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
@@ -35,8 +37,8 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 		}
 	}()
 
-	if n.Actors != nil {
-		for _, actor := range n.Actors {
+	if actors := slices.Concat(n.Actors, n.CastActors); actors != nil {
+		for _, actor := range actors {
 			c.Actors = append(c.Actors, actor.Name)
 		}
 		fillSingleCredits(c.Actors, &c.Actor)
@@ -66,6 +68,12 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 		c.Studios = append(c.Studios, n.Studios...)
 		fillSingleCredits(c.Studios, &c.Studio)
 		printMap[sharedtags.NStudio] = strings.Join(c.Studios, ",")
+	}
+
+	// Fields the NFO holds already carry the override; fill those it cannot hold.
+	if v, ok := fd.MetaOps.SetOverrides[enums.OverrideMetaCredits]; ok {
+		fillEmpty(v, &c.Actor, &c.Author, &c.Artist, &c.Channel, &c.Creator, &c.Studio, &c.Publisher,
+			&c.Producer, &c.Performer, &c.Uploader, &c.Composer, &c.Director, &c.Writer)
 	}
 	return true
 }

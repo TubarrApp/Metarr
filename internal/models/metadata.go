@@ -23,6 +23,7 @@ type MetaOps struct {
 	Cuts             []MetaCut
 	CopyToFields     []CopyToField
 	PasteFromFields  []PasteFromField
+	DatesFrom        string // Field whose date sets all-dates, resolved per file.
 }
 
 // NewMetaOps creates a new MetaOps with initialized maps.

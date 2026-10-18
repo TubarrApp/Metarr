@@ -8,7 +8,7 @@ import (
 
 // FillNFO is the primary entrypoint for filling NFO metadata from an open file's read content.
 func FillNFO(fd *models.FileData) (filled bool) {
-	if ok := fillNFOTimestamps(fd); ok {
+	if ok := FillNFOTimestamps(fd); ok {
 		filled = true
 	}
 
@@ -28,6 +28,15 @@ func FillNFO(fd *models.FileData) (filled bool) {
 		filled = true
 	}
 	return filled
+}
+
+// fillEmpty sets each empty field to val.
+func fillEmpty(val string, fields ...*string) {
+	for _, f := range fields {
+		if *f == "" {
+			*f = val
+		}
+	}
 }
 
 // Clean up empty fields from the field map.

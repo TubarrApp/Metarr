@@ -11,6 +11,7 @@ import (
 	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/dates"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -21,6 +22,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // JSONFileRW is used to access JSON reading/writing utilities.
@@ -156,7 +161,16 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	filename := rw.File.Name()
 	mtp := parsing.NewMetaTemplateParser(file.Name())
-	ops := fd.MetaOps
+	if fd.MetaOps.DatesFrom != "" {
+		val, _ := currentMeta[fd.MetaOps.DatesFrom].(string)
+		resolveDatesFrom(fd.MetaOps, val)
+	}
+	ops := fd.MetaOps.ExpandGroups(models.JSONGroupFields)
+
+	// 0. "all-x" overrides first, so per-field operations build on them.
+	if overrideJSONFields(currentMeta, ops.SetOverrides) {
+		edited = true
+	}
 
 	// 1. Set fields first (establishes baseline values).
 	if len(ops.SetFields) > 0 {
@@ -261,12 +275,13 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	currentMeta := rw.copyMeta()
 
 	logger.Pl.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
+	ops := fd.MetaOps.ExpandGroups(models.JSONGroupFields)
 
 	// Delete date tag first, user's may want to delete and re-build.
-	if len(fd.MetaOps.DeleteDateTags) > 0 {
-		logger.Pl.I("Stripping metafield date tags (User entered: %v)", fd.MetaOps.DeleteDateTags)
+	if len(ops.DeleteDateTags) > 0 {
+		logger.Pl.I("Stripping metafield date tags (User entered: %v)", ops.DeleteDateTags)
 
-		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, fd.MetaOps.DeleteDateTags, fd); err != nil {
+		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, ops.DeleteDateTags, fd); err != nil {
 			logger.Pl.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
 		} else if ok {
 			edited = true
@@ -274,10 +289,10 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	}
 
 	// Add date tag.
-	if len(fd.MetaOps.DateTags) > 0 {
-		logger.Pl.I("Adding metafield date tags (User entered: %v)", fd.MetaOps.DateTags)
+	if len(ops.DateTags) > 0 {
+		logger.Pl.I("Adding metafield date tags (User entered: %v)", ops.DateTags)
 
-		if ok, err := rw.jsonFieldAddDateTag(currentMeta, fd.MetaOps.DateTags, fd); err != nil {
+		if ok, err := rw.jsonFieldAddDateTag(currentMeta, ops.DateTags, fd); err != nil {
 			logger.Pl.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
 		} else if ok {
 			edited = true
@@ -298,6 +313,51 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	logger.Pl.S("Successfully applied date tag JSON edits to: %v", file.Name())
 
 	return edited, nil
+}
+
+// resolveDatesFrom sets the dates override from val, the value of the field all-dates is pasted
+// from, when it holds a date.
+func resolveDatesFrom(ops *models.MetaOps, val string) {
+	formatted, _ := dates.YmdFromMeta(val)
+	date, _, _ := strings.Cut(formatted, "T")
+	if _, err := time.Parse(time.DateOnly, date); err != nil {
+		logger.Pl.E("Field %q value %q is not a date, skipping its paste into %q", ops.DatesFrom, val, sharedconsts.MetaOpAllDates)
+		return
+	}
+	logger.Pl.I("Setting %q from field %q → %q", sharedconsts.MetaOpAllDates, ops.DatesFrom, date)
+	ops.SetOverrides[enums.OverrideMetaDates] = date
+}
+
+// overrideJSONFields sets every field in each "all-x" group to its override value, adding missing fields.
+func overrideJSONFields(j map[string]any, overrides map[enums.OverrideMetaType]string) (edited bool) {
+	set := func(val string, fields ...string) {
+		for _, k := range fields {
+			if cur, ok := j[k].(string); ok && cur == val {
+				continue
+			}
+			logger.Pl.I("Overriding JSON field %q → %q", k, val)
+			j[k] = val
+			edited = true
+		}
+	}
+
+	for overrideType, val := range overrides {
+		switch overrideType {
+		case enums.OverrideMetaCredits:
+			set(val, models.JSONGroupFields[sharedconsts.MetaOpAllCredits]...)
+		case enums.OverrideMetaDates:
+			set(val, sharedtags.JReleaseDate, sharedtags.JOriginallyAvailable, sharedtags.JDate, sharedtags.JUploadDate)
+			set(val+consts.TimeSfx, sharedtags.JCreationTime)
+			if len(val) >= 4 {
+				set(val[:4], sharedtags.JYear, sharedtags.JReleaseYear)
+			}
+		case enums.OverrideMetaDescriptions:
+			set(val, models.JSONGroupFields[sharedconsts.MetaOpAllDescriptions]...)
+		case enums.OverrideMetaTitles:
+			set(val, models.JSONGroupFields[sharedconsts.MetaOpAllTitles]...)
+		}
+	}
+	return edited
 }
 
 // replaceJSON makes user defined JSON replacements.

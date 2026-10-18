@@ -1,14 +1,12 @@
 package validation
 
 import (
-	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 
 	"github.com/TubarrApp/gocommon/sharedparsing"
-	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // ValidateAndSetMetaOps parses the meta transformation operations.
@@ -23,14 +21,6 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 		logger.Pl.W("%s", w)
 	}
 	if err != nil {
-		return err
-	}
-	// Metarr is a one-shot run over real files, so a malformed operation stops it rather
-	// than quietly applying a partial set. Duplicates are dropped without complaint.
-	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
-		return fmt.Errorf("invalid meta operations: %v", invalid)
-	}
-	if err := sharedvalidation.ValidateMetaOps(parsed); err != nil {
 		return err
 	}
 
@@ -59,12 +49,6 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 		logger.Pl.W("%s", w)
 	}
 	if err != nil {
-		return err
-	}
-	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
-		return fmt.Errorf("invalid filename operations: %v", invalid)
-	}
-	if err := sharedvalidation.ValidateFilenameOps(parsed); err != nil {
 		return err
 	}
 
@@ -97,13 +81,6 @@ func ValidateAndSetFilteredMetaOps(input []string) error {
 	if err != nil {
 		return err
 	}
-	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
-		return fmt.Errorf("invalid filtered meta operations: %v", invalid)
-	}
-
-	if err := sharedvalidation.ValidateFilteredMetaOps(parsed); err != nil {
-		return err
-	}
 	logger.Pl.I("Added %d filtered meta operations", len(parsed))
 
 	abstractions.Set(keys.FilteredMetaOpsModels, parsed)
@@ -124,13 +101,6 @@ func ValidateAndSetFilteredFilenameOps(input []string) error {
 		logger.Pl.W("%s", w)
 	}
 	if err != nil {
-		return err
-	}
-	if invalid := sharedparsing.InvalidEntries(warnings); len(invalid) > 0 {
-		return fmt.Errorf("invalid filtered filename operations: %v", invalid)
-	}
-
-	if err := sharedvalidation.ValidateFilteredFilenameOps(parsed); err != nil {
 		return err
 	}
 	logger.Pl.I("Added %d filtered filename operations", len(parsed))

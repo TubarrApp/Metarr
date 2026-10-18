@@ -3,6 +3,7 @@ package models
 import (
 	"io"
 	"os"
+	"slices"
 	"testing"
 
 	"metarr/internal/domain/enums"
@@ -30,6 +31,56 @@ func parseMetaForTest(t *testing.T, in ...string) []sharedmodels.MetaOps {
 	return parsed
 }
 
+// TestMetaOpsFromSharedDatesFrom tests that pasting into or copying to all-dates records its source field.
+func TestMetaOpsFromSharedDatesFrom(t *testing.T) {
+	for _, op := range []string{"all-dates:paste-from:upload_date", "upload_date:copy-to:all-dates"} {
+		got, err := MetaOpsFromShared(parseMetaForTest(t, op))
+		if err != nil {
+			t.Fatalf("%s: %v", op, err)
+		}
+		if got.DatesFrom != "upload_date" || len(got.PasteFromFields) != 0 || len(got.CopyToFields) != 0 {
+			t.Errorf("%s: DatesFrom = %q, paste = %+v, copy = %+v", op, got.DatesFrom, got.PasteFromFields, got.CopyToFields)
+		}
+	}
+}
+
+// TestExpandGroups tests that group fields and copy-to destinations expand per format, with
+// single-field date tags taking precedence over their group's.
+func TestExpandGroups(t *testing.T) {
+	ops := NewMetaOps()
+	ops.Appends = []MetaAppend{{Field: "all-titles", Append: "!"}, {Field: "writer", Append: "?"}}
+	ops.CopyToFields = []CopyToField{{Field: "release_date", Dest: "all-titles"}}
+	ops.DateTags["all-titles"] = MetaDateTag{Loc: enums.DateTagLocPrefix}
+	ops.DateTags["title"] = MetaDateTag{Loc: enums.DateTagLocSuffix}
+
+	got := ops.ExpandGroups(JSONGroupFields)
+
+	var appendFields []string
+	for _, a := range got.Appends {
+		appendFields = append(appendFields, a.Field)
+	}
+	if want := []string{"title", "fulltitle", "subtitle", "writer"}; !slices.Equal(appendFields, want) {
+		t.Errorf("Appends fields = %v, want %v", appendFields, want)
+	}
+	if len(got.CopyToFields) != 3 || got.CopyToFields[1].Dest != "fulltitle" || got.CopyToFields[1].Field != "release_date" {
+		t.Errorf("CopyToFields = %+v", got.CopyToFields)
+	}
+	if got.DateTags["title"].Loc != enums.DateTagLocSuffix || got.DateTags["subtitle"].Loc != enums.DateTagLocPrefix {
+		t.Errorf("DateTags = %+v", got.DateTags)
+	}
+	if _, ok := got.DateTags["all-titles"]; ok {
+		t.Error("group key should not survive expansion")
+	}
+	if len(ops.Appends) != 2 {
+		t.Errorf("original Appends modified: %+v", ops.Appends)
+	}
+
+	nfo := ops.ExpandGroups(NFOGroupFields)
+	if len(nfo.Appends) != 5 || nfo.Appends[1].Field != "originaltitle" {
+		t.Errorf("NFO Appends = %+v", nfo.Appends)
+	}
+}
+
 func TestMetaOpsFromShared(t *testing.T) {
 	ops := parseMetaForTest(t,
 		"title:set:Cats",
@@ -50,8 +101,8 @@ func TestMetaOpsFromShared(t *testing.T) {
 		t.Fatalf("metaOpsFromShared: %v", err)
 	}
 
-	if len(got.SetFields) != 2 {
-		t.Errorf("SetFields = %+v, want 2 entries", got.SetFields)
+	if len(got.SetFields) != 1 || got.SetFields[0].Field != "title" {
+		t.Errorf("SetFields = %+v, want only the title entry", got.SetFields)
 	}
 	if v := got.SetOverrides[enums.OverrideMetaCredits]; v != "Mr Cat" {
 		t.Errorf("credits override = %q, want %q", v, "Mr Cat")
@@ -125,7 +176,8 @@ func TestMetaOpsEscapedValues(t *testing.T) {
 // TestMetaDateTagRejectsAll keeps date-tag restricted to prefix or suffix, unlike
 // delete-date-tag.
 func TestMetaDateTagRejectsAll(t *testing.T) {
-	ops := parseMetaForTest(t, "title:date-tag:all:ymd")
+	// Built directly, since parsing now rejects this before conversion.
+	ops := []sharedmodels.MetaOps{{Field: "title", OpType: "date-tag", OpLoc: "all", DateFormat: "ymd"}}
 
 	if _, err := MetaOpsFromShared(ops); err == nil {
 		t.Error("date-tag with location 'all' should be rejected")

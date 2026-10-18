@@ -5,8 +5,11 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"metarr/internal/abstractions"
+	"metarr/internal/dates"
+	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/file"
@@ -15,6 +18,9 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // NFOFileRW is used to write NFO files.
@@ -112,93 +118,63 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		edited, ok bool
 		newContent string
 		err        error
-
-		trimPfx   []models.MetaReplacePrefix
-		trimSfx   []models.MetaReplaceSuffix
-		apnd      []models.MetaAppend
-		pfx       []models.MetaPrefix
-		newField  []models.MetaSetField
-		replace   []models.MetaReplace
-		copyTo    []models.CopyToField
-		pasteFrom []models.PasteFromField
 	)
 
-	// Initialize:
-	// Replacements.
-	if len(fd.MetaOps.Replaces) > 0 {
-		logger.Pl.I("Model for file %q making replacements", fd.MetaFilePath)
-		replace = fd.MetaOps.Replaces
+	if fd.MetaOps.DatesFrom != "" {
+		val, _ := firstXMLContent(data, fd.MetaOps.DatesFrom)
+		resolveDatesFrom(fd.MetaOps, val)
+	}
+	ops := fd.MetaOps.ExpandGroups(models.NFOGroupFields)
+
+	// Make edits, each building on the last, in the same order as JSON:
+	// 0. "all-x" overrides first, so per-field operations build on them.
+	if newContent, ok = rw.overrideXMLFields(data, ops.SetOverrides); ok {
+		data, edited = newContent, true
 	}
 
-	// Field trim.
-	if len(fd.MetaOps.ReplacePrefixes) > 0 {
-		logger.Pl.I("Model for file %q trimming prefixes", fd.MetaFilePath)
-		trimPfx = fd.MetaOps.ReplacePrefixes
-	}
-
-	if len(fd.MetaOps.ReplaceSuffixes) > 0 {
-		logger.Pl.I("Model for file %q trimming suffixes", fd.MetaFilePath)
-		trimSfx = fd.MetaOps.ReplaceSuffixes
-	}
-
-	// Append and prefix.
-	if len(fd.MetaOps.Appends) > 0 {
-		logger.Pl.I("Model for file %q adding appends", fd.MetaFilePath)
-		apnd = fd.MetaOps.Appends
-	}
-
-	if len(fd.MetaOps.Prefixes) > 0 {
-		logger.Pl.I("Model for file %q adding prefixes", fd.MetaFilePath)
-		pfx = fd.MetaOps.Prefixes
-	}
-
-	// New fields.
-	if len(fd.MetaOps.SetFields) > 0 {
+	// 1. Set fields (establishes baseline values).
+	if len(ops.SetFields) > 0 {
 		logger.Pl.I("Model for file %q applying new field additions", fd.MetaFilePath)
-		newField = fd.MetaOps.SetFields
-	}
-
-	// Copy/paste.
-	if len(fd.MetaOps.CopyToFields) > 0 {
-		logger.Pl.I("Model for file %q copying to fields", fd.MetaFilePath)
-		copyTo = fd.MetaOps.CopyToFields
-	}
-
-	if len(fd.MetaOps.PasteFromFields) > 0 {
-		logger.Pl.I("Model for file %q copying to fields", fd.MetaFilePath)
-		pasteFrom = fd.MetaOps.PasteFromFields
-	}
-
-	logger.Pl.W("Copy to %q and paste from %q not currently implemented.", copyTo, pasteFrom)
-
-	// Make edits, each building on the last:
-	// Replace.
-	if len(replace) > 0 {
-		if newContent, ok = rw.replaceXML(data, replace); ok {
+		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, ops.SetFields); err != nil {
+			logger.Pl.E("failed to add new XML fields with %+v: %v", ops.SetFields, err)
+		} else if ok {
 			data, edited = newContent, true
 		}
 	}
 
-	// Trim.
-	if len(trimPfx) > 0 {
-		if newContent, ok = rw.trimXMLPrefix(data, trimPfx); ok {
+	// 2. Copy/paste.
+	for _, c := range ops.CopyToFields {
+		if newContent, ok = rw.pasteXMLField(data, c.Field, c.Dest); ok {
 			data, edited = newContent, true
 		}
 	}
 
-	if len(trimSfx) > 0 {
-		if newContent, ok = rw.trimXMLSuffix(data, trimSfx); ok {
+	for _, p := range ops.PasteFromFields {
+		if newContent, ok = rw.pasteXMLField(data, p.Origin, p.Field); ok {
 			data, edited = newContent, true
 		}
 	}
 
-	for _, t := range fd.MetaOps.Cuts {
+	// 3. Replace.
+	if newContent, ok = rw.replaceXML(data, ops.Replaces); ok {
+		data, edited = newContent, true
+	}
+
+	if newContent, ok = rw.trimXMLPrefix(data, ops.ReplacePrefixes); ok {
+		data, edited = newContent, true
+	}
+
+	if newContent, ok = rw.trimXMLSuffix(data, ops.ReplaceSuffixes); ok {
+		data, edited = newContent, true
+	}
+
+	for _, t := range ops.Cuts {
 		if newContent, ok = editXMLField(data, t.Field, t.Apply); ok {
 			data, edited = newContent, true
 		}
 	}
 
-	for _, r := range fd.MetaOps.RegexReplaces {
+	for _, r := range ops.RegexReplaces {
 		if newContent, ok = editXMLField(data, r.Field, func(s string) (string, bool) {
 			result := r.Regex.ReplaceAllString(s, r.Replacement)
 			return result, result != s
@@ -207,26 +183,13 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		}
 	}
 
-	// Append and prefix.
-	if len(apnd) > 0 {
-		if newContent, ok = rw.xmlAppend(data, apnd); ok {
-			data, edited = newContent, true
-		}
+	// 4. Prefix and append.
+	if newContent, ok = rw.xmlPrefix(data, ops.Prefixes); ok {
+		data, edited = newContent, true
 	}
 
-	if len(pfx) > 0 {
-		if newContent, ok = rw.xmlPrefix(data, pfx); ok {
-			data, edited = newContent, true
-		}
-	}
-
-	// Add new.
-	if len(newField) > 0 {
-		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, newField); err != nil {
-			logger.Pl.E("failed to add new XML fields with %+v: %v", newField, err)
-		} else if ok {
-			data, edited = newContent, true
-		}
+	if newContent, ok = rw.xmlAppend(data, ops.Appends); ok {
+		data, edited = newContent, true
 	}
 
 	// Only write if changes were made.
@@ -304,196 +267,273 @@ func (rw *NFOFileRW) writeMetadataToFile(f *os.File, content []byte) error {
 	return nil
 }
 
-// editXMLField rewrites the trimmed content of the first <field> element with fn,
-// reporting whether fn changed it.
+// editXMLField rewrites the text of every <field> element with fn, or the <name> of every <actor>,
+// reporting whether fn changed any. Text is unescaped for fn and escaped again after, while
+// content holding nested elements is passed as-is.
 func editXMLField(data, field string, fn func(string) (string, bool)) (string, bool) {
-	startTag, endTag := "<"+field+">", "</"+field+">"
-	startIdx := strings.Index(data, startTag)
-	endIdx := strings.Index(data, endTag)
-	if field == "" || startIdx == -1 || endIdx < startIdx {
+	if field == "" {
 		return data, false
+	}
+	text := func(raw string) (string, bool) {
+		raw = strings.TrimSpace(raw)
+		if strings.Contains(raw, "<") {
+			return fn(raw)
+		}
+		result, changed := fn(html.UnescapeString(raw))
+		return escapeXML(result), changed
 	}
 
-	contentStart := startIdx + len(startTag)
-	content, changed := fn(strings.TrimSpace(data[contentStart:endIdx]))
-	if !changed {
+	if field == sharedtags.NActors {
+		return editXMLElements(data, field, func(block string) (string, bool) {
+			return editXMLElements(block, "name", text)
+		})
+	}
+	return editXMLElements(data, field, text)
+}
+
+// editXMLElements rewrites the raw content of every <tag> element with fn, reporting whether fn changed any.
+func editXMLElements(data, tag string, fn func(string) (string, bool)) (dataRtn string, edited bool) {
+	startTag, endTag := "<"+tag+">", "</"+tag+">"
+	for searchFrom := 0; ; {
+		startIdx := strings.Index(data[searchFrom:], startTag)
+		if startIdx == -1 {
+			break
+		}
+		contentStart := searchFrom + startIdx + len(startTag)
+		endIdx := strings.Index(data[contentStart:], endTag)
+		if endIdx == -1 {
+			break
+		}
+		contentEnd := contentStart + endIdx
+
+		if content, changed := fn(data[contentStart:contentEnd]); changed {
+			data = data[:contentStart] + content + data[contentEnd:]
+			contentEnd = contentStart + len(content)
+			edited = true
+		}
+		searchFrom = contentEnd + len(endTag)
+	}
+	return data, edited
+}
+
+// firstXMLContent returns the unescaped text of the first <field> element, or the first actor's name.
+func firstXMLContent(data, field string) (val string, found bool) {
+	editXMLField(data, field, func(s string) (string, bool) {
+		if !found {
+			val, found = s, true
+		}
+		return s, false
+	})
+	return val, found
+}
+
+// setXMLField sets every <tag> element to val without prompting, adding the tag when missing.
+func (rw *NFOFileRW) setXMLField(data, tag, val string) (dataRtn string, edited bool) {
+	data, edited = editXMLField(data, tag, func(s string) (string, bool) {
+		return val, s != val
+	})
+	if strings.Contains(data, "<"+tag+">") {
+		return data, edited
+	}
+
+	logger.Pl.I("Adding XML field %q with value %q", tag, val)
+	if tag == sharedtags.NActors {
+		return rw.addNewActorField(data, escapeXML(val))
+	}
+	return rw.addNewField(data, "<"+tag+">"+escapeXML(val)+"</"+tag+">")
+}
+
+// pasteXMLField sets every dest element to the text of the first origin element, adding dest when missing.
+func (rw *NFOFileRW) pasteXMLField(data, origin, dest string) (dataRtn string, edited bool) {
+	val, found := firstXMLContent(data, origin)
+	if !found || dest == "" {
+		logger.Pl.D(2, "XML field %q not found, skipping paste into %q", origin, dest)
 		return data, false
 	}
-	return data[:contentStart] + content + data[endIdx:], true
+	logger.Pl.I("Pasting XML field %q into %q", origin, dest)
+	return rw.setXMLField(data, dest, val)
+}
+
+// overrideXMLFields sets every tag in each "all-x" group to its override value, adding missing tags.
+func (rw *NFOFileRW) overrideXMLFields(data string, overrides map[enums.OverrideMetaType]string) (dataRtn string, edited bool) {
+	set := func(val string, tags ...string) {
+		for _, tag := range tags {
+			var ok bool
+			if data, ok = rw.setXMLField(data, tag, val); ok {
+				edited = true
+			}
+		}
+	}
+
+	for overrideType, val := range overrides {
+		switch overrideType {
+		case enums.OverrideMetaCredits:
+			set(val, models.NFOGroupFields[sharedconsts.MetaOpAllCredits]...)
+		case enums.OverrideMetaDates:
+			if len(val) >= 4 {
+				set(val[:4], sharedtags.NYear)
+			}
+			set(val, sharedtags.NPremiereDate, sharedtags.NAired, sharedtags.NReleaseDate, sharedtags.NReleased)
+		case enums.OverrideMetaDescriptions:
+			set(val, models.NFOGroupFields[sharedconsts.MetaOpAllDescriptions]...)
+		case enums.OverrideMetaTitles:
+			set(val, models.NFOGroupFields[sharedconsts.MetaOpAllTitles]...)
+		}
+	}
+	return data, edited
+}
+
+// DateTagEdits strips then adds date tags in the NFO's fields, deleting first so tags can be rebuilt.
+//
+// Runs after the NFO's dates are filled, since the tag is made from them.
+func (rw *NFOFileRW) DateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
+	data := rw.Meta
+	ops := fd.MetaOps.ExpandGroups(models.NFOGroupFields)
+
+	for fld, d := range ops.DeleteDateTags {
+		var ok bool
+		if data, ok = editXMLField(data, fld, func(s string) (string, bool) {
+			_, result := dates.StripDateTags(s, d.Loc)
+			result = strings.Join(strings.Fields(result), " ")
+			return result, result != s
+		}); ok {
+			logger.Pl.I("Deleted date tags from XML field %q", fld)
+			edited = true
+		}
+	}
+
+	for fld, d := range ops.DateTags {
+		tag, err := dates.MakeDateTag(nil, fd, d.Format)
+		if err != nil {
+			return false, fmt.Errorf("failed to generate date tag for field %q: %w", fld, err)
+		}
+		if tag == "" {
+			continue
+		}
+
+		var ok bool
+		if data, ok = editXMLField(data, fld, func(s string) (string, bool) {
+			if strings.Contains(s, tag) {
+				return s, false
+			}
+			if d.Loc == enums.DateTagLocSuffix {
+				return s + " " + tag, true
+			}
+			return tag + " " + s, true
+		}); ok {
+			logger.Pl.I("Added date tag %q to XML field %q", tag, fld)
+			edited = true
+		}
+	}
+
+	if !edited {
+		return false, nil
+	}
+	if err := rw.writeMetadataToFile(file, []byte(data)); err != nil {
+		return false, fmt.Errorf("failed to write date tag edits: %w", err)
+	}
+	return true, nil
+}
+
+// escapeXML escapes s for use as XML element content.
+func escapeXML(s string) string {
+	var b strings.Builder
+	if err := xml.EscapeText(&b, []byte(s)); err != nil {
+		logger.Pl.E("Failed to escape value %q for XML: %v", s, err)
+		return ""
+	}
+	return b.String()
 }
 
 // replaceXML applies meta replacement to the fields in the xml data.
 func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (dataRtn string, edited bool) {
-	logger.Pl.D(5, "Entering replaceXml with data: %v", data)
-
-	if len(replace) == 0 {
-		return data, false // No replacements to apply.
-	}
-
-	for _, replacement := range replace {
-		if replacement.Field == "" || replacement.Value == "" {
+	for _, r := range replace {
+		if r.Value == "" {
 			continue
 		}
-
-		startTag := fmt.Sprintf("<%s>", replacement.Field)
-		endTag := fmt.Sprintf("</%s>", replacement.Field)
-
-		startIdx := strings.Index(data, startTag)
-		endIdx := strings.Index(data, endTag)
-		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing.
+		var ok bool
+		if data, ok = editXMLField(data, r.Field, func(s string) (string, bool) {
+			result := strings.ReplaceAll(s, r.Value, r.Replacement)
+			return result, result != s
+		}); ok {
+			logger.Pl.D(2, "Replaced %q with %q in XML field %q", r.Value, r.Replacement, r.Field)
+			edited = true
 		}
-
-		contentStart := startIdx + len(startTag)
-		content := strings.TrimSpace(data[contentStart:endIdx])
-
-		logger.Pl.D(2, "Identified input xml field %q, replacing %q with %q", replacement.Field, replacement.Value, replacement.Replacement)
-
-		content = strings.ReplaceAll(content, replacement.Value, replacement.Replacement)
-		data = data[:contentStart] + content + data[endIdx:]
-		edited = true
 	}
-	logger.Pl.D(5, "After meta replacements: %v", data)
 	return data, edited
 }
 
-// trimXMLPrefix applies meta replacement to the fields in the XML data.
+// trimXMLPrefix replaces a prefix in the fields in the XML data.
 func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePrefix) (dataRtn string, edited bool) {
-	logger.Pl.D(5, "Entering trimXmlPrefix with data: %v", data)
-
-	if len(trimPfx) == 0 {
-		return data, false // No replacements to apply.
-	}
-
-	for _, prefix := range trimPfx {
-		if prefix.Field == "" || prefix.Prefix == "" {
+	for _, p := range trimPfx {
+		if p.Prefix == "" {
 			continue
 		}
-
-		startTag := fmt.Sprintf("<%s>", prefix.Field)
-		endTag := fmt.Sprintf("</%s>", prefix.Field)
-
-		startIdx := strings.Index(data, startTag)
-		endIdx := strings.Index(data, endTag)
-		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing.
+		var ok bool
+		if data, ok = editXMLField(data, p.Field, func(s string) (string, bool) {
+			if !strings.HasPrefix(s, p.Prefix) {
+				return s, false
+			}
+			return p.Replacement + strings.TrimPrefix(s, p.Prefix), true
+		}); ok {
+			logger.Pl.D(2, "Replaced prefix %q with %q in XML field %q", p.Prefix, p.Replacement, p.Field)
+			edited = true
 		}
-
-		contentStart := startIdx + len(startTag)
-		content := strings.TrimSpace(data[contentStart:endIdx])
-
-		logger.Pl.D(2, "Identified input xml field %q, trimming prefix %q", prefix.Field, prefix.Prefix)
-
-		content = strings.TrimPrefix(content, prefix.Prefix)
-		data = data[:contentStart] + content + data[endIdx:]
-		edited = true
 	}
-	logger.Pl.D(5, "After trimming prefixes: %v", data)
 	return data, edited
 }
 
-// trimXMLSuffix trims specified.
+// trimXMLSuffix replaces a suffix in the fields in the XML data.
 func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuffix) (dataRtn string, edited bool) {
-	logger.Pl.D(5, "Entering trimXmlSuffix with data: %v", data)
-
-	if len(trimSfx) == 0 {
-		return data, false // No replacements to apply.
-	}
-
-	for _, suffix := range trimSfx {
-		if suffix.Field == "" || suffix.Suffix == "" {
+	for _, sfx := range trimSfx {
+		if sfx.Suffix == "" {
 			continue
 		}
-
-		startTag := fmt.Sprintf("<%s>", suffix.Field)
-		endTag := fmt.Sprintf("</%s>", suffix.Field)
-
-		startIdx := strings.Index(data, startTag)
-		endIdx := strings.Index(data, endTag)
-		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing.
+		var ok bool
+		if data, ok = editXMLField(data, sfx.Field, func(s string) (string, bool) {
+			if !strings.HasSuffix(s, sfx.Suffix) {
+				return s, false
+			}
+			return strings.TrimSuffix(s, sfx.Suffix) + sfx.Replacement, true
+		}); ok {
+			logger.Pl.D(2, "Replaced suffix %q with %q in XML field %q", sfx.Suffix, sfx.Replacement, sfx.Field)
+			edited = true
 		}
-
-		contentStart := startIdx + len(startTag)
-		content := strings.TrimSpace(data[contentStart:endIdx])
-
-		logger.Pl.D(2, "Identified input xml field %q, trimming suffix %q", suffix.Field, suffix.Suffix)
-
-		content = strings.TrimSuffix(content, suffix.Suffix)
-		data = data[:contentStart] + content + data[endIdx:]
-		edited = true
 	}
-	logger.Pl.D(5, "After meta replacements: %v", data)
 	return data, edited
 }
 
-// xmlPrefix applies meta replacement to the fields in the XML data.
+// xmlPrefix prefixes text onto the fields in the XML data.
 func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool) {
-
-	logger.Pl.D(5, "Entering xmlPrefix with data: %v", data)
-
-	if len(pfx) == 0 {
-		return data, false // No replacements to apply.
-	}
-
-	for _, prefix := range pfx {
-		if prefix.Field == "" || prefix.Prefix == "" {
+	for _, p := range pfx {
+		if p.Prefix == "" {
 			continue
 		}
-
-		startTag := fmt.Sprintf("<%s>", prefix.Field)
-		endTag := fmt.Sprintf("</%s>", prefix.Field)
-
-		startIdx := strings.Index(data, startTag)
-		endIdx := strings.Index(data, endTag)
-		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing.
+		var ok bool
+		if data, ok = editXMLField(data, p.Field, func(s string) (string, bool) {
+			return p.Prefix + s, true
+		}); ok {
+			logger.Pl.D(2, "Added prefix %q to XML field %q", p.Prefix, p.Field)
+			edited = true
 		}
-
-		contentStart := startIdx + len(startTag)
-		content := strings.TrimSpace(data[contentStart:endIdx])
-
-		logger.Pl.D(2, "Identified input xml field %q, adding prefix %q", prefix.Field, prefix.Prefix)
-
-		data = data[:contentStart] + prefix.Prefix + content + data[endIdx:]
-		edited = true
 	}
-	logger.Pl.D(5, "After trimming prefixes: %v", data)
 	return data, edited
 }
 
-// xmlAppend appends elements to XML fields.
+// xmlAppend appends text onto the fields in the XML data.
 func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn string, edited bool) {
-
-	logger.Pl.D(5, "Entering xmlAppend with data: %v", data)
-
-	if len(apnd) == 0 {
-		return data, false // No replacements to apply.
-	}
-
-	for _, append := range apnd {
-		if append.Field == "" || append.Append == "" {
+	for _, a := range apnd {
+		if a.Append == "" {
 			continue
 		}
-
-		startTag := fmt.Sprintf("<%s>", append.Field)
-		endTag := fmt.Sprintf("</%s>", append.Field)
-
-		startIdx := strings.Index(data, startTag)
-		endIdx := strings.Index(data, endTag)
-		if startIdx == -1 || endIdx == -1 {
-			continue // One or both tags missing.
+		var ok bool
+		if data, ok = editXMLField(data, a.Field, func(s string) (string, bool) {
+			return s + a.Append, true
+		}); ok {
+			logger.Pl.D(2, "Appended %q to XML field %q", a.Append, a.Field)
+			edited = true
 		}
-
-		contentStart := startIdx + len(startTag)
-		content := strings.TrimSpace(data[contentStart:endIdx])
-
-		logger.Pl.D(2, "Identified input xml field %q, appending suffix %q", append.Field, append.Append)
-
-		data = data[:contentStart] + content + append.Append + data[endIdx:]
-		edited = true
 	}
-	logger.Pl.D(5, "After meta replacements: %v", data)
 	return data, edited
 }
 

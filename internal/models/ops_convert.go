@@ -16,12 +16,6 @@ import (
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
-// creditsOverrideFields set every credit field at once rather than a single field.
-var creditsOverrideFields = map[string]struct{}{
-	"all-credits": {},
-	"credits-all": {},
-}
-
 // MetaOpsFromShared folds flat shared operations into Metarr's aggregate dispatch model.
 func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 	out := NewMetaOps()
@@ -29,13 +23,22 @@ func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 	for _, op := range ops {
 		switch op.OpType {
 		case sharedconsts.OpSet:
-			if _, ok := creditsOverrideFields[op.Field]; ok {
+			// "all-x" operations override a field group and are never written as fields themselves.
+			switch op.Field {
+			case sharedconsts.MetaOpAllCredits:
 				out.SetOverrides[enums.OverrideMetaCredits] = op.OpValue
+			case sharedconsts.MetaOpAllDates:
+				out.SetOverrides[enums.OverrideMetaDates] = op.OpValue
+			case sharedconsts.MetaOpAllDescriptions:
+				out.SetOverrides[enums.OverrideMetaDescriptions] = op.OpValue
+			case sharedconsts.MetaOpAllTitles:
+				out.SetOverrides[enums.OverrideMetaTitles] = op.OpValue
+			default:
+				out.SetFields = append(out.SetFields, MetaSetField{
+					Field: op.Field,
+					Value: op.OpValue,
+				})
 			}
-			out.SetFields = append(out.SetFields, MetaSetField{
-				Field: op.Field,
-				Value: op.OpValue,
-			})
 
 		case sharedconsts.OpAppend:
 			out.Appends = append(out.Appends, MetaAppend{
@@ -50,12 +53,20 @@ func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 			})
 
 		case sharedconsts.OpCopyTo:
+			if op.OpValue == sharedconsts.MetaOpAllDates {
+				out.DatesFrom = op.Field
+				break
+			}
 			out.CopyToFields = append(out.CopyToFields, CopyToField{
 				Field: op.Field,
 				Dest:  op.OpValue,
 			})
 
 		case sharedconsts.OpPasteFrom:
+			if op.Field == sharedconsts.MetaOpAllDates {
+				out.DatesFrom = op.OpValue
+				break
+			}
 			out.PasteFromFields = append(out.PasteFromFields, PasteFromField{
 				Field:  op.Field,
 				Origin: op.OpValue,
