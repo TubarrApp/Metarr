@@ -520,6 +520,10 @@ func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.Me
 					continue
 				}
 				a.Append = result
+				if dates.HasSuffix(strVal, a.Append) {
+					logger.Pl.D(3, "JSON field %q already ends with %q, not appending it again", a.Field, a.Append)
+					continue
+				}
 
 				// Process.
 				logger.Pl.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
@@ -553,6 +557,10 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 					continue
 				}
 				p.Prefix = result
+				if dates.HasPrefix(strVal, p.Prefix) {
+					logger.Pl.D(3, "JSON field %q already starts with %q, not prefixing it again", p.Field, p.Prefix)
+					continue
+				}
 
 				// Process.
 				logger.Pl.D(3, "Identified input JSON field '%v', adding prefix '%v'", p.Field, p.Prefix)
@@ -720,13 +728,14 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 			continue
 		}
 
-		// Apply the tag based on location.
+		// Apply the tag based on location, replacing an existing tag there.
+		_, rest := dates.StripDateTags(strVal, d.Loc)
 		var result string
 		switch d.Loc {
 		case enums.DateTagLocPrefix:
-			result = fmt.Sprintf("%s %s", tag, strVal)
+			result = fmt.Sprintf("%s %s", tag, rest)
 		case enums.DateTagLocSuffix:
-			result = fmt.Sprintf("%s %s", strVal, tag)
+			result = fmt.Sprintf("%s %s", rest, tag)
 		default:
 			return false, fmt.Errorf("invalid date tag location enum: %v", d.Loc)
 		}

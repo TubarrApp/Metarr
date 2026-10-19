@@ -416,10 +416,11 @@ func (rw *NFOFileRW) DateTagEdits(file *os.File, fd *models.FileData) (edited bo
 			if strings.Contains(s, tag) {
 				return s, false
 			}
+			_, rest := dates.StripDateTags(s, d.Loc) // An existing tag here is replaced.
 			if d.Loc == enums.DateTagLocSuffix {
-				return s + " " + tag, true
+				return rest + " " + tag, true
 			}
-			return tag + " " + s, true
+			return tag + " " + rest, true
 		}); ok {
 			logger.Pl.I("Added date tag %q to XML field %q", tag, fld)
 			edited = true
@@ -511,6 +512,9 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn st
 		}
 		var ok bool
 		if data, ok = editXMLField(data, p.Field, func(s string) (string, bool) {
+			if dates.HasPrefix(s, p.Prefix) {
+				return s, false
+			}
 			return p.Prefix + s, true
 		}); ok {
 			logger.Pl.D(2, "Added prefix %q to XML field %q", p.Prefix, p.Field)
@@ -528,6 +532,9 @@ func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn s
 		}
 		var ok bool
 		if data, ok = editXMLField(data, a.Field, func(s string) (string, bool) {
+			if dates.HasSuffix(s, a.Append) {
+				return s, false
+			}
 			return s + a.Append, true
 		}); ok {
 			logger.Pl.D(2, "Appended %q to XML field %q", a.Append, a.Field)

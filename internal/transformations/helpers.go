@@ -258,6 +258,10 @@ func (fp *fileProcessor) appendStrings(filename string, appends []models.FOpAppe
 		if value == app.Value && isTemplate {
 			continue
 		}
+		if dates.HasSuffix(filename, value) {
+			logger.Pl.D(2, "Filename %q already ends with %q, not appending it again", filename, value)
+			continue
+		}
 
 		// Process.
 		prev := filename
@@ -278,6 +282,10 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 		// Expand template tags.
 		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(pre.Value, fp.metadata)
 		if value == pre.Value && isTemplate {
+			continue
+		}
+		if dates.HasPrefix(filename, value) {
+			logger.Pl.D(2, "Filename %q already starts with %q, not prefixing it again", filename, value)
 			continue
 		}
 
@@ -308,14 +316,16 @@ func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, 
 			return filename
 		}
 
-		result = dateTagStr + " " + filename
+		_, rest := dates.StripDateTags(filename, enums.DateTagLocPrefix) // An existing tag here is replaced.
+		result = dateTagStr + " " + rest
 		logger.Pl.D(2, "Added date tag prefix: %s -> %s", filename, result)
 	case enums.DateTagLocSuffix:
 		if strings.HasSuffix(filename, dateTagStr) {
 			return filename
 		}
 
-		result = filename + " " + dateTagStr
+		_, rest := dates.StripDateTags(filename, enums.DateTagLocSuffix) // An existing tag here is replaced.
+		result = rest + " " + dateTagStr
 		logger.Pl.D(2, "Added date tag suffix: %s -> %s", filename, result)
 	default:
 		logger.Pl.W("Invalid date tag location: %v, keeping original filename", dateTag.Loc)

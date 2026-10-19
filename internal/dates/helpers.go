@@ -285,6 +285,18 @@ func StripDateTags(val string, loc enums.DateTagLocation) (dateStrs []string, re
 	return nil, val
 }
 
+// HasPrefix reports whether val already starts with prefix, also looking past a date tag at its start.
+func HasPrefix(val, prefix string) bool {
+	_, rest := StripDateTags(val, enums.DateTagLocPrefix)
+	return strings.HasPrefix(val, prefix) || strings.HasPrefix(rest, prefix)
+}
+
+// HasSuffix reports whether val already ends with suffix, also looking past a date tag at its end.
+func HasSuffix(val, suffix string) bool {
+	_, rest := StripDateTags(val, enums.DateTagLocSuffix)
+	return strings.HasSuffix(val, suffix) || strings.HasSuffix(rest, suffix)
+}
+
 // stripAllDateTags removes all date tags and returns them.
 func stripAllDateTags(val string) (tags []string, cleaned string) {
 	logger.Pl.D(3, "stripAllDateTags input: %q", val)

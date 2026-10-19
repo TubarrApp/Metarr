@@ -127,3 +127,28 @@ func TestDateTagEditsNFO(t *testing.T) {
 		}
 	}
 }
+
+// TestNFOOpsRerun tests that meta ops run again on an edited NFO don't stack prefixes or appends, and a date tag op
+// replaces the tag already there.
+func TestNFOOpsRerun(t *testing.T) {
+	data := "<movie>\n<title>[2023-11-05] [Cats] Cats (HD)</title>\n</movie>"
+	rw := &NFOFileRW{}
+	if _, edited := rw.xmlPrefix(data, []models.MetaPrefix{{Field: "title", Prefix: "[Cats] "}}); edited {
+		t.Error("prefix applied again")
+	}
+	if _, edited := rw.xmlAppend(data, []models.MetaAppend{{Field: "title", Append: " (HD)"}}); edited {
+		t.Error("append applied again")
+	}
+
+	f := nfoTestFile(t, data)
+	ops := models.NewMetaOps()
+	ops.DateTags["title"] = models.MetaDateTag{Loc: enums.DateTagLocPrefix, Format: enums.DateYyyyMmDd}
+	fd := &models.FileData{MetaOps: ops, MDates: &models.MetadataDates{FormattedDate: "2024-05-01"}}
+	if edited, err := (&NFOFileRW{Meta: data}).DateTagEdits(f, fd); err != nil || !edited {
+		t.Fatalf("DateTagEdits edited=%v err=%v", edited, err)
+	}
+	got, _ := os.ReadFile(f.Name())
+	if want := "<title>[2024-05-01] [Cats] Cats (HD)</title>"; !strings.Contains(string(got), want) {
+		t.Errorf("missing %q in:\n%s", want, got)
+	}
+}
