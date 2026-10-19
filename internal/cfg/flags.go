@@ -11,30 +11,31 @@ import (
 
 // initFilesDirs initializes user flag settings for input files and directories.
 func initFilesDirs() error {
+	// Paths are taken whole (not split on commas, which file names can hold), so repeat a flag for each one.
 	// Batch.
-	rootCmd.PersistentFlags().StringSliceP(keys.BatchPairsInput, "b", nil, "Pairs of video and JSON files/directories (e.g. '/videodir:/metadir')")
+	rootCmd.PersistentFlags().StringArrayP(keys.BatchPairsInput, "b", nil, "Pair of video and JSON files/directories (e.g. '/videodir:/metadir'). Repeat the flag for each pair.")
 	if err := viper.BindPFlag(keys.BatchPairsInput, rootCmd.PersistentFlags().Lookup(keys.BatchPairsInput)); err != nil {
 		return err
 	}
 
 	// Videos.
-	rootCmd.PersistentFlags().StringSliceP(keys.VideoDirs, "v", nil, "A directory containing videos")
+	rootCmd.PersistentFlags().StringArrayP(keys.VideoDirs, "v", nil, "A directory containing videos. Repeat the flag for each one.")
 	if err := viper.BindPFlag(keys.VideoDirs, rootCmd.PersistentFlags().Lookup(keys.VideoDirs)); err != nil {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringSliceP(keys.VideoFiles, "V", nil, "A video file")
+	rootCmd.PersistentFlags().StringArrayP(keys.VideoFiles, "V", nil, "A video file. Repeat the flag for each one.")
 	if err := viper.BindPFlag(keys.VideoFiles, rootCmd.PersistentFlags().Lookup(keys.VideoFiles)); err != nil {
 		return err
 	}
 
 	// Metafiles.
-	rootCmd.PersistentFlags().StringSliceP(keys.MetaDirs, "m", nil, "A directory containing metadata files")
+	rootCmd.PersistentFlags().StringArrayP(keys.MetaDirs, "m", nil, "A directory containing metadata files. Repeat the flag for each one.")
 	if err := viper.BindPFlag(keys.MetaDirs, rootCmd.PersistentFlags().Lookup(keys.MetaDirs)); err != nil {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringSliceP(keys.MetaFiles, "M", nil, "A metadata file")
+	rootCmd.PersistentFlags().StringArrayP(keys.MetaFiles, "M", nil, "A metadata file. Repeat the flag for each one.")
 	if err := viper.BindPFlag(keys.MetaFiles, rootCmd.PersistentFlags().Lookup(keys.MetaFiles)); err != nil {
 		return err
 	}
