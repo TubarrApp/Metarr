@@ -71,8 +71,8 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSF
 	}, nil
 }
 
-// RenameFiles calls os.Rename on the video/meta files.
-func (fs *FSFileWriter) RenameFiles() error {
+// RenameFiles calls os.Rename on the video/meta files, leaving out the meta file if noMeta (e.g. it was purged).
+func (fs *FSFileWriter) RenameFiles(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
 
@@ -89,7 +89,7 @@ func (fs *FSFileWriter) RenameFiles() error {
 	}
 
 	// Rename meta file.
-	if shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
+	if !noMeta && shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
 		if err := checkFreeDestination(fs.InputMeta, fs.RenamedMeta); err != nil {
 			return err
 		}

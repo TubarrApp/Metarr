@@ -255,7 +255,7 @@ func (fp *fileProcessor) writeResult() error {
 		}
 	} else {
 		// Rename in place (no move operation).
-		if err := fsWriter.RenameFiles(); err != nil {
+		if err := fsWriter.RenameFiles(deletedMeta); err != nil {
 			return err
 		}
 

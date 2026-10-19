@@ -286,21 +286,34 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		sharedconsts.ACodecALAC,
 		sharedconsts.ACodecFLAC,
 		sharedconsts.ACodecMP2,
-		sharedconsts.ACodecMP3,
-		sharedconsts.ACodecOpus,
-		sharedconsts.ACodecPCM,
-		sharedconsts.ACodecVorbis,
-		sharedconsts.ACodecTrueHD:
+		sharedconsts.ACodecMP3:
 
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
 
+	// FFmpeg's own Opus and Vorbis encoders are experimental, so use the libraries'.
+	case sharedconsts.ACodecOpus:
+		b.audioCodec = []string{consts.FFmpegCA, "libopus"}
+
+	case sharedconsts.ACodecVorbis:
+		b.audioCodec = []string{consts.FFmpegCA, "libvorbis"}
+
+	// TrueHD's only encoder is experimental, which FFmpeg refuses without -strict experimental.
+	case sharedconsts.ACodecTrueHD:
+		logger.Pl.W("FFmpeg's TrueHD encoder is experimental, its output may not play everywhere.")
+		b.audioCodec = []string{consts.FFmpegCA, desiredACodec, consts.FFmpegStrict, consts.FFmpegStrictExperimental}
+
 	case sharedconsts.ACodecAC3, // -- 48KHz audio rate required. --
-		sharedconsts.ACodecDTS,
 		sharedconsts.ACodecEAC3:
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
 
-	case sharedconsts.ACodecWAV:
+	// DTS's only encoder is experimental, which FFmpeg refuses without -strict experimental.
+	case sharedconsts.ACodecDTS:
+		logger.Pl.W("FFmpeg's DTS encoder is experimental, its output may not play everywhere.")
+		b.audioCodec = []string{consts.FFmpegCA, desiredACodec, consts.FFmpegStrict, consts.FFmpegStrictExperimental}
+		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
+
+	case sharedconsts.ACodecPCM, sharedconsts.ACodecWAV: // "pcm" isn't an encoder name.
 		b.audioCodec = []string{consts.FFmpegCA, "pcm_s16le"}
 
 	default:

@@ -46,6 +46,8 @@ const (
 	FFmpegCRF                 = "-crf"
 	FFmpegBA                  = "-b:a"
 	FFmpegAR                  = "-ar"
+	FFmpegStrict              = "-strict"
+	FFmpegStrictExperimental  = "experimental"
 )
 
 // Audio rate values.
