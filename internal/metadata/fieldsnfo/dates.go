@@ -1,8 +1,8 @@
 package fieldsnfo
 
 import (
-	"fmt"
 	"cmp"
+	"fmt"
 	"metarr/internal/dates"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"

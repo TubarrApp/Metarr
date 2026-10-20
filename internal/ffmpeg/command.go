@@ -611,7 +611,7 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		b.builder.Reset()
 		b.builder.WriteString(containerKey)
 		b.builder.WriteByte('=')
-		b.builder.WriteString(strings.TrimSpace(value))
+		b.builder.WriteString(strings.ReplaceAll(strings.TrimSpace(value), "\x00", "")) // A NUL stops ffmpeg starting.
 
 		logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
 		args = append(args, "-metadata", b.builder.String())
