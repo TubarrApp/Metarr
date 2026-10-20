@@ -86,6 +86,7 @@ func run() (exitCode int) {
 
 	// Parse configuration.
 	if err := cfg.Execute(); err != nil {
+		models.ReportError(err)
 		fmt.Fprintln(os.Stderr, err)
 		fmt.Fprintf(os.Stderr, "\n")
 		return 1
@@ -174,6 +175,9 @@ func run() (exitCode int) {
 	}
 	if errs := vars.GetErrorArray(); len(errs) > 0 {
 		logger.Pl.E("Finished with %d error(s)", len(errs))
+		for _, err := range errs {
+			models.ReportError(err)
+		}
 		exitCode = 1
 	}
 

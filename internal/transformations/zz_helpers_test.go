@@ -44,7 +44,7 @@ func TestFixContractions(t *testing.T) {
 		{"İstanbul Don t Go", "İstanbul Dont Go"},
 	}
 	for _, tt := range tests {
-		got, _, err := fixContractions(tt.in, tt.in, "video.mp4", enums.RenamingSpaces)
+		got, _, err := fixContractions(tt.in, tt.in, "video.mp4", enums.RenamingSpaces, false)
 		if err != nil {
 			t.Fatalf("fixContractions(%q): %v", tt.in, err)
 		}

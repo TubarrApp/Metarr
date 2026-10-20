@@ -99,7 +99,9 @@ func execute() (err error) {
 
 	// Filetype to output as.
 	if viper.IsSet(keys.OutputFiletype) {
-		validation.ValidateAndSetOutputFiletype(viper.GetString(keys.OutputFiletype))
+		if err := validation.ValidateAndSetOutputFiletype(viper.GetString(keys.OutputFiletype)); err != nil {
+			return err
+		}
 	}
 
 	// Meta overwrite and preserve flags.
@@ -110,7 +112,9 @@ func execute() (err error) {
 
 	// Verify user metafile purge settings.
 	if viper.IsSet(keys.MetaPurge) {
-		validation.ValidateAndSetPurgeMetafiles(viper.GetString(keys.MetaPurge))
+		if err := validation.ValidateAndSetPurgeMetafiles(viper.GetString(keys.MetaPurge)); err != nil {
+			return err
+		}
 	}
 
 	// Parse and verify the audio codec.
@@ -148,6 +152,14 @@ func execute() (err error) {
 	}
 	if viper.IsSet(keys.TranscodeQuality) {
 		if err := validation.ValidateAndSetTranscodeQuality(viper.GetString(keys.TranscodeQuality)); err != nil {
+			return err
+		}
+	}
+
+	// Codecs the output container can't hold are refused before any file is touched.
+	if ext := viper.GetString(keys.OutputFiletype); ext != "" {
+		if err := sharedvalidation.ValidateCodecsForContainer(ext,
+			viper.GetStringSlice(keys.TranscodeVideoCodecInput), viper.GetStringSlice(keys.TranscodeAudioCodecInput)); err != nil {
 			return err
 		}
 	}

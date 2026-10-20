@@ -294,15 +294,20 @@ func ValidateAndSetMaxCPU(maxCPU float64) {
 }
 
 // ValidateAndSetOutputFiletype verifies the output filetype is valid for FFmpeg.
-func ValidateAndSetOutputFiletype(o string) {
-	var err error
-	if o, err = sharedvalidation.ValidateFFmpegOutputExt(o); err != nil {
-		logger.Pl.E("Will not change file containers, invalid output extension: %v", err)
-		return
+// A blank one keeps each video's container.
+func ValidateAndSetOutputFiletype(o string) error {
+	if strings.TrimSpace(o) == "" {
+		abstractions.Set(keys.OutputFiletype, "")
+		return nil
+	}
+	o, err := sharedvalidation.ValidateFFmpegOutputExt(o)
+	if err != nil {
+		return fmt.Errorf("invalid output extension: %w", err)
 	}
 
 	abstractions.Set(keys.OutputFiletype, o)
 	logger.Pl.I("Outputting files as %s", o)
+	return nil
 }
 
 // ValidateAndSetMetaOverwritePreserve checks if the entered meta overwrite and preserve flags are valid.
@@ -313,29 +318,32 @@ func ValidateAndSetMetaOverwritePreserve(mOverwrite, mPreserve bool) {
 	}
 }
 
-// ValidateAndSetPurgeMetafiles checks and sets the type of metafile purge to perform.
-func ValidateAndSetPurgeMetafiles(purgeType string) {
+// ValidateAndSetPurgeMetafiles checks and sets the type of metafile purge to perform. A blank one purges nothing.
+func ValidateAndSetPurgeMetafiles(purgeType string) error {
 	e := enums.PurgeMetaNone
 
 	// Normalize string.
-	purgeType = strings.TrimSpace(purgeType)
-	purgeType = strings.ToLower(purgeType)
-	if !strings.HasPrefix(purgeType, ".") && purgeType != "all" {
-		purgeType = "." + purgeType
+	normalized := strings.ToLower(strings.TrimSpace(purgeType))
+	if normalized != "" && !strings.HasPrefix(normalized, ".") && normalized != "all" {
+		normalized = "." + normalized
 	}
 
 	// Compare to list.
-	switch purgeType {
+	switch normalized {
+	case "":
 	case "all":
 		e = enums.PurgeMetaAll
 	case sharedconsts.MExtJSON:
 		e = enums.PurgeMetaJSON
 	case sharedconsts.MExtNFO:
 		e = enums.PurgeMetaNFO
+	default:
+		return fmt.Errorf("invalid metafile purge %q (all, json or nfo)", purgeType)
 	}
 	abstractions.Set(keys.MetaPurgeEnum, e)
 
 	logger.Pl.D(2, "Purge metafiles setting: %v", e)
+	return nil
 }
 
 // ValidateAndSetInputFiletypes checks that the inputted filetypes are accepted.

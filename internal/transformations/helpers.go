@@ -58,9 +58,10 @@ func applyNamingStyle(style enums.ReplaceToStyle, input string) string {
 	}
 }
 
-// fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag.
-func fixContractions(videoBase, metaBase string, videoFilePath string, style enums.ReplaceToStyle) (renamedV, renamedM string, err error) {
-	if videoBase == "" || metaBase == "" {
+// fixContractions fixes the contractions created by FFmpeg's restrict-filenames flag. videoBase is blank, and stays so,
+// when videos are skipped.
+func fixContractions(videoBase, metaBase string, videoFilePath string, style enums.ReplaceToStyle, skipVideos bool) (renamedV, renamedM string, err error) {
+	if metaBase == "" || (videoBase == "" && !skipVideos) {
 		return videoBase, metaBase, fmt.Errorf("empty input strings to fix contractions (file %q)", videoFilePath)
 	}
 	var contractionsMap map[string]models.ContractionPattern

@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -52,11 +51,9 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	desiredVCodec := getOutputVideoCodecString(currentVCodec)
 	desiredACodec := getOutputAudioCodecString(currentACodec)
 
-	// Check incompatibility with extension type.
-	compatSlice := consts.IncompatibleCodecsForContainer[outExt]
-	if slices.Contains(compatSlice, desiredVCodec) {
-		logger.Pl.I("Desired codec %q is not compatible with video container %q, falling back to 'copy'.", desiredVCodec, outExt)
-		desiredVCodec = sharedconsts.VCodecCopy
+	// Make sure the output container can hold the codecs.
+	if desiredVCodec, desiredACodec, err = fitCodecsToContainer(ctx, outExt, currentVCodec, desiredVCodec, currentACodec, desiredACodec); err != nil {
+		return err
 	}
 
 	// Return early if no processing is needed.
@@ -112,9 +109,8 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 			if ctx.Err() != nil {
 				return fmt.Errorf("ffmpeg canceled for %q: %w", baseName, ctx.Err())
 			}
-			// Exit if final attempt errored.
+			// Exit if final attempt errored (the caller records the error).
 			if i == maxAttempts {
-				vars.AddToErrorArray(err)
 				return fmt.Errorf("ffmpeg failed after %d attempts for %q due to error: %w\n\nCaptured output:\n%s", maxAttempts, baseName, err, stderr.String())
 			}
 

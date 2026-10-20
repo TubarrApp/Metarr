@@ -289,7 +289,7 @@ func (fp *fileProcessor) handleRenaming() error {
 	}
 
 	// Fix contractions.
-	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoPath, fp.style); err != nil {
+	if renamedVideo, renamedMeta, err = fixContractions(renamedVideo, renamedMeta, fp.fd.OriginalVideoPath, fp.style, fp.skipVideos); err != nil {
 		return fmt.Errorf("failed to fix contractions for %s. error: %w", renamedVideo, err)
 	}
 
@@ -352,7 +352,10 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 
 	logger.Pl.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
-	if filepath.IsAbs(renamedVPath) {
+	if renamedVideo == "" { // Videos are skipped, so there's no video to name.
+		renamedVPath = ""
+	}
+	if renamedVPath == "" || filepath.IsAbs(renamedVPath) {
 		fp.fd.RenamedVideoPath = renamedVPath
 	} else {
 		fp.fd.RenamedVideoPath, err = filepath.Abs(renamedVPath)

@@ -27,6 +27,14 @@ var (
 	availableCodecsCacheOnce sync.Once
 )
 
+// availableEncoders returns FFmpeg's encoder list, read once.
+func availableEncoders(ctx context.Context) string {
+	availableCodecsCacheOnce.Do(func() {
+		availableCodecsCache = ffmpegAvailableCodecs(ctx)
+	})
+	return availableCodecsCache
+}
+
 // ffCommandBuilder handles FFmpeg command construction.
 type ffCommandBuilder struct {
 	// Files
@@ -81,10 +89,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	if err != nil {
 		logger.Pl.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
-	availableCodecsCacheOnce.Do(func() {
-		availableCodecsCache = b.ffmpegAvailableCodecs(ctx)
-	})
-	availableCodecs := availableCodecsCache
+	availableCodecs := availableEncoders(ctx)
 
 	// Get GPU flags/codecs.
 	accelType, useHWDecode := b.setHWAccelFlags()
@@ -94,9 +99,13 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 
 	// Get software codecs.
 	if b.videoCodecGPU == nil {
-		b.setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs)
+		if err := b.setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs); err != nil {
+			return nil, err
+		}
 	}
-	b.setAudioCodec(currentACodec, desiredACodec, availableCodecs)
+	if err := b.setAudioCodec(currentACodec, desiredACodec, availableCodecs); err != nil {
+		return nil, err
+	}
 	b.setTranscodeQuality(accelType)
 
 	b.setDefaultFormatFlagMap(outExt)
@@ -276,11 +285,11 @@ func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, availableCodecs string) {
+func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, availableCodecs string) error {
 	switch desiredACodec {
 	case sharedconsts.ACodecCopy, currentACodec, "": // -- Set and return early. --
 		b.audioCodec = []string{consts.FFmpegCA, sharedconsts.ACodecCopy} // Hardcoded copy (do not use 'desiredACodec').
-		return
+		return nil
 
 	case sharedconsts.ACodecAAC, // -- No audio rate needed. --
 		sharedconsts.ACodecALAC,
@@ -290,12 +299,11 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
 
-	// FFmpeg's own Opus and Vorbis encoders are experimental, so use the libraries'.
 	case sharedconsts.ACodecOpus:
-		b.audioCodec = []string{consts.FFmpegCA, "libopus"}
+		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyOpus}
 
 	case sharedconsts.ACodecVorbis:
-		b.audioCodec = []string{consts.FFmpegCA, "libvorbis"}
+		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyVorbis}
 
 	// TrueHD's only encoder is experimental, which FFmpeg refuses without -strict experimental.
 	case sharedconsts.ACodecTrueHD:
@@ -314,30 +322,30 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
 
 	case sharedconsts.ACodecPCM, sharedconsts.ACodecWAV: // "pcm" isn't an encoder name.
-		b.audioCodec = []string{consts.FFmpegCA, "pcm_s16le"}
+		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyPCM}
 
 	default:
 		b.audioCodec = nil // -- Invalid or un-set codec. --
 	}
 
-	// Check codec availability.
+	// Check codec availability. A codec chosen but not installed fails, rather than leaving the audio as it was.
 	if len(b.audioCodec) >= 2 {
-		if !strings.Contains(availableCodecs, b.audioCodec[1]) {
-			logger.Pl.W("Audio codec %q not available in FFmpeg build, falling back to software.", b.audioCodec[1])
-			b.audioCodec = []string{consts.FFmpegCA, sharedconsts.ACodecCopy}
+		if availableCodecs != "" && !strings.Contains(availableCodecs, b.audioCodec[1]) {
+			return fmt.Errorf("can't transcode audio to %q: FFmpeg's %q encoder isn't installed", desiredACodec, b.audioCodec[1])
 		}
 	} else if b.audioCodec != nil {
 		logger.Pl.E("%s Strings expected to be at least parts, got %v", consts.LogTagDevError, b.audioCodec)
 		b.audioCodec = nil
 	}
+	return nil
 }
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.
-func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs string) {
+func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs string) error {
 	switch desiredVCodec {
 	case sharedconsts.VCodecCopy, currentVCodec, "": // -- Set and return early. --
 		b.videoCodecSoftware = []string{consts.FFmpegCV0, consts.FFVCodecKeyCopy} // Hardcoded copy (do not use 'desiredVCodec').
-		return
+		return nil
 
 	// Software codecs.
 	case sharedconsts.VCodecAV1, // -- Software codecs. --
@@ -352,20 +360,20 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, desiredVCodec, a
 		b.videoCodecSoftware = nil // -- Invalid or un-set codec. --
 	}
 
-	// Check codec availability.
+	// Check codec availability. A codec chosen but not installed fails, rather than leaving the video as it was.
 	if len(b.videoCodecSoftware) >= 2 {
-		if !strings.Contains(availableCodecs, b.videoCodecSoftware[1]) {
-			logger.Pl.W("Video codec %q not available in FFmpeg build, falling back to software.", b.videoCodecSoftware[1])
-			b.videoCodecSoftware = []string{consts.FFmpegCV0, sharedconsts.VCodecCopy}
+		if availableCodecs != "" && !strings.Contains(availableCodecs, b.videoCodecSoftware[1]) {
+			return fmt.Errorf("can't transcode video to %q: FFmpeg's %q encoder isn't installed", desiredVCodec, b.videoCodecSoftware[1])
 		}
 	} else if b.videoCodecSoftware != nil {
 		logger.Pl.E("%s Strings expected to be at least 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
+	return nil
 }
 
 // ffmpegAvailableCodecs lists codecs available in FFmpeg.
-func (b *ffCommandBuilder) ffmpegAvailableCodecs(ctx context.Context) (output string) {
+func ffmpegAvailableCodecs(ctx context.Context) (output string) {
 	cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
 	outBytes, err := cmd.Output()
 	result := strings.TrimSpace(string(outBytes))

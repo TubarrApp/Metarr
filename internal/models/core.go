@@ -8,6 +8,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -107,6 +108,15 @@ func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 func ReportVideoPath(path string) {
 	if _, err := fmt.Fprintf(os.Stdout, "current video path: %s\n", path); err != nil {
 		logger.Pl.E("Failed to output current video path %q due to error: %v", path, err)
+	}
+}
+
+// ReportError prints an error's first line on stdout, beside the paths, so a caller (e.g. Tubarr) can show why a run
+// failed.
+func ReportError(err error) {
+	msg, _, _ := strings.Cut(err.Error(), "\n")
+	if _, err := fmt.Fprintf(os.Stdout, "metarr error: %s\n", msg); err != nil {
+		logger.Pl.E("Failed to output error %q due to error: %v", msg, err)
 	}
 }
 

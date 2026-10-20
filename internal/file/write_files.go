@@ -175,8 +175,8 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 			return false, nil
 		}
 
-	case enums.PurgeMetaNone:
-		return false, errors.New("user selected to skip purging metadata, this should be inaccessible. Exiting function")
+	case enums.PurgeMetaNone: // A blank purge setting.
+		return false, nil
 
 	default:
 		return false, errors.New("support not added for this metafile purge enum yet, exiting function")
