@@ -322,22 +322,7 @@ func stripAllDateTags(val string) (tags []string, cleaned string) {
 
 // extractDateFromMetadata attempts to find a date in the metadata using predefined fields.
 func extractDateFromMetadata(metadata map[string]any) (string, bool) {
-	preferredDateFields := []string{
-		sharedtags.JReleaseDate,
-		"releasedate",
-		"released_on",
-		sharedtags.JOriginallyAvailable,
-		"originally_available",
-		"originallyavailable",
-		sharedtags.JDate,
-		sharedtags.JUploadDate,
-		"uploaddate",
-		"uploaded_on",
-		sharedtags.JCreationTime, // Last resort, may give false positives.
-		"created_at",
-	}
-
-	for _, field := range preferredDateFields {
+	for _, field := range sharedtags.DateKeys {
 		if value, found := metadata[field]; found {
 			if strVal, ok := value.(string); ok && strVal != "" && len(strVal) > 4 {
 				if date, _, found := strings.Cut(strVal, "T"); found {

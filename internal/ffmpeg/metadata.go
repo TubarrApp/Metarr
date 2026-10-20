@@ -22,19 +22,16 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 func (b *ffCommandBuilder) addTitlesDescs(fd *models.FileData) {
 	t := fd.MTitleDesc
 
-	title := t.Fulltitle
-	if title == "" {
-		title = t.Title
-	}
+	title := sharedtags.FirstString(map[string]any{
+		sharedtags.JFulltitle: t.Fulltitle,
+		sharedtags.JTitle:     t.Title,
+	}, sharedtags.TitleKeys)
 
-	longDescription := t.LongDescription
-	if longDescription == "" {
-		if t.LongUnderscoreDescription != "" {
-			longDescription = t.LongUnderscoreDescription
-		} else {
-			longDescription = t.Description
-		}
-	}
+	longDescription := sharedtags.FirstString(map[string]any{
+		sharedtags.JLongDesc:           t.LongDescription,
+		sharedtags.JLongUnderscoreDesc: t.LongUnderscoreDescription,
+		sharedtags.JDescription:        t.Description,
+	}, sharedtags.DescriptionKeys)
 
 	description := longDescription
 	if description == "" {
