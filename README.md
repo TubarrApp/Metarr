@@ -141,7 +141,7 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 
 ## Filtered Operations (`--filtered-meta-ops`, `--filtered-filename-ops`)
 
-Each entry is one filter and one operation, applied only when the filter matches the file's metadata: `title:contains:Example|title:keep-after:| `. Everything after the first `|` is the operation, so it needs no escaping; a `|` inside the filter's own value is written `\|`. For several operations under one filter, repeat the filter on each entry.
+Each entry is one filter and one operation divided by `||`, applied only when the filter matches the file's metadata: `title:contains:Ep 5 | Show: Finale||title:keep-after:| `. Neither side needs escaping, except a `||` in the filter's value. For several operations under one filter, repeat the filter on each entry.
 
 Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip` (the default).
 

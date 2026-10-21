@@ -67,8 +67,8 @@ func fuzzFlags(encoders string) []fuzzFlag {
 		{"meta-ops", []string{"title:set:%s", "title:prefix:%s ", "title:append: %s", "artist:set:%s", "title:replace:a:%s",
 			"title:date-tag:prefix:ymd", "description:copy-to:synopsis", "synopsis:paste-from:title", "title:keep-before:%s",
 			"all-titles:append:!", "title:regex-replace:[aeiou]:%s", "%s"}, 3},
-		{"filtered-meta-ops", []string{"title:contains:%s|artist:set:Matched", "uploader:equals:Fuzz Uploader|title:prefix:[U] ", "%s|%s"}, 1},
-		{"filtered-filename-ops", []string{"title:contains:%s|prefix:[F] ", "title:omits:zzz|append: [F]", "%s|%s"}, 1},
+		{"filtered-meta-ops", []string{"title:contains:%s||artist:set:Matched", "uploader:equals:Fuzz Uploader||title:prefix:[U] ", "%s||%s"}, 1},
+		{"filtered-filename-ops", []string{"title:contains:%s||prefix:[F] ", "title:omits:zzz||append: [F]", "%s||%s"}, 1},
 		{"rename-style", []string{"spaces", "underscores", "fixes-only", "skip", "%s"}, 1},
 		{"output-ext", []string{"mp4", "mkv", "webm", "mov", "%s"}, 1},
 		{"output-directory", []string{"out", "out/{{year}}", "out/{{video_title}}", "out/%n"}, 1},
@@ -359,7 +359,7 @@ var metarrFuzzSeeds = []struct {
 		"output-directory": "out/{{video_title}}",
 	}), "x", "日本語のタイトル {{year}}"},
 	{seedChoices(1, map[string]string{
-		"filtered-meta-ops": "title:contains:%s|artist:set:Matched", "filtered-filename-ops": "title:contains:%s|prefix:[F] ",
+		"filtered-meta-ops": "title:contains:%s||artist:set:Matched", "filtered-filename-ops": "title:contains:%s||prefix:[F] ",
 		"skip-videos": "true", "rename-style": "underscores", "meta-preserve": "true",
 	}), "Long", strings.Repeat("Long title ", 30)},
 	{seedChoices(2, map[string]string{

@@ -52,10 +52,12 @@ func TestFilteredMetaOpsValidateFilters(t *testing.T) {
 		in      string
 		wantErr bool
 	}{
-		{"valid", "title:contains:cat|title:prefix:[CAT VIDEOS] ", false},
-		{"unknown filter type", "title:explodes:cat|title:prefix:[CAT] ", true},
-		{"non-numeric numeric filter", "duration:morethan:soon|title:prefix:[CAT] ", true},
-		{"unknown operation type", "title:contains:cat|title:explodes:x", true},
+		{"valid", "title:contains:cat||title:prefix:[CAT VIDEOS] ", false},
+		{"valid with ':' and '|' in the filter value", "title:contains:Ep 5 | Show: Finale||title:prefix:[CAT VIDEOS] ", false},
+		{"single '|' divider", "title:contains:cat|title:prefix:[CAT VIDEOS] ", true},
+		{"unknown filter type", "title:explodes:cat||title:prefix:[CAT] ", true},
+		{"non-numeric numeric filter", "duration:morethan:soon||title:prefix:[CAT] ", true},
+		{"unknown operation type", "title:contains:cat||title:explodes:x", true},
 	}
 
 	for _, tt := range tests {
@@ -76,11 +78,11 @@ func TestFilteredFilenameOpsValidation(t *testing.T) {
 		in      string
 		wantErr bool
 	}{
-		{"valid", "title:contains:cat|prefix:[cat video] ", false},
-		{"valid date tag", "title:contains:cat|date-tag:prefix:ymd", false},
-		{"field on the filename side", "title:contains:cat|title:prefix:[cat video] ", true},
-		{"unknown filter type", "title:explodes:cat|prefix:[cat] ", true},
-		{"unknown operation type", "title:contains:cat|explodes:x", true},
+		{"valid", "title:contains:cat||prefix:[cat video] ", false},
+		{"valid date tag", "title:contains:cat||date-tag:prefix:ymd", false},
+		{"field on the filename side", "title:contains:cat||title:prefix:[cat video] ", true},
+		{"unknown filter type", "title:explodes:cat||prefix:[cat] ", true},
+		{"unknown operation type", "title:contains:cat||explodes:x", true},
 		{"no divider", "title:contains:cat", true},
 	}
 

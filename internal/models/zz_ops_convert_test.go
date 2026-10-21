@@ -402,7 +402,7 @@ func TestResolveMetaOpsByChannel(t *testing.T) {
 }
 
 // TestResolveMetaOpsWithFilters covers the standalone filtered form:
-// "title:contains:cat|title:prefix:[CAT VIDEOS] " applies the prefix only when the
+// "title:contains:cat||title:prefix:[CAT VIDEOS] " applies the prefix only when the
 // file's metadata title actually contains "cat".
 func TestResolveMetaOpsWithFilters(t *testing.T) {
 	filtered := []sharedmodels.FilteredMetaOps{{
@@ -488,7 +488,7 @@ func TestResolveMetaOpsCombinesPlainAndFiltered(t *testing.T) {
 }
 
 // TestResolveFilenameOpsWithFilters covers the standalone filtered filename form:
-// "title:contains:cat|prefix:[cat video] " prefixes the filename only when the file's
+// "title:contains:cat||prefix:[cat video] " prefixes the filename only when the file's
 // metadata title contains "cat". The filter reads metadata; the operation acts on the
 // filename.
 func TestResolveFilenameOpsWithFilters(t *testing.T) {
