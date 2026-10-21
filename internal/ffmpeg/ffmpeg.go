@@ -88,6 +88,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	// Run the FFmpeg command (n total attempts).
 	maxAttempts := 3
 	builder := newFfCommandBuilder(fd, tmpOutPath)
+	durationUS := probeDurationUS(origPath)
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.
@@ -95,12 +96,13 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		if err != nil {
 			return err
 		}
+		args = append([]string{"-progress", "pipe:1", "-nostats"}, args...)
 		command := exec.CommandContext(ctx, "ffmpeg", args...)
 		logger.Pl.I("Constructed FFmpeg command for %q:\n\n%v\n", fd.OriginalVideoPath, command.String())
 
-		// Set command output to stdout/stderr.
+		// Progress goes to stdout as progress lines, the rest of FFmpeg's output to stderr.
 		var stderr bytes.Buffer
-		command.Stdout = os.Stdout
+		command.Stdout = newProgressWriter(os.Stdout, durationUS)
 		command.Stderr = io.MultiWriter(os.Stderr, &stderr)
 
 		// Run command.
