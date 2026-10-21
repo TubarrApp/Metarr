@@ -72,7 +72,17 @@ func (p *progressWriter) report(done bool) {
 	if speed == "N/A" {
 		speed = ""
 	}
-	if _, err := fmt.Fprintf(p.out, "%spct=%.1f frame=%d fps=%.1f speed=%s\n", progressPrefix, pct, frame, fps, speed); err != nil {
+
+	// Seconds left: the video still to process, at the average speed so far.
+	eta := int64(-1)
+	rate, rateErr := strconv.ParseFloat(strings.TrimSuffix(speed, "x"), 64)
+	switch {
+	case done:
+		eta = 0
+	case err == nil && rateErr == nil && rate > 0 && p.durationUS > 0:
+		eta = int64(float64(max(0, p.durationUS-outUS)) / 1e6 / rate)
+	}
+	if _, err := fmt.Fprintf(p.out, "%spct=%.1f frame=%d fps=%.1f speed=%s eta=%d\n", progressPrefix, pct, frame, fps, speed, eta); err != nil {
 		logger.Pl.E("Failed to output FFmpeg progress: %v", err)
 	}
 }

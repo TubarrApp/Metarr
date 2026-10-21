@@ -33,9 +33,9 @@ func TestProgressWriter(t *testing.T) {
 	}
 
 	want := []string{
-		"metarr progress: pct=25.0 frame=120 fps=30.0 speed=1.52x",
-		"metarr progress: pct=-1.0 frame=200 fps=30.0 speed=",
-		"metarr progress: pct=100.0 frame=300 fps=30.0 speed=1.6x",
+		"metarr progress: pct=25.0 frame=120 fps=30.0 speed=1.52x eta=4", // 7.5s of video left at 1.52x.
+		"metarr progress: pct=-1.0 frame=200 fps=30.0 speed= eta=-1",
+		"metarr progress: pct=100.0 frame=300 fps=30.0 speed=1.6x eta=0",
 	}
 	if got := strings.Split(strings.TrimSpace(out.String()), "\n"); strings.Join(got, "\n") != strings.Join(want, "\n") {
 		t.Errorf("got lines:\n%s\nwant:\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
@@ -49,7 +49,7 @@ func TestProgressWriterUnknownDuration(t *testing.T) {
 	if _, err := p.Write([]byte("frame=10\nout_time_us=500000\nprogress=continue\n")); err != nil {
 		t.Fatal(err)
 	}
-	if got := out.String(); !strings.Contains(got, "pct=-1.0 frame=10") {
+	if got := out.String(); !strings.Contains(got, "pct=-1.0 frame=10") || !strings.HasSuffix(strings.TrimSpace(got), "eta=-1") {
 		t.Errorf("got %q, want no percentage", got)
 	}
 }
