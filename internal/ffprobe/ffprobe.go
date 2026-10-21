@@ -55,7 +55,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 			fd.HasEmbeddedThumbnail = true
 
 			// Thumbnail embedded in file, missing in metafile.
-			if fd.MWebData.Thumbnail == "" {
+			if fd.EmbedThumbnail() == "" {
 				logger.Pl.I("Thumbnail exists in video %q, but no thumbnail found in metadata. Will process video.", fd.OriginalVideoPath)
 				return false
 			}
@@ -76,8 +76,8 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 	}
 
 	// No thumbnail in file but thumbnail exists in metadata.
-	if !fd.HasEmbeddedThumbnail && fd.MWebData.Thumbnail != "" {
-		logger.Pl.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.MWebData.Thumbnail)
+	if !fd.HasEmbeddedThumbnail && fd.EmbedThumbnail() != "" {
+		logger.Pl.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.EmbedThumbnail())
 		return false
 	}
 

@@ -145,6 +145,12 @@ func execute() (err error) {
 		}
 	}
 
+	if t := viper.GetString(keys.Thumbnail); t != "" {
+		if err := validation.ValidateThumbnail(t, viper.GetBool(keys.StripThumbnails)); err != nil {
+			return err
+		}
+	}
+
 	if viper.IsSet(keys.TranscodeVideoCodecInput) {
 		if err := validation.ValidateAndSetVideoCodec(viper.GetStringSlice((keys.TranscodeVideoCodecInput))); err != nil {
 			return err

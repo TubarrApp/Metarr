@@ -104,6 +104,19 @@ func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 	}
 }
 
+// EmbedThumbnail returns the thumbnail to embed: --thumbnail if set, else the metadata's.
+func (fd *FileData) EmbedThumbnail() string {
+	if t := abstractions.GetString(keys.Thumbnail); t != "" {
+		return t
+	}
+	return fd.MWebData.Thumbnail
+}
+
+// ForceThumbnailWrite reports whether a thumbnail is written even when the file's metadata already matches.
+func ForceThumbnailWrite() bool {
+	return abstractions.GetBool(keys.ForceWriteThumbnails) || abstractions.GetString(keys.Thumbnail) != ""
+}
+
 // ReportVideoPath prints the video's path as soon as it changes on disk, so a caller can find it if the run fails later.
 func ReportVideoPath(path string) {
 	if _, err := fmt.Fprintf(os.Stdout, "current video path: %s\n", path); err != nil {

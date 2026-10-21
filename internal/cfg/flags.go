@@ -196,6 +196,11 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	rootCmd.PersistentFlags().String(keys.Thumbnail, "", "Thumbnail to embed in place of the metadata's (an image file path or http(s) URL), always written")
+	if err := viper.BindPFlag(keys.Thumbnail, rootCmd.PersistentFlags().Lookup(keys.Thumbnail)); err != nil {
+		return err
+	}
+
 	return nil
 }
 

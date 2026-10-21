@@ -9,6 +9,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"os"
 	"slices"
 	"strconv"
@@ -43,6 +44,24 @@ func ValidateGPUAcceleration(g, nodePath string) (accelType string, err error) {
 	}
 
 	return g, nil
+}
+
+// ValidateThumbnail checks a --thumbnail value is an http(s) URL or an existing file, and not combined with stripping.
+func ValidateThumbnail(t string, strip bool) error {
+	if strip {
+		return fmt.Errorf("--%s can't be used with --%s", keys.Thumbnail, keys.StripThumbnails)
+	}
+	if parsing.IsHTTPURL(t) {
+		return nil
+	}
+	info, err := os.Stat(t)
+	if err != nil {
+		return fmt.Errorf("--%s %q is neither an http(s) URL nor a readable file: %w", keys.Thumbnail, t, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("--%s %q is not a file", keys.Thumbnail, t)
+	}
+	return nil
 }
 
 // ---- Validate And Set ------------------------------------------------------------------------------------------

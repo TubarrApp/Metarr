@@ -155,6 +155,7 @@ Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `u
 - `--extra-ffmpeg-args` – append custom switches to the generated command.
 - `--force-write-thumbnail` – run FFmpeg to write the thumbnail even when all metadata already matches.
 - `--strip-thumbnail` – remove embedded artwork.
+- `--thumbnail` – embed this image (a file path or http(s) URL) instead of the metadata's thumbnail, always writing it. A local file is used where it is. Can't be combined with `--strip-thumbnail`.
 - `--skip-videos` – stop after metadata and filename updates.
 
 Under the hood Metarr introspects the current codecs via FFprobe, caches available FFmpeg codecs, and only transcodes when needed. Thumbnail support handles both downloading remote artwork and copying embedded cover art when the container allows it.

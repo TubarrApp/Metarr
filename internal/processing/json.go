@@ -174,11 +174,9 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	}
 
 	// Write thumbnail.
-	if abstractions.IsSet(keys.ForceWriteThumbnails) {
-		if abstractions.GetBool(keys.ForceWriteThumbnails) && fd.MWebData.Thumbnail != "" {
-			logger.Pl.I("Skipping FFprobe, thumbnail enforcing write.")
-			return false
-		}
+	if models.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
+		logger.Pl.I("Skipping FFprobe, thumbnail enforcing write.")
+		return false
 	}
 
 	// Run metadata checks in all other cases.

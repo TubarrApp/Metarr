@@ -165,11 +165,9 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 	logger.Pl.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	// Write thumbnail.
-	if abstractions.IsSet(keys.ForceWriteThumbnails) {
-		if abstractions.GetBool(keys.ForceWriteThumbnails) && fd.MWebData.Thumbnail != "" {
-			logger.Pl.I("Thumbnail URL detected. Will write to file.")
-			return false
-		}
+	if models.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
+		logger.Pl.I("Thumbnail detected. Will write to file.")
+		return false
 	}
 
 	var (

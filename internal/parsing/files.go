@@ -1,9 +1,16 @@
 package parsing
 
 import (
+	"net/url"
 	"path/filepath"
 	"strings"
 )
+
+// IsHTTPURL reports whether s is an absolute http(s) URL.
+func IsHTTPURL(s string) bool {
+	u, err := url.Parse(s)
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
 
 // GetBaseNameWithoutExt returns the base name (without extension) of any file path.
 func GetBaseNameWithoutExt(path string) string {

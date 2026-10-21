@@ -117,7 +117,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		stripThumbnails = abstractions.GetBool(keys.StripThumbnails)
 	}
 	if !stripThumbnails {
-		b.setThumbnail(fd.MWebData.Thumbnail, parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
+		b.setThumbnail(fd.EmbedThumbnail(), parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
 	}
 
 	// Return the fully appended argument string.
@@ -165,17 +165,22 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 
 	// Thumbnail URL not "" beyond here...
 
-	// Download local thumbnail.
-	thumbnail, err := downloadThumbnail(thumbnailURL, videoBaseName)
-	if err != nil {
-		logger.Pl.E("Could not download thumbnail %q: %v", thumbnailURL, err)
-		return
+	// A file given with --thumbnail is used where it is (its JPG copy goes in the temp dir), anything else is downloaded.
+	thumbnail, jpgPath := thumbnailURL, filepath.Join(os.TempDir(), "thumb_"+videoBaseName+".jpg")
+	if thumbnailURL != abstractions.GetString(keys.Thumbnail) || parsing.IsHTTPURL(thumbnailURL) {
+		var err error
+		if thumbnail, err = downloadThumbnail(thumbnailURL, videoBaseName); err != nil {
+			logger.Pl.E("Could not download thumbnail %q: %v", thumbnailURL, err)
+			return
+		}
+		jpgPath = parsing.GetFilepathWithoutExt(thumbnail) + ".jpg"
 	}
 
 	// Ensure JPG.
+	var err error
 	thumbExt := strings.ToLower(filepath.Ext(thumbnail))
 	if thumbExt != ".jpg" && thumbExt != ".jpeg" {
-		if thumbnail, err = convertToJPG(thumbnail); err != nil {
+		if thumbnail, err = convertToJPG(thumbnail, jpgPath); err != nil {
 			logger.Pl.E("Could not convert thumbnail %q to JPG: %v", thumbnail, err)
 			return
 		}
@@ -210,9 +215,8 @@ func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt stri
 	}
 }
 
-// convertToJPG converts an inputted file format to JPG for embedding.
-func convertToJPG(inputPath string) (string, error) {
-	outputPath := parsing.GetFilepathWithoutExt(inputPath) + ".jpg"
+// convertToJPG converts an image to a JPG at outputPath for embedding.
+func convertToJPG(inputPath, outputPath string) (string, error) {
 	cmd := exec.Command("ffmpeg", "-y", "-i", inputPath, outputPath)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to convert %q to jpg: %w", filepath.Ext(inputPath), err)
