@@ -3,8 +3,10 @@ package cfg
 import (
 	"fmt"
 	"metarr/internal/domain/keys"
+	"metarr/internal/parsing"
 	"metarr/internal/validation"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedtemplates"
@@ -148,6 +150,14 @@ func execute() (err error) {
 	if t := viper.GetString(keys.Thumbnail); t != "" {
 		if err := validation.ValidateThumbnail(t, viper.GetBool(keys.StripThumbnails)); err != nil {
 			return err
+		}
+		// FFmpeg reads a relative name like "cover:1.jpg" as a protocol.
+		if !parsing.IsHTTPURL(t) {
+			abs, err := filepath.Abs(t)
+			if err != nil {
+				return fmt.Errorf("failed to make --%s path %q absolute: %w", keys.Thumbnail, t, err)
+			}
+			viper.Set(keys.Thumbnail, abs)
 		}
 	}
 

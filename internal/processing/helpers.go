@@ -9,7 +9,7 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"os"
-	"strings"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -49,16 +49,16 @@ func getFileDirs() (videoDirs, videoFiles, metaDirs, metaFiles []string, err err
 		metaFiles = append(metaFiles, batchPairs.MetaFiles...)
 	}
 
-	if err := ensureNoColons(videoDirs); err != nil {
+	if videoDirs, err = absPaths(videoDirs); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := ensureNoColons(videoFiles); err != nil {
+	if videoFiles, err = absPaths(videoFiles); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := ensureNoColons(metaDirs); err != nil {
+	if metaDirs, err = absPaths(metaDirs); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := ensureNoColons(metaFiles); err != nil {
+	if metaFiles, err = absPaths(metaFiles); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
@@ -66,14 +66,17 @@ func getFileDirs() (videoDirs, videoFiles, metaDirs, metaFiles []string, err err
 	return videoDirs, videoFiles, metaDirs, metaFiles, nil
 }
 
-// ensureNoColons returns an error if any file or folder names in the slice contain colons, FFmpeg cannot handle them properly.
-func ensureNoColons(slice []string) error {
-	for _, s := range slice {
-		if strings.Contains(s, ":") {
-			return fmt.Errorf("failed due to invalid entry %q: FFmpeg cannot properly handle filenames or folders containing colons", s)
+// absPaths returns the paths made absolute, as FFmpeg reads a relative name like "Title:x.mp4" as a protocol.
+func absPaths(paths []string) ([]string, error) {
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to make path %q absolute: %w", p, err)
 		}
+		out[i] = abs
 	}
-	return nil
+	return out, nil
 }
 
 // getValidFileDirs checks for validity of files and directories, with fallback handling.

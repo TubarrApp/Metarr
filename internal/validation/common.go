@@ -201,7 +201,7 @@ func ValidateAndSetBatchPairs(batchPairs []string) error {
 
 		// Ensure no colons in names.
 		if strings.Contains(video, ":") || strings.Contains(meta, ":") {
-			return fmt.Errorf("cannot use pair %q\nDO NOT put colons in file or folder names (FFmpeg treats as protocol)", pair)
+			return fmt.Errorf("cannot use pair %q: colons separate the video and metadata paths, so neither path can contain one", pair)
 		}
 
 		// Handle video part.
