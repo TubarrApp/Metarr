@@ -26,6 +26,10 @@ func FillJSONFields(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		json = meta
 	}
 
+	// Fill show and other details, which need the credits filled first.
+	fillShowData(fd, json)
+	fillOtherData(fd, json)
+
 	if meta, ok := fillDescriptions(fd, json, jsonRW); !ok {
 		logger.Pl.I("No description metadata found")
 		allFilled = false

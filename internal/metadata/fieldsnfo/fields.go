@@ -24,6 +24,15 @@ func FillNFO(fd *models.FileData) (filled bool) {
 		filled = true
 	}
 
+	// Fill show and other details, which need the credits filled first.
+	if ok := fillNFOShowData(fd); ok {
+		filled = true
+	}
+
+	if ok := fillNFOOtherData(fd); ok {
+		filled = true
+	}
+
 	if ok := FillWebData(fd); ok {
 		filled = true
 	}

@@ -20,14 +20,14 @@ type tagDiff struct {
 
 type tagDiffMap map[string]tagDiff
 
-// CheckMetaMatches checks FFprobe captured metadata from the video against the metafile.
-func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData) (allMetaMatches bool) {
+// CheckMetaMatches checks FFprobe captured metadata from the video against the tags FFmpeg would write.
+func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData, tags map[string]string) (allMetaMatches bool) {
 	command := exec.CommandContext(
 		ctx,
 		"ffprobe",
 		"-v", "quiet",
 		"-print_format", "json",
-		"-show_format", "-show_streams",
+		"-show_format", "-show_streams", "-show_programs",
 		fd.OriginalVideoPath,
 	)
 
@@ -82,11 +82,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 	}
 
 	// Map of metadata to check.
-	metaCheckMap, exists := getDiffMapForFiletype(extension, fd, ffData)
-	if !exists {
-		logger.Pl.W("FFprobe metadata key map not available for filetype %s", extension)
-		return false
-	}
+	metaCheckMap := getDiffMapForFiletype(extension, tags, ffData)
 
 	// Collect all metadata for logging.
 	ffContent := make([]string, 0, len(metaCheckMap))

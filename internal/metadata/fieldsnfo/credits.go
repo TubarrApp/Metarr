@@ -72,9 +72,13 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 
 	// Fields the NFO holds already carry the override; fill those it cannot hold.
 	if v, ok := fd.MetaOps.SetOverrides[enums.OverrideMetaCredits]; ok {
-		fillEmpty(v, &c.Actor, &c.Author, &c.Artist, &c.Channel, &c.Creator, &c.Studio, &c.Publisher,
-			&c.Producer, &c.Performer, &c.Uploader, &c.Composer, &c.Director, &c.Writer)
+		fillEmpty(v, &c.Actor, &c.Author, &c.Artist, &c.AlbumArtist, &c.Channel, &c.Creator, &c.Studio,
+			&c.Publisher, &c.Producer, &c.Performer, &c.Uploader, &c.Composer, &c.Director, &c.Writer)
 	}
+
+	// Album artist falls back to the artist and vice versa.
+	fillEmpty(c.Artist, &c.AlbumArtist)
+	fillEmpty(c.AlbumArtist, &c.Artist)
 	return true
 }
 

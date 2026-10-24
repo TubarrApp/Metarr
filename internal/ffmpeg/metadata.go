@@ -7,6 +7,13 @@ import (
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
+// MetadataTags returns the metadata FFmpeg writes for the file, keyed by JSON field.
+func MetadataTags(fd *models.FileData) map[string]string {
+	b := &ffCommandBuilder{builder: &strings.Builder{}, metadataMap: make(map[string]string)}
+	b.addAllMetadata(fd)
+	return b.metadataMap
+}
+
 // addAllMetadata combines all metadata into a single map.
 func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 	b.addTitlesDescs(fd)
@@ -14,6 +21,7 @@ func (b *ffCommandBuilder) addAllMetadata(fd *models.FileData) {
 	b.addDates(fd.MDates)
 	b.addShowInfo(fd.MShowData)
 	b.addOtherMetadata(fd.MOther)
+	b.addWebData(fd.MWebData)
 }
 
 // addTitlesDescs adds all title/description-related metadata.
@@ -59,17 +67,18 @@ func (b *ffCommandBuilder) addTitlesDescs(fd *models.FileData) {
 func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 	// Single value credits.
 	fields := map[string]string{
-		sharedtags.JActor:     c.Actor,
-		sharedtags.JAuthor:    c.Author,
-		sharedtags.JArtist:    c.Artist,
-		sharedtags.JCreator:   c.Creator,
-		sharedtags.JStudio:    c.Studio,
-		sharedtags.JPublisher: c.Publisher,
-		sharedtags.JProducer:  c.Producer,
-		sharedtags.JPerformer: c.Performer,
-		sharedtags.JComposer:  c.Composer,
-		sharedtags.JDirector:  c.Director,
-		sharedtags.JWriter:    c.Writer,
+		sharedtags.JActor:       c.Actor,
+		sharedtags.JAuthor:      c.Author,
+		sharedtags.JArtist:      c.Artist,
+		sharedtags.JAlbumArtist: c.AlbumArtist,
+		sharedtags.JCreator:     c.Creator,
+		sharedtags.JStudio:      c.Studio,
+		sharedtags.JPublisher:   c.Publisher,
+		sharedtags.JProducer:    c.Producer,
+		sharedtags.JPerformer:   c.Performer,
+		sharedtags.JComposer:    c.Composer,
+		sharedtags.JDirector:    c.Director,
+		sharedtags.JWriter:      c.Writer,
 	}
 
 	for field, value := range fields {
@@ -92,9 +101,15 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 
 // addDates adds all date-related metadata.
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
+	// A date from another year gives way to the year alone.
+	date := d.Date
+	if d.Year != "" && !strings.HasPrefix(date, d.Year) {
+		date = d.Year
+	}
+
 	fields := map[string]string{
 		sharedtags.JCreationTime:        d.CreationTime,
-		sharedtags.JDate:                d.Date,
+		sharedtags.JDate:                date,
 		sharedtags.JOriginallyAvailable: d.OriginallyAvailableAt,
 		sharedtags.JReleaseDate:         d.ReleaseDate,
 		sharedtags.JUploadDate:          d.UploadDate,
@@ -111,11 +126,12 @@ func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 // addShowInfo adds all show info related metadata.
 func (b *ffCommandBuilder) addShowInfo(s *models.MetadataShowData) {
 	fields := map[string]string{
-		"episode_id":    s.EpisodeID,
-		"episode_sort":  s.EpisodeSort,
-		"season_number": s.SeasonNumber,
-		"season_title":  s.SeasonTitle,
-		"show":          s.Show,
+		sharedtags.JEpisodeID:    s.EpisodeID,
+		sharedtags.JEpisodeSort:  s.EpisodeSort,
+		sharedtags.JNetwork:      s.Network,
+		sharedtags.JSeasonNumber: s.SeasonNumber,
+		sharedtags.JSeasonTitle:  s.SeasonTitle,
+		sharedtags.JShow:         s.Show,
 	}
 
 	for field, value := range fields {
@@ -128,15 +144,27 @@ func (b *ffCommandBuilder) addShowInfo(s *models.MetadataShowData) {
 // addOtherMetadata adds other related metadata.
 func (b *ffCommandBuilder) addOtherMetadata(o *models.MetadataOtherData) {
 	fields := map[string]string{
-		"genre":    o.Genre,
-		"hd_video": o.HDVideo,
-		"language": o.Language,
+		sharedtags.JAlbum:       o.Album,
+		sharedtags.JCopyright:   o.Copyright,
+		sharedtags.JDiscNumber:  o.Disc,
+		sharedtags.JGenre:       o.Genre,
+		sharedtags.JHDVideo:     o.HDVideo,
+		sharedtags.JKeywords:    o.Keywords,
+		sharedtags.JLanguage:    o.Language,
+		sharedtags.JTrackNumber: o.Track,
 	}
 
 	for field, value := range fields {
 		if value != "" {
 			b.metadataMap[field] = value
 		}
+	}
+}
+
+// addWebData adds the video's webpage URL.
+func (b *ffCommandBuilder) addWebData(w *models.MetadataWebData) {
+	if w.WebpageURL != "" {
+		b.metadataMap[sharedtags.JWebpageURL] = w.WebpageURL
 	}
 }
 

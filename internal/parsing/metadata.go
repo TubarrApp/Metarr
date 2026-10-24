@@ -90,62 +90,106 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 	return result, true
 }
 
-// GetContainerKeys returns valid tag names for the given key and container type.
+// GetContainerKeys returns the tag a metadata field is written as in a container, or "" if the container can't hold it.
 func GetContainerKeys(key, extension string) string {
-	switch extension {
+	switch strings.ToLower(extension) {
 	case sharedconsts.ExtWMV,
 		sharedconsts.ExtASF:
-		// ASF uses TitleCase and WM/ prefixes.
+		// ASF takes any key, using the Windows Media names where they exist.
 		switch key {
+		case sharedtags.JAlbum:
+			return sharedtags.ASFAlbumTitle
+
+		case sharedtags.JAlbumArtist:
+			return sharedtags.ASFAlbumArtist
 
 		case sharedtags.JArtist:
-			return sharedtags.ASFArtist
+			return sharedtags.ASFAuthor
+
+		case sharedtags.JAuthor:
+			return "" // The artist is written as the author.
+
+		case sharedtags.JComment:
+			return sharedtags.ASFDescription
 
 		case sharedtags.JComposer:
 			return sharedtags.ASFComposer
 
-		case sharedtags.JDirector:
-			return sharedtags.ASFDirector
-
-		case sharedtags.JProducer:
-			return sharedtags.ASFProducer
-
-		case sharedtags.JSubtitle:
-			return sharedtags.ASFSubtitle
+		case sharedtags.JCopyright:
+			return sharedtags.ASFCopyright
 
 		case sharedtags.JDescription:
 			return sharedtags.ASFSubTitleDescription
 
-		case sharedtags.JDate:
-			return sharedtags.ASFEncodingTime
+		case sharedtags.JDirector:
+			return sharedtags.ASFDirector
+
+		case sharedtags.JDiscNumber:
+			return sharedtags.ASFPartOfSet
+
+		case sharedtags.JGenre:
+			return sharedtags.ASFGenre
+
+		case sharedtags.JLanguage:
+			return sharedtags.ASFLanguage
+
+		case sharedtags.JProducer:
+			return sharedtags.ASFProducer
+
+		case sharedtags.JPublisher:
+			return sharedtags.ASFPublisher
+
+		case sharedtags.JReleaseDate:
+			return sharedtags.ASFOriginalReleaseTime
+
+		case sharedtags.JSubtitle:
+			return sharedtags.ASFSubtitle
 
 		case sharedtags.JTitle:
 			return sharedtags.ASFTitle
 
+		case sharedtags.JTrackNumber:
+			return sharedtags.ASFTrackNumber
+
+		case sharedtags.JWriter:
+			return sharedtags.ASFWriter
+
 		case sharedtags.JYear:
 			return sharedtags.ASFYear
+
+		default:
+			return key
 		}
 
 	case sharedconsts.ExtAVI:
-		// AVI uses RIFF INFO tags (4-character codes).
+		// AVI only takes its RIFF INFO tags (4-character codes).
 		switch key {
-		case sharedtags.JLongDesc:
-			return sharedtags.AVIComments
-
-		case sharedtags.JActor:
-			return sharedtags.AVIStar
+		case sharedtags.JAlbum:
+			return sharedtags.AVIProduct
 
 		case sharedtags.JArtist:
 			return sharedtags.AVIArtist
 
+		case sharedtags.JCopyright:
+			return sharedtags.AVICopyright
+
 		case sharedtags.JDescription:
 			return sharedtags.AVIComment
 
-		case sharedtags.JReleaseDate:
-			return sharedtags.AVIDateCreated
+		case sharedtags.JGenre:
+			return sharedtags.AVIGenre
+
+		case sharedtags.JKeywords:
+			return sharedtags.AVIKeywords
+
+		case sharedtags.JLanguage:
+			return sharedtags.AVILanguage
 
 		case sharedtags.JProducer:
 			return sharedtags.AVIEngineer
+
+		case sharedtags.JReleaseDate:
+			return sharedtags.AVIDateCreated
 
 		case sharedtags.JSynopsis:
 			return sharedtags.AVISubject
@@ -153,65 +197,170 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JTitle:
 			return sharedtags.AVITitle
 
-		case sharedtags.JYear:
-			return sharedtags.AVIYear
+		case sharedtags.JTrackNumber:
+			return sharedtags.AVITrackNumber
 		}
 
 	case sharedconsts.ExtFLV:
-		// FLV uses lowercase tags.
+		// FLV takes any key.
 		switch key {
 		case sharedtags.JDate:
 			return sharedtags.FLVCreationDate
+
+		default:
+			return key
+		}
+
+	case sharedconsts.ExtF4V,
+		sharedconsts.ExtM4V,
+		sharedconsts.ExtMP4:
+		// MP4 only takes its iTunes tags.
+		switch key {
+		case sharedtags.JAlbum:
+			return sharedtags.MP4Album
+
+		case sharedtags.JAlbumArtist:
+			return sharedtags.MP4AlbumArtist
+
+		case sharedtags.JArtist:
+			return sharedtags.MP4Artist
+
+		case sharedtags.JComment:
+			return sharedtags.MP4Comment
+
+		case sharedtags.JComposer:
+			return sharedtags.MP4Composer
+
+		case sharedtags.JCopyright:
+			return sharedtags.MP4Copyright
+
+		case sharedtags.JCreationTime:
+			return sharedtags.MP4CreationTime
+
+		case sharedtags.JDate:
+			return sharedtags.MP4Date
+
+		case sharedtags.JDescription:
+			return sharedtags.MP4Description
+
+		case sharedtags.JDiscNumber:
+			return sharedtags.MP4Disc
+
+		case sharedtags.JEpisodeID:
+			return sharedtags.MP4EpisodeID
+
+		case sharedtags.JEpisodeSort:
+			return sharedtags.MP4EpisodeSort
+
+		case sharedtags.JGenre:
+			return sharedtags.MP4Genre
+
+		case sharedtags.JHDVideo:
+			return sharedtags.MP4HDVideo
+
+		case sharedtags.JKeywords:
+			return sharedtags.MP4Keywords
+
+		case sharedtags.JNetwork:
+			return sharedtags.MP4Network
+
+		case sharedtags.JSeasonNumber:
+			return sharedtags.MP4SeasonNumber
+
+		case sharedtags.JShow:
+			return sharedtags.MP4Show
+
+		case sharedtags.JSynopsis:
+			return sharedtags.MP4Synopsis
+
+		case sharedtags.JTitle:
+			return sharedtags.MP4Title
+
+		case sharedtags.JTrackNumber:
+			return sharedtags.MP4Track
+		}
+
+	case sharedconsts.ExtMOV:
+		// MOV only takes its QuickTime tags. The author and keywords are left out, as FFprobe can't read them back.
+		switch key {
+		case sharedtags.JAlbum:
+			return sharedtags.MOVAlbum
+
+		case sharedtags.JArtist:
+			return sharedtags.MOVArtist
+
+		case sharedtags.JCopyright:
+			return sharedtags.MOVCopyright
+
+		case sharedtags.JCreationTime:
+			return sharedtags.MOVCreationTime
+
+		case sharedtags.JDate:
+			return sharedtags.MOVDate
+
+		case sharedtags.JDescription:
+			return sharedtags.MOVComment
+
+		case sharedtags.JGenre:
+			return sharedtags.MOVGenre
+
+		case sharedtags.JTitle:
+			return sharedtags.MOVTitle
 		}
 
 	case sharedconsts.Ext3GP,
-		sharedconsts.Ext3G2,
-		sharedconsts.ExtF4V,
-		sharedconsts.ExtM4V,
-		sharedconsts.ExtMOV,
-		sharedconsts.ExtMP4:
-		// ISOBMFF uses lowercase tags.
+		sharedconsts.Ext3G2:
+		// 3GP only takes its 3GPP tags.
 		switch key {
+		case sharedtags.JAlbum:
+			return sharedtags.ThreeGPAlbum
+
 		case sharedtags.JArtist:
-			return sharedtags.ISOArtist
+			return sharedtags.ThreeGPArtist
 
-		case sharedtags.JComment:
-			return sharedtags.ISOComment
+		case sharedtags.JAuthor:
+			return sharedtags.ThreeGPAuthor
 
-		case sharedtags.JComposer:
-			return sharedtags.ISOComposer
+		case sharedtags.JCopyright:
+			return sharedtags.ThreeGPCopyright
 
 		case sharedtags.JCreationTime:
-			return sharedtags.ISOCreationTime
-
-		case sharedtags.JDate:
-			return sharedtags.ISODate
+			return sharedtags.ThreeGPCreationTime
 
 		case sharedtags.JDescription:
-			return sharedtags.ISODescription
+			return sharedtags.ThreeGPComment
 
-		case sharedtags.JSynopsis:
-			return sharedtags.ISOSynopsis
+		case sharedtags.JGenre:
+			return sharedtags.ThreeGPGenre
 
 		case sharedtags.JTitle:
-			return sharedtags.ISOTitle
+			return sharedtags.ThreeGPTitle
+
+		case sharedtags.JYear:
+			return sharedtags.ThreeGPDate
 		}
 
 	case sharedconsts.ExtMKV,
 		sharedconsts.ExtWEBM:
-		// Matroska uses UPPERCASE tags.
+		// Matroska takes any key, using the Matroska names where they exist.
 		switch key {
+		case sharedtags.JActor:
+			return sharedtags.MatroskaActor
+
 		case sharedtags.JArtist:
 			return sharedtags.MatroskaArtist
+
+		case sharedtags.JComment:
+			return sharedtags.MatroskaComment
 
 		case sharedtags.JComposer:
 			return sharedtags.MatroskaComposer
 
+		case sharedtags.JCopyright:
+			return sharedtags.MatroskaCopyright
+
 		case sharedtags.JCreationTime:
 			return sharedtags.MatroskaDateEncoded
-
-		case sharedtags.JReleaseDate:
-			return sharedtags.MatroskaDateReleased
 
 		case sharedtags.JDescription:
 			return sharedtags.MatroskaDescription
@@ -219,17 +368,29 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JDirector:
 			return sharedtags.MatroskaDirector
 
-		case sharedtags.JActor:
-			return sharedtags.MatroskaLeadPerformer
+		case sharedtags.JGenre:
+			return sharedtags.MatroskaGenre
+
+		case sharedtags.JKeywords:
+			return sharedtags.MatroskaKeywords
 
 		case sharedtags.JPerformer:
-			return sharedtags.MatroskaPerformer
+			return sharedtags.MatroskaLeadPerformer
 
 		case sharedtags.JProducer:
 			return sharedtags.MatroskaProducer
 
+		case sharedtags.JPublisher:
+			return sharedtags.MatroskaPublisher
+
+		case sharedtags.JReleaseDate:
+			return sharedtags.MatroskaDateReleased
+
+		case sharedtags.JStudio:
+			return sharedtags.MatroskaProductionStudio
+
 		case sharedtags.JSubtitle:
-			return sharedtags.MatroskaSubject
+			return sharedtags.MatroskaSubtitle
 
 		case sharedtags.JSummary:
 			return sharedtags.MatroskaSummary
@@ -239,29 +400,52 @@ func GetContainerKeys(key, extension string) string {
 
 		case sharedtags.JTitle:
 			return sharedtags.MatroskaTitle
+
+		case sharedtags.JTrackNumber:
+			return sharedtags.MatroskaPartNumber
+
+		case sharedtags.JWebpageURL:
+			return sharedtags.MatroskaURL
+
+		case sharedtags.JWriter:
+			return sharedtags.MatroskaWrittenBy
+
+		default:
+			return key
 		}
 
 	case sharedconsts.ExtMTS,
 		sharedconsts.ExtTS:
-		// MPEG-TS uses specific service tags.
+		// MPEG-TS only takes its service tags.
 		switch key {
 		case sharedtags.JArtist:
 			return sharedtags.TSServiceProvider
 
 		case sharedtags.JTitle:
 			return sharedtags.TSServiceName
-
 		}
 
 	case sharedconsts.ExtOGM,
 		sharedconsts.ExtOGV:
-		// Ogg uses UPPERCASE Vorbis comments.
+		// Ogg takes any key, using the Vorbis comment names where they exist.
 		switch key {
+		case sharedtags.JAlbum:
+			return sharedtags.OggAlbum
+
+		case sharedtags.JAlbumArtist:
+			return sharedtags.OggAlbumArtist
+
 		case sharedtags.JArtist:
 			return sharedtags.OggArtist
 
+		case sharedtags.JComment:
+			return "" // FFmpeg writes a comment as the description.
+
 		case sharedtags.JComposer:
 			return sharedtags.OggComposer
+
+		case sharedtags.JCopyright:
+			return sharedtags.OggCopyright
 
 		case sharedtags.JDate:
 			return sharedtags.OggDate
@@ -269,22 +453,40 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JDescription:
 			return sharedtags.OggDescription
 
+		case sharedtags.JDiscNumber:
+			return sharedtags.OggDiscNumber
+
+		case sharedtags.JGenre:
+			return sharedtags.OggGenre
+
 		case sharedtags.JPerformer:
 			return sharedtags.OggPerformer
+
+		case sharedtags.JPublisher:
+			return sharedtags.OggOrganization
 
 		case sharedtags.JSummary:
 			return sharedtags.OggSummary
 
 		case sharedtags.JTitle:
 			return sharedtags.OggTitle
+
+		case sharedtags.JTrackNumber:
+			return sharedtags.OggTrackNumber
+
+		default:
+			return key
 		}
 
 	case sharedconsts.ExtRM,
 		sharedconsts.ExtRMVB:
-		// RealMedia uses TitleCase.
+		// RealMedia only takes its four tags.
 		switch key {
 		case sharedtags.JAuthor:
 			return sharedtags.RMAuthor
+
+		case sharedtags.JCopyright:
+			return sharedtags.RMCopyright
 
 		case sharedtags.JDescription:
 			return sharedtags.RMComment
@@ -292,7 +494,6 @@ func GetContainerKeys(key, extension string) string {
 		case sharedtags.JTitle:
 			return sharedtags.RMTitle
 		}
-
 	}
 	return ""
 }

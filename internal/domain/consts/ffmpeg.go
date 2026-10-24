@@ -1,6 +1,8 @@
 package consts
 
-import "github.com/TubarrApp/gocommon/sharedconsts"
+import (
+	"github.com/TubarrApp/gocommon/sharedconsts"
+)
 
 // Video codecs.
 const (
@@ -81,8 +83,18 @@ const (
 	FFmpegCRF                 = "-crf"
 	FFmpegBA                  = "-b:a"
 	FFmpegAR                  = "-ar"
-	FFmpegStrict              = "-strict"
-	FFmpegStrictExperimental  = "experimental"
+	FFmpegMetadata            = "-metadata"
+	FFmpegFormat              = "-f"
+)
+
+// Muxers named for extensions FFmpeg can't pick one for.
+const (
+	FFmpegMuxerOGV = "ogv"
+	FFmpegMuxerRM  = "rm"
+)
+
+var (
+	FFmpegStrictExperimental = []string{"-strict", "experimental"}
 )
 
 // Audio rate values.

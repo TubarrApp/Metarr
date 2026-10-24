@@ -32,14 +32,6 @@ func TestFulltitlePreferredForContainer(t *testing.T) {
 		{"title used when fulltitle absent", full, "", nil, full},
 		{"fulltitle used when title absent", "", full, nil, full},
 		{
-			name:  "fulltitle still wins after a set on title",
-			title: "cat", fulltitle: full,
-			titleOp: func(o *models.MetaOps) {
-				o.SetFields = append(o.SetFields, models.MetaSetField{Field: sharedtags.JTitle, Value: "cat"})
-			},
-			want: full,
-		},
-		{
 			name:  "operating on fulltitle carries into the container",
 			title: truncated, fulltitle: "[CATS] " + full,
 			titleOp: func(o *models.MetaOps) {
@@ -94,6 +86,22 @@ func TestModelNotMutated(t *testing.T) {
 
 	if *td != before {
 		t.Errorf("addTitlesDescs mutated the shared model:\n before %+v\n after  %+v", before, *td)
+	}
+}
+
+// TestDateFollowsYear tests that the date tag gives way to the year alone when the date is from another year.
+func TestDateFollowsYear(t *testing.T) {
+	for _, c := range []struct{ name, date, year, want string }{
+		{"date in the year", "2021-05-06", "2021", "2021-05-06"},
+		{"date from another year", "2021-05-06", "2019", "2019"},
+		{"year with no date", "", "2019", "2019"},
+		{"date with no year", "2021-05-06", "", "2021-05-06"},
+	} {
+		b := newTestBuilder()
+		b.addDates(&models.MetadataDates{Date: c.date, Year: c.year})
+		if got := b.metadataMap[sharedtags.JDate]; got != c.want {
+			t.Errorf("%s: date = %q, want %q", c.name, got, c.want)
+		}
 	}
 }
 

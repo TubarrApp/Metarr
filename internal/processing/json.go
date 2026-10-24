@@ -10,6 +10,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/vars"
+	"metarr/internal/ffmpeg"
 	"metarr/internal/ffprobe"
 	"metarr/internal/metadata/fieldsjson"
 	"metarr/internal/metadata/metawriters"
@@ -180,5 +181,5 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	}
 
 	// Run metadata checks in all other cases.
-	return ffprobe.CheckMetaMatches(ctx, currentExt, fd)
+	return ffprobe.CheckMetaMatches(ctx, currentExt, fd, ffmpeg.MetadataTags(fd))
 }

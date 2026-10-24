@@ -202,5 +202,8 @@ func (dp *DirectoryParser) date() (time.Time, error) {
 		}
 		return parsed, nil
 	}
+	if d.Year != "" {
+		return time.Time{}, fmt.Errorf("templating: no full date from %s for %q", d.Year, dp.FD.OriginalVideoPath)
+	}
 	return time.Time{}, fmt.Errorf("templating: no full date for %q", dp.FD.OriginalVideoPath)
 }

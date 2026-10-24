@@ -69,13 +69,18 @@ type ffCommandBuilder struct {
 }
 
 // newFfCommandBuilder creates a new FFmpeg command builder.
-func newFfCommandBuilder(fd *models.FileData, outputFile string) *ffCommandBuilder {
+func newFfCommandBuilder(fd *models.FileData, outputFile string) (*ffCommandBuilder, error) {
+	absOutputFile, err := filepath.Abs(outputFile)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ffCommandBuilder{
 		builder:     &strings.Builder{},
 		inputFile:   fd.OriginalVideoPath,
-		outputFile:  outputFile,
+		outputFile:  absOutputFile,
 		metadataMap: make(map[string]string),
-	}
+	}, nil
 }
 
 // buildCommand constructs the complete FFmpeg command.
@@ -312,7 +317,8 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 	// TrueHD's only encoder is experimental, which FFmpeg refuses without -strict experimental.
 	case sharedconsts.ACodecTrueHD:
 		logger.Pl.W("FFmpeg's TrueHD encoder is experimental, its output may not play everywhere.")
-		b.audioCodec = []string{consts.FFmpegCA, desiredACodec, consts.FFmpegStrict, consts.FFmpegStrictExperimental}
+		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
+		b.audioCodec = append(b.audioCodec, consts.FFmpegStrictExperimental...)
 
 	case sharedconsts.ACodecAC3, // -- 48KHz audio rate required. --
 		sharedconsts.ACodecEAC3:
@@ -322,7 +328,8 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 	// DTS's only encoder is experimental, which FFmpeg refuses without -strict experimental.
 	case sharedconsts.ACodecDTS:
 		logger.Pl.W("FFmpeg's DTS encoder is experimental, its output may not play everywhere.")
-		b.audioCodec = []string{consts.FFmpegCA, desiredACodec, consts.FFmpegStrict, consts.FFmpegStrictExperimental}
+		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
+		b.audioCodec = append(b.audioCodec, consts.FFmpegStrictExperimental...)
 		b.audioRate = []string{consts.FFmpegAR, consts.AudioRate48khz}
 
 	case sharedconsts.ACodecPCM, sharedconsts.ACodecWAV: // "pcm" isn't an encoder name.
@@ -598,32 +605,43 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		args = append(args, b.accelCompatibility...)
 	}
 
+	// Grab output extension.
 	outputExt := filepath.Ext(b.outputFile)
 
+	// Insert metatags.
 	for key, value := range b.metadataMap {
 		if value == "" {
 			continue
 		}
 
+		// Look up correct metadata keys by container type.
 		containerKey := parsing.GetContainerKeys(key, outputExt)
 		if containerKey == "" {
-			logger.Pl.W("Not inserting key: %q, could not find match for container %q.", key, outputExt)
+			logger.Pl.D(2, "Not inserting key %q, %s files can't hold it.", key, outputExt)
 			continue
 		}
 
-		// Write metadata argument.
+		// Add metadata argument for key.
 		b.builder.Reset()
 		b.builder.WriteString(containerKey)
 		b.builder.WriteByte('=')
 		b.builder.WriteString(strings.ReplaceAll(strings.TrimSpace(value), "\x00", "")) // A NUL stops ffmpeg starting.
 
-		logger.Pl.I("Adding metadata argument: '-metadata %s", b.builder.String())
-		args = append(args, "-metadata", b.builder.String())
+		logger.Pl.I("Adding metadata argument: '%s %s'", consts.FFmpegMetadata, b.builder.String())
+		args = append(args, consts.FFmpegMetadata, b.builder.String())
 	}
 
 	// Extra FFmpeg arguments.
 	if abstractions.IsSet(keys.ExtraFFmpegArgs) {
 		args = append(args, strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs))...)
+	}
+
+	// Name the muxer for extensions FFmpeg can't pick one for.
+	switch strings.ToLower(outputExt) {
+	case sharedconsts.ExtOGM:
+		args = append(args, consts.FFmpegFormat, consts.FFmpegMuxerOGV)
+	case sharedconsts.ExtRMVB:
+		args = append(args, consts.FFmpegFormat, consts.FFmpegMuxerRM)
 	}
 
 	// Add output file last.
@@ -639,7 +657,7 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 			1 + // <input file>
 			1 // <output file>
 
-		mapArgMultiply = 2 // "-metadata" + "key=value"
+		mapArgMultiply = 2 // consts.FFmpegMetadata + "key=value"
 	)
 
 	totalCapacity := base

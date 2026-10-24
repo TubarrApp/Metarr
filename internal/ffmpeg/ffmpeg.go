@@ -87,8 +87,11 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Run the FFmpeg command (n total attempts).
 	maxAttempts := 3
-	builder := newFfCommandBuilder(fd, tmpOutPath)
 	durationUS := probeDurationUS(origPath)
+	builder, err := newFfCommandBuilder(fd, tmpOutPath)
+	if err != nil {
+		return err
+	}
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.

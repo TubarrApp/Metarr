@@ -15,6 +15,11 @@ type NFOData struct {
 	Publishers  []string    `xml:"publisher"`
 	Writers     []string    `xml:"writer"`
 	Studios     []string    `xml:"studio"`
+	Genres      []string    `xml:"genre"`
+	Tags        []string    `xml:"tag"`
+	Set         string      `xml:"set"`
+	Language    string      `xml:"language"`
+	HDVideo     string      `xml:"hdvideo"`
 	Year        string      `xml:"year"`
 	Premiered   string      `xml:"premiered"`
 	ReleaseDate string      `xml:"releasedate"`

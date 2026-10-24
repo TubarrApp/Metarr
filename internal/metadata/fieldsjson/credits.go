@@ -12,27 +12,35 @@ import (
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
+// creditKeys orders the credit fields by importance, the first filled one filling any that are empty.
+var creditKeys = []string{
+	sharedtags.JCreator, sharedtags.JPerformer, sharedtags.JAuthor, sharedtags.JArtist, sharedtags.JAlbumArtist,
+	sharedtags.JChannel, sharedtags.JDirector, sharedtags.JActor, sharedtags.JStudio, sharedtags.JProducer,
+	sharedtags.JWriter, sharedtags.JUploader, sharedtags.JPublisher, sharedtags.JComposer,
+}
+
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader).
 func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
 	var filled, overidden bool
 
 	c := fd.MCredits
 
-	// Order by importance.
+	// Credit fields by JSON key.
 	fieldMap := map[string]*string{
-		sharedtags.JCreator:   &c.Creator,
-		sharedtags.JPerformer: &c.Performer,
-		sharedtags.JAuthor:    &c.Author,
-		sharedtags.JArtist:    &c.Artist, // May be alias for "author" in some systems.
-		sharedtags.JChannel:   &c.Channel,
-		sharedtags.JDirector:  &c.Director,
-		sharedtags.JActor:     &c.Actor,
-		sharedtags.JStudio:    &c.Studio,
-		sharedtags.JProducer:  &c.Producer,
-		sharedtags.JWriter:    &c.Writer,
-		sharedtags.JUploader:  &c.Uploader,
-		sharedtags.JPublisher: &c.Publisher,
-		sharedtags.JComposer:  &c.Composer,
+		sharedtags.JCreator:     &c.Creator,
+		sharedtags.JPerformer:   &c.Performer,
+		sharedtags.JAuthor:      &c.Author,
+		sharedtags.JArtist:      &c.Artist, // May be alias for "author" in some systems.
+		sharedtags.JAlbumArtist: &c.AlbumArtist,
+		sharedtags.JChannel:     &c.Channel,
+		sharedtags.JDirector:    &c.Director,
+		sharedtags.JActor:       &c.Actor,
+		sharedtags.JStudio:      &c.Studio,
+		sharedtags.JProducer:    &c.Producer,
+		sharedtags.JWriter:      &c.Writer,
+		sharedtags.JUploader:    &c.Uploader,
+		sharedtags.JPublisher:   &c.Publisher,
+		sharedtags.JComposer:    &c.Composer,
 	}
 
 	printMap := make(map[string]string, len(fieldMap))
@@ -48,11 +56,19 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		logger.Pl.D(2, "Decoded credits JSON into field map")
 	}
 
+	// Album artist falls back to the artist and vice versa.
+	if c.AlbumArtist == "" {
+		c.AlbumArtist = c.Artist
+	}
+	if c.Artist == "" {
+		c.Artist = c.AlbumArtist
+	}
+
 	// Find highest priority filled element.
 	fillWith := c.Override
 	if fillWith == "" {
-		for _, ptr := range fieldMap {
-			if ptr != nil && *ptr != "" {
+		for _, k := range creditKeys {
+			if ptr := fieldMap[k]; ptr != nil && *ptr != "" {
 				fillWith = *ptr
 				break
 			}

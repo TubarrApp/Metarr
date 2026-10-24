@@ -17,12 +17,11 @@ import (
 func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) bool {
 	t := fd.MDates
 
-	fieldMap := map[string]*string{ // Order by importance.
+	fieldMap := map[string]*string{ // Date fields by JSON key.
 		sharedtags.JReleaseDate:         &t.ReleaseDate,
 		sharedtags.JOriginallyAvailable: &t.OriginallyAvailableAt,
 		sharedtags.JDate:                &t.Date,
 		sharedtags.JUploadDate:          &t.UploadDate,
-		sharedtags.JReleaseYear:         &t.Year,
 		sharedtags.JYear:                &t.Year,
 		sharedtags.JCreationTime:        &t.CreationTime,
 	}
@@ -72,6 +71,12 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		if logging.Level() > 1 {
 			printMap[k] = finalVal
 		}
+		gotDate = true
+	}
+
+	// The release year wins over the year.
+	if releaseYear := jsonText(json, sharedtags.JReleaseYear); releaseYear != "" {
+		t.Year = releaseYear
 		gotDate = true
 	}
 
@@ -174,6 +179,12 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 	// Fill empty year.
 	if t.Year == "" {
 		switch {
+		case t.ReleaseDate != "" && len(t.ReleaseDate) >= 4:
+			t.Year = t.ReleaseDate[:4]
+
+		case t.OriginallyAvailableAt != "" && len(t.OriginallyAvailableAt) >= 4:
+			t.Year = t.OriginallyAvailableAt[:4]
+
 		case t.Date != "" && len(t.Date) >= 4:
 			t.Year = t.Date[:4]
 
@@ -223,9 +234,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 			logger.Pl.D(1, "Set creation time to %s", t.FormattedDate)
 
 		default:
-			logger.Pl.D(1, "Could not find a match, directly altering t.CreationTime for year (month and day may therefore be wrong)")
-			t.CreationTime = t.Year + t.CreationTime[4:]
-			logger.Pl.D(1, "Set creation time's year only. Got %q", t.CreationTime)
+			logger.Pl.D(1, "No full date is from %s, keeping the creation time %q", t.Year, t.CreationTime)
 		}
 	}
 	return gotDate

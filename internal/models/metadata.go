@@ -243,20 +243,21 @@ type FilenameReplaceStrings struct {
 
 // MetadataCredits contains credits metadata.
 type MetadataCredits struct {
-	Override  string `json:"-"`
-	Actor     string `json:"actor" xml:"actor"`
-	Author    string `json:"author" xml:"author"`
-	Artist    string `json:"artist" xml:"artist"`
-	Channel   string `json:"channel" xml:"channel"`
-	Creator   string `json:"creator" xml:"creator"`
-	Studio    string `json:"studio" xml:"studio"`
-	Publisher string `json:"publisher" xml:"publisher"`
-	Producer  string `json:"producer" xml:"producer"`
-	Performer string `json:"performer" xml:"performer"`
-	Uploader  string `json:"uploader" xml:"uploader"`
-	Composer  string `json:"composer" xml:"composer"`
-	Director  string `json:"director" xml:"director"`
-	Writer    string `json:"writer" xml:"writer"`
+	Override    string `json:"-"`
+	Actor       string `json:"actor" xml:"actor"`
+	Author      string `json:"author" xml:"author"`
+	Artist      string `json:"artist" xml:"artist"`
+	AlbumArtist string `json:"album_artist" xml:"albumartist"`
+	Channel     string `json:"channel" xml:"channel"`
+	Creator     string `json:"creator" xml:"creator"`
+	Studio      string `json:"studio" xml:"studio"`
+	Publisher   string `json:"publisher" xml:"publisher"`
+	Producer    string `json:"producer" xml:"producer"`
+	Performer   string `json:"performer" xml:"performer"`
+	Uploader    string `json:"uploader" xml:"uploader"`
+	Composer    string `json:"composer" xml:"composer"`
+	Director    string `json:"director" xml:"director"`
+	Writer      string `json:"writer" xml:"writer"`
 
 	Actors     []string
 	Artists    []string
@@ -311,11 +312,17 @@ type MetadataShowData struct {
 	EpisodeSort  string `json:"episode_sort" xml:"episode_sort"`
 	SeasonNumber string `json:"season_number" xml:"season_number"`
 	SeasonTitle  string `json:"season_title" xml:"seasontitle"`
+	Network      string `json:"network" xml:"network"`
 }
 
 // MetadataOtherData contains other misc metadata.
 type MetadataOtherData struct {
-	Language string `json:"language" xml:"language"`
-	Genre    string `json:"genre" xml:"genre"`
-	HDVideo  string `json:"hd_video" xml:"hd_video"`
+	Language  string `json:"language" xml:"language"`
+	Genre     string `json:"genre" xml:"genre"`
+	HDVideo   string `json:"hd_video" xml:"hd_video"`
+	Album     string `json:"album" xml:"album"`
+	Track     string `json:"track_number" xml:"track"`
+	Disc      string `json:"disc_number" xml:"disc"`
+	Keywords  string `json:"keywords" xml:"tag"`
+	Copyright string `json:"copyright" xml:"copyright"`
 }
