@@ -74,11 +74,14 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		gotDate = true
 	}
 
-	// The release year wins over the year.
-	if releaseYear := jsonText(json, sharedtags.JReleaseYear); releaseYear != "" {
-		t.Year = releaseYear
+	// Take the year from the date field most likely to be right for the video.
+	if year := t.VideoYear(jsonText(json, sharedtags.JReleaseYear)); year != "" {
+		t.Year = year
 		gotDate = true
 	}
+
+	// Note whether the originally available date came from the file, before one is worked out.
+	originallyAvailableInFile := t.OriginallyAvailableAt != ""
 
 	var b strings.Builder
 	b.Grow(len(consts.TimeSfx) + 10)
@@ -100,6 +103,12 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		logger.Pl.E("Failed to parse date %q: %v", t.FormattedDate, err)
 	}
 
+	// Only save an originally available date that was in the file, as a worked-out one would pass for a release
+	// date on the next run.
+	if !originallyAvailableInFile {
+		delete(fieldMap, sharedtags.JOriginallyAvailable)
+	}
+
 	if _, err := jsonRW.WriteJSON(fieldMap); err != nil {
 		logger.Pl.E("Failed to write into JSON file %q: %v", fd.MetaFilePath, err)
 	}
@@ -109,16 +118,6 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 // fillEmptyTimestamps attempts to infer missing timestamps.
 func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 	gotDate := false
-
-	// Infer from originally available date.
-	if t.OriginallyAvailableAt != "" && len(t.OriginallyAvailableAt) >= 6 {
-		gotDate = true
-
-		if !strings.ContainsRune(t.CreationTime, 'T') {
-			processDateField(t.OriginallyAvailableAt, &t.CreationTime, t)
-			t.CreationTime = formatTimeStamp(t.CreationTime, b)
-		}
-	}
 
 	// Infer from release date.
 	if t.ReleaseDate != "" && len(t.ReleaseDate) >= 6 {
@@ -131,6 +130,16 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 
 		if t.OriginallyAvailableAt == "" {
 			processDateField(t.ReleaseDate, &t.OriginallyAvailableAt, t)
+		}
+	}
+
+	// Infer from originally available date.
+	if t.OriginallyAvailableAt != "" && len(t.OriginallyAvailableAt) >= 6 {
+		gotDate = true
+
+		if !strings.ContainsRune(t.CreationTime, 'T') {
+			processDateField(t.OriginallyAvailableAt, &t.CreationTime, t)
+			t.CreationTime = formatTimeStamp(t.CreationTime, b)
 		}
 	}
 
@@ -166,11 +175,15 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 		switch {
 		case t.ReleaseDate != "":
 			t.Date = t.ReleaseDate
-			t.OriginallyAvailableAt = t.ReleaseDate
+			if t.OriginallyAvailableAt == "" {
+				t.OriginallyAvailableAt = t.ReleaseDate
+			}
 
 		case t.UploadDate != "":
 			t.Date = t.UploadDate
-			t.OriginallyAvailableAt = t.UploadDate
+			if t.OriginallyAvailableAt == "" {
+				t.OriginallyAvailableAt = t.UploadDate
+			}
 
 		case t.FormattedDate != "":
 			t.Date = t.FormattedDate

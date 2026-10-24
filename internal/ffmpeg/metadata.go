@@ -101,10 +101,16 @@ func (b *ffCommandBuilder) addCredits(c *models.MetadataCredits) {
 
 // addDates adds all date-related metadata.
 func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
-	// A date from another year gives way to the year alone.
+	// The date is the first full date in the video's year, or the year alone if none is.
 	date := d.Date
-	if d.Year != "" && !strings.HasPrefix(date, d.Year) {
+	if d.Year != "" {
 		date = d.Year
+		for _, full := range []string{d.ReleaseDate, d.OriginallyAvailableAt, d.Date, d.UploadDate} {
+			if len(full) > len(d.Year) && strings.HasPrefix(full, d.Year) {
+				date = full
+				break
+			}
+		}
 	}
 
 	fields := map[string]string{

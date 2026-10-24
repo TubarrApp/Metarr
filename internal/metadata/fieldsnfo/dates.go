@@ -75,6 +75,11 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 		gotRelevantDate = true
 	}
 
+	// Take the year from the date field most likely to be right for the video.
+	if year := t.VideoYear(""); year != "" {
+		t.Year = year
+	}
+
 	if !gotRelevantDate {
 		logger.Pl.I("No date found in metadata %q", fd.MetaFilePath)
 		return false

@@ -295,6 +295,28 @@ type MetadataDates struct {
 	StringDate            string `json:"-"`
 }
 
+// VideoYear returns the year from the date field most likely to be right for the video, or "" if none has one.
+//
+// The order is the release date (or the originally available date, which means the same), the release year, the
+// date, the year, then the upload date, which may be when a copy was uploaded rather than when the video came out.
+func (d *MetadataDates) VideoYear(releaseYear string) string {
+	switch {
+	case len(d.ReleaseDate) >= 4:
+		return d.ReleaseDate[:4]
+	case len(d.OriginallyAvailableAt) >= 4:
+		return d.OriginallyAvailableAt[:4]
+	case releaseYear != "":
+		return releaseYear
+	case len(d.Date) >= 4:
+		return d.Date[:4]
+	case d.Year != "":
+		return d.Year
+	case len(d.UploadDate) >= 4:
+		return d.UploadDate[:4]
+	}
+	return ""
+}
+
 // MetadataWebData contains web related metadata.
 type MetadataWebData struct {
 	WebpageURL string   `json:"webpage_url" xml:"webpage_url"`

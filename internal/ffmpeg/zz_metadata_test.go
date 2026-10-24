@@ -89,16 +89,17 @@ func TestModelNotMutated(t *testing.T) {
 	}
 }
 
-// TestDateFollowsYear tests that the date tag gives way to the year alone when the date is from another year.
+// TestDateFollowsYear tests that the date tag is the first full date in the year, or the year alone if none is.
 func TestDateFollowsYear(t *testing.T) {
-	for _, c := range []struct{ name, date, year, want string }{
-		{"date in the year", "2021-05-06", "2021", "2021-05-06"},
-		{"date from another year", "2021-05-06", "2019", "2019"},
-		{"year with no date", "", "2019", "2019"},
-		{"date with no year", "2021-05-06", "", "2021-05-06"},
+	for _, c := range []struct{ name, releaseDate, date, year, want string }{
+		{"date in the year", "", "2021-05-06", "2021", "2021-05-06"},
+		{"release date before date", "2021-01-02", "2021-05-06", "2021", "2021-01-02"},
+		{"no full date in the year, as with a release year", "", "2021-05-06", "2019", "2019"},
+		{"year with no date", "", "", "2019", "2019"},
+		{"date with no year", "", "2021-05-06", "", "2021-05-06"},
 	} {
 		b := newTestBuilder()
-		b.addDates(&models.MetadataDates{Date: c.date, Year: c.year})
+		b.addDates(&models.MetadataDates{ReleaseDate: c.releaseDate, Date: c.date, Year: c.year})
 		if got := b.metadataMap[sharedtags.JDate]; got != c.want {
 			t.Errorf("%s: date = %q, want %q", c.name, got, c.want)
 		}
