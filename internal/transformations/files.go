@@ -394,18 +394,24 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 
 // constructNewNames constructs the new file names and ensures uniqueness.
 func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceToStyle, fd *models.FileData) (newName string, err error) {
-	logger.Pl.D(2, "Processing metafile base name: %q", fileBase)
 	fOps := fd.FilenameOps
 	set := fOps.Set
 	initialBase := fileBase
 
 	// Early exit if nothing to do.
-	if !set.IsSet && len(fOps.Replaces) == 0 && len(fOps.ReplacePrefixes) == 0 &&
-		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Suffixes) == 0 &&
-		len(fOps.Cuts) == 0 && len(fOps.RegexReplaces) == 0 &&
-		fOps.DateTag.DateFormat == enums.DateFmtSkip && fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
+	if !set.IsSet && len(fOps.Replaces) == 0 &&
+		len(fOps.ReplacePrefixes) == 0 &&
+		len(fOps.ReplaceSuffixes) == 0 &&
+		len(fOps.Prefixes) == 0 &&
+		len(fOps.Suffixes) == 0 &&
+		len(fOps.Cuts) == 0 &&
+		len(fOps.RegexReplaces) == 0 &&
+
+		fOps.DateTag.DateFormat == enums.DateFmtSkip &&
+		fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
 		style == enums.RenamingSkip {
-		logger.Pl.D(1, "No filename operations or naming style to apply")
+
+		logger.Pl.D(1, "No filename operations or naming style to apply for %q.", fileBase)
 		return fileBase, nil
 	}
 

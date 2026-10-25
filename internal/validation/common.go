@@ -11,7 +11,6 @@ import (
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"os"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -67,7 +66,7 @@ func ValidateThumbnail(t string, strip bool) error {
 // ---- Validate And Set ------------------------------------------------------------------------------------------
 
 // ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
-func ValidateAndSetVideoCodec(pairs []string) error {
+func ValidateAndSetVideoCodec(entries []string) error {
 	vCodecMap := map[string]string{
 		sharedconsts.VCodecAV1:   sharedconsts.VCodecCopy,
 		sharedconsts.VCodecH264:  sharedconsts.VCodecCopy,
@@ -77,46 +76,23 @@ func ValidateAndSetVideoCodec(pairs []string) error {
 		sharedconsts.VCodecVP9:   sharedconsts.VCodecCopy,
 	}
 
-	// Deduplicate.
-	dedupPairs := make([]string, 0, len(pairs))
-	for _, p := range pairs {
-		if p == "" {
-			continue
-		}
-		if !slices.Contains(dedupPairs, p) {
-			dedupPairs = append(dedupPairs, p)
+	all, pairs, err := sharedvalidation.ParseCodecMappings(entries, sharedvalidation.ValidateVideoCodec)
+	if err != nil {
+		return err
+	}
+
+	// Plain codec applies to every other codec.
+	if all != "" {
+		for k := range vCodecMap {
+			if k != all {
+				vCodecMap[k] = all
+			}
 		}
 	}
 
-	// Iterate deduped pairs.
-	for _, p := range dedupPairs {
-		split := strings.Split(p, ":")
-		if len(split) < 1 {
-			return fmt.Errorf("impossible condition splitting %q", p)
-		}
-		input, err := sharedvalidation.ValidateVideoCodec(split[0]) // Safe (split returns non-empty 'p').
-		if err != nil {
-			return err
-		}
-
-		// Singular value, apply to every entry.
-		if len(split) < 2 {
-			for k := range vCodecMap {
-				if input == k {
-					continue
-				}
-				vCodecMap[k] = input
-			}
-			continue
-		}
-
-		// Multi value entry, apply specific output to specific input.
-		output := split[1]
-		output, err = sharedvalidation.ValidateVideoCodec(output)
-		if err != nil {
-			return err
-		}
-		vCodecMap[input] = output
+	// Pairs override the plain codec.
+	for from, to := range pairs {
+		vCodecMap[from] = to
 	}
 
 	abstractions.Set(keys.TranscodeVideoCodecMap, vCodecMap)
@@ -124,7 +100,7 @@ func ValidateAndSetVideoCodec(pairs []string) error {
 }
 
 // ValidateAndSetAudioCodec sets mappings for audio codec inputs and transcode options.
-func ValidateAndSetAudioCodec(pairs []string) (err error) {
+func ValidateAndSetAudioCodec(entries []string) error {
 	aCodecMap := map[string]string{
 		sharedconsts.ACodecAAC:    sharedconsts.ACodecCopy,
 		sharedconsts.ACodecAC3:    sharedconsts.ACodecCopy,
@@ -141,46 +117,23 @@ func ValidateAndSetAudioCodec(pairs []string) (err error) {
 		sharedconsts.ACodecWAV:    sharedconsts.ACodecCopy,
 	}
 
-	// Deduplicate.
-	dedupPairs := make([]string, 0, len(pairs))
-	for _, p := range pairs {
-		if p == "" {
-			continue
-		}
-		if !slices.Contains(dedupPairs, p) {
-			dedupPairs = append(dedupPairs, p)
+	all, pairs, err := sharedvalidation.ParseCodecMappings(entries, sharedvalidation.ValidateAudioCodec)
+	if err != nil {
+		return err
+	}
+
+	// Plain codec applies to every other codec.
+	if all != "" {
+		for k := range aCodecMap {
+			if k != all {
+				aCodecMap[k] = all
+			}
 		}
 	}
 
-	// Iterate deduped pairs.
-	for _, p := range dedupPairs {
-		split := strings.Split(p, ":")
-		if len(split) < 1 {
-			return fmt.Errorf("impossible condition splitting %q", p)
-		}
-		input, err := sharedvalidation.ValidateAudioCodec(split[0]) // Safe (split returns non-empty 'p').
-		if err != nil {
-			return err
-		}
-
-		// Singular value, apply to every entry.
-		if len(split) < 2 {
-			for k := range aCodecMap {
-				if input == k {
-					continue
-				}
-				aCodecMap[k] = input
-			}
-			continue
-		}
-
-		// Multi value entry, apply specific output to specific input.
-		output := split[1]
-		output, err = sharedvalidation.ValidateAudioCodec(output)
-		if err != nil {
-			return err
-		}
-		aCodecMap[input] = output
+	// Pairs override the plain codec.
+	for from, to := range pairs {
+		aCodecMap[from] = to
 	}
 
 	abstractions.Set(keys.TranscodeAudioCodecMap, aCodecMap)
