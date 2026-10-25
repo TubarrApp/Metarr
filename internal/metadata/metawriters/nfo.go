@@ -14,6 +14,7 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/file"
 	"metarr/internal/models"
+	"metarr/internal/textedit"
 	"metarr/internal/utils/prompt"
 	"os"
 	"strings"
@@ -126,7 +127,19 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 	ops := fd.MetaOps.ExpandGroups(models.NFOGroupFields)
 
-	// Make edits, each building on the last, in the same order as JSON:
+	// Make edits, each building on the last, in the same order as JSON.
+	// Delete date tags before anything else, so other operations can't move them from where they're looked for.
+	for fld, d := range ops.DeleteDateTags {
+		if newContent, ok = editXMLField(data, fld, func(s string) (string, bool) {
+			_, result := dates.StripDateTags(s, d.Loc)
+			result = strings.Join(strings.Fields(result), " ")
+			return result, result != s
+		}); ok {
+			logger.Pl.I("Deleted date tags from XML field %q", fld)
+			data, edited = newContent, true
+		}
+	}
+
 	// 0. "all-x" overrides first, so per-field operations build on them.
 	if newContent, ok = rw.overrideXMLFields(data, ops.SetOverrides); ok {
 		data, edited = newContent, true
@@ -169,7 +182,9 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 
 	for _, t := range ops.Cuts {
-		if newContent, ok = editXMLField(data, t.Field, t.Apply); ok {
+		if newContent, ok = editXMLField(data, t.Field, func(s string) (string, bool) {
+			return textedit.Cut(s, t.Delim, t.KeepBefore)
+		}); ok {
 			data, edited = newContent, true
 		}
 	}
@@ -183,12 +198,12 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		}
 	}
 
-	// 4. Prefix and append.
+	// 4. Prefix and suffix.
 	if newContent, ok = rw.xmlPrefix(data, ops.Prefixes); ok {
 		data, edited = newContent, true
 	}
 
-	if newContent, ok = rw.xmlAppend(data, ops.Appends); ok {
+	if newContent, ok = rw.xmlSuffix(data, ops.Suffixes); ok {
 		data, edited = newContent, true
 	}
 
@@ -383,24 +398,13 @@ func (rw *NFOFileRW) overrideXMLFields(data string, overrides map[enums.Override
 	return data, edited
 }
 
-// DateTagEdits strips then adds date tags in the NFO's fields, deleting first so tags can be rebuilt.
+// DateTagEdits adds date tags to the NFO's fields. MakeMetaEdits deletes date tags first, so one deleted there and
+// added here is rebuilt.
 //
 // Runs after the NFO's dates are filled, since the tag is made from them.
 func (rw *NFOFileRW) DateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	data := rw.Meta
 	ops := fd.MetaOps.ExpandGroups(models.NFOGroupFields)
-
-	for fld, d := range ops.DeleteDateTags {
-		var ok bool
-		if data, ok = editXMLField(data, fld, func(s string) (string, bool) {
-			_, result := dates.StripDateTags(s, d.Loc)
-			result = strings.Join(strings.Fields(result), " ")
-			return result, result != s
-		}); ok {
-			logger.Pl.I("Deleted date tags from XML field %q", fld)
-			edited = true
-		}
-	}
 
 	for fld, d := range ops.DateTags {
 		tag, err := dates.MakeDateTag(nil, fd, d.Format)
@@ -413,14 +417,7 @@ func (rw *NFOFileRW) DateTagEdits(file *os.File, fd *models.FileData) (edited bo
 
 		var ok bool
 		if data, ok = editXMLField(data, fld, func(s string) (string, bool) {
-			if strings.Contains(s, tag) {
-				return s, false
-			}
-			_, rest := dates.StripDateTags(s, d.Loc) // An existing tag here is replaced.
-			if d.Loc == enums.DateTagLocSuffix {
-				return rest + " " + tag, true
-			}
-			return tag + " " + rest, true
+			return dates.AddDateTag(s, tag, d.Loc)
 		}); ok {
 			logger.Pl.I("Added date tag %q to XML field %q", tag, fld)
 			edited = true
@@ -472,10 +469,7 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePref
 		}
 		var ok bool
 		if data, ok = editXMLField(data, p.Field, func(s string) (string, bool) {
-			if !strings.HasPrefix(s, p.Prefix) {
-				return s, false
-			}
-			return p.Replacement + strings.TrimPrefix(s, p.Prefix), true
+			return textedit.ReplacePrefix(s, p.Prefix, p.Replacement)
 		}); ok {
 			logger.Pl.D(2, "Replaced prefix %q with %q in XML field %q", p.Prefix, p.Replacement, p.Field)
 			edited = true
@@ -492,10 +486,7 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 		}
 		var ok bool
 		if data, ok = editXMLField(data, sfx.Field, func(s string) (string, bool) {
-			if !strings.HasSuffix(s, sfx.Suffix) {
-				return s, false
-			}
-			return strings.TrimSuffix(s, sfx.Suffix) + sfx.Replacement, true
+			return textedit.ReplaceSuffix(s, sfx.Suffix, sfx.Replacement)
 		}); ok {
 			logger.Pl.D(2, "Replaced suffix %q with %q in XML field %q", sfx.Suffix, sfx.Replacement, sfx.Field)
 			edited = true
@@ -506,38 +497,28 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 
 // xmlPrefix prefixes text onto the fields in the XML data.
 func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool) {
-	for _, p := range pfx {
-		if p.Prefix == "" {
-			continue
-		}
+	fields, values := byField(pfx, func(p models.MetaPrefix) (string, string, bool) { return p.Field, p.Prefix, p.Prefix != "" })
+	for _, field := range fields {
 		var ok bool
-		if data, ok = editXMLField(data, p.Field, func(s string) (string, bool) {
-			if dates.HasPrefix(s, p.Prefix) {
-				return s, false
-			}
-			return p.Prefix + s, true
+		if data, ok = editXMLField(data, field, func(s string) (string, bool) {
+			return textedit.AddPrefixes(s, values[field])
 		}); ok {
-			logger.Pl.D(2, "Added prefix %q to XML field %q", p.Prefix, p.Field)
+			logger.Pl.D(2, "Added prefixes %q to XML field %q", values[field], field)
 			edited = true
 		}
 	}
 	return data, edited
 }
 
-// xmlAppend appends text onto the fields in the XML data.
-func (rw *NFOFileRW) xmlAppend(data string, apnd []models.MetaAppend) (dataRtn string, edited bool) {
-	for _, a := range apnd {
-		if a.Append == "" {
-			continue
-		}
+// xmlSuffix suffixes text onto the fields in the XML data.
+func (rw *NFOFileRW) xmlSuffix(data string, sfx []models.MetaSuffix) (dataRtn string, edited bool) {
+	fields, values := byField(sfx, func(s models.MetaSuffix) (string, string, bool) { return s.Field, s.Suffix, s.Suffix != "" })
+	for _, field := range fields {
 		var ok bool
-		if data, ok = editXMLField(data, a.Field, func(s string) (string, bool) {
-			if dates.HasSuffix(s, a.Append) {
-				return s, false
-			}
-			return s + a.Append, true
+		if data, ok = editXMLField(data, field, func(s string) (string, bool) {
+			return textedit.AddSuffixes(s, values[field])
 		}); ok {
-			logger.Pl.D(2, "Appended %q to XML field %q", a.Append, a.Field)
+			logger.Pl.D(2, "Added suffixes %q to XML field %q", values[field], field)
 			edited = true
 		}
 	}

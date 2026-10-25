@@ -8,7 +8,7 @@ import (
 	"metarr/internal/parsing"
 )
 
-// TestFilenameOpsRerun tests that filename ops run again on a processed name don't stack prefixes or appends, and a
+// TestFilenameOpsRerun tests that filename ops run again on a processed name don't stack prefixes or suffixes, and a
 // date tag op replaces the tag already there.
 func TestFilenameOpsRerun(t *testing.T) {
 	fp := &fileProcessor{metatagParser: parsing.NewMetaTemplateParser("test.json")}
@@ -20,8 +20,8 @@ func TestFilenameOpsRerun(t *testing.T) {
 	if got := fp.prefixStrings(name, []models.FOpPrefix{{Value: "[Cats] "}}); got != name {
 		t.Errorf("prefix again = %q, want %q unchanged", got, name)
 	}
-	if got := fp.appendStrings(name, []models.FOpAppend{{Value: " (HD)"}}); got != name {
-		t.Errorf("append again = %q, want %q unchanged", got, name)
+	if got := fp.suffixStrings(name, []models.FOpSuffix{{Value: " (HD)"}}); got != name {
+		t.Errorf("suffix again = %q, want %q unchanged", got, name)
 	}
 	tag := models.FOpDateTag{Loc: enums.DateTagLocPrefix, DateFormat: enums.DateYyyyMmDd}
 	if got := fp.addDateTag(name, tag, "[2024-05-01]"); got != "[2024-05-01] [Cats] Title (HD)" {
@@ -33,6 +33,21 @@ func TestFilenameOpsRerun(t *testing.T) {
 	suffix := models.FOpDateTag{Loc: enums.DateTagLocSuffix, DateFormat: enums.DateYyyyMmDd}
 	if got := fp.addDateTag("Title [2023-11-05]", suffix, "[2024-05-01]"); got != "Title [2024-05-01]" {
 		t.Errorf("new suffix date tag = %q, want the old one replaced", got)
+	}
+}
+
+// TestFilenameReplaceAndDelete tests that every prefix replacement runs in order, and that deleting all date tags
+// leaves the rest of the name intact.
+func TestFilenameReplaceAndDelete(t *testing.T) {
+	fp := &fileProcessor{metatagParser: parsing.NewMetaTemplateParser("test.json")}
+	reps := []models.FOpReplacePrefix{{Prefix: "[OLD] ", Replacement: "[NEW] "}, {Prefix: "[NEW] ", Replacement: "[NEWER] "}}
+	if got := fp.replacePrefix("[OLD] Title", reps); got != "[NEWER] Title" {
+		t.Errorf("chained prefix replacements = %q, want both applied", got)
+	}
+
+	all := models.FOpDeleteDateTag{Loc: enums.DateTagLocAll, DateFormat: enums.DateYyyyMmDd}
+	if got := fp.deleteDateTag("[2023-11-05] Title [Cats] [2024-05-01]", all); got != "Title [Cats]" {
+		t.Errorf("delete all date tags = %q, want %q", got, "Title [Cats]")
 	}
 }
 

@@ -672,10 +672,6 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity += len(b.formatFlagsMap)
 	totalCapacity += len(b.thumbnail)
 
-	if abstractions.IsSet(keys.TranscodeVideoFilter) {
-		totalCapacity += 2 // -vf and flag.
-	}
-
 	if abstractions.IsSet(keys.ExtraFFmpegArgs) {
 		totalCapacity += len(strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs)))
 	}

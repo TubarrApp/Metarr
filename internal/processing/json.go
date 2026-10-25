@@ -69,8 +69,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		logger.Pl.I("URLs grabbed: %s", fd.MWebData.TryURLs)
 	}
 
-	// Narrow channel-scoped and filter-gated operations now this file's URLs and
-	// metadata are known.
+	// Add the filter-gated operations matching this file.
 	resolveOps(fd, data)
 
 	// Make metadata adjustments per user selection or transformation preset.
@@ -91,8 +90,8 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		dates.FormatAllDates(fd)
 	}
 
-	// Make date tag edits if meta ops requires it.
-	if len(fd.MetaOps.DateTags) > 0 || len(fd.MetaOps.DeleteDateTags) > 0 {
+	// Add date tags if meta ops ask for them.
+	if len(fd.MetaOps.DateTags) > 0 {
 		ok, err = jsonRW.JSONDateTagEdits(file, fd)
 		if err != nil {
 			logger.Pl.E("Failed to make date tag edits for metadata in file %q: %v", file.Name(), err)

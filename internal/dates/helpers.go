@@ -285,16 +285,25 @@ func StripDateTags(val string, loc enums.DateTagLocation) (dateStrs []string, re
 	return nil, val
 }
 
-// HasPrefix reports whether val already starts with prefix, also looking past a date tag at its start.
-func HasPrefix(val, prefix string) bool {
-	_, rest := StripDateTags(val, enums.DateTagLocPrefix)
-	return strings.HasPrefix(val, prefix) || strings.HasPrefix(rest, prefix)
-}
-
-// HasSuffix reports whether val already ends with suffix, also looking past a date tag at its end.
-func HasSuffix(val, suffix string) bool {
-	_, rest := StripDateTags(val, enums.DateTagLocSuffix)
-	return strings.HasSuffix(val, suffix) || strings.HasSuffix(rest, suffix)
+// AddDateTag puts tag at the start or end of val, replacing a date tag already there.
+//
+// Reports false if val already has tag there, or for any other location.
+func AddDateTag(val, tag string, loc enums.DateTagLocation) (result string, changed bool) {
+	switch loc {
+	case enums.DateTagLocPrefix:
+		if strings.HasPrefix(val, tag) {
+			return val, false
+		}
+		_, rest := StripDateTags(val, loc)
+		return tag + " " + rest, true
+	case enums.DateTagLocSuffix:
+		if strings.HasSuffix(val, tag) {
+			return val, false
+		}
+		_, rest := StripDateTags(val, loc)
+		return rest + " " + tag, true
+	}
+	return val, false
 }
 
 // stripAllDateTags removes all date tags and returns them.

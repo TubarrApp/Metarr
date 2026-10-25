@@ -3,27 +3,24 @@ package models
 import (
 	"metarr/internal/domain/enums"
 	"regexp"
-	"strings"
 )
 
 // MetaOps contains maps related to the operations to be carried out during the program's run.
 type MetaOps struct {
-	SetOverrides     map[enums.OverrideMetaType]string
-	AppendOverrides  map[enums.OverrideMetaType]string
-	ReplaceOverrides map[enums.OverrideMetaType]MOverrideReplacePair
-	DateTags         map[string]MetaDateTag
-	DeleteDateTags   map[string]MetaDeleteDateTag
-	SetFields        []MetaSetField
-	Appends          []MetaAppend
-	Prefixes         []MetaPrefix
-	Replaces         []MetaReplace
-	ReplaceSuffixes  []MetaReplaceSuffix
-	ReplacePrefixes  []MetaReplacePrefix
-	RegexReplaces    []MetaRegexReplace
-	Cuts             []MetaCut
-	CopyToFields     []CopyToField
-	PasteFromFields  []PasteFromField
-	DatesFrom        string // Field whose date sets all-dates, resolved per file.
+	SetOverrides    map[enums.OverrideMetaType]string
+	DateTags        map[string]MetaDateTag
+	DeleteDateTags  map[string]MetaDeleteDateTag
+	SetFields       []MetaSetField
+	Prefixes        []MetaPrefix
+	Suffixes        []MetaSuffix
+	Replaces        []MetaReplace
+	ReplaceSuffixes []MetaReplaceSuffix
+	ReplacePrefixes []MetaReplacePrefix
+	RegexReplaces   []MetaRegexReplace
+	Cuts            []MetaCut
+	CopyToFields    []CopyToField
+	PasteFromFields []PasteFromField
+	DatesFrom       string // Field whose date sets all-dates, resolved per file.
 }
 
 // NewMetaOps creates a new MetaOps with initialized maps.
@@ -32,16 +29,14 @@ type MetaOps struct {
 func NewMetaOps() *MetaOps {
 	return &MetaOps{
 		// Initialize all maps to prevent nil map panics.
-		SetOverrides:     make(map[enums.OverrideMetaType]string),
-		ReplaceOverrides: make(map[enums.OverrideMetaType]MOverrideReplacePair),
-		AppendOverrides:  make(map[enums.OverrideMetaType]string),
-		DateTags:         make(map[string]MetaDateTag),
-		DeleteDateTags:   make(map[string]MetaDeleteDateTag),
+		SetOverrides:   make(map[enums.OverrideMetaType]string),
+		DateTags:       make(map[string]MetaDateTag),
+		DeleteDateTags: make(map[string]MetaDeleteDateTag),
 
 		// Initialize slices
 		SetFields:       make([]MetaSetField, 0),
-		Appends:         make([]MetaAppend, 0),
 		Prefixes:        make([]MetaPrefix, 0),
+		Suffixes:        make([]MetaSuffix, 0),
 		ReplaceSuffixes: make([]MetaReplaceSuffix, 0),
 		ReplacePrefixes: make([]MetaReplacePrefix, 0),
 		Replaces:        make([]MetaReplace, 0),
@@ -61,12 +56,6 @@ func (fd *FileData) EnsureMetaOps() {
 	if fd.MetaOps.SetOverrides == nil {
 		fd.MetaOps.SetOverrides = make(map[enums.OverrideMetaType]string, 0)
 	}
-	if fd.MetaOps.AppendOverrides == nil {
-		fd.MetaOps.AppendOverrides = make(map[enums.OverrideMetaType]string, 0)
-	}
-	if fd.MetaOps.ReplaceOverrides == nil {
-		fd.MetaOps.ReplaceOverrides = make(map[enums.OverrideMetaType]MOverrideReplacePair, 0)
-	}
 	if fd.MetaOps.DateTags == nil {
 		fd.MetaOps.DateTags = make(map[string]MetaDateTag, 0)
 	}
@@ -76,11 +65,11 @@ func (fd *FileData) EnsureMetaOps() {
 	if fd.MetaOps.SetFields == nil {
 		fd.MetaOps.SetFields = []MetaSetField{}
 	}
-	if fd.MetaOps.Appends == nil {
-		fd.MetaOps.Appends = []MetaAppend{}
-	}
 	if fd.MetaOps.Prefixes == nil {
 		fd.MetaOps.Prefixes = []MetaPrefix{}
+	}
+	if fd.MetaOps.Suffixes == nil {
+		fd.MetaOps.Suffixes = []MetaSuffix{}
 	}
 	if fd.MetaOps.Replaces == nil {
 		fd.MetaOps.Replaces = []MetaReplace{}
@@ -114,12 +103,6 @@ type BatchConfig struct {
 	SkipVideos bool
 }
 
-// MOverrideReplacePair holds a value and replacement for overriding metadata.
-type MOverrideReplacePair struct {
-	Value       string
-	Replacement string
-}
-
 // CopyToField contains a field to copy from, and destination field to copy to.
 type CopyToField struct {
 	Field string
@@ -132,16 +115,16 @@ type PasteFromField struct {
 	Origin string
 }
 
-// MetaAppend appends text onto a metafield's value.
-type MetaAppend struct {
-	Field  string
-	Append string
-}
-
 // MetaPrefix prefixes text onto a metafield's value.
 type MetaPrefix struct {
 	Field  string
 	Prefix string
+}
+
+// MetaSuffix suffixes text onto a metafield's value.
+type MetaSuffix struct {
+	Field  string
+	Suffix string
 }
 
 // MetaReplacePrefix trims a given prefix from a metafield's value.
@@ -201,18 +184,6 @@ type MetaCut struct {
 type TextCut struct {
 	Delim      string
 	KeepBefore bool
-}
-
-// Apply cuts s at the delimiter, reporting false when s does not contain the delimiter.
-func (t TextCut) Apply(s string) (string, bool) {
-	before, after, found := strings.Cut(s, t.Delim)
-	if !found {
-		return s, false
-	}
-	if t.KeepBefore {
-		return before, true
-	}
-	return after, true
 }
 
 // FilenameDatePrefix contains the year, month, day lengths, and ordering, desired by the user.

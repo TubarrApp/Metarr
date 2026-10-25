@@ -16,6 +16,7 @@ import (
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
+	"metarr/internal/textedit"
 	"os"
 	"path/filepath"
 	"sort"
@@ -400,7 +401,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 
 	// Early exit if nothing to do.
 	if !set.IsSet && len(fOps.Replaces) == 0 && len(fOps.ReplacePrefixes) == 0 &&
-		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Appends) == 0 &&
+		len(fOps.ReplaceSuffixes) == 0 && len(fOps.Prefixes) == 0 && len(fOps.Suffixes) == 0 &&
 		len(fOps.Cuts) == 0 && len(fOps.RegexReplaces) == 0 &&
 		fOps.DateTag.DateFormat == enums.DateFmtSkip && fOps.DeleteDateTags.DateFormat == enums.DateFmtSkip &&
 		style == enums.RenamingSkip {
@@ -429,7 +430,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		fileBase = fp.replaceSuffix(fileBase, fOps.ReplaceSuffixes)
 	}
 	for _, t := range fOps.Cuts {
-		fileBase, _ = t.Apply(fileBase)
+		fileBase, _ = textedit.Cut(fileBase, t.Delim, t.KeepBefore)
 	}
 	if len(fOps.RegexReplaces) > 0 {
 		fileBase = fp.regexReplace(fileBase, fOps.RegexReplaces)
@@ -440,12 +441,12 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		fileBase = applyNamingStyle(style, fileBase)
 	}
 
-	// Plain appends etc.
+	// Plain prefixes, suffixes and date tag.
 	if len(fOps.Prefixes) > 0 {
 		fileBase = fp.prefixStrings(fileBase, fOps.Prefixes)
 	}
-	if len(fOps.Appends) > 0 {
-		fileBase = fp.appendStrings(fileBase, fOps.Appends)
+	if len(fOps.Suffixes) > 0 {
+		fileBase = fp.suffixStrings(fileBase, fOps.Suffixes)
 	}
 	if fd.FilenameDateTag != "" && !strings.Contains(fileBase, fd.FilenameDateTag) {
 		fileBase = fp.addDateTag(fileBase, fOps.DateTag, fd.FilenameDateTag)

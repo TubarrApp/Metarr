@@ -75,7 +75,7 @@ transcode-audio-codecs:
   - flac:aac
 meta-ops:
   - "title:prefix:[Archive] "
-  - tags:append:new-release
+  - "description:suffix: (archived)"
 filename-ops:
   - "prefix:[ARCHIVE] "
   - date-tag:suffix:ymd
@@ -104,8 +104,8 @@ Each entry follows `field:operation:value[:value]`. The last part is everything 
 | Operation        | Example                                       | Effect |
 | ---------------- | --------------------------------------------- | ------ |
 | `set`            | `title:set:New Name`                          | Hard overwrite a field (including bulk credits via `all-credits`). |
-| `append`         | `tags:append:new-tag`                         | Append to existing list/string values. |
-| `prefix`         | `description:prefix:Draft - `                 | Prepend text if the field exists. |
+| `prefix`         | `description:prefix:Draft - `                 | Add text to the start of the field if it exists. |
+| `suffix`         | `title:suffix: (Remaster)`                    | Add text to the end of the field if it exists. |
 | `replace`        | `summary:replace:foo:bar`                     | Replace substrings inside a field. |
 | `replace-prefix` | `title:replace-prefix:[OLD] :[NEW] `          | Swap a matching prefix. |
 | `replace-suffix` | `title:replace-suffix: DVD:: UHD`             | Swap a matching suffix. |
@@ -128,7 +128,7 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 | Operation        | Example                           | Effect |
 | ---------------- | --------------------------------- | ------ |
 | `prefix`         | `prefix:[MOVIE] `                  | Add a static prefix. |
-| `append`         | `append: (Remaster)`               | Add a suffix. |
+| `suffix`         | `suffix: (Remaster)`               | Add a static suffix. |
 | `set`            | `set:Exact File Name`             | Replace the entire basename (one per run). |
 | `replace`        | `replace:_ : `                     | Search/replace substrings. |
 | `replace-prefix` | `replace-prefix:[OLD] :[NEW] `     | Swap prefixes. |

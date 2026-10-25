@@ -71,7 +71,7 @@ func TestVideoDateCombinations(t *testing.T) {
 		if fd.MDates.Year != wantYear || gotDateTag != wantDateTag {
 			t.Errorf("%v: year %q, date tag %q; want %q, %q", names, fd.MDates.Year, gotDateTag, wantYear, wantDateTag)
 		}
-		fmt.Fprintf(&table, "%-75s year %-5s date tag %-11s creation time %s\n",
+		fmt.Fprintf(&table, "%-82s year: %-5s date tag: %-11s creation time: %s\n",
 			strings.Join(names, " + "), fd.MDates.Year, gotDateTag, fd.MDates.CreationTime)
 	}
 	t.Log("\n" + table.String())

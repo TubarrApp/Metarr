@@ -12,6 +12,7 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/regex"
 	"metarr/internal/models"
+	"metarr/internal/textedit"
 	"slices"
 	"strings"
 	"unicode"
@@ -213,10 +214,9 @@ func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpRep
 		}
 
 		// Process.
-		if before, ok := strings.CutSuffix(filename, suffix.Suffix); ok {
-			filename = before + replacement
+		var changed bool
+		if filename, changed = textedit.ReplaceSuffix(filename, suffix.Suffix, replacement); changed {
 			logger.Pl.D(2, "Applied suffix replacement: %q -> %q", suffix.Suffix, replacement)
-			break
 		}
 	}
 	return filename
@@ -237,39 +237,39 @@ func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpRep
 		}
 
 		// Process.
-		if after, ok := strings.CutPrefix(filename, prefix.Prefix); ok {
-			filename = replacement + after
+		var changed bool
+		if filename, changed = textedit.ReplacePrefix(filename, prefix.Prefix, replacement); changed {
 			logger.Pl.D(2, "Applied prefix replacement: %q -> %q", prefix.Prefix, replacement)
-			break
 		}
 	}
 	return filename
 }
 
-// appendStrings applies configured string appends to a filename.
-func (fp *fileProcessor) appendStrings(filename string, appends []models.FOpAppend) string {
-	if len(appends) == 0 {
-		logger.Pl.D(1, "No string appends configured, keeping original filename: %q", filename)
+// suffixStrings applies configured string suffixes to a filename.
+func (fp *fileProcessor) suffixStrings(filename string, suffixes []models.FOpSuffix) string {
+	if len(suffixes) == 0 {
+		logger.Pl.D(1, "No string suffixes configured, keeping original filename: %q", filename)
 		return filename
 	}
 
-	for _, app := range appends {
+	values := make([]string, 0, len(suffixes))
+	for _, suf := range suffixes {
 		// Expand template tags.
-		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(app.Value, fp.metadata)
-		if value == app.Value && isTemplate {
+		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(suf.Value, fp.metadata)
+		if value == suf.Value && isTemplate {
 			continue
 		}
-		if dates.HasSuffix(filename, value) {
-			logger.Pl.D(2, "Filename %q already ends with %q, not appending it again", filename, value)
-			continue
-		}
-
-		// Process.
-		prev := filename
-		filename = filename + value
-		logger.Pl.D(2, "Append made: %s -> %s (appended %q)", prev, filename, value)
+		values = append(values, value)
 	}
-	return filename
+
+	// Process.
+	result, changed := textedit.AddSuffixes(filename, values)
+	if !changed {
+		logger.Pl.D(2, "Filename %q already ends with %q, not suffixing it again", filename, values)
+		return filename
+	}
+	logger.Pl.D(2, "Suffix made: %s -> %s (suffixed %q)", filename, result, values)
+	return result
 }
 
 // prefixStrings applies configured string prefixes to a filename.
@@ -279,23 +279,24 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 		return filename
 	}
 
+	values := make([]string, 0, len(prefixes))
 	for _, pre := range prefixes {
 		// Expand template tags.
 		value, isTemplate := fp.metatagParser.FillMetaTemplateTag(pre.Value, fp.metadata)
 		if value == pre.Value && isTemplate {
 			continue
 		}
-		if dates.HasPrefix(filename, value) {
-			logger.Pl.D(2, "Filename %q already starts with %q, not prefixing it again", filename, value)
-			continue
-		}
-
-		// Process.
-		prev := filename
-		filename = value + filename
-		logger.Pl.D(2, "Prefix made: %s -> %s (prefixed %q)", prev, filename, value)
+		values = append(values, value)
 	}
-	return filename
+
+	// Process.
+	result, changed := textedit.AddPrefixes(filename, values)
+	if !changed {
+		logger.Pl.D(2, "Filename %q already starts with %q, not prefixing it again", filename, values)
+		return filename
+	}
+	logger.Pl.D(2, "Prefix made: %s -> %s (prefixed %q)", filename, result, values)
+	return result
 }
 
 // addDateTag applies a date tag to a filename at the specified location.
@@ -310,29 +311,10 @@ func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, 
 		return filename
 	}
 
-	var result string
-	switch dateTag.Loc {
-	case enums.DateTagLocPrefix:
-		if strings.HasPrefix(filename, dateTagStr) {
-			return filename
-		}
-
-		_, rest := dates.StripDateTags(filename, enums.DateTagLocPrefix) // An existing tag here is replaced.
-		result = dateTagStr + " " + rest
-		logger.Pl.D(2, "Added date tag prefix: %s -> %s", filename, result)
-	case enums.DateTagLocSuffix:
-		if strings.HasSuffix(filename, dateTagStr) {
-			return filename
-		}
-
-		_, rest := dates.StripDateTags(filename, enums.DateTagLocSuffix) // An existing tag here is replaced.
-		result = rest + " " + dateTagStr
-		logger.Pl.D(2, "Added date tag suffix: %s -> %s", filename, result)
-	default:
-		logger.Pl.W("Invalid date tag location: %v, keeping original filename", dateTag.Loc)
-		return filename
+	result, changed := dates.AddDateTag(filename, dateTagStr, dateTag.Loc)
+	if changed {
+		logger.Pl.D(2, "Added date tag: %s -> %s", filename, result)
 	}
-
 	return result
 }
 
@@ -343,56 +325,9 @@ func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDele
 		return filename
 	}
 
-	prevFilename := filename
-
-	switch deleteTag.Loc {
-	case enums.DateTagLocPrefix:
-		_, filename = dates.StripDateTags(filename, enums.DateTagLocPrefix)
-		logger.Pl.D(2, "Stripped prefix date tag: %s -> %s", prevFilename, filename)
-	case enums.DateTagLocSuffix:
-		_, filename = dates.StripDateTags(filename, enums.DateTagLocSuffix)
-		logger.Pl.D(2, "Stripped suffix date tag: %s -> %s", prevFilename, filename)
-	case enums.DateTagLocAll:
-		// Strip all date tags from anywhere in the string.
-		for {
-			oldFilename := filename
-			// Look for any [date] pattern.
-			openTag := strings.Index(filename, "[")
-			if openTag == -1 {
-				break
-			}
-			closeTag := strings.Index(filename[openTag:], "]")
-			if closeTag == -1 {
-				break
-			}
-			closeTag += openTag
-
-			dateStr := filename[openTag+1 : closeTag]
-			if regex.DateTagCompile().MatchString(dateStr) {
-				// Remove this date tag.
-				filename = filename[:openTag] + filename[closeTag+1:]
-			} else {
-				// Not a valid date tag, skip past this bracket.
-				if closeTag+1 >= len(filename) {
-					break
-				}
-				// Replace the opening bracket temporarily to skip it.
-				filename = filename[:openTag] + "\x00" + filename[openTag+1:]
-			}
-
-			if oldFilename == filename {
-				break
-			}
-		}
-		// Restore any temporarily replaced brackets.
-		filename = strings.ReplaceAll(filename, "\x00", "[")
-		logger.Pl.D(2, "Stripped all date tags: %s -> %s", prevFilename, filename)
-	default:
-		logger.Pl.W("Unknown date tag location: %v, keeping original filename", deleteTag.Loc)
-		return filename
-	}
-
-	return filename
+	_, result := dates.StripDateTags(filename, deleteTag.Loc)
+	logger.Pl.D(2, "Stripped date tags at %v: %s -> %s", deleteTag.Loc, filename, result)
+	return result
 }
 
 // replaceLoneS performs replacements without regex.

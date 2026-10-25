@@ -45,7 +45,6 @@ const (
 	TranscodeVideoCodecInput string = "transcode-video-codecs"
 	TranscodePreset          string = "transcode-preset"
 	TranscodeQuality         string = "transcode-quality"
-	TranscodeVideoFilter     string = "transcode-video-filter"
 
 	ExtraFFmpegArgs      string = "extra-ffmpeg-args"
 	ForceWriteThumbnails string = "force-write-thumbnail"
@@ -76,18 +75,8 @@ const (
 
 // Meta edits.
 const (
-	MOverwrite      string = "meta-overwrite"
-	MPreserve       string = "meta-preserve"
-	MCopyToField    string = "copyToField"
-	MPasteFromField string = "pasteFromField"
-	MAppend         string = "metaAppend"
-	MNewField       string = "MetaSetField"
-	MPrefix         string = "metaPrefix"
-	MReplaceText    string = "metaReplaceText"
-	MTrimPrefix     string = "metaTrimPrefix"
-	MTrimSuffix     string = "metaTrimSuffix"
-	MDateTagMap     string = "metaDateTagMap"
-	MDelDateTagMap  string = "metaDelDateTagMap"
+	MOverwrite string = "meta-overwrite"
+	MPreserve  string = "meta-preserve"
 )
 
 // Internal filename operation keys. Not exposed to end user.

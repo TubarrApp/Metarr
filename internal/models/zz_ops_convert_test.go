@@ -48,19 +48,19 @@ func TestMetaOpsFromSharedDatesFrom(t *testing.T) {
 // single-field date tags taking precedence over their group's.
 func TestExpandGroups(t *testing.T) {
 	ops := NewMetaOps()
-	ops.Appends = []MetaAppend{{Field: "all-titles", Append: "!"}, {Field: "writer", Append: "?"}}
+	ops.Suffixes = []MetaSuffix{{Field: "all-titles", Suffix: "!"}, {Field: "writer", Suffix: "?"}}
 	ops.CopyToFields = []CopyToField{{Field: "release_date", Dest: "all-titles"}}
 	ops.DateTags["all-titles"] = MetaDateTag{Loc: enums.DateTagLocPrefix}
 	ops.DateTags["title"] = MetaDateTag{Loc: enums.DateTagLocSuffix}
 
 	got := ops.ExpandGroups(JSONGroupFields)
 
-	var appendFields []string
-	for _, a := range got.Appends {
-		appendFields = append(appendFields, a.Field)
+	var suffixFields []string
+	for _, s := range got.Suffixes {
+		suffixFields = append(suffixFields, s.Field)
 	}
-	if want := []string{"title", "fulltitle", "subtitle", "writer"}; !slices.Equal(appendFields, want) {
-		t.Errorf("Appends fields = %v, want %v", appendFields, want)
+	if want := []string{"title", "fulltitle", "subtitle", "writer"}; !slices.Equal(suffixFields, want) {
+		t.Errorf("Suffixes fields = %v, want %v", suffixFields, want)
 	}
 	if len(got.CopyToFields) != 3 || got.CopyToFields[1].Dest != "fulltitle" || got.CopyToFields[1].Field != "release_date" {
 		t.Errorf("CopyToFields = %+v", got.CopyToFields)
@@ -71,13 +71,13 @@ func TestExpandGroups(t *testing.T) {
 	if _, ok := got.DateTags["all-titles"]; ok {
 		t.Error("group key should not survive expansion")
 	}
-	if len(ops.Appends) != 2 {
-		t.Errorf("original Appends modified: %+v", ops.Appends)
+	if len(ops.Suffixes) != 2 {
+		t.Errorf("original Suffixes modified: %+v", ops.Suffixes)
 	}
 
 	nfo := ops.ExpandGroups(NFOGroupFields)
-	if len(nfo.Appends) != 5 || nfo.Appends[1].Field != "originaltitle" {
-		t.Errorf("NFO Appends = %+v", nfo.Appends)
+	if len(nfo.Suffixes) != 5 || nfo.Suffixes[1].Field != "originaltitle" {
+		t.Errorf("NFO Suffixes = %+v", nfo.Suffixes)
 	}
 }
 
@@ -85,7 +85,7 @@ func TestMetaOpsFromShared(t *testing.T) {
 	ops := parseMetaForTest(t,
 		"title:set:Cats",
 		"all-credits:set:Mr Cat",
-		"title:append: (new)",
+		"title:suffix: (new)",
 		"title:prefix:[CATS] ",
 		"director:copy-to:writer",
 		"writer:paste-from:director",
@@ -107,8 +107,8 @@ func TestMetaOpsFromShared(t *testing.T) {
 	if v := got.SetOverrides[enums.OverrideMetaCredits]; v != "Mr Cat" {
 		t.Errorf("credits override = %q, want %q", v, "Mr Cat")
 	}
-	if len(got.Appends) != 1 || got.Appends[0].Append != " (new)" {
-		t.Errorf("Appends = %+v", got.Appends)
+	if len(got.Suffixes) != 1 || got.Suffixes[0].Suffix != " (new)" {
+		t.Errorf("Suffixes = %+v", got.Suffixes)
 	}
 	if len(got.Prefixes) != 1 || got.Prefixes[0].Prefix != "[CATS] " {
 		t.Errorf("Prefixes = %+v", got.Prefixes)
@@ -187,7 +187,7 @@ func TestMetaDateTagRejectsAll(t *testing.T) {
 func TestFilenameOpsFromShared(t *testing.T) {
 	in := []string{
 		"prefix:[DOG VIDEOS]",
-		"append:(new)",
+		"suffix:(new)",
 		"date-tag:prefix:ymd",
 		"delete-date-tag:all:Ymd",
 		"replace:old:new",
@@ -208,8 +208,8 @@ func TestFilenameOpsFromShared(t *testing.T) {
 	if len(got.Prefixes) != 1 || got.Prefixes[0].Value != "[DOG VIDEOS]" {
 		t.Errorf("Prefixes = %+v", got.Prefixes)
 	}
-	if len(got.Appends) != 1 || got.Appends[0].Value != "(new)" {
-		t.Errorf("Appends = %+v", got.Appends)
+	if len(got.Suffixes) != 1 || got.Suffixes[0].Value != "(new)" {
+		t.Errorf("Suffixes = %+v", got.Suffixes)
 	}
 	if got.DateTag.Loc != enums.DateTagLocPrefix || got.DateTag.DateFormat != enums.DateYyMmDd {
 		t.Errorf("DateTag = %+v", got.DateTag)
@@ -284,120 +284,28 @@ func TestUnescapedPipeInValue(t *testing.T) {
 	}
 }
 
-// TestChannelURLMatches covers how a channel-scoped operation is resolved.
-//
-// A host matches itself or a subdomain of itself, since a channel may live at one; a
-// path matches itself or anything beneath it, so one channel's operation must not apply
-// to another sharing the same host.
-func TestChannelURLMatches(t *testing.T) {
-	tests := []struct {
-		name      string
-		chanURL   string
-		candidate string
-		want      bool
+// TestResolveMetaOpsByChannelURLFilter covers "channel_url:contains:<URL>||op", how an op is limited to one channel's
+// videos: it applies only where the metadata's channel_url holds the URL.
+func TestResolveMetaOpsByChannelURLFilter(t *testing.T) {
+	filtered, _, err := sharedparsing.ParseFilteredMetaOps([]string{"channel_url:contains:youtube.com/@ChannelA||title:set:cat"})
+	if err != nil {
+		t.Fatalf("ParseFilteredMetaOps: %v", err)
+	}
+
+	for _, tt := range []struct {
+		channelURL string
+		want       bool
 	}{
-		// Host forms that should all be treated alike.
-		{"exact", "https://www.google.com", "https://www.google.com/watch?v=a", true},
-		{"trailing slash on op", "https://www.google.com/", "https://www.google.com/watch?v=a", true},
-		{"no www on op", "https://google.com", "https://www.google.com/watch?v=a", true},
-		{"bare domain op", "google.com", "https://www.google.com/watch?v=a", true},
-		{"mixed case", "http://WWW.GOOGLE.COM", "https://www.google.com/watch?v=a", true},
-		{"port on candidate", "google.com", "https://google.com:8443/watch", true},
-
-		// Different sites must never match.
-		{"different host", "https://www.google.com", "https://www.youtube.com/watch?v=a", false},
-		{"lookalike host is not a subdomain", "website.com", "https://evilwebsite.com/video", false},
-
-		// Subdomains: a channel may live at one.
-		{"subdomain covered by apex op", "website.com", "https://channel.website.com/video/1", true},
-		{"subdomain op matches itself", "channel.website.com", "https://channel.website.com/video/1", true},
-		{"subdomain op excludes apex", "channel.website.com", "https://website.com/video/1", false},
-		{"subdomain op excludes sibling", "channel.website.com", "https://other.website.com/video/1", false},
-
-		// Paths: channels sharing a host must stay distinct.
-		{"path op matches its own channel", "https://youtube.com/@ChannelA", "https://www.youtube.com/@ChannelA", true},
-		{"path op matches beneath itself", "https://youtube.com/@ChannelA", "https://www.youtube.com/@ChannelA/videos", true},
-		{"path op excludes another channel", "https://youtube.com/@ChannelA", "https://www.youtube.com/@ChannelB", false},
-		{"path op excludes a bare watch URL", "https://youtube.com/@ChannelA", "https://www.youtube.com/watch?v=a", false},
-		{"path op is not a bare prefix match", "https://youtube.com/@Chan", "https://www.youtube.com/@ChannelA", false},
-		{"host-only op covers any path", "youtube.com", "https://www.youtube.com/@ChannelB/videos", true},
-
-		{"empty op", "", "https://www.google.com/a", false},
-		{"empty candidate", "google.com", "", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := channelURLMatches(tt.chanURL, tt.candidate); got != tt.want {
-				t.Errorf("channelURLMatches(%q, %q) = %v, want %v", tt.chanURL, tt.candidate, got, tt.want)
-			}
-		})
-	}
-}
-
-// TestMatchesChannelUsesMetadataChannelURL covers the case a page URL cannot resolve:
-// two videos from different channels share a host, so the channel must come from the
-// metadata's own channel_url or uploader_url.
-func TestMatchesChannelUsesMetadataChannelURL(t *testing.T) {
-	const opURL = "https://www.youtube.com/@ChannelA"
-
-	w := &MetadataWebData{WebpageURL: "https://www.youtube.com/watch?v=abc"}
-
-	if w.MatchesChannel(opURL) {
-		t.Error("a bare watch URL must not satisfy a channel-scoped operation on its own")
-	}
-	if !w.MatchesChannel(opURL, "https://www.youtube.com/@ChannelA") {
-		t.Error("channel_url naming the same channel should match")
-	}
-	if w.MatchesChannel(opURL, "https://www.youtube.com/@ChannelB") {
-		t.Error("channel_url naming a different channel must not match")
-	}
-}
-
-// TestResolveMetaOpsByChannel covers "https://www.google.com/|title:set:cat": the op
-// applies to a google.com file and is dropped for anything else, while an unscoped op
-// always applies.
-func TestResolveMetaOpsByChannel(t *testing.T) {
-	ops := []sharedmodels.MetaOps{
-		{ChannelURL: "https://www.google.com/", Field: "title", OpType: "set", OpValue: "cat"},
-		{Field: "director", OpType: "set", OpValue: "Mr Cat"},
-	}
-
-	tests := []struct {
-		name         string
-		webpageURL   string
-		wantSetCount int
-		wantTitle    bool
-	}{
-		{"matching channel", "https://www.google.com/watch?v=abc", 2, true},
-		{"other channel", "https://www.youtube.com/watch?v=abc", 1, false},
-		{"no url at all", "", 1, false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			fd := &FileData{MWebData: &MetadataWebData{WebpageURL: tt.webpageURL}}
-
-			if err := fd.ResolveMetaOps(ops, nil, nil); err != nil {
-				t.Fatalf("ResolveMetaOps: %v", err)
-			}
-			if len(fd.MetaOps.SetFields) != tt.wantSetCount {
-				t.Fatalf("SetFields = %+v, want %d", fd.MetaOps.SetFields, tt.wantSetCount)
-			}
-
-			var sawTitle bool
-			for _, f := range fd.MetaOps.SetFields {
-				if f.Field == "title" {
-					sawTitle = true
-					if f.Value != "cat" {
-						t.Errorf("title set to %q, want %q", f.Value, "cat")
-					}
-				}
-			}
-			if sawTitle != tt.wantTitle {
-				t.Errorf("title op present = %v, want %v", sawTitle, tt.wantTitle)
-			}
-		})
+		{"https://www.youtube.com/@ChannelA", true},
+		{"https://www.youtube.com/@ChannelB", false},
+	} {
+		fd := &FileData{MWebData: &MetadataWebData{}}
+		if err := fd.ResolveMetaOps(nil, filtered, map[string]any{"channel_url": tt.channelURL}); err != nil {
+			t.Fatalf("ResolveMetaOps: %v", err)
+		}
+		if got := len(fd.MetaOps.SetFields) == 1; got != tt.want {
+			t.Errorf("channel_url %q: op applied = %v, want %v", tt.channelURL, got, tt.want)
+		}
 	}
 }
 
@@ -436,32 +344,6 @@ func TestResolveMetaOpsWithFilters(t *testing.T) {
 				t.Errorf("prefix = %q", fd.MetaOps.Prefixes[0].Prefix)
 			}
 		})
-	}
-}
-
-// TestResolveMetaOpsFilteredRespectsChannel keeps a filtered entry scoped to a channel
-// from applying to a file from elsewhere, even when its filters match.
-func TestResolveMetaOpsFilteredRespectsChannel(t *testing.T) {
-	filtered := []sharedmodels.FilteredMetaOps{{
-		Filters: []sharedmodels.Filters{{Field: "title", FilterType: "contains", Value: "cat"}},
-		MetaOps: []sharedmodels.MetaOps{{ChannelURL: "https://www.google.com/", Field: "title", OpType: "prefix", OpValue: "[CAT] "}},
-	}}
-	meta := map[string]any{"title": "Cat Compilation"}
-
-	matching := &FileData{MWebData: &MetadataWebData{WebpageURL: "https://www.google.com/watch?v=a"}}
-	if err := matching.ResolveMetaOps(nil, filtered, meta); err != nil {
-		t.Fatalf("ResolveMetaOps: %v", err)
-	}
-	if len(matching.MetaOps.Prefixes) != 1 {
-		t.Errorf("expected the prefix for a google.com file, got %+v", matching.MetaOps.Prefixes)
-	}
-
-	other := &FileData{MWebData: &MetadataWebData{WebpageURL: "https://www.youtube.com/watch?v=a"}}
-	if err := other.ResolveMetaOps(nil, filtered, meta); err != nil {
-		t.Fatalf("ResolveMetaOps: %v", err)
-	}
-	if len(other.MetaOps.Prefixes) != 0 {
-		t.Errorf("expected no prefix for a youtube.com file, got %+v", other.MetaOps.Prefixes)
 	}
 }
 
@@ -526,33 +408,6 @@ func TestResolveFilenameOpsWithFilters(t *testing.T) {
 	}
 }
 
-// TestResolveFilenameOpsByChannel covers a channel-scoped plain filename operation,
-// which Metarr previously ignored entirely.
-func TestResolveFilenameOpsByChannel(t *testing.T) {
-	ops := []sharedmodels.FilenameOps{
-		{ChannelURL: "https://www.google.com/", OpType: "prefix", OpValue: "[G] "},
-		{OpType: "append", OpValue: " (new)"},
-	}
-
-	matching := &FileData{MWebData: &MetadataWebData{WebpageURL: "https://www.google.com/watch?v=a"}}
-	if err := matching.ResolveFilenameOps(ops, nil, nil); err != nil {
-		t.Fatalf("ResolveFilenameOps: %v", err)
-	}
-	if len(matching.FilenameOps.Prefixes) != 1 || len(matching.FilenameOps.Appends) != 1 {
-		t.Errorf("google.com file should get both ops, got prefixes=%+v appends=%+v",
-			matching.FilenameOps.Prefixes, matching.FilenameOps.Appends)
-	}
-
-	other := &FileData{MWebData: &MetadataWebData{WebpageURL: "https://www.youtube.com/watch?v=a"}}
-	if err := other.ResolveFilenameOps(ops, nil, nil); err != nil {
-		t.Fatalf("ResolveFilenameOps: %v", err)
-	}
-	if len(other.FilenameOps.Prefixes) != 0 || len(other.FilenameOps.Appends) != 1 {
-		t.Errorf("youtube.com file should get only the unscoped op, got prefixes=%+v appends=%+v",
-			other.FilenameOps.Prefixes, other.FilenameOps.Appends)
-	}
-}
-
 // TestResolveFilenameOpsSingletonConflict checks that a plain date tag plus a matching
 // filtered date tag is reported rather than silently picking one.
 func TestResolveFilenameOpsSingletonConflict(t *testing.T) {
@@ -589,14 +444,11 @@ func TestTextOpsKinoCasino(t *testing.T) {
 	if got := ops.RegexReplaces[0].Regex.ReplaceAllString(title, ops.RegexReplaces[0].Replacement); got != "Episode name | Part 2" {
 		t.Errorf("regex-replace = %q", got)
 	}
-	if got, ok := ops.Cuts[0].Apply(title); !ok || got != "Episode name | Part 2" {
-		t.Errorf("keep-after = %q, %v", got, ok)
+	if c := ops.Cuts[0]; c.Field != "title" || c.Delim != "| " || c.KeepBefore {
+		t.Errorf("keep-after = %+v", c)
 	}
-	if got, ok := ops.Cuts[1].Apply(title); !ok || got != "Kino Casino 2024-03-01" {
-		t.Errorf("keep-before = %q, %v", got, ok)
-	}
-	if got, ok := ops.Cuts[0].Apply("No delimiter"); ok || got != "No delimiter" {
-		t.Errorf("trim without delimiter = %q, %v", got, ok)
+	if c := ops.Cuts[1]; c.Delim != " |" || !c.KeepBefore {
+		t.Errorf("keep-before = %+v", c)
 	}
 
 	fparsed, _, err := sharedparsing.ParseFilenameOps([]string{`regex-replace:[[(?i)^kino casino (\d{4})\S* \| (.*)]]:$2 ($1)`, "keep-before: |"})

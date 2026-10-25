@@ -4,16 +4,13 @@ import (
 	"fmt"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
-	"net"
-	"net/url"
 	"regexp"
-	"strings"
+	"slices"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedfilters"
 	"github.com/TubarrApp/gocommon/sharedmodels"
-	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
 // MetaOpsFromShared folds flat shared operations into Metarr's aggregate dispatch model.
@@ -40,16 +37,16 @@ func MetaOpsFromShared(ops []sharedmodels.MetaOps) (*MetaOps, error) {
 				})
 			}
 
-		case sharedconsts.OpAppend:
-			out.Appends = append(out.Appends, MetaAppend{
-				Field:  op.Field,
-				Append: op.OpValue,
-			})
-
 		case sharedconsts.OpPrefix:
 			out.Prefixes = append(out.Prefixes, MetaPrefix{
 				Field:  op.Field,
 				Prefix: op.OpValue,
+			})
+
+		case sharedconsts.OpSuffix:
+			out.Suffixes = append(out.Suffixes, MetaSuffix{
+				Field:  op.Field,
+				Suffix: op.OpValue,
 			})
 
 		case sharedconsts.OpCopyTo:
@@ -143,8 +140,8 @@ func FilenameOpsFromShared(ops []sharedmodels.FilenameOps) (*FilenameOps, error)
 		case sharedconsts.OpPrefix:
 			out.Prefixes = append(out.Prefixes, FOpPrefix{Value: op.OpValue})
 
-		case sharedconsts.OpAppend:
-			out.Appends = append(out.Appends, FOpAppend{Value: op.OpValue})
+		case sharedconsts.OpSuffix:
+			out.Suffixes = append(out.Suffixes, FOpSuffix{Value: op.OpValue})
 
 		case sharedconsts.OpSet:
 			if out.Set.IsSet {
@@ -222,97 +219,11 @@ func dateTagParts(opType, opLoc, dateFormat string, allowAll bool) (enums.DateTa
 	return loc, dateFmt, nil
 }
 
-// normalizeChannelURL splits a channel URL into a comparable host and path.
+// ResolveMetaOps rebuilds the file's meta operations from ops and the filtered entries whose filters all match meta.
 //
-// The scheme, a leading "www." and any trailing slash are dropped, and the host is
-// lowercased. Other subdomains are kept, since a channel may live at one
-// (channel.website.com is not website.com). A bare domain is accepted as well as a
-// full URL.
-func normalizeChannelURL(s string) (host, path string) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return "", ""
-	}
-
-	u, err := url.Parse(s)
-	if err != nil || u.Host == "" {
-		// No scheme, so re-parse as an authority to separate host from path.
-		u, err = url.Parse("//" + s)
-		if err != nil || u.Host == "" {
-			return "", ""
-		}
-	}
-
-	host = strings.ToLower(u.Host)
-	if h, _, splitErr := net.SplitHostPort(host); splitErr == nil {
-		host = h
-	}
-	host = strings.TrimPrefix(host, "www.")
-
-	path = strings.TrimSuffix(u.EscapedPath(), "/")
-	return host, strings.ToLower(path)
-}
-
-// channelURLMatches reports whether candidate belongs to the channel named by chanURL.
-//
-// A host matches itself or any of its subdomains, so "website.com" covers
-// "channel.website.com" while "evilwebsite.com" is excluded. A path matches itself or
-// anything beneath it, so "youtube.com/@ChannelA" covers that channel's own pages but
-// not "@ChannelB"; a chanURL with no path covers the whole host.
-func channelURLMatches(chanURL, candidate string) bool {
-	wantHost, wantPath := normalizeChannelURL(chanURL)
-	gotHost, gotPath := normalizeChannelURL(candidate)
-	if wantHost == "" || gotHost == "" {
-		return false
-	}
-
-	if gotHost != wantHost && !strings.HasSuffix(gotHost, "."+wantHost) {
-		return false
-	}
-	if wantPath == "" {
-		return true
-	}
-	return gotPath == wantPath || strings.HasPrefix(gotPath, wantPath+"/")
-}
-
-// MatchesChannel reports whether any URL known for the file belongs to the channel
-// named by chanURL, which is how a channel-scoped operation is resolved per file.
-//
-// Metarr has no channel concept of its own, so the metafile's own URLs stand in for it.
-// channelURL and uploaderURL identify the channel directly where the source provides
-// them; the page URL only narrows to the host, so a path-scoped operation will not
-// match on it alone.
-func (w *MetadataWebData) MatchesChannel(chanURL string, extra ...string) bool {
-	if w == nil {
-		return false
-	}
-
-	candidates := append([]string{w.WebpageURL, w.VideoURL, w.Referer}, w.TryURLs...)
-	candidates = append(candidates, extra...)
-
-	for _, c := range candidates {
-		if c != "" && channelURLMatches(chanURL, c) {
-			return true
-		}
-	}
-	return false
-}
-
-// ResolveMetaOps rebuilds the file's meta operations, keeping those that apply to it.
-//
-// An operation is kept when it names no channel or names this file's channel. A
-// filtered entry is kept when its filters all match meta, which is why this runs per
-// file rather than at startup: neither the channel nor the metadata is known before.
+// Runs per file rather than at startup, since the metadata isn't known before.
 func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []sharedmodels.FilteredMetaOps, meta map[string]any) error {
-	resolved := make([]sharedmodels.MetaOps, 0, len(ops))
-	for _, op := range ops {
-		if fd.appliesToChannel(op.ChannelURL, meta) {
-			resolved = append(resolved, op)
-			continue
-		}
-		logger.Pl.D(2, "Skipping meta operation %q scoped to channel %q for this file", op.OpType, op.ChannelURL)
-	}
-
+	resolved := slices.Clone(ops)
 	for _, fmo := range filtered {
 		matched, err := sharedfilters.MatchAll(meta, fmo.Filters)
 		if err != nil {
@@ -324,9 +235,6 @@ func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []shared
 		}
 
 		for _, op := range fmo.MetaOps {
-			if !fd.appliesToChannel(op.ChannelURL, meta) {
-				continue
-			}
 			logger.Pl.I("Filters matched, applying meta operation %q to field %q", op.OpType, op.Field)
 			resolved = append(resolved, op)
 		}
@@ -340,44 +248,10 @@ func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []shared
 	return nil
 }
 
-// appliesToChannel reports whether an operation scoped to chanURL applies to this file.
-func (fd *FileData) appliesToChannel(chanURL string, meta map[string]any) bool {
-	return chanURL == "" || fd.MWebData.MatchesChannel(chanURL, channelURLsFromMeta(meta)...)
-}
-
-// channelURLsFromMeta pulls the source's own channel identifiers out of the metadata.
-//
-// These are what make a path-scoped operation such as "youtube.com/@ChannelA" resolve
-// correctly, since a video's page URL only reveals the host.
-func channelURLsFromMeta(meta map[string]any) []string {
-	if len(meta) == 0 {
-		return nil
-	}
-
-	urls := make([]string, 0, 2)
-	for _, key := range []string{sharedtags.JChannelURL, sharedtags.JUploaderURL} {
-		if v, ok := meta[key].(string); ok && v != "" {
-			urls = append(urls, v)
-		}
-	}
-	return urls
-}
-
-// ResolveFilenameOps rebuilds the file's filename operations, keeping those that apply.
-//
-// Mirrors [FileData.ResolveMetaOps]: an operation is kept when it names no channel or
-// names this file's channel, and a filtered entry is kept when its filters all match
-// meta. The filters read metadata even though the operations act on the filename.
+// ResolveFilenameOps rebuilds the file's filename operations from ops and the filtered entries whose filters all match
+// meta, as [FileData.ResolveMetaOps] does. The filters read metadata even though the operations act on the filename.
 func (fd *FileData) ResolveFilenameOps(ops []sharedmodels.FilenameOps, filtered []sharedmodels.FilteredFilenameOps, meta map[string]any) error {
-	resolved := make([]sharedmodels.FilenameOps, 0, len(ops))
-	for _, op := range ops {
-		if fd.appliesToChannel(op.ChannelURL, meta) {
-			resolved = append(resolved, op)
-			continue
-		}
-		logger.Pl.D(2, "Skipping filename operation %q scoped to channel %q for this file", op.OpType, op.ChannelURL)
-	}
-
+	resolved := slices.Clone(ops)
 	for _, ffo := range filtered {
 		matched, err := sharedfilters.MatchAll(meta, ffo.Filters)
 		if err != nil {
@@ -389,9 +263,6 @@ func (fd *FileData) ResolveFilenameOps(ops []sharedmodels.FilenameOps, filtered 
 		}
 
 		for _, op := range ffo.FilenameOps {
-			if !fd.appliesToChannel(op.ChannelURL, meta) {
-				continue
-			}
 			logger.Pl.I("Filters matched, applying filename operation %q", op.OpType)
 			resolved = append(resolved, op)
 		}

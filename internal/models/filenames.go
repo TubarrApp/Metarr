@@ -10,8 +10,8 @@ type FilenameOps struct {
 	DateTag         FOpDateTag
 	DeleteDateTags  FOpDeleteDateTag
 	Set             FOpSet
-	Appends         []FOpAppend
 	Prefixes        []FOpPrefix
+	Suffixes        []FOpSuffix
 	Replaces        []FOpReplace
 	ReplaceSuffixes []FOpReplaceSuffix
 	ReplacePrefixes []FOpReplacePrefix
@@ -22,8 +22,8 @@ type FilenameOps struct {
 // NewFilenameOps creates a new FilenameOps with initialized slices.
 func NewFilenameOps() *FilenameOps {
 	fo := &FilenameOps{
-		Appends:         make([]FOpAppend, 0),
 		Prefixes:        make([]FOpPrefix, 0),
+		Suffixes:        make([]FOpSuffix, 0),
 		Replaces:        make([]FOpReplace, 0),
 		ReplaceSuffixes: make([]FOpReplaceSuffix, 0),
 		ReplacePrefixes: make([]FOpReplacePrefix, 0),
@@ -42,11 +42,11 @@ func (fd *FileData) EnsureFilenameOps() {
 		fd.FilenameOps = NewFilenameOps()
 		return
 	}
-	if fd.FilenameOps.Appends == nil {
-		fd.FilenameOps.Appends = []FOpAppend{}
-	}
 	if fd.FilenameOps.Prefixes == nil {
 		fd.FilenameOps.Prefixes = []FOpPrefix{}
+	}
+	if fd.FilenameOps.Suffixes == nil {
+		fd.FilenameOps.Suffixes = []FOpSuffix{}
 	}
 	if fd.FilenameOps.Replaces == nil {
 		fd.FilenameOps.Replaces = []FOpReplace{}
@@ -65,13 +65,13 @@ func (fd *FileData) EnsureFilenameOps() {
 	}
 }
 
-// FOpAppend is the value to append onto a filename.
-type FOpAppend struct {
+// FOpPrefix is the value to prefix on a filename.
+type FOpPrefix struct {
 	Value string
 }
 
-// FOpPrefix is the value to prefix on a filename.
-type FOpPrefix struct {
+// FOpSuffix is the value to suffix on a filename.
+type FOpSuffix struct {
 	Value string
 }
 

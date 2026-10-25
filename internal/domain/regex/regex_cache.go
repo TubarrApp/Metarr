@@ -124,10 +124,14 @@ func BracketedNumberCompile() *regexp.Regexp {
 	return BracketedNumber
 }
 
+// dateTagBody matches the date inside a date tag in every format one is made in: 2024-05-01, 24-05-01, 01-05-2024
+// (or 01-05-24) and 05-01.
+const dateTagBody = `(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{2}(\d{2})?|\d{2}-\d{2})`
+
 // DateTagCompile compiles regex to detect date structures (used in filename date tag stripping).
 func DateTagCompile() *regexp.Regexp {
 	dateTagDetectOnce.Do(func() {
-		DateTagDetect = regexp.MustCompile(`^\d{2,4}-\d{2}-\d{2}$`)
+		DateTagDetect = regexp.MustCompile(`^` + dateTagBody + `$`)
 	})
 	return DateTagDetect
 }
@@ -135,7 +139,7 @@ func DateTagCompile() *regexp.Regexp {
 // DateTagWithBracketsCompile compiles regex to find [date] tags anywhere in string.
 func DateTagWithBracketsCompile() *regexp.Regexp {
 	dateTagWithBracketsOnce.Do(func() {
-		DateTagWithBrackets = regexp.MustCompile(`\[\d{2,4}-\d{2}-\d{2}\]`)
+		DateTagWithBrackets = regexp.MustCompile(`\[` + dateTagBody + `\]`)
 	})
 	return DateTagWithBrackets
 }

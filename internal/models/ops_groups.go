@@ -68,21 +68,21 @@ func (m *MetaOps) ExpandGroups(groups map[string][]string) *MetaOps {
 		}
 	}
 
-	// Appends.
-	out.Appends = make([]MetaAppend, 0, len(m.Appends))
-	for _, op := range m.Appends {
-		for _, field := range fieldsCovered(op.Field, groups) {
-			op.Field = field
-			out.Appends = append(out.Appends, op)
-		}
-	}
-
 	// Prefixes.
 	out.Prefixes = make([]MetaPrefix, 0, len(m.Prefixes))
 	for _, op := range m.Prefixes {
 		for _, field := range fieldsCovered(op.Field, groups) {
 			op.Field = field
 			out.Prefixes = append(out.Prefixes, op)
+		}
+	}
+
+	// Suffixes.
+	out.Suffixes = make([]MetaSuffix, 0, len(m.Suffixes))
+	for _, op := range m.Suffixes {
+		for _, field := range fieldsCovered(op.Field, groups) {
+			op.Field = field
+			out.Suffixes = append(out.Suffixes, op)
 		}
 	}
 

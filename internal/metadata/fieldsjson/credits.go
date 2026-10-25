@@ -1,12 +1,10 @@
 package fieldsjson
 
 import (
-	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
-	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
 	"github.com/TubarrApp/gocommon/sharedtags"
@@ -21,7 +19,7 @@ var creditKeys = []string{
 
 // fillCredits fills in the metadator for credits (e.g. actor, director, uploader).
 func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.JSONFileRW) (map[string]any, bool) {
-	var filled, overidden bool
+	var filled bool
 
 	c := fd.MCredits
 
@@ -97,12 +95,6 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		logger.Pl.D(2, "Set value to %q", *ptr)
 	}
 
-	if printMap, overidden = overrideAll(fieldMap, fd, printMap); overidden {
-		if !filled {
-			filled = overidden
-		}
-	}
-
 	if !filled {
 		return json, false
 	}
@@ -115,55 +107,4 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		return rtn, true
 	}
 	return json, true
-}
-
-// overrideAll makes override replacements if existent.
-func overrideAll(fieldMap map[string]*string, fd *models.FileData, printMap map[string]string) (map[string]string, bool) {
-	logger.Pl.D(2, "Checking credits field overrides...")
-	if fieldMap == nil {
-		logger.Pl.E("fieldMap passed in null")
-		return printMap, false
-	}
-
-	filled := false
-	// Note order of operations.
-	if len(fd.MetaOps.ReplaceOverrides) > 0 {
-		logger.Pl.I("Overriding credits with text replacements...")
-		if m, exists := fd.MetaOps.ReplaceOverrides[enums.OverrideMetaCredits]; exists {
-			for k, ptr := range fieldMap {
-				if ptr == nil {
-					logger.Pl.E("Entry is nil in fieldMap %v", fieldMap)
-					continue
-				}
-				logger.Pl.I("Overriding old %q by replacing %q with %q", *ptr, m.Value, m.Replacement)
-				*ptr = strings.ReplaceAll(*ptr, m.Value, m.Replacement)
-
-				if logging.Level() > 1 {
-					printMap[k] = *ptr
-				}
-
-				filled = true
-			}
-		}
-	}
-
-	if len(fd.MetaOps.AppendOverrides) > 0 {
-		logger.Pl.I("Overriding credits with appends...")
-		if val, exists := fd.MetaOps.AppendOverrides[enums.OverrideMetaCredits]; exists {
-			for k, ptr := range fieldMap {
-				if ptr == nil {
-					logger.Pl.E("Entry is nil in fieldMap %v", fieldMap)
-					continue
-				}
-				logger.Pl.I("Overriding old %q by appending it with %q", *ptr, val)
-				*ptr += val
-
-				if logging.Level() > 1 {
-					printMap[k] = *ptr
-				}
-				filled = true
-			}
-		}
-	}
-	return printMap, filled
 }

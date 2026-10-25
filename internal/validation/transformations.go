@@ -28,10 +28,10 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Pl.I("Added %d meta operations: %v", len(parsed), sharedparsing.FormatMetaOps(parsed, "", false))
+	logger.Pl.I("Added %d meta operations: %v", len(parsed), sharedparsing.FormatMetaOps(parsed))
 
-	// Set values into Viper. The flat form is kept too, since channel-scoped operations
-	// can only be resolved per file, once that file's URLs are known.
+	// Set values into Viper. The flat form is kept too, since matched filtered operations
+	// are added to it per file, once that file's metadata is read.
 	abstractions.Set(keys.MetaOpsModels, ops)
 	abstractions.Set(keys.MetaOpsFlat, parsed)
 	return nil
@@ -56,10 +56,10 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Pl.I("Added %d filename operations: %v", len(parsed), sharedparsing.FormatFilenameOps(parsed, "", false))
+	logger.Pl.I("Added %d filename operations: %v", len(parsed), sharedparsing.FormatFilenameOps(parsed))
 
-	// Set values into Viper. The flat form is kept too, since channel-scoped operations
-	// can only be resolved per file, once that file's URLs are known.
+	// Set values into Viper. The flat form is kept too, since matched filtered operations
+	// are added to it per file, once that file's metadata is read.
 	abstractions.Set(keys.FilenameOpsModels, fOpModel)
 	abstractions.Set(keys.FilenameOpsFlat, parsed)
 	return nil

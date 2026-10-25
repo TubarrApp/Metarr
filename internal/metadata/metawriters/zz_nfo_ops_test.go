@@ -40,10 +40,10 @@ func TestMakeMetaEditsNFO(t *testing.T) {
 	f := nfoTestFile(t, data)
 
 	ops := models.NewMetaOps()
-	ops.Appends = []models.MetaAppend{
-		{Field: "all-titles", Append: " & more"},
-		{Field: "director", Append: "!"},
-		{Field: "actor", Append: " Jr"},
+	ops.Suffixes = []models.MetaSuffix{
+		{Field: "all-titles", Suffix: " & more"},
+		{Field: "director", Suffix: "!"},
+		{Field: "actor", Suffix: " Jr"},
 	}
 	ops.ReplacePrefixes = []models.MetaReplacePrefix{{Field: "plot", Prefix: "[OLD] ", Replacement: "[NEW] "}}
 	ops.PasteFromFields = []models.PasteFromField{{Field: "outline", Origin: "premiered"}}
@@ -128,7 +128,7 @@ func TestDateTagEditsNFO(t *testing.T) {
 	}
 }
 
-// TestNFOOpsRerun tests that meta ops run again on an edited NFO don't stack prefixes or appends, and a date tag op
+// TestNFOOpsRerun tests that meta ops run again on an edited NFO don't stack prefixes or suffixes, and a date tag op
 // replaces the tag already there.
 func TestNFOOpsRerun(t *testing.T) {
 	data := "<movie>\n<title>[2023-11-05] [Cats] Cats (HD)</title>\n</movie>"
@@ -136,8 +136,8 @@ func TestNFOOpsRerun(t *testing.T) {
 	if _, edited := rw.xmlPrefix(data, []models.MetaPrefix{{Field: "title", Prefix: "[Cats] "}}); edited {
 		t.Error("prefix applied again")
 	}
-	if _, edited := rw.xmlAppend(data, []models.MetaAppend{{Field: "title", Append: " (HD)"}}); edited {
-		t.Error("append applied again")
+	if _, edited := rw.xmlSuffix(data, []models.MetaSuffix{{Field: "title", Suffix: " (HD)"}}); edited {
+		t.Error("suffix applied again")
 	}
 
 	f := nfoTestFile(t, data)
@@ -149,6 +149,24 @@ func TestNFOOpsRerun(t *testing.T) {
 	}
 	got, _ := os.ReadFile(f.Name())
 	if want := "<title>[2024-05-01] [Cats] Cats (HD)</title>"; !strings.Contains(string(got), want) {
+		t.Errorf("missing %q in:\n%s", want, got)
+	}
+}
+
+// TestMakeMetaEditsNFOOrder tests that a date tag is deleted before prefixes are added, and that prefixes read in the
+// order they were written.
+func TestMakeMetaEditsNFOOrder(t *testing.T) {
+	data := "<movie>\n<title>[2023-11-05] Cats</title>\n</movie>"
+	f := nfoTestFile(t, data)
+	ops := models.NewMetaOps()
+	ops.Prefixes = []models.MetaPrefix{{Field: "title", Prefix: "[A] "}, {Field: "title", Prefix: "[B] "}}
+	ops.DeleteDateTags["title"] = models.MetaDeleteDateTag{Loc: enums.DateTagLocPrefix, Format: enums.DateYyyyMmDd}
+
+	if edited, err := (&NFOFileRW{}).MakeMetaEdits(data, f, &models.FileData{MetaOps: ops}); err != nil || !edited {
+		t.Fatalf("MakeMetaEdits edited=%v err=%v", edited, err)
+	}
+	got, _ := os.ReadFile(f.Name())
+	if want := "<title>[A] [B] Cats</title>"; !strings.Contains(string(got), want) {
 		t.Errorf("missing %q in:\n%s", want, got)
 	}
 }

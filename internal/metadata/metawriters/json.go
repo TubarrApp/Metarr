@@ -18,6 +18,7 @@ import (
 	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
+	"metarr/internal/textedit"
 	"metarr/internal/utils/prompt"
 	"os"
 	"strings"
@@ -167,6 +168,16 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 	}
 	ops := fd.MetaOps.ExpandGroups(models.JSONGroupFields)
 
+	// Delete date tags before anything else, so other operations can't move them from where they're looked for.
+	if len(ops.DeleteDateTags) > 0 {
+		logger.Pl.I("Stripping metafield date tags (User entered: %v)", ops.DeleteDateTags)
+		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, ops.DeleteDateTags, fd); err != nil {
+			logger.Pl.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
+		} else if ok {
+			edited = true
+		}
+	}
+
 	// 0. "all-x" overrides first, so per-field operations build on them.
 	if overrideJSONFields(currentMeta, ops.SetOverrides) {
 		edited = true
@@ -233,7 +244,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
-	// 4. Add content (prefix/append).
+	// 4. Add content (prefix/suffix).
 	if len(ops.Prefixes) > 0 {
 		logger.Pl.I("Model for file %q adding prefixes", fd.OriginalVideoPath)
 		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes, mtp); changesMade {
@@ -241,9 +252,9 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		}
 	}
 
-	if len(ops.Appends) > 0 {
-		logger.Pl.I("Model for file %q adding appends", fd.OriginalVideoPath)
-		if changesMade := rw.jsonAppend(currentMeta, filename, ops.Appends, mtp); changesMade {
+	if len(ops.Suffixes) > 0 {
+		logger.Pl.I("Model for file %q adding suffixes", fd.OriginalVideoPath)
+		if changesMade := rw.jsonSuffix(currentMeta, filename, ops.Suffixes, mtp); changesMade {
 			edited = true
 		}
 	}
@@ -267,7 +278,8 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 // JSONDateTagEdits is a public function to add date tags into the metafile.
 //
-// This is useful because the dates may not yet be scraped when the initial MakeJSONEdits runs.
+// This is useful because the dates may not yet be scraped when the initial MakeJSONEdits runs. MakeJSONEdits deletes
+// date tags first, so one deleted there and added here is rebuilt.
 func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	if file == nil {
 		return false, errors.New("file passed in nil")
@@ -276,17 +288,6 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 
 	logger.Pl.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
 	ops := fd.MetaOps.ExpandGroups(models.JSONGroupFields)
-
-	// Delete date tag first, user's may want to delete and re-build.
-	if len(ops.DeleteDateTags) > 0 {
-		logger.Pl.I("Stripping metafield date tags (User entered: %v)", ops.DeleteDateTags)
-
-		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, ops.DeleteDateTags, fd); err != nil {
-			logger.Pl.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
-		} else if ok {
-			edited = true
-		}
-	}
 
 	// Add date tag.
 	if len(ops.DateTags) > 0 {
@@ -407,19 +408,19 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaRepl
 		if val, exists := j[rp.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag.
-				result, isTemplate := mtp.FillMetaTemplateTag(rp.Prefix, j)
-				if result == rp.Prefix && isTemplate {
+				replacement, isTemplate := mtp.FillMetaTemplateTag(rp.Replacement, j)
+				if replacement == rp.Replacement && isTemplate {
 					continue
 				}
-				rp.Prefix = result
 
 				// Process.
-				if !strings.HasPrefix(strVal, rp.Prefix) {
+				result, changed := textedit.ReplacePrefix(strVal, rp.Prefix, replacement)
+				if !changed {
 					logger.Pl.D(3, "Metafield %q does not contain prefix %q, not making replacement", strVal, rp.Prefix)
 					continue
 				}
-				logger.Pl.D(3, "Identified field %q, trimming %q", rp.Field, rp.Prefix)
-				j[rp.Field] = rp.Replacement + strings.TrimPrefix(strVal, rp.Prefix)
+				logger.Pl.D(3, "Identified field %q, replacing prefix %q with %q", rp.Field, rp.Prefix, replacement)
+				j[rp.Field] = result
 				edited = true
 			}
 		}
@@ -443,19 +444,19 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaRepl
 		if val, exists := j[rs.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag.
-				result, isTemplate := mtp.FillMetaTemplateTag(rs.Suffix, j)
-				if result == rs.Suffix && isTemplate {
+				replacement, isTemplate := mtp.FillMetaTemplateTag(rs.Replacement, j)
+				if replacement == rs.Replacement && isTemplate {
 					continue
 				}
-				rs.Suffix = result
 
 				// Process.
-				if !strings.HasSuffix(strVal, rs.Suffix) {
+				result, changed := textedit.ReplaceSuffix(strVal, rs.Suffix, replacement)
+				if !changed {
 					logger.Pl.D(3, "Metafield %q does not contain suffix %q, not making replacement", strVal, rs.Suffix)
 					continue
 				}
-				logger.Pl.D(3, "Identified field %q, trimming %q", rs.Field, rs.Suffix)
-				j[rs.Field] = strings.TrimSuffix(strVal, rs.Suffix) + rs.Replacement
+				logger.Pl.D(3, "Identified field %q, replacing suffix %q with %q", rs.Field, rs.Suffix, replacement)
+				j[rs.Field] = result
 				edited = true
 			}
 		}
@@ -471,7 +472,7 @@ func (rw *JSONFileRW) cutJSON(j map[string]any, cuts []models.MetaCut) (edited b
 		if !ok {
 			continue
 		}
-		if result, trimmed := t.Apply(strVal); trimmed {
+		if result, trimmed := textedit.Cut(strVal, t.Delim, t.KeepBefore); trimmed {
 			logger.Pl.D(3, "Cut field %q at %q: %q -> %q", t.Field, t.Delim, strVal, result)
 			j[t.Field] = result
 			edited = true
@@ -500,40 +501,37 @@ func (rw *JSONFileRW) regexReplaceJSON(j map[string]any, rr []models.MetaRegexRe
 	return edited
 }
 
-// jsonAppend appends to the fields in the JSON data.
-func (rw *JSONFileRW) jsonAppend(j map[string]any, file string, apnd []models.MetaAppend, mtp *parsing.MetaTemplateParser) (edited bool) {
-	logger.Pl.D(5, "Entering jsonAppend with data: %v", j)
+// jsonSuffix applies suffixes to the fields in the JSON data.
+func (rw *JSONFileRW) jsonSuffix(j map[string]any, file string, sfx []models.MetaSuffix, mtp *parsing.MetaTemplateParser) (edited bool) {
+	logger.Pl.D(5, "Entering jsonSuffix with data: %v", j)
 
-	if len(apnd) == 0 {
-		logger.Pl.E("No new suffixes to append for file %q", file)
+	if len(sfx) == 0 {
+		logger.Pl.E("No new suffixes to add for file %q", file)
 		return false // No replacements to apply.
 	}
-	for _, a := range apnd {
-		if a.Field == "" || a.Append == "" {
+
+	// Fill tags, leaving out suffixes whose tags can't be filled.
+	fields, values := byField(sfx, func(s models.MetaSuffix) (string, string, bool) {
+		result, isTemplate := mtp.FillMetaTemplateTag(s.Suffix, j)
+		return s.Field, result, s.Field != "" && s.Suffix != "" && (result != s.Suffix || !isTemplate)
+	})
+
+	// Process.
+	for _, field := range fields {
+		strVal, ok := j[field].(string)
+		if !ok {
 			continue
 		}
-		if value, exists := j[a.Field]; exists {
-			if strVal, ok := value.(string); ok {
-				// Fill tag.
-				result, isTemplate := mtp.FillMetaTemplateTag(a.Append, j)
-				if result == a.Append && isTemplate {
-					continue
-				}
-				a.Append = result
-				if dates.HasSuffix(strVal, a.Append) {
-					logger.Pl.D(3, "JSON field %q already ends with %q, not appending it again", a.Field, a.Append)
-					continue
-				}
-
-				// Process.
-				logger.Pl.D(3, "Identified input JSON field '%v', appending '%v'", a.Field, a.Append)
-				strVal += a.Append
-				j[a.Field] = strVal
-				edited = true
-			}
+		result, changed := textedit.AddSuffixes(strVal, values[field])
+		if !changed {
+			logger.Pl.D(3, "JSON field %q already ends with %q, not suffixing it again", field, values[field])
+			continue
 		}
+		logger.Pl.D(3, "Identified input JSON field '%v', adding suffixes %q", field, values[field])
+		j[field] = result
+		edited = true
 	}
-	logger.Pl.D(5, "After JSON suffix append: %v", j)
+	logger.Pl.D(5, "After JSON suffix: %v", j)
 	return edited
 }
 
@@ -545,34 +543,46 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 		logger.Pl.E("No new prefix replacements found for file %q", file)
 		return false // No replacements to apply.
 	}
-	for _, p := range pfx {
-		if p.Field == "" || p.Prefix == "" {
+
+	// Fill tags, leaving out prefixes whose tags can't be filled.
+	fields, values := byField(pfx, func(p models.MetaPrefix) (string, string, bool) {
+		result, isTemplate := mtp.FillMetaTemplateTag(p.Prefix, j)
+		return p.Field, result, p.Field != "" && p.Prefix != "" && (result != p.Prefix || !isTemplate)
+	})
+
+	// Process.
+	for _, field := range fields {
+		strVal, ok := j[field].(string)
+		if !ok {
 			continue
 		}
-		if value, found := j[p.Field]; found {
-			if strVal, ok := value.(string); ok {
-				// Fill tag.
-				result, isTemplate := mtp.FillMetaTemplateTag(p.Prefix, j)
-				if result == p.Prefix && isTemplate {
-					continue
-				}
-				p.Prefix = result
-				if dates.HasPrefix(strVal, p.Prefix) {
-					logger.Pl.D(3, "JSON field %q already starts with %q, not prefixing it again", p.Field, p.Prefix)
-					continue
-				}
-
-				// Process.
-				logger.Pl.D(3, "Identified input JSON field '%v', adding prefix '%v'", p.Field, p.Prefix)
-				strVal = p.Prefix + strVal
-				j[p.Field] = strVal
-				edited = true
-
-			}
+		result, changed := textedit.AddPrefixes(strVal, values[field])
+		if !changed {
+			logger.Pl.D(3, "JSON field %q already starts with %q, not prefixing it again", field, values[field])
+			continue
 		}
+		logger.Pl.D(3, "Identified input JSON field '%v', adding prefixes %q", field, values[field])
+		j[field] = result
+		edited = true
 	}
 	logger.Pl.D(5, "After adding prefixes: %v", j)
 	return edited
+}
+
+// byField groups the value of each op that get accepts under its field, listing fields in the order first named.
+func byField[T any](ops []T, get func(T) (field, value string, ok bool)) (fields []string, values map[string][]string) {
+	values = make(map[string][]string)
+	for _, op := range ops {
+		field, value, ok := get(op)
+		if !ok {
+			continue
+		}
+		if _, seen := values[field]; !seen {
+			fields = append(fields, field)
+		}
+		values[field] = append(values[field], value)
+	}
+	return fields, values
 }
 
 // setJSONField can insert a new field which does not yet exist into the metadata file.
@@ -722,22 +732,11 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 			continue
 		}
 
-		// Check if tag already exists.
-		if strings.Contains(strVal, tag) {
+		// Apply the tag based on location, replacing an existing tag there.
+		result, changed := dates.AddDateTag(strVal, tag, d.Loc)
+		if !changed {
 			logger.Pl.I("Tag %q already exists in field %q", tag, strVal)
 			continue
-		}
-
-		// Apply the tag based on location, replacing an existing tag there.
-		_, rest := dates.StripDateTags(strVal, d.Loc)
-		var result string
-		switch d.Loc {
-		case enums.DateTagLocPrefix:
-			result = fmt.Sprintf("%s %s", tag, rest)
-		case enums.DateTagLocSuffix:
-			result = fmt.Sprintf("%s %s", rest, tag)
-		default:
-			return false, fmt.Errorf("invalid date tag location enum: %v", d.Loc)
 		}
 
 		result = rw.cleanFieldValue(result)

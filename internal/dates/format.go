@@ -125,6 +125,10 @@ func FormatDateString(year, month, day string, dateFmt enums.DateFormat) string 
 		parts = [3]string{day, month, year}
 	case enums.DateMmDdYyyy, enums.DateMmDdYy:
 		parts = [3]string{month, day, year}
+	case enums.DateMmDd:
+		parts = [3]string{month, day}
+	case enums.DateDdMm:
+		parts = [3]string{day, month}
 	}
 	return joinNonEmpty(parts)
 }

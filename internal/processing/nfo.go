@@ -55,10 +55,6 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		fd.NFOData = nfoData
 	}
 
-	// Read web details before editing, so channel-scoped operations can be narrowed.
-	if fd.NFOData != nil {
-		fieldsnfo.FillWebData(fd)
-	}
 	resolveOps(fd, nil)
 
 	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd)
@@ -75,7 +71,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	}
 
 	// Date tags are made from the dates, so fill those first and tag before reading other fields.
-	if fd.NFOData != nil && (len(fd.MetaOps.DateTags) > 0 || len(fd.MetaOps.DeleteDateTags) > 0) {
+	if fd.NFOData != nil && len(fd.MetaOps.DateTags) > 0 {
 		fieldsnfo.FillNFOTimestamps(fd)
 		if tagged, err := nfoRW.DateTagEdits(file, fd); err != nil {
 			logger.Pl.E("Failed to make date tag edits for metadata in file %q: %v", file.Name(), err)
