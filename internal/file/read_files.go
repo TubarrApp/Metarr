@@ -4,7 +4,6 @@ package file
 import (
 	"fmt"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
@@ -107,11 +106,11 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 			m.OriginalVideoPath = filepath.Join(videoDir.Name(), file.Name())
 			m.VideoDirectory = videoDir.Name()
 
-			if !strings.Contains(parsing.GetBaseNameWithoutExt(m.OriginalVideoPath), consts.BackupTag) {
+			if !strings.Contains(parsing.GetBaseNameWithoutExt(m.OriginalVideoPath), sharedconsts.BackupTag) {
 				videoFiles[file.Name()] = m
 				logger.Pl.I("Added video to queue: %v", videoFilenameBase)
 			} else {
-				logger.Pl.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoPath, consts.BackupTag)
+				logger.Pl.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoPath, sharedconsts.BackupTag)
 			}
 		}
 	}
@@ -180,10 +179,10 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		}
 
 		// Skip if it's a Metarr-generated backup file.
-		if !strings.Contains(metaBaseName, consts.BackupTag) {
+		if !strings.Contains(metaBaseName, sharedconsts.BackupTag) {
 			metaFiles[file.Name()] = m
 		} else {
-			logger.Pl.I("Skipping file %q containing backup tag (%q)", metaBaseName, consts.BackupTag)
+			logger.Pl.I("Skipping file %q containing backup tag (%q)", metaBaseName, sharedconsts.BackupTag)
 		}
 	}
 	if len(metaFiles) == 0 {

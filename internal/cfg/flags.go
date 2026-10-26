@@ -84,6 +84,12 @@ func initAllFileTransformers() error {
 		return err
 	}
 
+	// Delete the original video once a new one is written from it.
+	rootCmd.PersistentFlags().Bool(keys.PurgeOriginalVideo, false, "Delete the original video once a new one is written from it (kept by default, renamed as a backup only if the new video ends up with its path)")
+	if err := viper.BindPFlag(keys.PurgeOriginalVideo, rootCmd.PersistentFlags().Lookup(keys.PurgeOriginalVideo)); err != nil {
+		return err
+	}
+
 	// Output directory (can be external).
 	rootCmd.PersistentFlags().StringP(keys.OutputDirectory, "o", "", "Move files to given directory on program completion")
 	if err := viper.BindPFlag(keys.OutputDirectory, rootCmd.PersistentFlags().Lookup(keys.OutputDirectory)); err != nil {

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/vars"
@@ -63,7 +62,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Set temp output path: DO NOT use user cache or temp dir, can cause cross-device link move failures.
 	fileBase := parsing.GetBaseNameWithoutExt(origPath)
-	tmpOutPath = filepath.Join(fd.VideoDirectory, consts.TempTag+fileBase+origExt+outExt)
+	tmpOutPath = filepath.Join(fd.VideoDirectory, sharedconsts.TempTag+fileBase+origExt+outExt)
 	logger.Pl.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
 
 	// Remove temp file on function end.
@@ -127,10 +126,11 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		break
 	}
 
-	// Back up the original if it will be overwritten.
+	// Back up the original if the new video takes its path, unless it's purged.
 	samePath := origPath == fd.PostFFmpegVideoPath
-	if samePath && abstractions.GetBool(keys.NoFileOverwrite) {
-		if err := makeBackup(origPath); err != nil {
+	purgeOriginal := abstractions.GetBool(keys.PurgeOriginalVideo)
+	if samePath && (!purgeOriginal || abstractions.GetBool(keys.NoFileOverwrite)) {
+		if fd.BackupVideoPath, err = makeBackup(origPath); err != nil {
 			return err
 		}
 	}
@@ -140,12 +140,12 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		}
 	}
 
-	// Move the temp file into place, then remove the original if its extension differed, unless it was kept.
+	// Move the temp file into place, then remove the original if its extension differed and it's purged.
 	if err := os.Rename(tmpOutPath, fd.PostFFmpegVideoPath); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 	models.ReportVideoPath(fd.PostFFmpegVideoPath)
-	if !samePath && !replaced {
+	if !samePath && !replaced && purgeOriginal {
 		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
 		if err := os.Remove(origPath); err != nil {
 			vars.AddToErrorArray(err)
@@ -214,34 +214,34 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 	return false
 }
 
-// makeBackup performs the backup.
-func makeBackup(origPath string) error {
+// makeBackup renames the original to a backup, returning its path ("" if none was made).
+func makeBackup(origPath string) (backupPath string, err error) {
 	origInfo, err := os.Stat(origPath)
 	if os.IsNotExist(err) {
 		logger.Pl.I("File does not exist, safe to proceed overwriting: %s", origPath)
-		return nil
+		return "", nil
 	}
 
 	// Rename original to backup.
-	backupPath, err := file.RenameToBackup(origPath)
+	backupPath, err = file.RenameToBackup(origPath)
 	if err != nil {
-		return fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
+		return "", fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
 	}
 	if backupPath == "" {
 		logger.Pl.I("Identical backup of %q already exists, skipping backup", origPath)
-		return nil
+		return "", nil
 	}
 
 	// Verify backup exists and matches size.
 	backInfo, err := os.Stat(backupPath)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("backup file %q was not created, aborting", backupPath)
+		return "", fmt.Errorf("backup file %q was not created, aborting", backupPath)
 	}
 	if (origInfo != nil && backInfo != nil) && (origInfo.Size() != backInfo.Size()) {
-		return fmt.Errorf("backup file size %d does not match original %d, aborting", origInfo.Size(), backInfo.Size())
+		return "", fmt.Errorf("backup file size %d does not match original %d, aborting", origInfo.Size(), backInfo.Size())
 	}
 
-	return nil
+	return backupPath, nil
 }
 
 // checkCodecs checks the input codec to determine if a straight remux is possible.

@@ -31,9 +31,10 @@ const (
 	FilteredMetaOpsInput string = "filtered-meta-ops"
 	WriteNFO             string = "write-nfo"
 
-	DebugLevel      string = "debug"
-	SkipVideos      string = "skip-videos"
-	NoFileOverwrite string = "no-file-overwrite"
+	DebugLevel         string = "debug"
+	SkipVideos         string = "skip-videos"
+	NoFileOverwrite    string = "no-file-overwrite"
+	PurgeOriginalVideo string = "purge-original-video"
 
 	Benchmarking    string = "benchmark"
 	OutputFiletype  string = "output-ext"

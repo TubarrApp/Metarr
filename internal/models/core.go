@@ -52,6 +52,7 @@ type FileData struct {
 	VideoDirectory      string `json:"-" xml:"-"`
 	OriginalVideoPath   string `json:"-" xml:"-"`
 	PostFFmpegVideoPath string `json:"-" xml:"-"` // Video path after FFmpeg processing but before renaming.
+	BackupVideoPath     string `json:"-" xml:"-"` // Where the original went so the new video could take its path.
 
 	// Transformations.
 	FilenameDateTag  string `json:"-" xml:"-"`

@@ -92,6 +92,7 @@ Quote values with leading or trailing spaces, since YAML trims them otherwise.
 - `--input-video-exts` / `--input-meta-exts` – limit processing to certain extensions (`all`, `mkv`, `mp4`, `webm` / `all`, `json`, `nfo`).
 - `--filter-prefix`, `--filter-suffix`, `--filter-contains`, `--filter-omits` – lightweight filename filters applied before work begins.
 - `--no-file-overwrite` – keep originals around by renaming them before writing outputs.
+- `--purge-original-video` – delete the original video once a new one is written from it. Without it, the original is kept where it is, under its own name; only the new video goes to the output directory. If the new video ends up with exactly the original's path (same folder, name and extension), the original is renamed `name_mbackup.ext` instead.
 - `--output-directory` – place finished video/metadata pairs somewhere else.
 - `--purge-metafile` – delete matching metadata files after successful processing (`json`, `nfo`, or `all`).
 - `--write-nfo` – write a Kodi/Jellyfin-style `.nfo` sidecar next to the final video.

@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/parsing"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 var (
@@ -85,12 +86,12 @@ func RenameToBackup(filename string) (backupName string, err error) {
 	return backupName, nil
 }
 
-// nextBackupPath returns the first free backup path for a file ("name_metarrbackup.ext", then "name_metarrbackup (2).ext"...).
+// nextBackupPath returns the first free backup path for a file ("name_mbackup.ext", then "name_mbackup (2).ext"...).
 //
 // Returns "" if an existing backup is identical to the file.
 func nextBackupPath(originalFilePath string) (string, error) {
 	ext := filepath.Ext(originalFilePath)
-	base := parsing.GetFilepathWithoutExt(originalFilePath) + consts.BackupTag
+	base := parsing.GetFilepathWithoutExt(originalFilePath) + sharedconsts.BackupTag
 
 	for n := 1; ; n++ {
 		candidate := base + ext

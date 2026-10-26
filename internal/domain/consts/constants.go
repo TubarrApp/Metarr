@@ -9,12 +9,6 @@ const (
 	BrowserSafari  = "safari"
 )
 
-// File prefix and suffix.
-const (
-	BackupTag = "_metarrbackup"
-	TempTag   = "tmp_"
-)
-
 // Bytes.
 const (
 	KB = 1024

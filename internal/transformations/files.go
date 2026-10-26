@@ -149,6 +149,22 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 	if err := fp.process(); err != nil {
 		return fmt.Errorf("error processing %s: %w", fileData.OriginalVideoPath, err)
 	}
+	return restoreOriginalName(fileData)
+}
+
+// restoreOriginalName gives a backed-up original video its name back, if the new video no longer has it.
+func restoreOriginalName(fd *models.FileData) error {
+	if fd.BackupVideoPath == "" {
+		return nil
+	}
+	if _, err := os.Stat(fd.OriginalVideoPath); !errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err := os.Rename(fd.BackupVideoPath, fd.OriginalVideoPath); err != nil {
+		return fmt.Errorf("failed to give the original video %q its name back: %w", fd.BackupVideoPath, err)
+	}
+	logger.Pl.I("Kept the original video as %q", fd.OriginalVideoPath)
+	fd.BackupVideoPath = ""
 	return nil
 }
 

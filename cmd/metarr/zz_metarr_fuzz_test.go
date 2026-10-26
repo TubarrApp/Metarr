@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,6 +17,8 @@ import (
 	"testing"
 	"time"
 	"unicode"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // metarrAsMainEnv makes the test binary run as Metarr. Metarr keeps its settings in globals, so the fuzzer runs it in a
@@ -90,6 +93,7 @@ func fuzzFlags(encoders string) []fuzzFlag {
 		{"strip-thumbnail", bools, 1},
 		{"force-write-thumbnail", bools, 1},
 		{"skip-videos", bools, 1},
+		{"purge-original-video", bools, 1},
 	}
 }
 
@@ -136,6 +140,7 @@ type metarrFuzzRun struct {
 	root   string            // Holds work and home, and nothing else.
 	work   string            // Where Metarr runs, holding the inputs and any output folder.
 	inputs int               // How many videos Metarr is given.
+	clip   []byte            // Each input video's contents.
 	chosen map[string]string // The last value given for each flag.
 	args   []string
 }
@@ -144,7 +149,7 @@ type metarrFuzzRun struct {
 func newMetarrFuzzRun(t *testing.T, clip []byte, encoders string, choices []byte, text, title string) *metarrFuzzRun {
 	t.Helper()
 	text = strings.ReplaceAll(text, "\x00", "") // Arguments can't hold NUL bytes, so no caller can send one.
-	r := &metarrFuzzRun{t: t, root: t.TempDir(), chosen: map[string]string{}}
+	r := &metarrFuzzRun{t: t, root: t.TempDir(), clip: clip, chosen: map[string]string{}}
 	r.work = filepath.Join(r.root, "work")
 	in := filepath.Join(r.work, "in")
 	if err := os.MkdirAll(in, 0o755); err != nil {
@@ -252,7 +257,7 @@ func (r *metarrFuzzRun) check(output string, ok bool) {
 		}
 		name := d.Name()
 		switch ext := strings.ToLower(filepath.Ext(name)); {
-		case strings.HasPrefix(name, "tmp_"):
+		case strings.HasPrefix(name, sharedconsts.TempTag):
 			fail("Metarr left the temporary file %q", path)
 		case slices.Contains(fuzzVideoExts, ext):
 			videos = append(videos, path)
@@ -289,8 +294,19 @@ func (r *metarrFuzzRun) check(output string, ok bool) {
 		return
 	}
 
-	// A successful run did what its flags asked.
-	final := slices.DeleteFunc(slices.Clone(videos), func(v string) bool { return strings.Contains(v, "_metarrbackup") })
+	// A successful run did what its flags asked. Unchanged originals and backups aren't among the videos it made.
+	var final []string
+	kept := 0
+	for _, v := range videos {
+		if data, err := os.ReadFile(v); err == nil && bytes.Equal(data, r.clip) {
+			kept++
+		} else if !strings.Contains(v, sharedconsts.BackupTag) {
+			final = append(final, v)
+		}
+	}
+	if r.chosen["purge-original-video"] != "true" && kept < r.inputs {
+		fail("Metarr succeeded without --purge-original-video, but kept %d of %d original video(s) unchanged: %q", kept, r.inputs, videos)
+	}
 	if dir, set := r.chosen["output-directory"]; set && r.chosen["skip-videos"] != "true" { // Skipped videos stay put.
 		base := strings.SplitN(strings.TrimPrefix(dir, r.work+string(filepath.Separator)), string(filepath.Separator), 2)[0]
 		for _, v := range final {
@@ -301,7 +317,7 @@ func (r *metarrFuzzRun) check(output string, ok bool) {
 	}
 	if purge := r.chosen["purge-metafile"]; purge == "all" || purge == "json" {
 		for _, j := range jsons {
-			if !strings.Contains(j, "_metarrbackup") {
+			if !strings.Contains(j, sharedconsts.BackupTag) {
 				fail("Metarr succeeded with --purge-metafile %q, but left %q", purge, j)
 			}
 		}

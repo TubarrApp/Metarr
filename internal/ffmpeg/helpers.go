@@ -25,6 +25,7 @@ func fitCodecsToContainer(ctx context.Context, inExt, outExt, currentV, desiredV
 	// sourceV = Normalized codec name (e.g. h.264 becomes h264, h265 becomes hevc).
 	// uncopyableV = Unknown non-blank codec in read-only container (RealVideo).
 	// desiredV = Codec desired by user, e.g. 'copy' or 'hevc'.
+	// errV = Codec not a valid codec in map (or no alias matched). See 'sharedconsts.ValidVideoCodecs'.
 	sourceV, errV := sharedvalidation.ValidateVideoCodec(currentV)
 	uncopyableV := readOnlyIn && errV != nil && currentV != ""
 
@@ -45,7 +46,8 @@ func fitCodecsToContainer(ctx context.Context, inExt, outExt, currentV, desiredV
 		return "", "", sharedvalidation.CodecMismatchError("video", desiredV, outExt)
 
 	case desiredV == "" &&
-		(uncopyableV || errV == nil && !sharedvalidation.VideoCodecFits(outExt, sourceV)): // Source file codec cannot be held by chosen output container.
+		(uncopyableV ||
+			(errV == nil && !sharedvalidation.VideoCodecFits(outExt, sourceV))): // Source file codec cannot be held by chosen output container.
 
 		// Use the most preferred codec that fits and has its encoder installed.
 		for _, c := range sharedvalidation.FittingVideoCodecs(outExt) {
@@ -65,6 +67,7 @@ func fitCodecsToContainer(ctx context.Context, inExt, outExt, currentV, desiredV
 	// sourceA = Normalized codec name (e.g. aaclc becomes aac).
 	// uncopyableA = Unknown non-blank codec in read-only container (Cook).
 	// desiredA = Codec desired by user, e.g. 'copy' or 'aac'.
+	// errA = Codec not a valid codec in map (or no alias matched). See 'sharedconsts.ValidAudioCodecs'.
 	sourceA, errA := sharedvalidation.ValidateAudioCodec(currentA)
 	uncopyableA := readOnlyIn && errA != nil && currentA != ""
 
