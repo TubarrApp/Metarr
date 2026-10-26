@@ -142,7 +142,7 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 
 ## Filtered Operations (`--filtered-meta-ops`, `--filtered-filename-ops`)
 
-Each entry is one filter and one operation divided by `||`, applied only when the filter matches the file's metadata: `title:contains:Ep 5 | Show: Finale||title:keep-after:| `. Neither side needs escaping, except a `||` in the filter's value. For several operations under one filter, repeat the filter on each entry.
+Each entry is one or more filters and one operation divided by `||`, applied only when every filter matches the file's metadata: `title:contains:Ep 5 | Show: Finale||title:keep-after:| `. Join several filters with `&&` to require all of them: `title:contains:cat&&duration:more-than:3600||title:prefix:[LONG CAT VIDEO] `. Neither side needs escaping, except a `||` or `&&` in a filter's value. For several operations under the same filters, repeat the filters on each entry.
 
 Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip` (the default).
 

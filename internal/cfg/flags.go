@@ -101,12 +101,12 @@ func initAllFileTransformers() error {
 // initMetaTransformers initializes user flag settings for manipulation of metadata.
 func initMetaTransformers() error {
 	// Metadata transformations
-	rootCmd.PersistentFlags().StringArray(keys.FilteredFilenameOpsInput, nil, "Filename operation applied only when a filter matches (filter||operation) - e.g. 'title:contains:cat||prefix:[CAT VIDEOS] '. Repeat the flag for each operation.")
+	rootCmd.PersistentFlags().StringArray(keys.FilteredFilenameOpsInput, nil, "Filename operation applied only when its filters all match (filter&&filter||operation) - e.g. 'title:contains:cat||prefix:[CAT VIDEOS] ' or 'title:contains:cat&&duration:more-than:3600||prefix:[LONG CAT VIDEOS] '. Repeat the flag for each operation.")
 	if err := viper.BindPFlag(keys.FilteredFilenameOpsInput, rootCmd.PersistentFlags().Lookup(keys.FilteredFilenameOpsInput)); err != nil {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringArray(keys.FilteredMetaOpsInput, nil, "Metadata operation applied only when a filter matches (filter||operation) - e.g. 'title:contains:cat||title:prefix:[CAT VIDEOS] '. Repeat the flag for each operation.")
+	rootCmd.PersistentFlags().StringArray(keys.FilteredMetaOpsInput, nil, "Metadata operation applied only when its filters all match (filter&&filter||operation) - e.g. 'title:contains:cat||title:prefix:[CAT VIDEOS] ' or 'title:contains:cat&&duration:more-than:3600||title:prefix:[LONG CAT VIDEOS] '. Repeat the flag for each operation.")
 	if err := viper.BindPFlag(keys.FilteredMetaOpsInput, rootCmd.PersistentFlags().Lookup(keys.FilteredMetaOpsInput)); err != nil {
 		return err
 	}
