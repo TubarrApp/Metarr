@@ -56,7 +56,7 @@ func TestFilteredMetaOpsValidateFilters(t *testing.T) {
 		{"valid with ':' and '|' in the filter value", "title:contains:Ep 5 | Show: Finale||title:prefix:[CAT VIDEOS] ", false},
 		{"single '|' divider", "title:contains:cat|title:prefix:[CAT VIDEOS] ", true},
 		{"unknown filter type", "title:explodes:cat||title:prefix:[CAT] ", true},
-		{"non-numeric numeric filter", "duration:morethan:soon||title:prefix:[CAT] ", true},
+		{"non-numeric numeric filter", "duration:more-than:soon||title:prefix:[CAT] ", true},
 		{"unknown operation type", "title:contains:cat||title:explodes:x", true},
 	}
 
