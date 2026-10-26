@@ -24,22 +24,13 @@ import (
 
 // ExecuteVideo writes metadata to a single video file.
 func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
-	var (
-		tmpOutPath, outExt string
-	)
+	var tmpOutPath string
 
 	origPath := fd.OriginalVideoPath
 	origExt := filepath.Ext(origPath)
 
-	// Extension validation.
-	if abstractions.IsSet(keys.OutputFiletype) {
-		if outExt = abstractions.GetString(keys.OutputFiletype); outExt == "" {
-			logger.Pl.E("Grabbed output extension but extension was empty/invalid, reverting to original: %s", origExt)
-			outExt = origExt
-		}
-	} else {
-		outExt = origExt
-	}
+	// Output extension: the one set, else the video's own, or a writable one if FFmpeg can't write its own.
+	outExt, replaced := parsing.OutputExt(origPath)
 
 	// Get current codecs.
 	currentVCodec, currentACodec, err := checkCodecs(fd.OriginalVideoPath)
@@ -51,8 +42,16 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	desiredVCodec := getOutputVideoCodecString(currentVCodec)
 	desiredACodec := getOutputAudioCodecString(currentACodec)
 
+	// A video FFmpeg can't rewrite is left alone unless it needs changing, then written anew beside it.
+	if replaced {
+		if skipProcessing(fd, currentVCodec, desiredVCodec, currentACodec, desiredACodec, origExt) {
+			return nil
+		}
+		logger.Pl.W("FFmpeg can't write %s files that play, so %q will be written as a %s file, keeping the original", origExt, origPath, outExt)
+	}
+
 	// Make sure the output container can hold the codecs.
-	if desiredVCodec, desiredACodec, err = fitCodecsToContainer(ctx, outExt, currentVCodec, desiredVCodec, currentACodec, desiredACodec); err != nil {
+	if desiredVCodec, desiredACodec, err = fitCodecsToContainer(ctx, origExt, outExt, currentVCodec, desiredVCodec, currentACodec, desiredACodec); err != nil {
 		return err
 	}
 
@@ -141,12 +140,12 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		}
 	}
 
-	// Move the temp file into place, then remove the original if its extension differed.
+	// Move the temp file into place, then remove the original if its extension differed, unless it was kept.
 	if err := os.Rename(tmpOutPath, fd.PostFFmpegVideoPath); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 	models.ReportVideoPath(fd.PostFFmpegVideoPath)
-	if !samePath {
+	if !samePath && !replaced {
 		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
 		if err := os.Remove(origPath); err != nil {
 			vars.AddToErrorArray(err)

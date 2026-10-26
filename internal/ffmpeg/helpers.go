@@ -7,20 +7,28 @@ import (
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/parsing"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
-// fitCodecsToContainer returns the video and audio codecs to write into a file of extension outExt. A codec chosen to
-// transcode to (or "copy") must fit, as it's never swapped for another. With none chosen, the video's own codec is
-// kept, or if it doesn't fit, the preferred codec that does and has its encoder installed is used.
-func fitCodecsToContainer(ctx context.Context, outExt, currentV, desiredV, currentA, desiredA string) (v, a string, err error) {
+// fitCodecsToContainer returns the video and audio codecs to write into a file of extension outExt, from one of inExt.
+// A codec chosen to transcode to (or "copy") must fit, as it's never swapped for another. With none chosen, the video's
+// own codec is kept, or if it doesn't fit, the preferred codec that does and has its encoder installed is used.
+func fitCodecsToContainer(ctx context.Context, inExt, outExt, currentV, desiredV, currentA, desiredA string) (v, a string, err error) {
+	// Codecs Metarr doesn't know can't be copied out of a read-only container (RealVideo and Cook go only in .rm).
+	readOnlyIn := parsing.ReadOnlyExt(inExt)
+
 	// Video Codec:
 	sourceV, errV := sharedvalidation.ValidateVideoCodec(currentV)
+	stuckV := readOnlyIn && errV != nil && currentV != ""
 	switch {
 	// Copy codec is desired but cannot be held by chosen output container.
+	case desiredV == sharedconsts.VCodecCopy && stuckV:
+		return "", "", fmt.Errorf("can't copy the video unchanged: video codec %q can't go in a %s file", currentV, outExt)
+
 	case desiredV == sharedconsts.VCodecCopy &&
 		errV == nil &&
 		!sharedvalidation.VideoCodecFits(outExt, sourceV):
@@ -36,21 +44,24 @@ func fitCodecsToContainer(ctx context.Context, outExt, currentV, desiredV, curre
 
 		// Source file codec cannot be held by chosen output container.
 	case desiredV == "" &&
-		errV == nil &&
-		!sharedvalidation.VideoCodecFits(outExt, sourceV):
+		(stuckV || errV == nil && !sharedvalidation.VideoCodecFits(outExt, sourceV)):
 
 		if desiredV = sharedvalidation.FittingVideoCodec(outExt, func(c string) bool {
 			return encoderInstalled(ctx, consts.VCodecToFFVCodec[c])
 		}); desiredV == "" {
-			return "", "", fmt.Errorf("video codec %q can't go in a %s file, and no encoder for a codec that can is installed", sourceV, outExt)
+			return "", "", fmt.Errorf("video codec %q can't go in a %s file, and no encoder for a codec that can is installed", currentV, outExt)
 		}
-		logger.Pl.I("Video codec %q can't go in a %s file, so transcoding it to %q", sourceV, outExt, desiredV)
+		logger.Pl.I("Video codec %q can't go in a %s file, so transcoding it to %q", currentV, outExt, desiredV)
 	}
 
 	// Audio codec:
 	sourceA, errA := sharedvalidation.ValidateAudioCodec(currentA)
+	stuckA := readOnlyIn && errA != nil && currentA != ""
 	switch {
 	// Copy codec is desired but cannot be held by chosen output container.
+	case desiredA == sharedconsts.ACodecCopy && stuckA:
+		return "", "", fmt.Errorf("can't copy the audio unchanged: audio codec %q can't go in a %s file", currentA, outExt)
+
 	case desiredA == sharedconsts.ACodecCopy &&
 		errA == nil &&
 		!sharedvalidation.AudioCodecFits(outExt, sourceA):
@@ -66,15 +77,14 @@ func fitCodecsToContainer(ctx context.Context, outExt, currentV, desiredV, curre
 
 		// Source file codec cannot be held by chosen output container.
 	case desiredA == "" &&
-		errA == nil &&
-		!sharedvalidation.AudioCodecFits(outExt, sourceA):
+		(stuckA || errA == nil && !sharedvalidation.AudioCodecFits(outExt, sourceA)):
 
 		if desiredA = sharedvalidation.FittingAudioCodec(outExt, func(c string) bool {
 			return encoderInstalled(ctx, consts.ACodecToFFACodec[c])
 		}); desiredA == "" {
-			return "", "", fmt.Errorf("audio codec %q can't go in a %s file, and no encoder for a codec that can is installed", sourceA, outExt)
+			return "", "", fmt.Errorf("audio codec %q can't go in a %s file, and no encoder for a codec that can is installed", currentA, outExt)
 		}
-		logger.Pl.I("Audio codec %q can't go in a %s file, so transcoding it to %q", sourceA, outExt, desiredA)
+		logger.Pl.I("Audio codec %q can't go in a %s file, so transcoding it to %q", currentA, outExt, desiredA)
 	}
 
 	// Return compatible codecs

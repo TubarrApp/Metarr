@@ -1,10 +1,38 @@
 package parsing
 
 import (
+	"metarr/internal/abstractions"
+	"metarr/internal/domain/keys"
 	"net/url"
 	"path/filepath"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
+
+// ReadOnlyExt reports whether ext is a video extension FFmpeg reads but can't write playable files in (.rm, .rmvb).
+func ReadOnlyExt(ext string) bool {
+	if _, ok := sharedconsts.AllVidExtensions[strings.ToLower(ext)]; !ok {
+		return false
+	}
+	_, err := sharedvalidation.ValidateFFmpegOutputExt(ext)
+	return err != nil
+}
+
+// OutputExt returns the extension the video at path is written with: the output filetype if set, else its own, or
+// .mkv (which holds the most codecs) if its own is read-only, reporting that swap with replaced.
+func OutputExt(path string) (ext string, replaced bool) {
+	if abstractions.IsSet(keys.OutputFiletype) {
+		if ext = abstractions.GetString(keys.OutputFiletype); ext != "" {
+			return ext, false
+		}
+	}
+	if ext = filepath.Ext(path); ReadOnlyExt(ext) {
+		return sharedconsts.ExtMKV, true
+	}
+	return ext, false
+}
 
 // IsHTTPURL reports whether s is an absolute http(s) URL.
 func IsHTTPURL(s string) bool {
