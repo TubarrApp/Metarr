@@ -23,7 +23,7 @@ func fitCodecsToContainer(ctx context.Context, inExt, outExt, currentV, desiredV
 
 	// Video Codec:
 	// sourceV = Normalized codec name (e.g. h.264 becomes h264, h265 becomes hevc).
-	// uncopyableV = Unknown non-blank codec in read-only container (RealVideo)
+	// uncopyableV = Unknown non-blank codec in read-only container (RealVideo).
 	// desiredV = Codec desired by user, e.g. 'copy' or 'hevc'.
 	sourceV, errV := sharedvalidation.ValidateVideoCodec(currentV)
 	uncopyableV := readOnlyIn && errV != nil && currentV != ""
