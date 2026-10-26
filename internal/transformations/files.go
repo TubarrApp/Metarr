@@ -23,7 +23,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
-	"github.com/TubarrApp/gocommon/sharedtemplates"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
 // fileProcessor handles the renaming and moving of files.
@@ -257,29 +257,15 @@ func (fp *fileProcessor) writeResult() error {
 		return err
 	}
 
-	// Determine final paths based on whether files were moved.
-	var finalVideoPath, finalMetaPath string
+	// Rename in place, or move into the output directory if one is set.
+	if err := fsWriter.RenameAndMoveFiles(deletedMeta); err != nil {
+		return err
+	}
 
-	if fp.outputDir != "" {
-		// Move+rename directly to output directory (skips in-place rename).
-		if err := fsWriter.MoveFile(deletedMeta); err != nil {
-			return fmt.Errorf("failed to move to destination folder: %w", err)
-		}
-
-		finalVideoPath = fp.fd.RenamedVideoPath
-		if !deletedMeta {
-			finalMetaPath = fp.fd.RenamedMetaPath
-		}
-	} else {
-		// Rename in place (no move operation).
-		if err := fsWriter.RenameFiles(deletedMeta); err != nil {
-			return err
-		}
-
-		finalVideoPath = fp.fd.RenamedVideoPath
-		if !deletedMeta {
-			finalMetaPath = fp.fd.RenamedMetaPath
-		}
+	finalVideoPath := fp.fd.RenamedVideoPath
+	var finalMetaPath string
+	if !deletedMeta {
+		finalMetaPath = fp.fd.RenamedMetaPath
 	}
 
 	// Set final paths at this terminal boundary.
@@ -474,6 +460,12 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		fileBase = fp.addDateTag(fileBase, fOps.DateTag, fd.FilenameDateTag)
 	}
 
+	// A tag left unfilled (e.g. a missing metadata field) keeps the original name rather than writing "{{...}}" into it.
+	if strings.Contains(fileBase, "{{") && strings.Contains(fileBase, "}}") {
+		logger.Pl.W("Could not fill every template tag in new name %q, keeping name %q", fileBase, initialBase)
+		fileBase = initialBase
+	}
+
 	// Ensure uniqueness.
 	return fp.getUniqueFilename(fileBase, initialBase)
 }
@@ -500,7 +492,7 @@ func (fp *fileProcessor) getUniqueFilename(newBase, oldBase string) (uniqueFilen
 	}
 
 	// Room is left for the extension and a " (n)" suffix.
-	newBase = sharedtemplates.SanitizePathComponent(newBase, sharedtemplates.MaxNameBytes-len(ext)-len(" (9999)"))
+	newBase = sharedparsing.SanitizePathComponent(newBase, sharedconsts.MaxNameBytes-len(ext)-len(" (9999)"))
 	if newBase == oldBase {
 		return newBase, nil
 	}

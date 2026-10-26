@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedtemplates"
 	"github.com/araddon/dateparse"
 )
@@ -91,7 +93,7 @@ func (dp *DirectoryParser) parseTemplate(dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if replacement = sharedtemplates.SanitizePathComponent(replacement, sharedtemplates.MaxNameBytes); replacement == "" {
+		if replacement = sharedparsing.SanitizePathComponent(replacement, sharedconsts.MaxNameBytes); replacement == "" {
 			return "", fmt.Errorf("templating: %q is empty once made safe for a path, for %q", tag, dp.FD.OriginalVideoPath)
 		}
 		b.WriteString(replacement)
@@ -180,7 +182,7 @@ func (dp *DirectoryParser) replace(tag string) (string, error) {
 
 	case sharedtemplates.MetVideoURL:
 		if u := cmp.Or(w.WebpageURL, w.VideoURL); u != "" { // The page, not yt-dlp's "url" media stream, when known.
-			return sharedtemplates.StripURLScheme(u), nil
+			return sharedparsing.StripURLScheme(u), nil
 		}
 		return "", fmt.Errorf("templating: video URL empty for %q", dp.FD.OriginalVideoPath)
 

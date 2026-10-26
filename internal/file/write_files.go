@@ -71,73 +71,35 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSF
 	}, nil
 }
 
-// RenameFiles calls os.Rename on the video/meta files, leaving out the meta file if noMeta (e.g. it was purged).
-func (fs *FSFileWriter) RenameFiles(noMeta bool) error {
+// RenameAndMoveFiles moves the video/meta files to their new paths, in place or in the output directory, leaving out the meta
+// file if noMeta (i.e. it was purged).
+func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
-
-	// Rename video file.
-	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
-		if err := checkFreeDestination(fs.InputVideo, fs.RenamedVideo); err != nil {
-			return err
-		}
-		if err := os.Rename(fs.InputVideo, fs.RenamedVideo); err != nil {
-			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputVideo, fs.RenamedVideo, err)
-		}
-		logger.Pl.S("Renamed: %q → %q", fs.InputVideo, fs.RenamedVideo)
-		fs.Fd.RenamedVideoPath = fs.RenamedVideo
-	}
-
-	// Rename meta file.
-	if !noMeta && shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
-		if err := checkFreeDestination(fs.InputMeta, fs.RenamedMeta); err != nil {
-			return err
-		}
-		if err := os.Rename(fs.InputMeta, fs.RenamedMeta); err != nil {
-			return fmt.Errorf("failed to rename %s → %s. error: %w", fs.InputMeta, fs.RenamedMeta, err)
-		}
-		logger.Pl.S("Renamed: %q → %q", fs.InputMeta, fs.RenamedMeta)
-		fs.Fd.RenamedMetaPath = fs.RenamedMeta
-	}
-
-	return nil
-}
-
-// MoveFile moves files to specified location with new names.
-func (fs *FSFileWriter) MoveFile(noMeta bool) error {
-	fs.muFs.Lock()
-	defer fs.muFs.Unlock()
-
-	if fs.OutputDir == "" {
-		return nil
-	}
 
 	if fs.RenamedVideo == "" && fs.RenamedMeta == "" {
 		logger.Pl.D(1, "Skipping video or metadata renaming, as the renamed strings are empty")
 		return nil
 	}
 
-	if _, err := os.Stat(fs.OutputDir); os.IsNotExist(err) {
+	// Create the output directory if one is set.
+	if fs.OutputDir != "" {
 		if err := os.MkdirAll(fs.OutputDir, consts.PermsVideoDir); err != nil {
 			return fmt.Errorf("failed to create or find destination directory: %w", err)
 		}
 	}
 
-	// Move+rename video directly from original location to output directory.
-	if !fs.SkipVids {
-		if fs.InputVideo != "" && fs.RenamedVideo != "" {
-			if err := moveOrCopyFile(fs.InputVideo, fs.RenamedVideo); err != nil {
-				return fmt.Errorf("failed to move video file from %q → %q: %w", fs.InputVideo, fs.RenamedVideo, err)
-			}
+	// Move video file.
+	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
+		if err := moveOrCopyFile(fs.InputVideo, fs.RenamedVideo); err != nil {
+			return fmt.Errorf("failed to move video file from %q → %q: %w", fs.InputVideo, fs.RenamedVideo, err)
 		}
 	}
 
-	// Move+rename metadata file directly from original location to output directory.
-	if !noMeta {
-		if fs.InputMeta != "" && fs.RenamedMeta != "" {
-			if err := moveOrCopyFile(fs.InputMeta, fs.RenamedMeta); err != nil {
-				return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.InputMeta, fs.RenamedMeta, err)
-			}
+	// Move meta file.
+	if !noMeta && shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
+		if err := moveOrCopyFile(fs.InputMeta, fs.RenamedMeta); err != nil {
+			return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
 	}
 	return nil
