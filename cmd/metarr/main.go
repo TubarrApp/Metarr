@@ -67,6 +67,7 @@ func run() (exitCode int) {
 		return 1
 	}
 	logger.Pl = pl
+	logging.TestLogger(pl)
 
 	// Log build provenance and start time.
 	logger.Pl.I(buildLogFormat, buildinfo.Get())
