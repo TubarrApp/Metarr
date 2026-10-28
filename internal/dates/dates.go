@@ -71,11 +71,7 @@ func FormatAllDates(fd *models.FileData) (result string) {
 
 		logger.Pl.D(2, "Attempting to format %+v", field)
 
-		if result, madeDate, err = shareddates.YmdFromMeta(field, logger.Pl); madeDate {
-			if err != nil {
-				logger.Pl.E(err.Error())
-			}
-
+		if result, madeDate = shareddates.YmdFromMeta(field, logger.Pl); madeDate {
 			d.FormattedDate = result
 			logger.Pl.D(2, "Got formatted date %q", result)
 

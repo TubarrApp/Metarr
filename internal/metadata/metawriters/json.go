@@ -320,16 +320,22 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 // resolveDatesFrom sets the dates override from val, the value of the field all-dates is pasted
 // from, when it holds a date.
 func resolveDatesFrom(ops *models.MetaOps, val string) {
-	formatted, _, err := shareddates.YmdFromMeta(val, logger.Pl)
-	if err != nil {
-		logger.Pl.E(err.Error())
+	if val == "" {
+		logger.Pl.W("Date sent in empty (%q) from field %q, not proceeding with paste into %q", val, ops.DatesFrom, sharedconsts.MetaOpAllDates)
+		return
 	}
 
+	// Get formatted numerical date string from metadata.
+	formatted, _ := shareddates.YmdFromMeta(val, logger.Pl)
+
+	// Grab date before any "T00:00:00Z"
 	date, _, _ := strings.Cut(formatted, "T")
 	if _, err := time.Parse(time.DateOnly, date); err != nil {
 		logger.Pl.E("Field %q value %q is not a date, skipping its paste into %q", ops.DatesFrom, val, sharedconsts.MetaOpAllDates)
 		return
 	}
+
+	// Set date override.
 	logger.Pl.I("Setting %q from field %q → %q", sharedconsts.MetaOpAllDates, ops.DatesFrom, date)
 	ops.SetOverrides[enums.OverrideMetaDates] = date
 }
