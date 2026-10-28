@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 
+	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
@@ -30,7 +30,7 @@ func TestJSONOpsRerun(t *testing.T) {
 		t.Errorf("prefix or suffix applied again: %q", j["title"])
 	}
 	fd := &models.FileData{MDates: &models.MetadataDates{FormattedDate: "2024-05-01"}}
-	edited, err := rw.jsonFieldAddDateTag(j, map[string]models.MetaDateTag{"title": {Loc: enums.DateTagLocPrefix, Format: enums.DateYyyyMmDd}}, fd)
+	edited, err := rw.jsonFieldAddDateTag(j, map[string]models.MetaDateTag{"title": {Loc: sharedenums.DateTagLocPrefix, Format: sharedenums.DateYyyyMmDd}}, fd)
 	if err != nil || !edited || j["title"] != "[2024-05-01] [Cats] Title (HD)" {
 		t.Errorf("new date tag: title = %q (edited %v, err %v), want the old tag replaced", j["title"], edited, err)
 	}

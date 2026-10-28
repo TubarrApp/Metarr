@@ -1,8 +1,6 @@
 // Package enums holds enumerated variables.
 package enums
 
-import "github.com/TubarrApp/gocommon/sharedenums"
-
 // OverrideMetaType holds the value for the type of metafield to override all values of (e.g. "credits").
 type OverrideMetaType int
 
@@ -35,36 +33,6 @@ const (
 	RenamingFixesOnly
 	RenamingSpaces
 	RenamingUnderscores
-)
-
-// DateFormat holds the date format directive (e.g. yyyy-mm-dd).
-//
-// Aliased to gocommon so Metarr and Tubarr accept exactly the same directives.
-type DateFormat = sharedenums.DateFormat
-
-// DateFormat definitions.
-const (
-	DateFmtSkip  = sharedenums.DateFmtSkip
-	DateYyyyMmDd = sharedenums.DateYyyyMmDd
-	DateYyMmDd   = sharedenums.DateYyMmDd
-	DateYyyyDdMm = sharedenums.DateYyyyDdMm
-	DateYyDdMm   = sharedenums.DateYyDdMm
-	DateDdMmYyyy = sharedenums.DateDdMmYyyy
-	DateDdMmYy   = sharedenums.DateDdMmYy
-	DateMmDdYyyy = sharedenums.DateMmDdYyyy
-	DateMmDdYy   = sharedenums.DateMmDdYy
-	DateDdMm     = sharedenums.DateDdMm
-	DateMmDd     = sharedenums.DateMmDd
-)
-
-// DateTagLocation determines where a date tag should be added in a string.
-type DateTagLocation = sharedenums.DateTagLocation
-
-// DateTagLocation definitions.
-const (
-	DateTagLocPrefix = sharedenums.DateTagLocPrefix
-	DateTagLocSuffix = sharedenums.DateTagLocSuffix
-	DateTagLocAll    = sharedenums.DateTagLocAll
 )
 
 // MetaFiletype is the type of meta file, e.g. JSON or NFO.

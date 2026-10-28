@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/shareddates"
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
@@ -58,7 +59,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 
 		var finalVal string
 		if len(val) >= 6 {
-			if formatted, ok := dates.YmdFromMeta(val); ok {
+			if formatted, ok := shareddates.YmdFromMeta(val, logger.Pl); ok {
 				finalVal = formatted
 			} else {
 				finalVal = val
@@ -99,7 +100,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 	var err error
 	if t.FormattedDate == "" {
 		dates.FormatAllDates(fd)
-	} else if t.StringDate, err = dates.ParseNumDate(t.FormattedDate); err != nil {
+	} else if t.StringDate, err = shareddates.ParseNumDate(t.FormattedDate, logger.Pl); err != nil {
 		logger.Pl.E("Failed to parse date %q: %v", t.FormattedDate, err)
 	}
 
@@ -268,7 +269,7 @@ func formatTimeStamp(date string, b *strings.Builder) string {
 
 // processDateField takes in a filled date, and fills the target with it.
 func processDateField(date string, target *string, t *models.MetadataDates) {
-	if formatted, ok := dates.YmdFromMeta(date); ok {
+	if formatted, ok := shareddates.YmdFromMeta(date, logger.Pl); ok {
 		if !strings.ContainsRune(formatted, 'T') {
 			*target = formatted
 			t.FormattedDate = formatted

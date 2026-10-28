@@ -114,12 +114,12 @@ func (b *ffCommandBuilder) addDates(d *models.MetadataDates) {
 	}
 
 	fields := map[string]string{
-		sharedtags.JCreationTime:        d.CreationTime,
-		sharedtags.JDate:                date,
-		sharedtags.JOriginallyAvailable: d.OriginallyAvailableAt,
 		sharedtags.JReleaseDate:         d.ReleaseDate,
+		sharedtags.JOriginallyAvailable: d.OriginallyAvailableAt,
+		sharedtags.JDate:                date,
 		sharedtags.JUploadDate:          d.UploadDate,
 		sharedtags.JYear:                d.Year,
+		sharedtags.JCreationTime:        d.CreationTime,
 	}
 
 	for field, value := range fields {

@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"metarr/internal/domain/enums"
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // TestExpandPlainFields tests that an edit to a plain field also covers its other forms, while a named form stays alone.
@@ -50,15 +50,15 @@ func TestExpandPlainFields(t *testing.T) {
 // TestExpandGroupKeysNarrowestWins tests that a field's date tag beats a group's, and a smaller group's beats a larger one's.
 func TestExpandGroupKeysNarrowestWins(t *testing.T) {
 	ops := NewMetaOps()
-	ops.DateTags["all-titles"] = MetaDateTag{Loc: enums.DateTagLocPrefix}
-	ops.DateTags["title"] = MetaDateTag{Loc: enums.DateTagLocSuffix}
-	ops.DateTags["fulltitle"] = MetaDateTag{Loc: enums.DateTagLocAll}
+	ops.DateTags["all-titles"] = MetaDateTag{Loc: sharedenums.DateTagLocPrefix}
+	ops.DateTags["title"] = MetaDateTag{Loc: sharedenums.DateTagLocSuffix}
+	ops.DateTags["fulltitle"] = MetaDateTag{Loc: sharedenums.DateTagLocAll}
 
 	// Map order is random, so repeat to catch an order the result depends on.
 	for range 50 {
 		got := ops.ExpandGroups(JSONGroupFields).DateTags
-		if got["subtitle"].Loc != enums.DateTagLocPrefix || got["title"].Loc != enums.DateTagLocSuffix ||
-			got["fulltitle"].Loc != enums.DateTagLocAll {
+		if got["subtitle"].Loc != sharedenums.DateTagLocPrefix || got["title"].Loc != sharedenums.DateTagLocSuffix ||
+			got["fulltitle"].Loc != sharedenums.DateTagLocAll {
 			t.Fatalf("DateTags = %+v, want subtitle from all-titles, title from title, fulltitle its own", got)
 		}
 	}

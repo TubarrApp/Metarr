@@ -6,6 +6,8 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
+
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // TestFilenameOpsRerun tests that filename ops run again on a processed name don't stack prefixes or suffixes, and a
@@ -23,14 +25,14 @@ func TestFilenameOpsRerun(t *testing.T) {
 	if got := fp.suffixStrings(name, []models.FOpSuffix{{Value: " (HD)"}}); got != name {
 		t.Errorf("suffix again = %q, want %q unchanged", got, name)
 	}
-	tag := models.FOpDateTag{Loc: enums.DateTagLocPrefix, DateFormat: enums.DateYyyyMmDd}
+	tag := models.FOpDateTag{Loc: sharedenums.DateTagLocPrefix, DateFormat: sharedenums.DateYyyyMmDd}
 	if got := fp.addDateTag(name, tag, "[2024-05-01]"); got != "[2024-05-01] [Cats] Title (HD)" {
 		t.Errorf("new date tag = %q, want the old one replaced", got)
 	}
 	if got := fp.addDateTag("[23-11-05] Title", tag, "[2023-11-05]"); got != "[2023-11-05] Title" {
 		t.Errorf("date tag in a new format = %q, want the old one replaced", got)
 	}
-	suffix := models.FOpDateTag{Loc: enums.DateTagLocSuffix, DateFormat: enums.DateYyyyMmDd}
+	suffix := models.FOpDateTag{Loc: sharedenums.DateTagLocSuffix, DateFormat: sharedenums.DateYyyyMmDd}
 	if got := fp.addDateTag("Title [2023-11-05]", suffix, "[2024-05-01]"); got != "Title [2024-05-01]" {
 		t.Errorf("new suffix date tag = %q, want the old one replaced", got)
 	}
@@ -45,7 +47,7 @@ func TestFilenameReplaceAndDelete(t *testing.T) {
 		t.Errorf("chained prefix replacements = %q, want both applied", got)
 	}
 
-	all := models.FOpDeleteDateTag{Loc: enums.DateTagLocAll, DateFormat: enums.DateYyyyMmDd}
+	all := models.FOpDeleteDateTag{Loc: sharedenums.DateTagLocAll, DateFormat: sharedenums.DateYyyyMmDd}
 	if got := fp.deleteDateTag("[2023-11-05] Title [Cats] [2024-05-01]", all); got != "Title [Cats]" {
 		t.Errorf("delete all date tags = %q, want %q", got, "Title [Cats]")
 	}

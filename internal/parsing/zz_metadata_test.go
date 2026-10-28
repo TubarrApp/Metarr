@@ -4,7 +4,11 @@ import (
 	"io"
 	"testing"
 
+	"metarr/internal/dates"
 	"metarr/internal/domain/logger"
+	"metarr/internal/models"
+
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // TestFillMetaTemplateTag tests metadata tags are all filled, numbers included, and filled values aren't expanded again.
@@ -39,5 +43,22 @@ func TestFillMetaTemplateTag(t *testing.T) {
 
 	if _, isTemplate := mtp.FillMetaTemplateTag("plain", j); isTemplate {
 		t.Error("plain text reported as a template")
+	}
+}
+
+// TestMakeDateTagFormats tests a date tag is made in every format, including the two without a year.
+func TestMakeDateTagFormats(t *testing.T) {
+	fd := &models.FileData{MDates: &models.MetadataDates{FormattedDate: "2024-05-01"}}
+	for format, want := range map[sharedenums.DateFormat]string{
+		sharedenums.DateYyyyMmDd: "[2024-05-01]",
+		sharedenums.DateYyMmDd:   "[24-05-01]",
+		sharedenums.DateDdMmYyyy: "[01-05-2024]",
+		sharedenums.DateMmDdYy:   "[05-01-24]",
+		sharedenums.DateMmDd:     "[05-01]",
+		sharedenums.DateDdMm:     "[01-05]",
+	} {
+		if got, err := dates.MakeDateTag(nil, fd, format); err != nil || got != want {
+			t.Errorf("MakeDateTag(%v) = %q, %v, want %q", format, got, err, want)
+		}
 	}
 }

@@ -150,7 +150,7 @@ func FilenameOpsFromShared(ops []sharedmodels.FilenameOps) (*FilenameOps, error)
 			out.Set = FOpSet{IsSet: true, Value: op.OpValue}
 
 		case sharedconsts.OpDateTag:
-			if out.DateTag.DateFormat != enums.DateFmtSkip {
+			if out.DateTag.DateFormat != sharedenums.DateFmtSkip {
 				return nil, fmt.Errorf("only one date tag accepted per run to prevent user error")
 			}
 			loc, dateFmt, err := dateTagParts(op.OpType, op.OpLoc, op.DateFormat, false)
@@ -160,7 +160,7 @@ func FilenameOpsFromShared(ops []sharedmodels.FilenameOps) (*FilenameOps, error)
 			out.DateTag = FOpDateTag{Loc: loc, DateFormat: dateFmt}
 
 		case sharedconsts.OpDeleteDateTag:
-			if out.DeleteDateTags.DateFormat != enums.DateFmtSkip {
+			if out.DeleteDateTags.DateFormat != sharedenums.DateFmtSkip {
 				return nil, fmt.Errorf("only one delete date tag accepted, try using %q to replace all instances", sharedconsts.OpLocAll)
 			}
 			loc, dateFmt, err := dateTagParts(op.OpType, op.OpLoc, op.DateFormat, true)
@@ -206,10 +206,10 @@ func FilenameOpsFromShared(ops []sharedmodels.FilenameOps) (*FilenameOps, error)
 }
 
 // dateTagParts resolves the location and format of a date tag operation.
-func dateTagParts(opType, opLoc, dateFormat string, allowAll bool) (enums.DateTagLocation, enums.DateFormat, error) {
+func dateTagParts(opType, opLoc, dateFormat string, allowAll bool) (sharedenums.DateTagLocation, sharedenums.DateFormat, error) {
 	loc, err := sharedenums.ParseDateTagLocation(opLoc, allowAll)
 	if err != nil {
-		return loc, enums.DateFmtSkip, fmt.Errorf("%s: %w", opType, err)
+		return loc, sharedenums.DateFmtSkip, fmt.Errorf("%s: %w", opType, err)
 	}
 
 	dateFmt, err := sharedenums.ParseDateFormat(dateFormat)

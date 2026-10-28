@@ -3,6 +3,8 @@ package models
 import (
 	"metarr/internal/domain/enums"
 	"regexp"
+
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // MetaOps contains maps related to the operations to be carried out during the program's run.
@@ -149,14 +151,14 @@ type MetaSetField struct {
 
 // MetaDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDateTag struct {
-	Loc    enums.DateTagLocation
-	Format enums.DateFormat
+	Loc    sharedenums.DateTagLocation
+	Format sharedenums.DateFormat
 }
 
 // MetaDeleteDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDeleteDateTag struct {
-	Loc    enums.DateTagLocation
-	Format enums.DateFormat
+	Loc    sharedenums.DateTagLocation
+	Format sharedenums.DateFormat
 }
 
 // MetaReplace contains a field with a given value, and its desired replacement.
@@ -191,7 +193,7 @@ type FilenameDatePrefix struct {
 	YearLength  int
 	MonthLength int
 	DayLength   int
-	Order       enums.DateFormat
+	Order       sharedenums.DateFormat
 }
 
 // FilenameReplaceSuffix replaces a suffix from a given filename.

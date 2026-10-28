@@ -9,6 +9,7 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 
+	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
@@ -50,8 +51,8 @@ func TestExpandGroups(t *testing.T) {
 	ops := NewMetaOps()
 	ops.Suffixes = []MetaSuffix{{Field: "all-titles", Suffix: "!"}, {Field: "writer", Suffix: "?"}}
 	ops.CopyToFields = []CopyToField{{Field: "release_date", Dest: "all-titles"}}
-	ops.DateTags["all-titles"] = MetaDateTag{Loc: enums.DateTagLocPrefix}
-	ops.DateTags["title"] = MetaDateTag{Loc: enums.DateTagLocSuffix}
+	ops.DateTags["all-titles"] = MetaDateTag{Loc: sharedenums.DateTagLocPrefix}
+	ops.DateTags["title"] = MetaDateTag{Loc: sharedenums.DateTagLocSuffix}
 
 	got := ops.ExpandGroups(JSONGroupFields)
 
@@ -65,7 +66,7 @@ func TestExpandGroups(t *testing.T) {
 	if len(got.CopyToFields) != 3 || got.CopyToFields[1].Dest != "fulltitle" || got.CopyToFields[1].Field != "release_date" {
 		t.Errorf("CopyToFields = %+v", got.CopyToFields)
 	}
-	if got.DateTags["title"].Loc != enums.DateTagLocSuffix || got.DateTags["subtitle"].Loc != enums.DateTagLocPrefix {
+	if got.DateTags["title"].Loc != sharedenums.DateTagLocSuffix || got.DateTags["subtitle"].Loc != sharedenums.DateTagLocPrefix {
 		t.Errorf("DateTags = %+v", got.DateTags)
 	}
 	if _, ok := got.DateTags["all-titles"]; ok {
@@ -121,11 +122,11 @@ func TestMetaOpsFromShared(t *testing.T) {
 	}
 
 	dt, ok := got.DateTags["title"]
-	if !ok || dt.Loc != enums.DateTagLocPrefix || dt.Format != enums.DateYyMmDd {
+	if !ok || dt.Loc != sharedenums.DateTagLocPrefix || dt.Format != sharedenums.DateYyMmDd {
 		t.Errorf("DateTags[title] = %+v (ok=%v)", dt, ok)
 	}
 	ddt, ok := got.DeleteDateTags["title"]
-	if !ok || ddt.Loc != enums.DateTagLocAll || ddt.Format != enums.DateYyyyMmDd {
+	if !ok || ddt.Loc != sharedenums.DateTagLocAll || ddt.Format != sharedenums.DateYyyyMmDd {
 		t.Errorf("DeleteDateTags[title] = %+v (ok=%v)", ddt, ok)
 	}
 
@@ -152,7 +153,7 @@ func TestMetaOpTypeIsCaseInsensitive(t *testing.T) {
 	if len(got.SetFields) != 1 || got.SetFields[0].Value != "Cats" {
 		t.Errorf("SetFields = %+v", got.SetFields)
 	}
-	if dt, ok := got.DateTags["title"]; !ok || dt.Loc != enums.DateTagLocPrefix {
+	if dt, ok := got.DateTags["title"]; !ok || dt.Loc != sharedenums.DateTagLocPrefix {
 		t.Errorf("DateTags[title] = %+v (ok=%v)", dt, ok)
 	}
 }
@@ -211,10 +212,10 @@ func TestFilenameOpsFromShared(t *testing.T) {
 	if len(got.Suffixes) != 1 || got.Suffixes[0].Value != "(new)" {
 		t.Errorf("Suffixes = %+v", got.Suffixes)
 	}
-	if got.DateTag.Loc != enums.DateTagLocPrefix || got.DateTag.DateFormat != enums.DateYyMmDd {
+	if got.DateTag.Loc != sharedenums.DateTagLocPrefix || got.DateTag.DateFormat != sharedenums.DateYyMmDd {
 		t.Errorf("DateTag = %+v", got.DateTag)
 	}
-	if got.DeleteDateTags.Loc != enums.DateTagLocAll {
+	if got.DeleteDateTags.Loc != sharedenums.DateTagLocAll {
 		t.Errorf("DeleteDateTags = %+v", got.DeleteDateTags)
 	}
 	if len(got.Replaces) != 1 || got.Replaces[0].FindString != "old" {

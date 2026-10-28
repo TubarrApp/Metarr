@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/shareddates"
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
@@ -319,7 +320,7 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 // resolveDatesFrom sets the dates override from val, the value of the field all-dates is pasted
 // from, when it holds a date.
 func resolveDatesFrom(ops *models.MetaOps, val string) {
-	formatted, _ := dates.YmdFromMeta(val)
+	formatted, _ := shareddates.YmdFromMeta(val, logger.Pl)
 	date, _, _ := strings.Cut(formatted, "T")
 	if _, err := time.Parse(time.DateOnly, date); err != nil {
 		logger.Pl.E("Field %q value %q is not a date, skipping its paste into %q", ops.DatesFrom, val, sharedconsts.MetaOpAllDates)

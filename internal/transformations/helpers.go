@@ -16,6 +16,8 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // shouldRename determines if file rename operations are needed for this file.
@@ -301,7 +303,7 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 
 // addDateTag applies a date tag to a filename at the specified location.
 func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, dateTagStr string) string {
-	if dateTag.DateFormat == enums.DateFmtSkip {
+	if dateTag.DateFormat == sharedenums.DateFmtSkip {
 		logger.Pl.D(1, "No date tag configured, keeping original filename: %q", filename)
 		return filename
 	}
@@ -320,7 +322,7 @@ func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, 
 
 // deleteDateTag removes date tags from a filename at the specified location(s).
 func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDeleteDateTag) string {
-	if deleteTag.DateFormat == enums.DateFmtSkip {
+	if deleteTag.DateFormat == sharedenums.DateFmtSkip {
 		logger.Pl.D(1, "No delete date tag configured, keeping original filename: %q", filename)
 		return filename
 	}

@@ -3,9 +3,10 @@ package textedit
 
 import (
 	"metarr/internal/dates"
-	"metarr/internal/domain/enums"
 	"strings"
 	"unicode"
+
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // AddPrefixes puts prefixes at the start of val, after any date tag there, so they read in the order given.
@@ -74,7 +75,7 @@ func Cut(val, delim string, keepBefore bool) (result string, changed bool) {
 
 // prefixStart returns where val's text begins after a date tag at its start, or 0 if it has none.
 func prefixStart(val string) int {
-	tags, rest := dates.StripDateTags(val, enums.DateTagLocPrefix)
+	tags, rest := dates.StripDateTags(val, sharedenums.DateTagLocPrefix)
 	if len(tags) == 0 {
 		return 0
 	}
@@ -83,7 +84,7 @@ func prefixStart(val string) int {
 
 // suffixEnd returns where val's text ends before a date tag at its end, or len(val) if it has none.
 func suffixEnd(val string) int {
-	tags, rest := dates.StripDateTags(val, enums.DateTagLocSuffix)
+	tags, rest := dates.StripDateTags(val, sharedenums.DateTagLocSuffix)
 	if len(tags) == 0 {
 		return len(val)
 	}

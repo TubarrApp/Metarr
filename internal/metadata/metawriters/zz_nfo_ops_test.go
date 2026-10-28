@@ -8,6 +8,8 @@ import (
 
 	"metarr/internal/domain/enums"
 	"metarr/internal/models"
+
+	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 // nfoTestFile writes data to a temporary NFO file and returns it open for reading and writing.
@@ -112,8 +114,8 @@ func TestDateTagEditsNFO(t *testing.T) {
 	f := nfoTestFile(t, data)
 
 	ops := models.NewMetaOps()
-	ops.DeleteDateTags["title"] = models.MetaDeleteDateTag{Loc: enums.DateTagLocAll, Format: enums.DateYyyyMmDd}
-	ops.DateTags["all-titles"] = models.MetaDateTag{Loc: enums.DateTagLocPrefix, Format: enums.DateYyyyMmDd}
+	ops.DeleteDateTags["title"] = models.MetaDeleteDateTag{Loc: sharedenums.DateTagLocAll, Format: sharedenums.DateYyyyMmDd}
+	ops.DateTags["all-titles"] = models.MetaDateTag{Loc: sharedenums.DateTagLocPrefix, Format: sharedenums.DateYyyyMmDd}
 	fd := &models.FileData{MetaOps: ops, MDates: &models.MetadataDates{FormattedDate: "2024-05-01"}}
 
 	edited, err := (&NFOFileRW{Meta: data}).DateTagEdits(f, fd)
@@ -142,7 +144,7 @@ func TestNFOOpsRerun(t *testing.T) {
 
 	f := nfoTestFile(t, data)
 	ops := models.NewMetaOps()
-	ops.DateTags["title"] = models.MetaDateTag{Loc: enums.DateTagLocPrefix, Format: enums.DateYyyyMmDd}
+	ops.DateTags["title"] = models.MetaDateTag{Loc: sharedenums.DateTagLocPrefix, Format: sharedenums.DateYyyyMmDd}
 	fd := &models.FileData{MetaOps: ops, MDates: &models.MetadataDates{FormattedDate: "2024-05-01"}}
 	if edited, err := (&NFOFileRW{Meta: data}).DateTagEdits(f, fd); err != nil || !edited {
 		t.Fatalf("DateTagEdits edited=%v err=%v", edited, err)
@@ -160,7 +162,7 @@ func TestMakeMetaEditsNFOOrder(t *testing.T) {
 	f := nfoTestFile(t, data)
 	ops := models.NewMetaOps()
 	ops.Prefixes = []models.MetaPrefix{{Field: "title", Prefix: "[A] "}, {Field: "title", Prefix: "[B] "}}
-	ops.DeleteDateTags["title"] = models.MetaDeleteDateTag{Loc: enums.DateTagLocPrefix, Format: enums.DateYyyyMmDd}
+	ops.DeleteDateTags["title"] = models.MetaDeleteDateTag{Loc: sharedenums.DateTagLocPrefix, Format: sharedenums.DateYyyyMmDd}
 
 	if edited, err := (&NFOFileRW{}).MakeMetaEdits(data, f, &models.FileData{MetaOps: ops}); err != nil || !edited {
 		t.Fatalf("MakeMetaEdits edited=%v err=%v", edited, err)

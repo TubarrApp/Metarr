@@ -10,6 +10,7 @@ import (
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/shareddates"
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
@@ -35,7 +36,7 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 	}()
 
 	if n.Premiered != "" {
-		if rtn, ok := dates.YmdFromMeta(n.Premiered); ok && rtn != "" {
+		if rtn, ok := shareddates.YmdFromMeta(n.Premiered, logger.Pl); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -44,7 +45,7 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 		gotRelevantDate = true
 	}
 	if releaseDate := cmp.Or(n.ReleaseDate, n.Released); releaseDate != "" {
-		if rtn, ok := dates.YmdFromMeta(releaseDate); ok && rtn != "" {
+		if rtn, ok := shareddates.YmdFromMeta(releaseDate, logger.Pl); ok && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -90,7 +91,7 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 		dates.FormatAllDates(fd)
 	} else {
 		var err error
-		if t.StringDate, err = dates.ParseNumDate(t.FormattedDate); err != nil {
+		if t.StringDate, err = shareddates.ParseNumDate(t.FormattedDate, logger.Pl); err != nil {
 			logger.Pl.E("Error parsing date %q: %v", t.FormattedDate, err)
 		}
 	}
