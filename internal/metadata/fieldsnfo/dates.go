@@ -36,7 +36,12 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 	}()
 
 	if n.Premiered != "" {
-		if rtn, ok := shareddates.YmdFromMeta(n.Premiered, logger.Pl); ok && rtn != "" {
+		rtn, madeDate, err := shareddates.YmdFromMeta(n.Premiered, logger.Pl)
+		if err != nil {
+			logger.Pl.E(err.Error())
+		}
+
+		if madeDate && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}
@@ -45,7 +50,12 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 		gotRelevantDate = true
 	}
 	if releaseDate := cmp.Or(n.ReleaseDate, n.Released); releaseDate != "" {
-		if rtn, ok := shareddates.YmdFromMeta(releaseDate, logger.Pl); ok && rtn != "" {
+		rtn, madeDate, err := shareddates.YmdFromMeta(releaseDate, logger.Pl)
+		if err != nil {
+			logger.Pl.E(err.Error())
+		}
+
+		if madeDate && rtn != "" {
 			if t.FormattedDate == "" {
 				t.FormattedDate = rtn
 			}

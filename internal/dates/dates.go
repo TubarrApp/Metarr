@@ -51,8 +51,8 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt sharedenu
 // FormatAllDates formats timestamps into a hyphenated form.
 func FormatAllDates(fd *models.FileData) (result string) {
 	var (
-		err error
-		ok  bool
+		err      error
+		madeDate bool
 	)
 	d := fd.MDates
 
@@ -65,19 +65,25 @@ func FormatAllDates(fd *models.FileData) (result string) {
 	}
 
 	for _, field := range fields {
-		if field != "" {
-			logger.Pl.D(2, "Attempting to format %+v", field)
+		if field == "" {
+			continue
+		}
 
-			if result, ok = shareddates.YmdFromMeta(field, logger.Pl); ok {
-				d.FormattedDate = result
-				logger.Pl.D(2, "Got formatted date %q", result)
+		logger.Pl.D(2, "Attempting to format %+v", field)
 
-				if d.StringDate, err = shareddates.ParseNumDate(d.FormattedDate, logger.Pl); err != nil {
-					logger.Pl.E("Failed to parse date %q: %v", d.FormattedDate, err)
-				}
-				logger.Pl.D(2, "Got string date %q", d.StringDate)
-				return result
+		if result, madeDate, err = shareddates.YmdFromMeta(field, logger.Pl); madeDate {
+			if err != nil {
+				logger.Pl.E(err.Error())
 			}
+
+			d.FormattedDate = result
+			logger.Pl.D(2, "Got formatted date %q", result)
+
+			if d.StringDate, err = shareddates.ParseNumDate(d.FormattedDate, logger.Pl); err != nil {
+				logger.Pl.E("Failed to parse date %q: %v", d.FormattedDate, err)
+			}
+			logger.Pl.D(2, "Got string date %q", d.StringDate)
+			return result
 		}
 	}
 	logger.Pl.E("Failed to format dates")

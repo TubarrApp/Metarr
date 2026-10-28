@@ -57,15 +57,19 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 			continue
 		}
 
-		var finalVal string
+		// Get final timestamp value.
+		finalVal := val
+		// String is longer or equal to 6 (i.e. 'yymmdd' or 'yyyymmdd').
 		if len(val) >= 6 {
-			if formatted, ok := shareddates.YmdFromMeta(val, logger.Pl); ok {
-				finalVal = formatted
-			} else {
-				finalVal = val
+			formatted, madeDate, err := shareddates.YmdFromMeta(val, logger.Pl)
+			if err != nil {
+				logger.Pl.E(err.Error())
+				return false
 			}
-		} else {
-			finalVal = val
+
+			if madeDate {
+				finalVal = formatted
+			}
 		}
 
 		*ptr = finalVal
@@ -269,7 +273,11 @@ func formatTimeStamp(date string, b *strings.Builder) string {
 
 // processDateField takes in a filled date, and fills the target with it.
 func processDateField(date string, target *string, t *models.MetadataDates) {
-	if formatted, ok := shareddates.YmdFromMeta(date, logger.Pl); ok {
+	formatted, madeDate, err := shareddates.YmdFromMeta(date, logger.Pl)
+	if err != nil {
+		logger.Pl.E(err.Error())
+	}
+	if madeDate {
 		if !strings.ContainsRune(formatted, 'T') {
 			*target = formatted
 			t.FormattedDate = formatted
