@@ -2,6 +2,7 @@ package ffmpeg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
@@ -9,6 +10,7 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/parsing"
 	"strings"
+	"unicode"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
@@ -159,4 +161,64 @@ func getOutputAudioCodecString(currentACodec string) (outputCodec string) {
 	codec = strings.ReplaceAll(codec, ".", "")
 
 	return codec
+}
+
+// splitArgs splits user input arguments in shell style.
+func splitArgs(s string) ([]string, error) {
+	var args []string
+	var arg strings.Builder
+	var quote rune
+	escaped := false
+	started := false
+
+	for _, r := range s {
+		if escaped {
+			arg.WriteRune(r)
+			escaped = false
+			started = true
+			continue
+		}
+
+		if r == '\\' && quote != '\'' {
+			escaped = true
+			started = true
+			continue
+		}
+
+		if quote != 0 {
+			if r == quote {
+				quote = 0
+			} else {
+				arg.WriteRune(r)
+			}
+			continue
+		}
+
+		switch {
+		case r == '\'' || r == '"':
+			quote = r
+			started = true
+		case unicode.IsSpace(r):
+			if started {
+				args = append(args, arg.String())
+				arg.Reset()
+				started = false
+			}
+		default:
+			arg.WriteRune(r)
+			started = true
+		}
+	}
+
+	if escaped {
+		return nil, errors.New("trailing escape character")
+	}
+	if quote != 0 {
+		return nil, errors.New("unclosed quote")
+	}
+	if started {
+		args = append(args, arg.String())
+	}
+
+	return args, nil
 }

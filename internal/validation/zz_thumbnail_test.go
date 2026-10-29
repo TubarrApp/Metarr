@@ -4,13 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // TestValidateThumbnail tests --thumbnail takes an http(s) URL or an existing file, and never alongside stripping.
 func TestValidateThumbnail(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "cover.png")
-	if err := os.WriteFile(file, []byte("png"), 0o600); err != nil {
+	if err := os.WriteFile(file, []byte(sharedconsts.ITypePNG), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

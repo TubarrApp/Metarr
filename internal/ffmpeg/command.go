@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
 // availableCodecsCache caches the codecs in FFmpeg to avoid repeated calls.
@@ -633,7 +634,11 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 
 	// Extra FFmpeg arguments.
 	if abstractions.IsSet(keys.ExtraFFmpegArgs) {
-		args = append(args, strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs))...)
+		extraArgs, err := sharedparsing.ShellSplit(abstractions.GetString(keys.ExtraFFmpegArgs))
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, extraArgs...)
 	}
 
 	// Name the muxer for extensions FFmpeg can't pick one for.
