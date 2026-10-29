@@ -1,13 +1,13 @@
 package fieldsjson
 
 import (
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/logger"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedtags"
 )
 
@@ -74,7 +74,7 @@ func fillDescriptions(fd *models.FileData, data map[string]any, jsonRW *metawrit
 // fillEmptyDescriptions fills empty description fields by inference.
 func fillEmptyDescriptions(s *string, d *models.MetadataTitlesDescs) bool {
 	if s == nil || d == nil {
-		logger.Pl.E("%s entered description string nil or MetadataTitlesDescs nil", consts.LogTagDevError)
+		logger.Pl.E("%s entered description string nil or MetadataTitlesDescs nil", sharedconsts.ErrorfDevError)
 		return false
 	}
 

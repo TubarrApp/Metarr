@@ -125,7 +125,7 @@ func getOutputVideoCodecString(currentVCodec string) (outputCodec string) {
 	cMapInterface := abstractions.Get(keys.TranscodeVideoCodecMap)
 	cMap, ok := cMapInterface.(map[string]string)
 	if !ok {
-		logger.Pl.E("Dev Error: Got wrong type %T for video codec map", cMapInterface)
+		logger.Pl.DevE("Got wrong type %T for video codec map", cMapInterface)
 		return
 	}
 	codec := cMap[currentVCodec]
@@ -148,7 +148,7 @@ func getOutputAudioCodecString(currentACodec string) (outputCodec string) {
 	cMapInterface := abstractions.Get(keys.TranscodeAudioCodecMap)
 	cMap, ok := cMapInterface.(map[string]string)
 	if !ok {
-		logger.Pl.E("Dev Error: Got wrong type %T for audio codec map", cMapInterface)
+		logger.Pl.DevE("Got wrong type %T for audio codec map", cMapInterface)
 		return
 	}
 	codec := cMap[currentACodec]

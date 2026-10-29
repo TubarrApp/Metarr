@@ -18,8 +18,7 @@ const (
 
 // Program.
 const (
-	TimeSfx        = "T00:00:00Z"
-	LogTagDevError = "DEV ERROR:"
+	TimeSfx = "T00:00:00Z"
 )
 
 // Webpage tags.

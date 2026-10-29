@@ -308,7 +308,10 @@ func (r *metarrFuzzRun) check(output string, ok bool) {
 		fail("Metarr succeeded without --purge-original-video, but kept %d of %d original video(s) unchanged: %q", kept, r.inputs, videos)
 	}
 	if dir, set := r.chosen["output-directory"]; set && r.chosen["skip-videos"] != "true" { // Skipped videos stay put.
-		base := strings.SplitN(strings.TrimPrefix(dir, r.work+string(filepath.Separator)), string(filepath.Separator), 2)[0]
+		base, _, _ := strings.Cut(
+			strings.TrimPrefix(dir, r.work+string(filepath.Separator)),
+			string(filepath.Separator),
+		)
 		for _, v := range final {
 			if !strings.HasPrefix(v, filepath.Join(r.work, base)+string(filepath.Separator)) {
 				fail("Metarr succeeded with --output-directory %q, but left %q outside it", dir, v)

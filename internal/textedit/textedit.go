@@ -28,6 +28,10 @@ func AddPrefixes(val string, prefixes []string) (result string, changed bool) {
 //
 // A suffix already in its place is left as it is, so running the same suffixes again changes nothing.
 func AddSuffixes(val string, suffixes []string) (result string, changed bool) {
+	if len(suffixes) == 0 {
+		return val, false
+	}
+
 	j := suffixEnd(val)
 	for k := len(suffixes) - 1; k >= 0; k-- {
 		s := suffixes[k]

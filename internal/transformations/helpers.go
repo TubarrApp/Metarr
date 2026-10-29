@@ -6,7 +6,6 @@ import (
 	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/dates"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -17,6 +16,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
@@ -123,7 +123,7 @@ func matchCase(original, replacement string) string {
 // setString applies strings as a name for the current file.
 func (fp *fileProcessor) setString(filename string, setString models.FOpSet) string {
 	if !setString.IsSet {
-		logger.Pl.E("%s setString is not set for filename %q", consts.LogTagDevError, filename)
+		logger.Pl.E("%s setString is not set for filename %q", sharedconsts.ErrorfDevError, filename)
 		return filename
 	}
 	// Fill template.

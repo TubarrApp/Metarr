@@ -3,6 +3,7 @@ package parsing
 import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -37,6 +38,10 @@ func OutputExt(path string) (ext string, replaced bool) {
 // IsHTTPURL reports whether s is an absolute http(s) URL.
 func IsHTTPURL(s string) bool {
 	u, err := url.Parse(s)
+	if u == nil {
+		logger.Pl.E("Failed to parse URL from %q", s)
+		return false
+	}
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
 }
 

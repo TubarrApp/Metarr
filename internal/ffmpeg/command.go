@@ -345,7 +345,7 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 			return fmt.Errorf("can't transcode audio to %q: FFmpeg's %q encoder isn't installed", desiredACodec, b.audioCodec[1])
 		}
 	} else if b.audioCodec != nil {
-		logger.Pl.E("%s Strings expected to be at least parts, got %v", consts.LogTagDevError, b.audioCodec)
+		logger.Pl.E("%s Strings expected to be at least parts, got %v", sharedconsts.ErrorfDevError, b.audioCodec)
 		b.audioCodec = nil
 	}
 	return nil
@@ -377,7 +377,7 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, desiredVCodec, a
 			return fmt.Errorf("can't transcode video to %q: FFmpeg's %q encoder isn't installed", desiredVCodec, b.videoCodecSoftware[1])
 		}
 	} else if b.videoCodecSoftware != nil {
-		logger.Pl.E("%s Strings expected to be at least 2 parts, got %v", consts.LogTagDevError, b.videoCodecSoftware)
+		logger.Pl.E("%s Strings expected to be at least 2 parts, got %v", sharedconsts.ErrorfDevError, b.videoCodecSoftware)
 		b.videoCodecSoftware = nil
 	}
 	return nil

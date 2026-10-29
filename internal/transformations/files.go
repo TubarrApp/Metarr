@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"metarr/internal/abstractions"
-	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -48,7 +47,7 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 			replaceStyle = style
 			logger.Pl.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
 		} else {
-			return fmt.Errorf("%s invalid rename style type %T", consts.LogTagDevError, replaceStyle)
+			return fmt.Errorf("%s invalid rename style type %T", sharedconsts.ErrorfDevError, replaceStyle)
 		}
 	}
 	// Create a copy to sort.

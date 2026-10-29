@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -41,7 +42,7 @@ func getFileDirs() (videoDirs, videoFiles, metaDirs, metaFiles []string, err err
 	if abstractions.IsSet(keys.BatchPairs) {
 		batchPairs, ok := abstractions.Get(keys.BatchPairs).(models.BatchPairs)
 		if !ok {
-			return nil, nil, nil, nil, fmt.Errorf("%s got wrong type %T for expected BatchPairs model", consts.LogTagDevError, batchPairs)
+			return nil, nil, nil, nil, fmt.Errorf("%s got wrong type %T for expected BatchPairs model", sharedconsts.ErrorfDevError, batchPairs)
 		}
 		videoDirs = append(videoDirs, batchPairs.VideoDirs...)
 		videoFiles = append(videoFiles, batchPairs.VideoFiles...)
