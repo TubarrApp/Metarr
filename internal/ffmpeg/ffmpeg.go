@@ -178,23 +178,24 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 
 	// Check for extension difference.
 	currentExt := strings.ToLower(filepath.Ext(fd.OriginalVideoPath))
-
 	if currentExt != outExt && outExt != "" {
+		logger.Pl.I("Current extension (%s) differs from output extension (%s) in file %q, will convert...", currentExt, outExt, fd.OriginalVideoPath)
 		differentExt = true
 	}
 
-	logger.Pl.D(2, "Extension match check for file %q:\n\nCurrent extension: %q\nDesired extension: %q\n\nExtensions differ? %v", fd.OriginalVideoPath, currentExt, outExt, differentExt)
-
-	if desiredVCodec != "" || desiredACodec != "" {
-		if (desiredVCodec != currentVCodec && desiredVCodec != "") || (desiredACodec != currentACodec && desiredACodec != "") {
-			codecsDiffer = true
-		}
-		logger.Pl.D(2, "Codec check for %q:\n\nCurrent video codecs:\n\nVideo: %q\nAudio: %q\n\nDesired video codecs:\n\nVideo: %q\nAudio: %q\n\nCodecs differ? %v", fd.OriginalVideoPath, currentVCodec, currentACodec, desiredVCodec, desiredACodec, codecsDiffer)
+	// Check for codec difference.
+	if desiredVCodec != currentVCodec && desiredVCodec != "" {
+		logger.Pl.I("Current video codec (%s) differs from desired video codec (%s) in file %q, will convert...", currentVCodec, desiredVCodec, fd.OriginalVideoPath)
+		codecsDiffer = true
+	}
+	if desiredACodec != currentACodec && desiredACodec != "" {
+		logger.Pl.I("Current audio codec (%s) differs from desired audio codec (%s) in file %q, will convert...", currentACodec, desiredACodec, fd.OriginalVideoPath)
+		codecsDiffer = true
 	}
 
 	// Check if metadata already exists.
 	if !fd.MetaAlreadyExists {
-		logger.Pl.D(2, "Metadata or thumbnail mismatch in file %q", fd.OriginalVideoPath)
+		logger.Pl.I("Desired metadata or thumbnail differs from data extracted from original file (%s), will process...", fd.OriginalVideoPath)
 	}
 
 	// Final checks.

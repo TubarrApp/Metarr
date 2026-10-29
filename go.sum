@@ -8,6 +8,8 @@ github.com/TubarrApp/gocommon v0.0.0-20261029063543-5cae1dbb6ddd h1:OVFaITkGyh65
 github.com/TubarrApp/gocommon v0.0.0-20261029063543-5cae1dbb6ddd/go.mod h1:RZUYO6xW+QTIXduyxgVp4+1iPVf/qDlZsd3o+mbHfmY=
 github.com/TubarrApp/gocommon v0.0.0-20261029064539-9e86a5719595 h1:AL/0cId2u9ROIM6k9huK3eGiXqW1L6dcwemp4VeU/lU=
 github.com/TubarrApp/gocommon v0.0.0-20261029064539-9e86a5719595/go.mod h1:RZUYO6xW+QTIXduyxgVp4+1iPVf/qDlZsd3o+mbHfmY=
+github.com/TubarrApp/gocommon v0.0.0-20261029141937-82f9ae986e82 h1:fwMFyW2oC40QAijNB3Rb767GdcCyqfUHnKwYB/3eZW8=
+github.com/TubarrApp/gocommon v0.0.0-20261029141937-82f9ae986e82/go.mod h1:RZUYO6xW+QTIXduyxgVp4+1iPVf/qDlZsd3o+mbHfmY=
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de h1:FxWPpzIjnTlhPwqqXc4/vE0f7GvRjuAsbW+HOIe8KnA=
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de/go.mod h1:DCaWoUhZrYW9p1lxo/cm8EmUOOzAPSEZNGF2DK1dJgw=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
