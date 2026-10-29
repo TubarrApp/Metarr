@@ -184,11 +184,11 @@ func skipProcessing(fd *models.FileData, currentVCodec, desiredVCodec, currentAC
 	}
 
 	// Check for codec difference.
-	if desiredVCodec != currentVCodec && desiredVCodec != "" {
+	if desiredVCodec != currentVCodec && desiredVCodec != "" && desiredVCodec != sharedconsts.VCodecCopy {
 		logger.Pl.I("Current video codec (%s) differs from desired video codec (%s) in file %q, will convert...", currentVCodec, desiredVCodec, fd.OriginalVideoPath)
 		codecsDiffer = true
 	}
-	if desiredACodec != currentACodec && desiredACodec != "" {
+	if desiredACodec != currentACodec && desiredACodec != "" && desiredACodec != sharedconsts.ACodecCopy {
 		logger.Pl.I("Current audio codec (%s) differs from desired audio codec (%s) in file %q, will convert...", currentACodec, desiredACodec, fd.OriginalVideoPath)
 		codecsDiffer = true
 	}
