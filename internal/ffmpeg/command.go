@@ -15,7 +15,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 
@@ -639,32 +638,13 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		if err != nil {
 			return nil, err
 		}
-		// Remove disallowed options and value.
-		blockedValue := false
-		deletedKey := ""
-		extraArgs = slices.DeleteFunc(extraArgs, func(arg string) bool {
-			if blockedValue {
-				logger.Pl.W("Deleted disallowed option %q and value %q from command for %q", deletedKey, arg, b.inputFile)
-				blockedValue = false
-				deletedKey = ""
-				return true
-			}
 
-			if _, blocked := sharedconsts.BlockedFFmpegOptions[arg]; blocked {
-				switch {
-				case arg == "-report":
-					logger.Pl.W("Deleted disallowed option %q from command for %q", arg, b.inputFile)
-					return true
-				default:
-					deletedKey = arg
-					blockedValue = true
-					return true
-				}
-			}
-			return false
-		})
-		// NOTE FOR POSSIBLE FUTURE USE: Blocked value could still be true.
-		args = append(args, extraArgs...)
+		// Refuse extra FFmpeg arguments containing disallowed options.
+		if blocked, blockedKey := sharedconsts.HasBlockedOptions(extraArgs, sharedconsts.BlockedFFmpegOptions); blocked {
+			logger.Pl.W("Refusing extra FFmpeg arguments for file %q: Option %q is not allowed for FFmpeg.", b.inputFile, blockedKey)
+		} else {
+			args = append(args, extraArgs...)
+		}
 	}
 
 	// Name the muxer for extensions FFmpeg can't pick one for.
