@@ -41,8 +41,8 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}
 
 	// Check codec mismatches.
-	desiredVCodec := getOutputVideoCodecString(currentVCodec)
-	desiredACodec := getOutputAudioCodecString(currentACodec)
+	desiredVCodec := getOutputCodecString(keys.TranscodeVideoCodecMap, currentVCodec, "video")
+	desiredACodec := getOutputCodecString(keys.TranscodeAudioCodecMap, currentACodec, "audio")
 
 	// A video FFmpeg can't rewrite is left alone unless it needs changing, then written anew beside it.
 	if replaced {
@@ -204,7 +204,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmode
 	// Final checks.
 	if !codecsDiffer && !differentExt && fd.MetaAlreadyExists {
 		// -- SKIP FURTHER PROCESSING. --
-		logger.Pl.I("For file %q, all metadata exists, codecs match, and extensions match. Skipping processing...", fd.OriginalVideoPath)
+		logger.Pl.I("For file %q, no processing is required. Metadata exists, desired codecs (including compression-level preferences) match, and the file extension matches. Skipping processing...", fd.OriginalVideoPath)
 
 		// Save 'post-FFmpeg' video path into model.
 		fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath)) + outExt

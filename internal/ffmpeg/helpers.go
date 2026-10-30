@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/parsing"
 	"strings"
@@ -116,25 +115,25 @@ func encoderInstalled(ctx context.Context, encoder string) bool {
 	return encoders == "" || (encoder != "" && strings.Contains(encoders, " "+encoder+" "))
 }
 
-// getOutputVideoCodecString returns the codec required according to mapping.
-func getOutputVideoCodecString(currentVCodec sharedmodels.FromCodec) (outputCodec string) {
-	if !abstractions.IsSet(keys.TranscodeVideoCodecMap) {
+// getOutputCodecString returns the codec required according to mapping.
+func getOutputCodecString(key string, currentCodec sharedmodels.FromCodec, codecType string) (outputCodec string) {
+	if !abstractions.IsSet(key) {
 		return
 	}
 
 	// Extract codec from map.
-	cMapInterface := abstractions.Get(keys.TranscodeVideoCodecMap)
+	cMapInterface := abstractions.Get(key)
 	cMap, ok := cMapInterface.(map[sharedmodels.FromCodec]string)
 	if !ok {
-		logger.Pl.DevE("Got wrong type %T for video codec map", cMapInterface)
+		logger.Pl.DevE("Got wrong type %T for %s codec map", cMapInterface, codecType)
 		return
 	}
 
 	// Check for an exact codec and compression-level mapping.
-	outputCodec, ok = cMap[currentVCodec]
+	outputCodec, ok = cMap[currentCodec]
 	if !ok {
 		// Fall back to the codec mapping without a compression level.
-		outputCodec = cMap[sharedmodels.NewFromCodec(currentVCodec.Codec, sharedconsts.CompressionBlank)]
+		outputCodec = cMap[sharedmodels.NewFromCodec(currentCodec.Codec, sharedconsts.CompressionBlank)]
 	}
 
 	// Normalize.
@@ -143,27 +142,4 @@ func getOutputVideoCodecString(currentVCodec sharedmodels.FromCodec) (outputCode
 	outputCodec = strings.ReplaceAll(outputCodec, ".", "")
 
 	return outputCodec
-}
-
-// getOutputAudioCodecString returns the codec required according to mapping.
-func getOutputAudioCodecString(currentACodec sharedmodels.FromCodec) (outputCodec string) {
-	if !abstractions.IsSet(keys.TranscodeAudioCodecMap) {
-		return
-	}
-
-	// Extract codec from map.
-	cMapInterface := abstractions.Get(keys.TranscodeAudioCodecMap)
-	cMap, ok := cMapInterface.(map[sharedmodels.FromCodec]string)
-	if !ok {
-		logger.Pl.DevE("Got wrong type %T for audio codec map", cMapInterface)
-		return
-	}
-	codec := cMap[currentACodec]
-
-	// Normalize.
-	codec = strings.ToLower(codec)
-	codec = strings.ReplaceAll(codec, " ", "")
-	codec = strings.ReplaceAll(codec, ".", "")
-
-	return codec
 }
