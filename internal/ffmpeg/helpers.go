@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
@@ -116,37 +117,43 @@ func encoderInstalled(ctx context.Context, encoder string) bool {
 }
 
 // getOutputVideoCodecString returns the codec required according to mapping.
-func getOutputVideoCodecString(currentVCodec string) (outputCodec string) {
+func getOutputVideoCodecString(currentVCodec sharedmodels.FromCodec) (outputCodec string) {
 	if !abstractions.IsSet(keys.TranscodeVideoCodecMap) {
 		return
 	}
 
 	// Extract codec from map.
 	cMapInterface := abstractions.Get(keys.TranscodeVideoCodecMap)
-	cMap, ok := cMapInterface.(map[string]string)
+	cMap, ok := cMapInterface.(map[sharedmodels.FromCodec]string)
 	if !ok {
 		logger.Pl.DevE("Got wrong type %T for video codec map", cMapInterface)
 		return
 	}
-	codec := cMap[currentVCodec]
+
+	// Check for an exact codec and compression-level mapping.
+	outputCodec, ok = cMap[currentVCodec]
+	if !ok {
+		// Fall back to the codec mapping without a compression level.
+		outputCodec = cMap[sharedmodels.NewFromCodec(currentVCodec.Codec, sharedconsts.CompressionBlank)]
+	}
 
 	// Normalize.
-	codec = strings.ToLower(codec)
-	codec = strings.ReplaceAll(codec, " ", "")
-	codec = strings.ReplaceAll(codec, ".", "")
+	outputCodec = strings.ToLower(outputCodec)
+	outputCodec = strings.ReplaceAll(outputCodec, " ", "")
+	outputCodec = strings.ReplaceAll(outputCodec, ".", "")
 
-	return codec
+	return outputCodec
 }
 
 // getOutputAudioCodecString returns the codec required according to mapping.
-func getOutputAudioCodecString(currentACodec string) (outputCodec string) {
+func getOutputAudioCodecString(currentACodec sharedmodels.FromCodec) (outputCodec string) {
 	if !abstractions.IsSet(keys.TranscodeAudioCodecMap) {
 		return
 	}
 
 	// Extract codec from map.
 	cMapInterface := abstractions.Get(keys.TranscodeAudioCodecMap)
-	cMap, ok := cMapInterface.(map[string]string)
+	cMap, ok := cMapInterface.(map[sharedmodels.FromCodec]string)
 	if !ok {
 		logger.Pl.DevE("Got wrong type %T for audio codec map", cMapInterface)
 		return

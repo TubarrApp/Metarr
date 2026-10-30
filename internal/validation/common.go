@@ -3,6 +3,7 @@ package validation
 
 import (
 	"fmt"
+	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
@@ -15,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -67,15 +69,16 @@ func ValidateThumbnail(t string, strip bool) error {
 
 // ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
 func ValidateAndSetVideoCodec(entries []string) error {
-	vCodecMap := map[string]string{
-		sharedconsts.VCodecAV1:   sharedconsts.VCodecCopy,
-		sharedconsts.VCodecH264:  sharedconsts.VCodecCopy,
-		sharedconsts.VCodecHEVC:  sharedconsts.VCodecCopy,
-		sharedconsts.VCodecMPEG2: sharedconsts.VCodecCopy,
-		sharedconsts.VCodecVP8:   sharedconsts.VCodecCopy,
-		sharedconsts.VCodecVP9:   sharedconsts.VCodecCopy,
+	vCodecMap := map[sharedmodels.FromCodec]string{
+		sharedmodels.NewFromCodec(sharedconsts.VCodecAV1, ""):   sharedconsts.VCodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.VCodecH264, ""):  sharedconsts.VCodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.VCodecHEVC, ""):  sharedconsts.VCodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.VCodecMPEG2, ""): sharedconsts.VCodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.VCodecVP8, ""):   sharedconsts.VCodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.VCodecVP9, ""):   sharedconsts.VCodecCopy,
 	}
 
+	// Grab the 'all to' codec if any are set, as well as 'FromCodec' models and their 'to' codec strings.
 	all, pairs, err := sharedvalidation.ParseCodecMappings(entries, sharedvalidation.ValidateVideoCodec)
 	if err != nil {
 		return err
@@ -83,17 +86,13 @@ func ValidateAndSetVideoCodec(entries []string) error {
 
 	// Plain codec applies to every other codec.
 	if all != "" {
-		for k := range vCodecMap {
-			if k != all {
-				vCodecMap[k] = all
-			}
+		for from := range vCodecMap {
+			vCodecMap[from] = all
 		}
 	}
 
 	// Pairs override the plain codec.
-	for from, to := range pairs {
-		vCodecMap[from] = to
-	}
+	maps.Copy(vCodecMap, pairs)
 
 	abstractions.Set(keys.TranscodeVideoCodecMap, vCodecMap)
 	return nil
@@ -101,22 +100,23 @@ func ValidateAndSetVideoCodec(entries []string) error {
 
 // ValidateAndSetAudioCodec sets mappings for audio codec inputs and transcode options.
 func ValidateAndSetAudioCodec(entries []string) error {
-	aCodecMap := map[string]string{
-		sharedconsts.ACodecAAC:    sharedconsts.ACodecCopy,
-		sharedconsts.ACodecAC3:    sharedconsts.ACodecCopy,
-		sharedconsts.ACodecALAC:   sharedconsts.ACodecCopy,
-		sharedconsts.ACodecDTS:    sharedconsts.ACodecCopy,
-		sharedconsts.ACodecEAC3:   sharedconsts.ACodecCopy,
-		sharedconsts.ACodecFLAC:   sharedconsts.ACodecCopy,
-		sharedconsts.ACodecMP2:    sharedconsts.ACodecCopy,
-		sharedconsts.ACodecMP3:    sharedconsts.ACodecCopy,
-		sharedconsts.ACodecOpus:   sharedconsts.ACodecCopy,
-		sharedconsts.ACodecPCM:    sharedconsts.ACodecCopy,
-		sharedconsts.ACodecTrueHD: sharedconsts.ACodecCopy,
-		sharedconsts.ACodecVorbis: sharedconsts.ACodecCopy,
-		sharedconsts.ACodecWAV:    sharedconsts.ACodecCopy,
+	aCodecMap := map[sharedmodels.FromCodec]string{
+		sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, ""):    sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecAC3, ""):    sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecALAC, ""):   sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecDTS, ""):    sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecEAC3, ""):   sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecFLAC, ""):   sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecMP2, ""):    sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecMP3, ""):    sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecOpus, ""):   sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecPCM, ""):    sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecTrueHD, ""): sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecVorbis, ""): sharedconsts.ACodecCopy,
+		sharedmodels.NewFromCodec(sharedconsts.ACodecWAV, ""):    sharedconsts.ACodecCopy,
 	}
 
+	// Grab the 'all to' codec if any are set, as well as 'FromCodec' models and their 'to' codec strings.
 	all, pairs, err := sharedvalidation.ParseCodecMappings(entries, sharedvalidation.ValidateAudioCodec)
 	if err != nil {
 		return err
@@ -124,17 +124,13 @@ func ValidateAndSetAudioCodec(entries []string) error {
 
 	// Plain codec applies to every other codec.
 	if all != "" {
-		for k := range aCodecMap {
-			if k != all {
-				aCodecMap[k] = all
-			}
+		for from := range aCodecMap {
+			aCodecMap[from] = all
 		}
 	}
 
 	// Pairs override the plain codec.
-	for from, to := range pairs {
-		aCodecMap[from] = to
-	}
+	maps.Copy(aCodecMap, pairs)
 
 	abstractions.Set(keys.TranscodeAudioCodecMap, aCodecMap)
 	return nil

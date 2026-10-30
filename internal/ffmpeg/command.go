@@ -105,11 +105,11 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 
 	// Get software codecs.
 	if b.videoCodecGPU == nil {
-		if err := b.setVideoSoftwareCodec(currentVCodec, desiredVCodec, availableCodecs); err != nil {
+		if err := b.setVideoSoftwareCodec(currentVCodec.Codec, desiredVCodec, availableCodecs); err != nil {
 			return nil, err
 		}
 	}
-	if err := b.setAudioCodec(currentACodec, desiredACodec, availableCodecs); err != nil {
+	if err := b.setAudioCodec(currentACodec.Codec, desiredACodec, availableCodecs); err != nil {
 		return nil, err
 	}
 	b.setTranscodeQuality(accelType)
