@@ -91,7 +91,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	}
 
 	// Grab current codecs.
-	currentVCodec, currentACodec, err := checkCodecs(b.inputFile)
+	currentVCodec, currentACodec, err := getCodecs(b.inputFile)
 	if err != nil {
 		logger.Pl.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}

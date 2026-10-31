@@ -172,6 +172,7 @@ func restoreOriginalName(fd *models.FileData) error {
 func (fp *fileProcessor) process() error {
 	rename, move := shouldRenameOrMove(fp.fd)
 
+	// Do not rename OR move.
 	if !rename && !move {
 		logger.Pl.D(1, "Do not need to rename or move %q", fp.fd.PostFFmpegVideoPath)
 

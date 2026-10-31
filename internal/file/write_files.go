@@ -56,7 +56,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSF
 			differ++
 		}
 
-		logger.Pl.D(2, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
+		logger.Pl.D(3, "Made FSFileWriter with parameters:\n\nSkip videos? %v\n\nOriginal Video: %s\nRenamed Video:  %s\n\nOriginal Metafile: %s\nRenamed Metafile:  %s\n\n%d file names will be changed...\n\n",
 			skipVids, inputVid, renamedVid, inputMeta, renamedMeta, differ)
 	}
 

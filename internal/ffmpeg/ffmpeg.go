@@ -35,7 +35,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	outExt, replaced := parsing.OutputExt(origPath)
 
 	// Get current codecs.
-	currentVCodec, currentACodec, err := checkCodecs(fd.OriginalVideoPath)
+	currentVCodec, currentACodec, err := getCodecs(fd.OriginalVideoPath)
 	if err != nil {
 		logger.Pl.E("Failed to check input file %q codec: %v", fd.OriginalVideoPath, err)
 	}
@@ -248,15 +248,15 @@ func makeBackup(origPath string) (backupPath string, err error) {
 	return backupPath, nil
 }
 
-// checkCodecs checks the input codec to determine if a straight remux is possible.
-func checkCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec, err error) {
+// getCodecs checks the input codec to determine if a straight remux is possible.
+func getCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec, err error) {
 	blankFromCodec := sharedmodels.NewFromCodec(sharedconsts.CodecCopy, "")
 	if inputFile == "" {
 		return blankFromCodec, blankFromCodec, fmt.Errorf("input file is empty, cannot check codecs")
 	}
 
 	// Determine codecs and video compression level.
-	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = getInputCodecs(inputFile); err != nil {
+	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = probeCodecs(inputFile); err != nil {
 		return blankFromCodec, blankFromCodec, err
 	}
 
@@ -282,8 +282,8 @@ type ffprobeCodecOutputStream struct {
 	Channels     int    `json:"channels"`
 }
 
-// getInputCodecs determines the codecs and compression level of the video and audio through FFprobe.
-func getInputCodecs(inputFile string) (audioCodec, videoCodec string, audioCompression, videoCompression sharedconsts.CompressionLevel, err error) {
+// probeCodecs determines the codecs and compression level of the video and audio through FFprobe.
+func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompression, videoCompression sharedconsts.CompressionLevel, err error) {
 	if inputFile == "" {
 		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, fmt.Errorf("input file sent in empty")
 	}
@@ -401,7 +401,7 @@ func getVideoCompressionLevel(video *ffprobeCodecOutputStream, inputFile string)
 		compression = sharedconsts.CompressionLow
 	}
 
-	logger.Pl.I("Video '%s''s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s", inputFile, bitRate, video.Width, video.Height, frameRate, compressionLevel)
+	logger.Pl.I("Video '%s''s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s.", inputFile, bitRate, video.Width, video.Height, frameRate, compressionLevel)
 	return compression, nil
 }
 
@@ -445,6 +445,6 @@ func getAudioCompressionLevel(audio *ffprobeCodecOutputStream, inputFile string)
 		compression = sharedconsts.CompressionLow
 	}
 
-	logger.Pl.I("Video '%s's audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the file has %s", inputFile, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
+	logger.Pl.I("Video '%s's audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the audio has %s.", inputFile, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
 	return compression, nil
 }
