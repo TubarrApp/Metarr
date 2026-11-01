@@ -2,6 +2,7 @@
 package validation
 
 import (
+	"context"
 	"fmt"
 	"maps"
 	"metarr/internal/abstractions"
@@ -9,6 +10,7 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/ffmpeg"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"os"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 	"github.com/shirou/gopsutil/v4/mem"
 )
@@ -385,18 +388,38 @@ func ValidateAndSetFileFilters(viperKey string, argsInputPrefixes []string) {
 	}
 }
 
-// ValidateAndSetTranscodeQuality validates the transcode quality preset.
-func ValidateAndSetTranscodeQuality(q string) error {
-	if q == "" {
-		return nil
+// ValidateAndSetVideoArgs sets the encoder args for each target video codec.
+func ValidateAndSetVideoArgs(lines []string) error {
+	argsMap, err := sharedparsing.ParseVideoEncoderArgs(lines)
+	if err != nil {
+		return fmt.Errorf("invalid --%s: %w", keys.TranscodeVideoArgs, err)
 	}
 
-	var err error
-	if q, err = sharedvalidation.ValidateTranscodeQuality(q); err != nil {
-		return err
+	// Check pixel formats against the FFmpeg installed.
+	for codec, args := range argsMap {
+		if args.PixFmt == "" {
+			continue
+		}
+		if args.PixFmt, err = ffmpeg.KnownPixFmt(context.Background(), args.PixFmt); err != nil {
+			return fmt.Errorf("invalid --%s for %s: %w", keys.TranscodeVideoArgs, codec, err)
+		}
+		argsMap[codec] = args
 	}
 
-	abstractions.Set(keys.TranscodeQuality, q)
+	abstractions.Set(keys.TranscodeVideoArgsMap, argsMap)
+	return nil
+}
+
+// ValidateExtraFFmpegArgs refuses extra FFmpeg args holding an option that only works when encoding.
+func ValidateExtraFFmpegArgs(a string) error {
+	args, err := sharedparsing.ShellSplit(a)
+	if err != nil {
+		return fmt.Errorf("invalid --%s %q: %w", keys.ExtraFFmpegArgs, a, err)
+	}
+	if option, found := sharedparsing.EncoderOnlyOption(args); found {
+		return fmt.Errorf("--%s can't hold %s, which only works when encoding. Put it in --%s instead, e.g. 'av1:%s ...'",
+			keys.ExtraFFmpegArgs, option, keys.TranscodeVideoArgs, option)
+	}
 	return nil
 }
 

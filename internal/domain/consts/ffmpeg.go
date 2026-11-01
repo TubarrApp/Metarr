@@ -80,6 +80,9 @@ const (
 	FFmpegDeviceVAAPI         = "-vaapi_device"
 	FFmpegVF                  = "-vf"
 	FFmpegFilter              = "-filter:v:0"
+	FFmpegPixFmt              = "-pix_fmt:v:0"
+	FFmpegPass                = "-pass:v:0"
+	FFmpegPassLogFile         = "-passlogfile:v:0"
 	FFmpegCRF                 = "-crf"
 	FFmpegBA                  = "-b:a"
 	FFmpegAR                  = "-ar"
@@ -87,10 +90,11 @@ const (
 	FFmpegFormat              = "-f"
 )
 
-// Muxers named for extensions FFmpeg can't pick one for.
+// Muxers named for extensions FFmpeg can't pick one for, and for passes writing no file.
 const (
-	FFmpegMuxerOGV = "ogv"
-	FFmpegMuxerRM  = "rm"
+	FFmpegMuxerOGV  = "ogv"
+	FFmpegMuxerRM   = "rm"
+	FFmpegMuxerNull = "null"
 )
 
 var (
@@ -111,8 +115,38 @@ var (
 	}
 )
 
+// PixFmtEquivalents lists pixel formats with the same bit depth and chroma, for encoders that don't take the one asked.
+var PixFmtEquivalents = map[string][]string{
+	"yuv420p":     {"nv12"},
+	"yuv420p10le": {"p010le"},
+	"yuv420p12le": {"p012le"},
+	"yuv422p":     {"nv16", "yuyv422"},
+	"yuv422p10le": {"p210le", "y210le"},
+	"yuv444p":     {"vuyx"},
+	"yuv444p10le": {"yuv444p16le", "xv30le"},
+	"nv12":        {"yuv420p"},
+	"p010le":      {"yuv420p10le"},
+	"p012le":      {"yuv420p12le"},
+	"nv16":        {"yuv422p"},
+	"p210le":      {"yuv422p10le"},
+	"y210le":      {"yuv422p10le"},
+}
+
+// VAAPIUploadFormats are the pixel formats VAAPI uploads frames to the GPU in, for each format asked.
+var VAAPIUploadFormats = map[string]string{
+	"yuv420p":     "nv12",
+	"nv12":        "nv12",
+	"yuv420p10le": "p010",
+	"p010le":      "p010",
+}
+
+// VAAPI filter uploading frames to the GPU in a pixel format, 8-bit 4:2:0 unless asked otherwise.
+const (
+	VAAPIUploadFilter = "format=%s,hwupload"
+	VAAPIUploadPixFmt = "nv12"
+)
+
 // compatibility for HW acceleration types.
 var (
-	VAAPICompatibility = []string{"format=nv12,hwupload"}
-	CudaCompatibility  = []string{"hwdownload,format=nv12,hwupload_cuda"}
+	CudaCompatibility = []string{"hwdownload,format=nv12,hwupload_cuda"}
 )

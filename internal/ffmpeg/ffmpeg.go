@@ -2,11 +2,9 @@
 package ffmpeg
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -100,28 +98,20 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		if err != nil {
 			return err
 		}
-		args = append([]string{"-progress", "pipe:1", "-nostats"}, args...)
-		command := exec.CommandContext(ctx, "ffmpeg", args...)
-		logger.Pl.I("Constructed FFmpeg command for %q:\n\n%v\n", fd.OriginalVideoPath, command.String())
 
-		// Progress goes to stdout as progress lines, the rest of FFmpeg's output to stderr.
-		var stderr bytes.Buffer
-		command.Stdout = newProgressWriter(os.Stdout, durationUS)
-		command.Stderr = io.MultiWriter(os.Stderr, &stderr)
-
-		// Run command.
+		// Run command, once per encoding pass.
 		logger.Pl.P("%s!!! Starting FFmpeg attempt %d for %q...\n%s", sharedconsts.ColorCyan, i, baseName, sharedconsts.ColorReset)
-		if err := command.Run(); err != nil {
+		if stderr, err := runPasses(ctx, args, builder.passes, durationUS, fd.OriginalVideoPath); err != nil {
 			if ctx.Err() != nil {
 				return fmt.Errorf("ffmpeg canceled for %q: %w", baseName, ctx.Err())
 			}
 			// Exit if final attempt errored (the caller records the error).
 			if i == maxAttempts {
-				return fmt.Errorf("ffmpeg failed after %d attempts for %q due to error: %w\n\nCaptured output:\n%s", maxAttempts, baseName, err, stderr.String())
+				return fmt.Errorf("ffmpeg failed after %d attempts for %q due to error: %w\n\nCaptured output:\n%s", maxAttempts, baseName, err, stderr)
 			}
 
 			// Retry.
-			logger.Pl.E("Command attempt %d failed for %q due to error: %v:\n\nCaptured output:\n%s", i, baseName, err, stderr.String())
+			logger.Pl.E("Command attempt %d failed for %q due to error: %v:\n\nCaptured output:\n%s", i, baseName, err, stderr)
 			continue
 		}
 		// FFmpeg completed successfully: Exit loop.

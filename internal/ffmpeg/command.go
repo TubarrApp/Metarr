@@ -15,10 +15,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
@@ -47,13 +49,17 @@ type ffCommandBuilder struct {
 	metadataMap    map[string]string
 
 	// HW accel
-	gpuAccelFlags      []string
-	gpuNode            []string
-	accelCompatibility []string
+	gpuAccelFlags []string
+	gpuNode       []string
 
 	// Video codecs
 	videoCodecGPU      []string
 	videoCodecSoftware []string
+
+	// Video encoder
+	encoderArgs []string
+	videoFilter string
+	passes      int
 
 	// Audio codec
 	audioCodec []string
@@ -99,7 +105,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 
 	// Get GPU flags/codecs.
 	accelType, useHWDecode := b.setHWAccelFlags()
-	b.setGPUAccelerationCodec(accelType, desiredVCodec, availableCodecs)
+	b.setGPUAccelerationCodec(accelType, currentVCodec.Codec, desiredVCodec, availableCodecs)
 
 	logger.Pl.D(1, "Transcoding to codec %q from current codec %q", desiredVCodec, currentVCodec)
 
@@ -112,7 +118,9 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	if err := b.setAudioCodec(currentACodec.Codec, desiredACodec, availableCodecs); err != nil {
 		return nil, err
 	}
-	b.setTranscodeQuality(accelType)
+	if err := b.setVideoEncoderArgs(ctx, accelType, desiredVCodec); err != nil {
+		return nil, err
+	}
 
 	b.setDefaultFormatFlagMap(outExt)
 	args := b.setFormatFlags()
@@ -397,9 +405,15 @@ func ffmpegAvailableCodecs(ctx context.Context) (output string) {
 }
 
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
-func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, useTranscodeCodec, availableCodecs string) {
+func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, currentVCodec, useTranscodeCodec, availableCodecs string) {
 	if accelType == "" || accelType == sharedconsts.AccelTypeAuto {
 		logger.Pl.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
+		return
+	}
+
+	// Copy a video already in the desired codec, as the software path does.
+	switch useTranscodeCodec {
+	case sharedconsts.VCodecCopy, currentVCodec, "":
 		return
 	}
 
@@ -443,10 +457,9 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 		gpuNode = abstractions.GetString(keys.TranscodeGPUNode)
 	}
 
-	// Add compatibility and device nodes for encode-only modes.
+	// Add device nodes for encode-only modes.
 	switch accelType {
 	case sharedconsts.AccelTypeVAAPI:
-		b.accelCompatibility = append(b.accelCompatibility, consts.VAAPICompatibility...)
 		// VAAPI requires device node on Linux for encode-only.
 		if vars.OS != "linux" {
 			logger.Pl.W("VAAPI acceleration is only available on Linux.")
@@ -475,36 +488,103 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 	return accelType, false
 }
 
-// setTranscodeQuality sets the transcode quality flags for the transcode type.
-func (b *ffCommandBuilder) setTranscodeQuality(accelType string) {
-	if !abstractions.IsSet(keys.TranscodeQuality) {
-		return
+// setVideoEncoderArgs sets the target codec's encoder args, converting -crf, -pix_fmt and the video filter for the encoder that runs.
+func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, desiredVCodec string) error {
+	// Start afresh, as the builder is reused when FFmpeg is retried.
+	b.qualityParameter = nil
+	b.encoderArgs = nil
+	b.videoFilter = ""
+	b.passes = 1
+	onGPU := len(b.videoCodecGPU) >= 2
+
+	// Copied video has no encoder to set.
+	if !onGPU && (len(b.videoCodecSoftware) < 2 || b.videoCodecSoftware[1] == consts.FFVCodecKeyCopy) {
+		return nil
 	}
 
-	qNum := abstractions.GetString(keys.TranscodeQuality)
-	switch accelType {
-	case "", sharedconsts.AccelTypeAuto:
-		// CRF for software encoders or 'auto'.
-		b.qualityParameter = append(b.qualityParameter, consts.FFmpegCRF, qNum)
-
-	case sharedconsts.AccelTypeAMF:
-		b.qualityParameter = append(b.qualityParameter, "-qp_p", qNum)
-
-	case sharedconsts.AccelTypeCuda:
-		// Nvidia uses CQ.
-		b.qualityParameter = append(b.qualityParameter,
-			"-rc", "vbr",
-			"-cq", qNum,
-		)
-
-	case sharedconsts.AccelTypeQSV:
-		// Intel uses QSV.
-		b.qualityParameter = append(b.qualityParameter, "-global_quality", qNum)
-
-	case sharedconsts.AccelTypeVAAPI:
-		// VAAPI uses QP.
-		b.qualityParameter = append(b.qualityParameter, "-qp", qNum)
+	// Get the target codec's args.
+	var encoderArgs sharedmodels.EncoderArgs
+	if abstractions.IsSet(keys.TranscodeVideoArgsMap) {
+		argsMap, ok := abstractions.Get(keys.TranscodeVideoArgsMap).(map[string]sharedmodels.EncoderArgs)
+		if !ok {
+			logger.Pl.DevE("Got wrong type %T for video encoder args map", abstractions.Get(keys.TranscodeVideoArgsMap))
+		}
+		encoderArgs = argsMap[desiredVCodec]
 	}
+	b.videoFilter = encoderArgs.VideoFilter
+
+	// Software encoders take the args as written.
+	if !onGPU {
+		if encoderArgs.Quality != "" {
+			b.qualityParameter = []string{consts.FFmpegCRF, encoderArgs.Quality}
+		}
+		if encoderArgs.PixFmt != "" {
+			pixFmt, err := encoderPixFmt(ctx, b.videoCodecSoftware[1], encoderArgs.PixFmt)
+			if err != nil {
+				return err
+			}
+			b.encoderArgs = append(b.encoderArgs, consts.FFmpegPixFmt, pixFmt)
+		}
+		b.encoderArgs = append(b.encoderArgs, encoderArgs.Args...)
+		b.passes = max(encoderArgs.Passes, 1)
+		return nil
+	}
+	encoder := b.videoCodecGPU[1]
+
+	// GPU encoders ignore -pass, so more passes would only take longer.
+	if encoderArgs.Passes > 1 {
+		logger.Pl.W("Encoder %q makes one pass, so -pass %d is left out.", encoder, encoderArgs.Passes)
+	}
+
+	// GPU encoders take quality up to 51.
+	quality := encoderArgs.Quality
+	if q, err := strconv.Atoi(quality); err == nil && q > 51 {
+		logger.Pl.W("Encoder %q takes quality up to 51, using 51 instead of %d.", encoder, q)
+		quality = "51"
+	}
+
+	// Convert -crf to the GPU encoder's quality option.
+	if quality != "" {
+		switch accelType {
+		case sharedconsts.AccelTypeAMF:
+			b.qualityParameter = []string{"-qp_p", quality}
+		case sharedconsts.AccelTypeCuda:
+			b.qualityParameter = []string{"-rc", "vbr", "-cq", quality}
+		case sharedconsts.AccelTypeQSV:
+			b.qualityParameter = []string{"-global_quality", quality}
+		case sharedconsts.AccelTypeVAAPI:
+			b.qualityParameter = []string{"-qp", quality}
+		default:
+			logger.Pl.W("Metarr can't convert -crf for encoder %q, so it's left out.", encoder)
+		}
+		if b.qualityParameter != nil {
+			logger.Pl.I("Sending -crf %s to encoder %q as %v.", encoderArgs.Quality, encoder, b.qualityParameter)
+		}
+	}
+
+	// VAAPI encodes frames uploaded to the GPU, other GPU encoders take a pixel format.
+	switch {
+	case accelType == sharedconsts.AccelTypeVAAPI:
+		uploadPixFmt := consts.VAAPIUploadPixFmt
+		if encoderArgs.PixFmt != "" {
+			var ok bool
+			if uploadPixFmt, ok = consts.VAAPIUploadFormats[encoderArgs.PixFmt]; !ok {
+				return fmt.Errorf("VAAPI encoder %q can't encode pixel format %q, use yuv420p or yuv420p10le", encoder, encoderArgs.PixFmt)
+			}
+		}
+		b.videoFilter = fmt.Sprintf(consts.VAAPIUploadFilter, uploadPixFmt)
+		if encoderArgs.VideoFilter != "" {
+			b.videoFilter = encoderArgs.VideoFilter + "," + b.videoFilter
+		}
+	case encoderArgs.PixFmt != "":
+		pixFmt, err := encoderPixFmt(ctx, encoder, encoderArgs.PixFmt)
+		if err != nil {
+			return err
+		}
+		b.encoderArgs = append(b.encoderArgs, consts.FFmpegPixFmt, pixFmt)
+	}
+	b.encoderArgs = append(b.encoderArgs, encoderArgs.Args...)
+	return nil
 }
 
 // setDefaultFormatFlagMap adds commands specific for the extension input and output.
@@ -570,6 +650,11 @@ func (b *ffCommandBuilder) setFormatFlags() (args []string) {
 	if len(b.qualityParameter) != 0 {
 		args = append(args, b.qualityParameter...)
 	}
+
+	// Add the target codec's other encoder args.
+	if len(b.encoderArgs) != 0 {
+		args = append(args, b.encoderArgs...)
+	}
 	return args
 }
 
@@ -584,8 +669,8 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		}
 	}
 
-	// Add GPU device nodes (for encode-only modes like VAAPI, Cuda).
-	if len(b.gpuNode) != 0 {
+	// Add GPU device nodes (for encode-only modes like VAAPI), only when the GPU encodes.
+	if len(b.gpuNode) != 0 && b.videoCodecGPU != nil {
 		args = append(args, b.gpuNode...)
 	}
 
@@ -600,10 +685,9 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	// Add format and codec flags.
 	args = append(args, formatArgs...)
 
-	// Apply GPU compatibility filters only to the main video stream (stream 0).
-	if len(b.accelCompatibility) > 0 {
-		args = append(args, consts.FFmpegFilter)
-		args = append(args, b.accelCompatibility...)
+	// Apply the video filter only to the main video stream (stream 0).
+	if b.videoFilter != "" {
+		args = append(args, consts.FFmpegFilter, b.videoFilter)
 	}
 
 	// Grab output extension.
@@ -675,11 +759,14 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	totalCapacity += (len(b.metadataMap) * mapArgMultiply)
 	totalCapacity += len(b.gpuAccelFlags)
 	totalCapacity += len(b.gpuNode)
-	totalCapacity += len(b.accelCompatibility)
 	totalCapacity += len(b.videoCodecGPU)
 	totalCapacity += len(b.videoCodecSoftware)
 	totalCapacity += len(b.audioCodec)
 	totalCapacity += len(b.qualityParameter)
+	totalCapacity += len(b.encoderArgs)
+	if b.videoFilter != "" {
+		totalCapacity += 2 // consts.FFmpegFilter + filter chain
+	}
 	totalCapacity += len(b.formatFlagsMap)
 	totalCapacity += len(b.thumbnail)
 

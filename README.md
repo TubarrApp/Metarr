@@ -71,6 +71,8 @@ transcode-gpu: vaapi
 transcode-gpu-node: /dev/dri/renderD128
 transcode-video-codecs:
   - av1:h265
+transcode-video-args:
+  - "hevc:-crf 24 -preset slow"
 transcode-audio-codecs:
   - flac:aac
 meta-ops:
@@ -151,9 +153,8 @@ Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `u
 - `--output-ext` – change the container/extension (`mp4`, `mkv`, `webm`, etc.). If a requested codec isn't allowed in the chosen container, Metarr falls back to copying the stream instead.
 - `--transcode-video-codecs` / `--transcode-audio-codecs` – remap codecs via `input:output` pairs (e.g. `av1:h265`, `flac:aac`). A single value applies to every input.
 - `--transcode-gpu` – pick `auto`, `cuda`, `vaapi`, `qsv`, `amf`, or `videotoolbox`. Supply device paths via `--transcode-gpu-node` when required.
-- `--transcode-quality` – CRF value from `0` (best) to `51` (worst); out-of-range values are clamped.
-- `--transcode-video-filter` – inject arbitrary `-vf` expressions.
-- `--extra-ffmpeg-args` – append custom switches to the generated command.
+- `--transcode-video-args` – FFmpeg arguments used only when encoding to a codec, one `codec:args` per flag (e.g. `av1:-crf 35 -preset 6`). Metarr converts `-crf`, `-pix_fmt` and `-vf` for the encoder that runs, including GPU encoders: a pixel format the encoder doesn't take is swapped for its equivalent (e.g. `yuv420p10le` becomes `p010le` on NVENC), or refused if it has none. CRF goes up to `51` for H.264 and HEVC and `63` for AV1, VP8 and VP9; out-of-range values are clamped. `-pass N` encodes in N passes (up to 3 for H.264, HEVC and MPEG-2, 2 for AV1, VP8 and VP9, clamped); H.264, HEVC, AV1 and MPEG-2 need `-b:v` rather than `-crf` for more than one pass, and GPU encoders always make one.
+- `--extra-ffmpeg-args` – append custom switches to every FFmpeg command, e.g. `-movflags +faststart`. Options that only work when encoding (`-crf`, `-pix_fmt`, `-vf`, `-pass`) belong in `--transcode-video-args`.
 - `--force-write-thumbnail` – run FFmpeg to write the thumbnail even when all metadata already matches.
 - `--strip-thumbnail` – remove embedded artwork.
 - `--thumbnail` – embed this image (a file path or http(s) URL) instead of the metadata's thumbnail, always writing it. A local file is used where it is. Can't be combined with `--strip-thumbnail`.

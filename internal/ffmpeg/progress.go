@@ -18,14 +18,16 @@ const progressPrefix = "metarr progress: "
 type progressWriter struct {
 	out        io.Writer
 	durationUS int64 // 0 if unknown.
+	pass       int
+	passes     int
 	buf        []byte
 	vals       map[string]string
 	last       time.Time
 }
 
-// newProgressWriter returns a progressWriter for an input of durationUS microseconds (0 if unknown).
-func newProgressWriter(out io.Writer, durationUS int64) *progressWriter {
-	return &progressWriter{out: out, durationUS: durationUS, vals: map[string]string{}}
+// newProgressWriter returns a progressWriter for pass of passes over an input of durationUS microseconds (0 if unknown).
+func newProgressWriter(out io.Writer, durationUS int64, pass, passes int) *progressWriter {
+	return &progressWriter{out: out, durationUS: durationUS, pass: pass, passes: passes, vals: map[string]string{}}
 }
 
 // Write takes FFmpeg's key=value progress lines, printing a progress line at each block's "progress" key.
@@ -82,7 +84,8 @@ func (p *progressWriter) report(done bool) {
 	case err == nil && rateErr == nil && rate > 0 && p.durationUS > 0:
 		eta = int64(float64(max(0, p.durationUS-outUS)) / 1e6 / rate)
 	}
-	if _, err := fmt.Fprintf(p.out, "%spct=%.1f frame=%d fps=%.1f speed=%s eta=%d\n", progressPrefix, pct, frame, fps, speed, eta); err != nil {
+	if _, err := fmt.Fprintf(p.out, "%spct=%.1f frame=%d fps=%.1f speed=%s eta=%d pass=%d passes=%d\n",
+		progressPrefix, pct, frame, fps, speed, eta, p.pass, p.passes); err != nil {
 		logger.Pl.E("Failed to output FFmpeg progress: %v", err)
 	}
 }

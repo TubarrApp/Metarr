@@ -159,7 +159,7 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	// Codecs and quality.
+	// Codecs.
 	rootCmd.PersistentFlags().StringSlice(keys.TranscodeVideoCodecInput, nil, "Codec to use for encoding/decoding")
 	if err := viper.BindPFlag(keys.TranscodeVideoCodecInput, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoCodecInput)); err != nil {
 		return err
@@ -170,18 +170,13 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	rootCmd.PersistentFlags().String(keys.TranscodeQuality, "", "CRF value for ffmpeg")
-	if err := viper.BindPFlag(keys.TranscodeQuality, rootCmd.PersistentFlags().Lookup(keys.TranscodeQuality)); err != nil {
-		return err
-	}
-
-	rootCmd.PersistentFlags().String(keys.TranscodePreset, "", "Standard ffmpeg presets, for example: veryslow, medium, fast")
-	if err := viper.BindPFlag(keys.TranscodePreset, rootCmd.PersistentFlags().Lookup(keys.TranscodePreset)); err != nil {
+	rootCmd.PersistentFlags().StringArray(keys.TranscodeVideoArgs, nil, "FFmpeg arguments used when encoding to a video codec, one codec per flag (e.g. 'av1:-crf 35 -preset 6')")
+	if err := viper.BindPFlag(keys.TranscodeVideoArgs, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoArgs)); err != nil {
 		return err
 	}
 
 	// Manual additional FFmpeg arguments.
-	rootCmd.PersistentFlags().String(keys.ExtraFFmpegArgs, "", "Extra FFmpeg arguments to append to FFmpeg commands")
+	rootCmd.PersistentFlags().String(keys.ExtraFFmpegArgs, "", "Extra FFmpeg arguments added to every FFmpeg command (e.g. '-movflags +faststart')")
 	if err := viper.BindPFlag(keys.ExtraFFmpegArgs, rootCmd.PersistentFlags().Lookup(keys.ExtraFFmpegArgs)); err != nil {
 		return err
 	}

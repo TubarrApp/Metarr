@@ -44,8 +44,7 @@ const (
 	TranscodeGPUNode         string = "transcode-gpu-node"
 	TranscodeAudioCodecInput string = "transcode-audio-codecs"
 	TranscodeVideoCodecInput string = "transcode-video-codecs"
-	TranscodePreset          string = "transcode-preset"
-	TranscodeQuality         string = "transcode-quality"
+	TranscodeVideoArgs       string = "transcode-video-args"
 
 	ExtraFFmpegArgs      string = "extra-ffmpeg-args"
 	ForceWriteThumbnails string = "force-write-thumbnail"
@@ -91,4 +90,5 @@ const (
 	FilteredFilenameOpsModels string = "INTERNAL-filtered-filename-ops"
 	TranscodeVideoCodecMap    string = "INTERNAL-transcode-video-codec"
 	TranscodeAudioCodecMap    string = "INTERNAL-transcode-audio-codec"
+	TranscodeVideoArgsMap     string = "INTERNAL-transcode-video-args"
 )

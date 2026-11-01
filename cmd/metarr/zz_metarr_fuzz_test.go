@@ -78,9 +78,8 @@ func fuzzFlags(encoders string) []fuzzFlag {
 		{"purge-metafile", []string{"all", "json", "nfo", "", "%s"}, 1},
 		{"transcode-video-codecs", videoCodecs, 1},
 		{"transcode-audio-codecs", audioCodecs, 1},
-		{"transcode-quality", []string{"23", "0", "51", "%s"}, 1},
-		{"transcode-preset", []string{"ultrafast", "%s"}, 1},
-		{"transcode-video-filter", []string{"hflip", "scale=32:-2", "%s"}, 1},
+		{"transcode-video-args", []string{"h264:-crf 23 -preset ultrafast -vf hflip", "hevc:-crf 51", "h264:-vf scale=32:-2",
+			"hevc:-pix_fmt yuv420p10le", "h264:-crf %s", "%s"}, 1},
 		{"transcode-gpu", []string{"none", "%s"}, 1},
 		{"extra-ffmpeg-args", []string{"-threads 1", "-movflags +faststart"}, 1},
 		{"concurrency", []string{"1", "2", "%s"}, 1},
@@ -373,8 +372,8 @@ var metarrFuzzSeeds = []struct {
 		"purge-metafile": "all", "no-file-overwrite": "true", "concurrency": "2", "output-ext": "mp4",
 	}), "dogs", "AC/DC — Live: \"Encore\" <2026> 🎸"},
 	{seedChoices(1, map[string]string{
-		"transcode-video-codecs": "h264", "transcode-audio-codecs": "aac", "transcode-quality": "23",
-		"transcode-preset": "ultrafast", "transcode-video-filter": "hflip", "extra-ffmpeg-args": "-threads 1",
+		"transcode-video-codecs": "h264", "transcode-audio-codecs": "aac",
+		"transcode-video-args": "h264:-crf 23 -preset ultrafast -vf hflip", "extra-ffmpeg-args": "-threads 1",
 		"output-directory": "out/{{video_title}}",
 	}), "x", "日本語のタイトル {{year}}"},
 	{seedChoices(1, map[string]string{

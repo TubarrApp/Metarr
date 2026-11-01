@@ -166,8 +166,13 @@ func execute() (err error) {
 			return err
 		}
 	}
-	if viper.IsSet(keys.TranscodeQuality) {
-		if err := validation.ValidateAndSetTranscodeQuality(viper.GetString(keys.TranscodeQuality)); err != nil {
+	if viper.IsSet(keys.TranscodeVideoArgs) {
+		if err := validation.ValidateAndSetVideoArgs(viper.GetStringSlice(keys.TranscodeVideoArgs)); err != nil {
+			return err
+		}
+	}
+	if viper.IsSet(keys.ExtraFFmpegArgs) {
+		if err := validation.ValidateExtraFFmpegArgs(viper.GetString(keys.ExtraFFmpegArgs)); err != nil {
 			return err
 		}
 	}
