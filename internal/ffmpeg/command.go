@@ -513,6 +513,12 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 	}
 	b.videoFilter = encoderArgs.VideoFilter
 
+	// The bitrate for the video's resolution, never above its own.
+	var bitrateArgs []string
+	if len(encoderArgs.Bitrates) > 0 {
+		bitrateArgs = []string{consts.FFmpegBitrate, strconv.FormatInt(videoBitrate(ctx, b.inputFile, encoderArgs.Bitrates), 10)}
+	}
+
 	// Software encoders take the args as written.
 	if !onGPU {
 		if encoderArgs.Quality != "" {
@@ -525,6 +531,7 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 			}
 			b.encoderArgs = append(b.encoderArgs, consts.FFmpegPixFmt, pixFmt)
 		}
+		b.encoderArgs = append(b.encoderArgs, bitrateArgs...)
 		b.encoderArgs = append(b.encoderArgs, encoderArgs.Args...)
 		b.passes = max(encoderArgs.Passes, 1)
 		return nil
@@ -583,6 +590,7 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 		}
 		b.encoderArgs = append(b.encoderArgs, consts.FFmpegPixFmt, pixFmt)
 	}
+	b.encoderArgs = append(b.encoderArgs, bitrateArgs...)
 	b.encoderArgs = append(b.encoderArgs, encoderArgs.Args...)
 	return nil
 }

@@ -81,6 +81,7 @@ const (
 	FFmpegVF                  = "-vf"
 	FFmpegFilter              = "-filter:v:0"
 	FFmpegPixFmt              = "-pix_fmt:v:0"
+	FFmpegBitrate             = "-b:v:0"
 	FFmpegPass                = "-pass:v:0"
 	FFmpegPassLogFile         = "-passlogfile:v:0"
 	FFmpegCRF                 = "-crf"

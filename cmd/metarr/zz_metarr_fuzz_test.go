@@ -79,7 +79,7 @@ func fuzzFlags(encoders string) []fuzzFlag {
 		{"transcode-video-codecs", videoCodecs, 1},
 		{"transcode-audio-codecs", audioCodecs, 1},
 		{"transcode-video-args", []string{"h264:-crf 23 -preset ultrafast -vf hflip", "hevc:-crf 51", "h264:-vf scale=32:-2",
-			"hevc:-pix_fmt yuv420p10le", "h264:-crf %s", "%s"}, 1},
+			"hevc:-pix_fmt yuv420p10le", "h264:-b:v 100=50k,1080=500k -pass 2", "h264:-crf %s", "%s"}, 1},
 		{"transcode-gpu", []string{"none", "%s"}, 1},
 		{"extra-ffmpeg-args", []string{"-threads 1", "-movflags +faststart"}, 1},
 		{"concurrency", []string{"1", "2", "%s"}, 1},
