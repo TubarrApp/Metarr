@@ -2,6 +2,7 @@
 package ffmpeg
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -258,6 +259,9 @@ func getCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec,
 // ffprobeBPPPFOutput holds info used to grab codecs and calculate BPPPF (compression level).
 type ffprobeCodecOutput struct {
 	Streams []ffprobeCodecOutputStream `json:"streams"`
+	Format  struct {
+		BitRate string `json:"bit_rate"`
+	} `json:"format"`
 }
 
 // ffprobeCodecOutputStream holds the info grabbed for the stream.
@@ -282,7 +286,7 @@ func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
 		"-show_entries",
-		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels",
+		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels:format=bit_rate",
 		"-of", "json",
 		inputFile,
 	)
@@ -323,25 +327,25 @@ func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, fmt.Errorf("no video stream found")
 	}
 
-	// Determine video compression level.
-	videoCompression, err = getVideoCompressionLevel(video, inputFile)
-	if err != nil {
-		return audioCodec, videoCodec, sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, err
+	// Determine video compression level, left unknown if it can't be worked out so the codecs still count.
+	if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, inputFile); err != nil {
+		logger.Pl.W("Can't tell how compressed the video in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
+		videoCompression = sharedconsts.CompressionBlank
 	}
 
-	// Determine audio compression level.
+	// Determine audio compression level, likewise.
 	if audio != nil {
-		audioCompression, err = getAudioCompressionLevel(audio, inputFile)
-		if err != nil {
-			return audioCodec, videoCodec, audioCompression, videoCompression, err
+		if audioCompression, err = getAudioCompressionLevel(audio, inputFile); err != nil {
+			logger.Pl.W("Can't tell how compressed the audio in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
+			audioCompression = sharedconsts.CompressionBlank
 		}
 	}
 
 	return audioCodec, videoCodec, audioCompression, videoCompression, nil
 }
 
-// getVideoCompressionLevel determines the compression level of a video stream through BPPPF.
-func getVideoCompressionLevel(video *ffprobeCodecOutputStream, inputFile string) (sharedconsts.CompressionLevel, error) {
+// getVideoCompressionLevel determines the compression level of a video stream through BPPPF, using the file's bitrate when the stream has none.
+func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, inputFile string) (sharedconsts.CompressionLevel, error) {
 	// Validate video dimensions.
 	if video.Width <= 0 || video.Height <= 0 {
 		return sharedconsts.CompressionBlank, fmt.Errorf("invalid video dimensions: %dx%d", video.Width, video.Height)
@@ -368,10 +372,10 @@ func getVideoCompressionLevel(video *ffprobeCodecOutputStream, inputFile string)
 		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
 	}
 
-	// Parse video bitrate.
-	bitRate, err := strconv.ParseFloat(video.BitRate, 64)
+	// Parse video bitrate, else the whole file's.
+	bitRate, err := strconv.ParseFloat(cmp.Or(video.BitRate, fileBitRate), 64)
 	if err != nil || bitRate <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid video bitrate %q", video.BitRate)
+		return sharedconsts.CompressionBlank, fmt.Errorf("no video bitrate (stream %q, file %q)", video.BitRate, fileBitRate)
 	}
 
 	// Calculate BPPPF.
