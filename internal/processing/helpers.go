@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"metarr/internal/abstractions"
+	"metarr/internal/dates"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
@@ -190,19 +192,22 @@ func printProgress(fileType string, current, total int32, directory string) {
 	fmt.Fprintf(os.Stderr, "==============================================================\n\n")
 }
 
+// setFilenameDateTag makes the date tag the filename operations ask for, if any.
+func setFilenameDateTag(fd *models.FileData, metadata map[string]any) {
+	if fd.FilenameOps == nil || fd.FilenameOps.DateTag.DateFormat == sharedenums.DateFmtSkip {
+		return
+	}
+	dateTag, err := dates.MakeDateTag(metadata, fd, fd.FilenameOps.DateTag.DateFormat)
+	if err != nil {
+		logger.Pl.E("Failed to make date tag: %v", err)
+		return
+	}
+	fd.FilenameDateTag = dateTag
+}
+
 // resolveOps narrows the file's meta and filename operations to those that apply to it,
 // which is only possible once its URLs and metadata have been read.
-//
-// meta may be nil for formats with no field map, in which case filter-gated operations
-// cannot be evaluated and are skipped.
 func resolveOps(fd *models.FileData, meta map[string]any) {
-	if meta == nil {
-		if abstractions.IsSet(keys.FilteredMetaOpsModels) || abstractions.IsSet(keys.FilteredFilenameOpsModels) {
-			logger.Pl.W("Filter-gated operations are not yet supported for this metadata format, skipping them")
-		}
-		meta = map[string]any{}
-	}
-
 	metaFlat, ok := flatOps[sharedmodels.MetaOps](keys.MetaOpsFlat)
 	if !ok {
 		return

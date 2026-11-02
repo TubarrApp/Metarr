@@ -8,6 +8,7 @@ import (
 
 	"metarr/internal/domain/enums"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 
 	"github.com/TubarrApp/gocommon/sharedenums"
 )
@@ -135,10 +136,11 @@ func TestDateTagEditsNFO(t *testing.T) {
 func TestNFOOpsRerun(t *testing.T) {
 	data := "<movie>\n<title>[2023-11-05] [Cats] Cats (HD)</title>\n</movie>"
 	rw := &NFOFileRW{}
-	if _, edited := rw.xmlPrefix(data, []models.MetaPrefix{{Field: "title", Prefix: "[Cats] "}}); edited {
+	mtp := parsing.NewMetaTemplateParser("test.nfo")
+	if _, edited := rw.xmlPrefix(data, []models.MetaPrefix{{Field: "title", Prefix: "[Cats] "}}, mtp); edited {
 		t.Error("prefix applied again")
 	}
-	if _, edited := rw.xmlSuffix(data, []models.MetaSuffix{{Field: "title", Suffix: " (HD)"}}); edited {
+	if _, edited := rw.xmlSuffix(data, []models.MetaSuffix{{Field: "title", Suffix: " (HD)"}}, mtp); edited {
 		t.Error("suffix applied again")
 	}
 

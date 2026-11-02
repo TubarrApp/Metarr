@@ -18,8 +18,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	"github.com/TubarrApp/gocommon/sharedenums"
 )
 
 var jsonEditMutexMap sync.Map
@@ -118,15 +116,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	logger.Pl.D(1, "About to make date tag for: %v", file.Name())
 
 	// Make date tag and apply to model if necessary.
-	if fd.FilenameOps != nil && fd.FilenameOps.DateTag.DateFormat != sharedenums.DateFmtSkip {
-		if dateTag, err := dates.MakeDateTag(data, fd, fd.FilenameOps.DateTag.DateFormat); err != nil {
-			logger.Pl.E("Failed to make date tag: %v", err)
-		} else if strings.Contains(file.Name(), dateTag) {
-			logger.Pl.I("Date tag %q already found in file name %q", dateTag, file.Name())
-		} else {
-			fd.FilenameDateTag = dateTag
-		}
-	}
+	setFilenameDateTag(fd, data)
 
 	// Check if metadata is already existent in target file.
 	if !skipVideos {

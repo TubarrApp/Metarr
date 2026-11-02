@@ -157,7 +157,7 @@ func ReplaceContents(f *os.File, data []byte) error {
 		return fmt.Errorf("failed to stat %q: %w", path, err)
 	}
 
-	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".metarr-*.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to create temp file for %q: %w", path, err)
 	}

@@ -105,10 +105,8 @@ func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 	return nil
 }
 
-// DeleteMetafile safely removes metadata files once file operations are complete.
-func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
-	logger.Pl.I("Attempting to delete metafile %q...", file)
-
+// PurgesMetafile reports whether the metafile purge setting covers this file.
+func (fs *FSFileWriter) PurgesMetafile(file string) (bool, error) {
 	if !abstractions.IsSet(keys.MetaPurgeEnum) {
 		return false, errors.New("meta purge enum not set")
 	}
@@ -123,25 +121,36 @@ func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
 
 	switch e {
 	case enums.PurgeMetaAll:
-		break
+		return true, nil
 
 	case enums.PurgeMetaJSON:
 		if ext != sharedconsts.MExtJSON {
 			logger.Pl.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return false, nil
 		}
+		return true, nil
 
 	case enums.PurgeMetaNFO:
 		if ext != sharedconsts.MExtNFO {
 			logger.Pl.D(3, "Skipping deletion of metafile %q as extension does not match user selection", file)
 			return false, nil
 		}
+		return true, nil
 
 	case enums.PurgeMetaNone: // A blank purge setting.
 		return false, nil
 
 	default:
 		return false, errors.New("support not added for this metafile purge enum yet, exiting function")
+	}
+}
+
+// DeleteMetafile safely removes metadata files once file operations are complete.
+func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
+	logger.Pl.I("Attempting to delete metafile %q...", file)
+
+	if purges, err := fs.PurgesMetafile(file); err != nil || !purges {
+		return false, err
 	}
 
 	fileInfo, err := os.Stat(file)

@@ -174,24 +174,10 @@ func (b *ffCommandBuilder) addWebData(w *models.MetadataWebData) {
 	}
 }
 
-// addArrayMetadata combines array values with existing metadata.
+// addArrayMetadata sets a field to its array values, unless it already has a value.
 func (b *ffCommandBuilder) addArrayMetadata(key string, values []string) {
-	if len(values) == 0 {
+	if len(values) == 0 || b.metadataMap[key] != "" {
 		return
 	}
-
-	existing, exists := b.metadataMap[key]
-	newValue := strings.Join(values, "; ")
-
-	b.builder.Reset()
-	if exists && existing != "" {
-		for i, v := range values {
-			if i > 0 {
-				b.builder.WriteString("; ")
-			}
-			b.builder.WriteString(v)
-		}
-	} else {
-		b.metadataMap[key] = newValue
-	}
+	b.metadataMap[key] = strings.Join(values, "; ")
 }

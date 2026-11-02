@@ -243,30 +243,30 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 		}
 
 		logger.Pl.I("Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
+	}
 
-		// Remnant JSON files
-		if len(jsonFiles) > vFileCount {
-			remnantJSONFiles := jsonFiles[vFileCount:]
-			var newBatchConfig = models.BatchConfig{}
+	// Remnant JSON files
+	if len(jsonFiles) > vFileCount {
+		remnantJSONFiles := jsonFiles[vFileCount:]
+		var newBatchConfig = models.BatchConfig{}
 
-			// JSON Files
-			for i := range remnantJSONFiles {
-				jInfo, err := os.Stat(remnantJSONFiles[i])
-				if err != nil {
-					return nil, err
-				}
-				if jInfo.IsDir() {
-					return nil, fmt.Errorf("directory %q entered instead of file", jInfo.Name())
-				}
-
-				// BatchConfig model settings:
-				newBatchConfig.JSON = remnantJSONFiles[i]
-				newBatchConfig.IsDirs = false
-				newBatchConfig.SkipVideos = true
-
-				// Send to tasks
-				tasks = append(tasks, newBatchConfig)
+		// JSON Files
+		for i := range remnantJSONFiles {
+			jInfo, err := os.Stat(remnantJSONFiles[i])
+			if err != nil {
+				return nil, err
 			}
+			if jInfo.IsDir() {
+				return nil, fmt.Errorf("directory %q entered instead of file", jInfo.Name())
+			}
+
+			// BatchConfig model settings:
+			newBatchConfig.JSON = remnantJSONFiles[i]
+			newBatchConfig.IsDirs = false
+			newBatchConfig.SkipVideos = true
+
+			// Send to tasks
+			tasks = append(tasks, newBatchConfig)
 		}
 	}
 	logger.Pl.I("Got %d batch jobs to perform.", len(tasks))

@@ -48,14 +48,17 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	nfoRW := metawriters.NewNFOFileRW(ctx, file)
 
 	nfoData, err := nfoRW.DecodeMetadata(file)
-	if err != nil || nfoData == nil {
-		logger.Pl.E("Failed to decode metadata from file: %v", err)
-	} else {
-		// Store NFO data in model.
-		fd.NFOData = nfoData
+	if err != nil {
+		return fmt.Errorf("failed to decode metadata from file %q: %w", file.Name(), err)
+	}
+	if nfoData == nil {
+		return fmt.Errorf("NFO decoded nil for file %q", file.Name())
 	}
 
-	resolveOps(fd, nil)
+	// Store NFO data in model.
+	fd.NFOData = nfoData
+
+	resolveOps(fd, metawriters.NFOFields(nfoRW.Meta))
 
 	edited, err := nfoRW.MakeMetaEdits(nfoRW.Meta, file, fd)
 	if err != nil {
@@ -88,6 +91,9 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	if ok := fieldsnfo.FillNFO(fd); !ok {
 		logger.Pl.E("No metadata filled from NFO file...")
 	}
+
+	// Make date tag and apply to model if necessary.
+	setFilenameDateTag(fd, nil)
 
 	// Check if metadata is already existent in target file.
 	if !skipVideos {

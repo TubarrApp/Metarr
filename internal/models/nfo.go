@@ -2,9 +2,15 @@ package models
 
 import "encoding/xml"
 
-// NFOData represents the complete NFO file structure.
+// NFO root elements.
+const (
+	NFORootMovie   = "movie"
+	NFORootEpisode = "episodedetails"
+)
+
+// NFOData represents the complete NFO file structure, under either root element.
 type NFOData struct {
-	XMLName     xml.Name    `xml:"movie"`
+	XMLName     xml.Name
 	Title       Title       `xml:"title"`
 	Plot        string      `xml:"plot"`
 	Description string      `xml:"description"`

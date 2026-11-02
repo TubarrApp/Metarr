@@ -14,6 +14,7 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/file"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"metarr/internal/textedit"
 	"metarr/internal/utils/prompt"
 	"os"
@@ -111,8 +112,8 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 // MakeMetaEdits applies a series of transformations and writes the final result to the file.
 func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileData) (bool, error) {
 	// Ensure valid XML.
-	if !strings.Contains(data, "<movie>") {
-		return false, errors.New("invalid XML: missing movie tag")
+	if !strings.Contains(data, nfoRootTag(data)) {
+		return false, errors.New("invalid XML: missing root tag")
 	}
 
 	var (
@@ -120,6 +121,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 		newContent string
 		err        error
 	)
+	mtp := parsing.NewMetaTemplateParser(file.Name())
 
 	if fd.MetaOps.DatesFrom != "" {
 		val, _ := firstXMLContent(data, fd.MetaOps.DatesFrom)
@@ -132,7 +134,6 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	for fld, d := range ops.DeleteDateTags {
 		if newContent, ok = editXMLField(data, fld, func(s string) (string, bool) {
 			_, result := dates.StripDateTags(s, d.Loc)
-			result = strings.Join(strings.Fields(result), " ")
 			return result, result != s
 		}); ok {
 			logger.Pl.I("Deleted date tags from XML field %q", fld)
@@ -141,14 +142,14 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 
 	// 0. "all-x" overrides first, so per-field operations build on them.
-	if newContent, ok = rw.overrideXMLFields(data, ops.SetOverrides); ok {
+	if newContent, ok = rw.overrideXMLFields(data, ops.SetOverrides, mtp); ok {
 		data, edited = newContent, true
 	}
 
 	// 1. Set fields (establishes baseline values).
 	if len(ops.SetFields) > 0 {
 		logger.Pl.I("Model for file %q applying new field additions", fd.MetaFilePath)
-		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, ops.SetFields); err != nil {
+		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, ops.SetFields, mtp); err != nil {
 			logger.Pl.E("failed to add new XML fields with %+v: %v", ops.SetFields, err)
 		} else if ok {
 			data, edited = newContent, true
@@ -169,15 +170,15 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 
 	// 3. Replace.
-	if newContent, ok = rw.replaceXML(data, ops.Replaces); ok {
+	if newContent, ok = rw.replaceXML(data, ops.Replaces, mtp); ok {
 		data, edited = newContent, true
 	}
 
-	if newContent, ok = rw.trimXMLPrefix(data, ops.ReplacePrefixes); ok {
+	if newContent, ok = rw.trimXMLPrefix(data, ops.ReplacePrefixes, mtp); ok {
 		data, edited = newContent, true
 	}
 
-	if newContent, ok = rw.trimXMLSuffix(data, ops.ReplaceSuffixes); ok {
+	if newContent, ok = rw.trimXMLSuffix(data, ops.ReplaceSuffixes, mtp); ok {
 		data, edited = newContent, true
 	}
 
@@ -190,8 +191,12 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 
 	for _, r := range ops.RegexReplaces {
+		replacement, filled := mtp.FillAllTemplateTags(r.Replacement, NFOFields(data))
+		if !filled {
+			continue
+		}
 		if newContent, ok = editXMLField(data, r.Field, func(s string) (string, bool) {
-			result := r.Regex.ReplaceAllString(s, r.Replacement)
+			result := r.Regex.ReplaceAllString(s, replacement)
 			return result, result != s
 		}); ok {
 			data, edited = newContent, true
@@ -199,11 +204,11 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 	}
 
 	// 4. Prefix and suffix.
-	if newContent, ok = rw.xmlPrefix(data, ops.Prefixes); ok {
+	if newContent, ok = rw.xmlPrefix(data, ops.Prefixes, mtp); ok {
 		data, edited = newContent, true
 	}
 
-	if newContent, ok = rw.xmlSuffix(data, ops.Suffixes); ok {
+	if newContent, ok = rw.xmlSuffix(data, ops.Suffixes, mtp); ok {
 		data, edited = newContent, true
 	}
 
@@ -225,13 +230,61 @@ func (rw *NFOFileRW) ensureXMLStructure(content string) string {
 %s`, content)
 	}
 
-	// Ensure movie tag exists.
-	if !strings.Contains(content, "<movie>") {
+	// Ensure a root tag exists.
+	if !strings.Contains(content, nfoRootTag(content)) {
 		content = strings.TrimSpace(content)
 		content = fmt.Sprintf("%s\n<movie>\n</movie>", content)
 	}
 
 	return content
+}
+
+// nfoRootTag returns the opening tag of the NFO's root element, or a movie's if it has none.
+func nfoRootTag(data string) string {
+	decoder := xml.NewDecoder(strings.NewReader(data))
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return "<" + models.NFORootMovie + ">"
+		}
+		if start, ok := token.(xml.StartElement); ok {
+			return "<" + start.Name.Local + ">"
+		}
+	}
+}
+
+// NFOFields returns the text of each field in an NFO by its tag, a repeated tag's joined by commas, with "actor" being the name.
+func NFOFields(data string) map[string]any {
+	fields := make(map[string]any)
+	decoder := xml.NewDecoder(strings.NewReader(data))
+	var tags []string
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return fields
+		}
+		switch t := token.(type) {
+		case xml.StartElement:
+			tags = append(tags, t.Name.Local)
+		case xml.EndElement:
+			tags = tags[:len(tags)-1]
+		case xml.CharData:
+			text := strings.TrimSpace(string(t))
+			if text == "" || len(tags) == 0 {
+				continue
+			}
+
+			// Add the text to this tag's.
+			tag := tags[len(tags)-1]
+			if len(tags) > 1 && tag == "name" && tags[len(tags)-2] == sharedtags.NActors {
+				tag = sharedtags.NActors
+			}
+			if existing, seen := fields[tag]; seen {
+				text = fmt.Sprintf("%v, %s", existing, text)
+			}
+			fields[tag] = text
+		}
+	}
 }
 
 // refreshMetadataInternal safely reloads the metadata from the file.
@@ -370,7 +423,7 @@ func (rw *NFOFileRW) pasteXMLField(data, origin, dest string) (dataRtn string, e
 }
 
 // overrideXMLFields sets every tag in each "all-x" group to its override value, adding missing tags.
-func (rw *NFOFileRW) overrideXMLFields(data string, overrides map[enums.OverrideMetaType]string) (dataRtn string, edited bool) {
+func (rw *NFOFileRW) overrideXMLFields(data string, overrides map[enums.OverrideMetaType]string, mtp *parsing.MetaTemplateParser) (dataRtn string, edited bool) {
 	set := func(val string, tags ...string) {
 		for _, tag := range tags {
 			var ok bool
@@ -380,7 +433,11 @@ func (rw *NFOFileRW) overrideXMLFields(data string, overrides map[enums.Override
 		}
 	}
 
-	for overrideType, val := range overrides {
+	for overrideType, override := range overrides {
+		val, filled := mtp.FillAllTemplateTags(override, NFOFields(data))
+		if !filled {
+			continue
+		}
 		switch overrideType {
 		case enums.OverrideMetaCredits:
 			set(val, models.NFOGroupFields[sharedconsts.MetaOpAllCredits]...)
@@ -444,17 +501,21 @@ func escapeXML(s string) string {
 }
 
 // replaceXML applies meta replacement to the fields in the xml data.
-func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (dataRtn string, edited bool) {
+func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace, mtp *parsing.MetaTemplateParser) (dataRtn string, edited bool) {
 	for _, r := range replace {
 		if r.Value == "" {
 			continue
 		}
+		replacement, filled := mtp.FillAllTemplateTags(r.Replacement, NFOFields(data))
+		if !filled {
+			continue
+		}
 		var ok bool
 		if data, ok = editXMLField(data, r.Field, func(s string) (string, bool) {
-			result := strings.ReplaceAll(s, r.Value, r.Replacement)
+			result := strings.ReplaceAll(s, r.Value, replacement)
 			return result, result != s
 		}); ok {
-			logger.Pl.D(2, "Replaced %q with %q in XML field %q", r.Value, r.Replacement, r.Field)
+			logger.Pl.D(2, "Replaced %q with %q in XML field %q", r.Value, replacement, r.Field)
 			edited = true
 		}
 	}
@@ -462,16 +523,20 @@ func (rw *NFOFileRW) replaceXML(data string, replace []models.MetaReplace) (data
 }
 
 // trimXMLPrefix replaces a prefix in the fields in the XML data.
-func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePrefix) (dataRtn string, edited bool) {
+func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) (dataRtn string, edited bool) {
 	for _, p := range trimPfx {
 		if p.Prefix == "" {
 			continue
 		}
+		replacement, filled := mtp.FillAllTemplateTags(p.Replacement, NFOFields(data))
+		if !filled {
+			continue
+		}
 		var ok bool
 		if data, ok = editXMLField(data, p.Field, func(s string) (string, bool) {
-			return textedit.ReplacePrefix(s, p.Prefix, p.Replacement)
+			return textedit.ReplacePrefix(s, p.Prefix, replacement)
 		}); ok {
-			logger.Pl.D(2, "Replaced prefix %q with %q in XML field %q", p.Prefix, p.Replacement, p.Field)
+			logger.Pl.D(2, "Replaced prefix %q with %q in XML field %q", p.Prefix, replacement, p.Field)
 			edited = true
 		}
 	}
@@ -479,16 +544,20 @@ func (rw *NFOFileRW) trimXMLPrefix(data string, trimPfx []models.MetaReplacePref
 }
 
 // trimXMLSuffix replaces a suffix in the fields in the XML data.
-func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuffix) (dataRtn string, edited bool) {
+func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) (dataRtn string, edited bool) {
 	for _, sfx := range trimSfx {
 		if sfx.Suffix == "" {
 			continue
 		}
+		replacement, filled := mtp.FillAllTemplateTags(sfx.Replacement, NFOFields(data))
+		if !filled {
+			continue
+		}
 		var ok bool
 		if data, ok = editXMLField(data, sfx.Field, func(s string) (string, bool) {
-			return textedit.ReplaceSuffix(s, sfx.Suffix, sfx.Replacement)
+			return textedit.ReplaceSuffix(s, sfx.Suffix, replacement)
 		}); ok {
-			logger.Pl.D(2, "Replaced suffix %q with %q in XML field %q", sfx.Suffix, sfx.Replacement, sfx.Field)
+			logger.Pl.D(2, "Replaced suffix %q with %q in XML field %q", sfx.Suffix, replacement, sfx.Field)
 			edited = true
 		}
 	}
@@ -496,8 +565,12 @@ func (rw *NFOFileRW) trimXMLSuffix(data string, trimSfx []models.MetaReplaceSuff
 }
 
 // xmlPrefix prefixes text onto the fields in the XML data.
-func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn string, edited bool) {
-	fields, values := byField(pfx, func(p models.MetaPrefix) (string, string, bool) { return p.Field, p.Prefix, p.Prefix != "" })
+func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix, mtp *parsing.MetaTemplateParser) (dataRtn string, edited bool) {
+	// Fill tags, leaving out prefixes whose tags can't be filled.
+	fields, values := byField(pfx, func(p models.MetaPrefix) (string, string, bool) {
+		prefix, filled := mtp.FillAllTemplateTags(p.Prefix, NFOFields(data))
+		return p.Field, prefix, filled && p.Prefix != ""
+	})
 	for _, field := range fields {
 		var ok bool
 		if data, ok = editXMLField(data, field, func(s string) (string, bool) {
@@ -511,8 +584,12 @@ func (rw *NFOFileRW) xmlPrefix(data string, pfx []models.MetaPrefix) (dataRtn st
 }
 
 // xmlSuffix suffixes text onto the fields in the XML data.
-func (rw *NFOFileRW) xmlSuffix(data string, sfx []models.MetaSuffix) (dataRtn string, edited bool) {
-	fields, values := byField(sfx, func(s models.MetaSuffix) (string, string, bool) { return s.Field, s.Suffix, s.Suffix != "" })
+func (rw *NFOFileRW) xmlSuffix(data string, sfx []models.MetaSuffix, mtp *parsing.MetaTemplateParser) (dataRtn string, edited bool) {
+	// Fill tags, leaving out suffixes whose tags can't be filled.
+	fields, values := byField(sfx, func(s models.MetaSuffix) (string, string, bool) {
+		suffix, filled := mtp.FillAllTemplateTags(s.Suffix, NFOFields(data))
+		return s.Field, suffix, filled && s.Suffix != ""
+	})
 	for _, field := range fields {
 		var ok bool
 		if data, ok = editXMLField(data, field, func(s string) (string, bool) {
@@ -526,7 +603,7 @@ func (rw *NFOFileRW) xmlSuffix(data string, sfx []models.MetaSuffix) (dataRtn st
 }
 
 // addNewXMLFields can insert new fields into the NFO metadata file.
-func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.MetaSetField) (dataRtn string, newAddition bool, err error) {
+func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.MetaSetField, mtp *parsing.MetaTemplateParser) (dataRtn string, newAddition bool, err error) {
 
 	var (
 		metaOW,
@@ -552,17 +629,22 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		if addition.Field == "" || addition.Value == "" {
 			continue
 		}
+		filled, ok := mtp.FillAllTemplateTags(addition.Value, NFOFields(data))
+		if !ok {
+			continue
+		}
+		value := escapeXML(filled) // Written straight into the XML.
 
 		// Special handling for actor fields.
 		if addition.Field == "actor" {
 			// Check if actor already exists.
 			flatData := rw.flattenField(data)
-			actorNameCheck := fmt.Sprintf("<name>%s</name>", rw.flattenField(addition.Value))
+			actorNameCheck := fmt.Sprintf("<name>%s</name>", rw.flattenField(value))
 
 			if strings.Contains(flatData, actorNameCheck) {
 				logger.Pl.I("Actor %q is already inserted in the metadata, no need to add...", addition.Value)
 			} else {
-				if modified, ok := rw.addNewActorField(data, addition.Value); ok {
+				if modified, ok := rw.addNewActorField(data, value); ok {
 					data = modified
 					newAddition = true
 				}
@@ -577,7 +659,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		startIdx := strings.Index(data, tagStart)
 		if startIdx == -1 {
 			// Field doesn't exist, add it.
-			if modified, ok := rw.addNewField(data, fmt.Sprintf("%s%s%s", tagStart, addition.Value, tagEnd)); ok {
+			if modified, ok := rw.addNewField(data, fmt.Sprintf("%s%s%s", tagStart, value, tagEnd)); ok {
 				data = modified
 				newAddition = true
 			}
@@ -585,45 +667,45 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		}
 
 		// Field exists, handle overwrite.
-		if !metaOW {
-			startContent := startIdx + len(tagStart)
-			endIdx := strings.Index(data, tagEnd)
-			content := strings.TrimSpace(data[startContent:endIdx])
+		startContent := startIdx + len(tagStart)
+		endIdx := strings.Index(data, tagEnd)
+		if metaOW {
+			data = data[:startContent] + value + data[endIdx:]
+			newAddition = true
+			continue
+		}
+		content := strings.TrimSpace(data[startContent:endIdx])
 
-			// Check for context cancellation.
-			select {
-			case <-rw.ctx.Done():
-				return data, false, fmt.Errorf("operation canceled for field %q: %w", addition.Field, rw.ctx.Err())
-			default:
+		// Check for context cancellation.
+		select {
+		case <-rw.ctx.Done():
+			return data, false, fmt.Errorf("operation canceled for field %q: %w", addition.Field, rw.ctx.Err())
+		default:
+		}
+
+		if !metaPS {
+			promptMsg := fmt.Sprintf("Field %q already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
+				addition.Field, content, rw.File.Name())
+
+			reply, err := prompt.MetaReplace(rw.ctx, promptMsg, metaOW, metaPS)
+			if err != nil {
+				logger.Pl.E("Failed to retrieve reply from user prompt: %v", err)
 			}
 
-			if !metaOW && !metaPS {
-				promptMsg := fmt.Sprintf("Field %q already exists with value '%v' in file '%v'. Overwrite? (y/n) to proceed, (Y/N) to apply to whole queue",
-					addition.Field, content, rw.File.Name())
-
-				reply, err := prompt.MetaReplace(rw.ctx, promptMsg, metaOW, metaPS)
-				if err != nil {
-					logger.Pl.E("Failed to retrieve reply from user prompt: %v", err)
-				}
-
-				switch reply {
-				case "Y":
-					abstractions.Set(keys.MOverwrite, true)
-					metaOW = true
-					fallthrough
-				case "y":
-					data = data[:startContent] + addition.Value + data[endIdx:]
-					newAddition = true
-				case "N":
-					abstractions.Set(keys.MPreserve, true)
-					metaPS = true
-					fallthrough
-				case "n":
-					logger.Pl.D(2, "Skipping field: %s", addition.Field)
-				}
-			} else if metaOW {
-				data = data[:startContent] + addition.Value + data[endIdx:]
+			switch reply {
+			case "Y":
+				abstractions.Set(keys.MOverwrite, true)
+				metaOW = true
+				fallthrough
+			case "y":
+				data = data[:startContent] + value + data[endIdx:]
 				newAddition = true
+			case "N":
+				abstractions.Set(keys.MPreserve, true)
+				metaPS = true
+				fallthrough
+			case "n":
+				logger.Pl.D(2, "Skipping field: %s", addition.Field)
 			}
 		}
 	}
@@ -633,8 +715,9 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 
 // addNewField adds a new field into the NFO data.
 func (rw *NFOFileRW) addNewField(data, addition string) (string, bool) {
-	insertIdx := strings.Index(data, "<movie>")
-	insertAfter := insertIdx + len("<movie>")
+	rootTag := nfoRootTag(data)
+	insertIdx := strings.Index(data, rootTag)
+	insertAfter := insertIdx + len(rootTag)
 
 	if insertIdx != -1 {
 		data = data[:insertAfter] + "\n" + addition + "\n" + data[insertAfter:]
@@ -649,14 +732,15 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 
 	if castStart == -1 && castEnd == -1 {
 		// No cast tag exists, create new structure.
-		movieStart := strings.Index(data, "<movie>")
-		if movieStart == -1 {
-			logger.Pl.E("Invalid XML structure: no movie tag found")
+		rootTag := nfoRootTag(data)
+		rootStart := strings.Index(data, rootTag)
+		if rootStart == -1 {
+			logger.Pl.E("Invalid XML structure: no %s tag found", rootTag)
 			return data, false
 		}
 
-		if !strings.Contains(data, "</movie>") {
-			logger.Pl.E("Invalid XML structure: no closing movie tag found")
+		if !strings.Contains(data, "</"+rootTag[1:]) {
+			logger.Pl.E("Invalid XML structure: no closing %s tag found", rootTag)
 			return data, false
 		}
 
@@ -664,9 +748,9 @@ func (rw *NFOFileRW) addNewActorField(data, name string) (string, bool) {
 		newCast := fmt.Sprintf("    <cast>\n        <actor>\n            <name>%s</name>\n        </actor>\n    </cast>", name)
 
 		// Find the right spot to insert.
-		contentStart := movieStart + len("<movie>")
+		contentStart := rootStart + len(rootTag)
 		if contentStart >= len(data) {
-			logger.Pl.E("Invalid XML structure: movie tag at end of data")
+			logger.Pl.E("Invalid XML structure: %s tag at end of data", rootTag)
 			return data, false
 		}
 

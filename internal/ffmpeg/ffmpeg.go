@@ -4,6 +4,8 @@ package ffmpeg
 import (
 	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"metarr/internal/abstractions"
@@ -21,6 +23,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // ExecuteVideo writes metadata to a single video file.
@@ -64,7 +67,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	// Set temp output path: DO NOT use user cache or temp dir, can cause cross-device link move failures.
 	fileBase := parsing.GetBaseNameWithoutExt(origPath)
-	tmpOutPath = filepath.Join(fd.VideoDirectory, sharedconsts.TempTag+fileBase+origExt+outExt)
+	tmpOutPath = filepath.Join(fd.VideoDirectory, tempOutputName(fileBase, origExt, outExt))
 	logger.Pl.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
 
 	// Remove temp file on function end.
@@ -92,6 +95,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if err != nil {
 		return err
 	}
+	defer builder.removeTempThumbnails()
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.
@@ -156,6 +160,16 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	return nil
 }
 
+// tempOutputName returns the name of a video's temp output file, hashing a base name too long to fit the filesystem's limit.
+func tempOutputName(fileBase, origExt, outExt string) string {
+	name := sharedconsts.TempTag + fileBase + origExt + outExt
+	if len(name) <= sharedconsts.MaxNameBytes {
+		return name
+	}
+	sum := sha256.Sum256([]byte(fileBase))
+	return sharedconsts.TempTag + hex.EncodeToString(sum[:8]) + origExt + outExt
+}
+
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
 func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmodels.FromCodec, desiredVCodec, desiredACodec, outExt string) (skipProcessing bool) {
 	logger.Pl.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
@@ -172,7 +186,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmode
 
 	// Check for extension difference.
 	currentExt := strings.ToLower(filepath.Ext(fd.OriginalVideoPath))
-	if currentExt != outExt && outExt != "" {
+	if !strings.EqualFold(currentExt, outExt) && outExt != "" {
 		logger.Pl.I("Current extension (%s) differs from output extension (%s) in file %q, will convert...", currentExt, outExt, fd.OriginalVideoPath)
 		differentExt = true
 	}
@@ -198,7 +212,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmode
 		logger.Pl.I("For file %q, no processing is required. Metadata exists, desired codecs (including compression-level preferences) match, and the file extension matches. Skipping processing...", fd.OriginalVideoPath)
 
 		// Save 'post-FFmpeg' video path into model.
-		fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath)) + outExt
+		fd.PostFFmpegVideoPath = fd.OriginalVideoPath
 
 		// Set final paths and end processing.
 		fd.SetFinalPaths(fd.OriginalVideoPath, fd.MetaFilePath)
@@ -249,6 +263,14 @@ func getCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec,
 	// Determine codecs and video compression level.
 	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = probeCodecs(inputFile); err != nil {
 		return blankFromCodec, blankFromCodec, err
+	}
+
+	// Use the names codec mappings do, as FFprobe's can differ (e.g. "mpeg2video", "pcm_s16le"). Unknown ones stay as they are.
+	if v, err := sharedvalidation.ValidateVideoCodec(videoCodec.Codec); err == nil && v != "" {
+		videoCodec.Codec = v
+	}
+	if a, err := sharedvalidation.ValidateAudioCodec(audioCodec.Codec); err == nil && a != "" {
+		audioCodec.Codec = a
 	}
 
 	// Log and return detected codecs.

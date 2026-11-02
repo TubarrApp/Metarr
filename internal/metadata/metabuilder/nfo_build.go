@@ -12,8 +12,6 @@ import (
 
 // NFO constants.
 const (
-	nfoRootMovie   = "movie"
-	nfoRootEpisode = "episodedetails"
 	xmlDeclaration = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`
 )
 
@@ -70,12 +68,12 @@ func BuildNFOContents(fd *models.FileData) (result string, err error) {
 // nfoRootFor picks the NFO root element based on whether the file looks like a TV episode.
 func nfoRootFor(s *models.MetadataShowData) string {
 	if s == nil {
-		return nfoRootMovie
+		return models.NFORootMovie
 	}
 	if s.EpisodeID != "" || s.SeasonNumber != "" {
-		return nfoRootEpisode
+		return models.NFORootEpisode
 	}
-	return nfoRootMovie
+	return models.NFORootMovie
 }
 
 // addOtherDataToNFO adds other data information to the NFO string based on the provided MetadataOtherData.
@@ -213,7 +211,7 @@ func addShowDataToNFO(s *models.MetadataShowData) (o string) {
 
 	// Under an episodedetails root the show name belongs in showtitle. Else use set for movies.
 	if s.Show != "" {
-		if nfoRootFor(s) == nfoRootEpisode {
+		if nfoRootFor(s) == models.NFORootEpisode {
 			o += indentNFO(fmt.Sprintf("<showtitle>%s</showtitle>\n", escapeNFO(s.Show)), 1)
 		} else {
 			o += indentNFO(fmt.Sprintf("<set>%s</set>\n", escapeNFO(s.Show)), 1)

@@ -82,7 +82,7 @@ func ValidateAndSetVideoCodec(entries []string) error {
 	}
 
 	// Grab the 'all to' codec if any are set, as well as 'FromCodec' models and their 'to' codec strings.
-	all, pairs, err := sharedvalidation.ParseCodecMappings(entries, sharedvalidation.ValidateVideoCodec)
+	all, pairs, err := sharedparsing.ParseCodecMappings(entries, sharedvalidation.ValidateVideoCodec)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func ValidateAndSetAudioCodec(entries []string) error {
 	}
 
 	// Grab the 'all to' codec if any are set, as well as 'FromCodec' models and their 'to' codec strings.
-	all, pairs, err := sharedvalidation.ParseCodecMappings(entries, sharedvalidation.ValidateAudioCodec)
+	all, pairs, err := sharedparsing.ParseCodecMappings(entries, sharedvalidation.ValidateAudioCodec)
 	if err != nil {
 		return err
 	}
@@ -145,7 +145,7 @@ func ValidateAndSetBatchPairs(batchPairs []string) error {
 	for _, pair := range batchPairs {
 		split := strings.SplitN(pair, ":", 2)
 		if len(split) < 2 {
-			logger.Pl.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'")
+			logger.Pl.W("skipping invalid batch pair %q, should be 'video_dir_path:json_dir_path'", pair)
 			continue
 		}
 		video := split[0]
@@ -317,8 +317,8 @@ func ValidateAndSetPurgeMetafiles(purgeType string) error {
 	return nil
 }
 
-// ValidateAndSetInputFiletypes checks that the inputted filetypes are accepted.
-func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
+// ValidateAndSetInputFiletypes sets the input extensions to filter by, none given meaning all, and errors if none given are valid.
+func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) error {
 	inputVExts := make([]string, 0, len(argsVInputExts))
 	for _, data := range argsVInputExts {
 		// Normalize.
@@ -328,20 +328,16 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
 			data = "." + data
 		}
 
-		switch data {
-		case "all":
-			inputVExts = append(inputVExts, "all")
-		case sharedconsts.ExtMKV:
-			inputVExts = append(inputVExts, data)
-		case sharedconsts.ExtMP4:
-			inputVExts = append(inputVExts, data)
-		case sharedconsts.ExtWEBM:
-			inputVExts = append(inputVExts, data)
-		default:
+		if _, isVideo := sharedconsts.FilterByVidExtensions[data]; !isVideo && data != "all" {
+			logger.Pl.W("Ignoring --%s entry %q: it isn't a video extension", keys.InputVideoExts, data)
 			continue
 		}
+		inputVExts = append(inputVExts, data)
 	}
 	if len(inputVExts) == 0 {
+		if len(argsVInputExts) > 0 {
+			return fmt.Errorf("--%s has no valid entries: %v", keys.InputVideoExts, argsVInputExts)
+		}
 		inputVExts = append(inputVExts, "all")
 	}
 	logger.Pl.D(2, "Received video input extension filters: %v", inputVExts)
@@ -358,17 +354,21 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) {
 		}
 
 		switch data {
-		case sharedconsts.MExtJSON, sharedconsts.MExtNFO:
+		case "all", sharedconsts.MExtJSON, sharedconsts.MExtNFO:
 			inputMExts = append(inputMExts, data)
 		default:
-			continue
+			logger.Pl.W("Ignoring --%s entry %q: it isn't a metadata extension", keys.InputMetaExts, data)
 		}
 	}
 	if len(inputMExts) == 0 {
+		if len(argsMInputExts) > 0 {
+			return fmt.Errorf("--%s has no valid entries: %v", keys.InputMetaExts, argsMInputExts)
+		}
 		inputMExts = append(inputMExts, "all")
 	}
 	logger.Pl.D(2, "Received meta input extension filter: %v", inputMExts)
 	abstractions.Set(keys.InputMExts, inputMExts)
+	return nil
 }
 
 // ValidateAndSetFileFilters checks and sets the file prefix filters.

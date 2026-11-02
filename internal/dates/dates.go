@@ -22,7 +22,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt sharedenu
 	date, found := "", false
 	if fd.MDates.FormattedDate == "" {
 		if date, found = extractDateFromMetadata(metadata); !found {
-			logger.Pl.E("No dates found in JSON file")
+			logger.Pl.E("No dates found in the metadata")
 			return "", nil
 		}
 	} else {
@@ -148,6 +148,9 @@ func stripAllDateTags(val string) (tags []string, cleaned string) {
 	// Find all tags.
 	tags = pattern.FindAllString(val, -1)
 	logger.Pl.D(3, "Found tags: %v (count: %d)", tags, len(tags))
+	if len(tags) == 0 {
+		return nil, val
+	}
 
 	// Remove all tags.
 	cleaned = pattern.ReplaceAllString(val, "")

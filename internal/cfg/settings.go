@@ -69,14 +69,16 @@ func execute() (err error) {
 	validation.ValidateAndSetConcurrencyLimit(viper.GetInt(keys.Concurrency))
 
 	// Resource usage limits (CPU and memory).
-	validation.ValidateAndSetMinFreeMem(viper.GetString(keys.MinFreeMem))
+	validation.ValidateAndSetMinFreeMem(viper.GetString(keys.MinFreeMemInput))
 	validation.ValidateAndSetMaxCPU(viper.GetFloat64(keys.MaxCPU))
 
 	// File extension settings.
-	validation.ValidateAndSetInputFiletypes(
+	if err := validation.ValidateAndSetInputFiletypes(
 		viper.GetStringSlice(keys.InputVideoExts),
 		viper.GetStringSlice(keys.InputMetaExts),
-	)
+	); err != nil {
+		return err
+	}
 
 	// File filter settings.
 	if viper.IsSet(keys.FilePrefixes) {

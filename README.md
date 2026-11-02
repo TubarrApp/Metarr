@@ -91,7 +91,7 @@ Quote values with leading or trailing spaces, since YAML trims them otherwise.
 
 - `--video-directory`, `--video-file`, `--meta-directory`, `--meta-file` – sources that can be mixed and matched. Only the top level of each directory is read (subdirectories are not searched).
 - `--batch-pairs "/videos:/meta"` – pin a video path to a metadata path (file or directory).
-- `--input-video-exts` / `--input-meta-exts` – limit processing to certain extensions (`all`, `mkv`, `mp4`, `webm` / `all`, `json`, `nfo`).
+- `--input-video-exts` / `--input-meta-exts` – limit processing to certain extensions (`all` or any video extension, such as `mkv`, `mp4`, `webm` / `all`, `json`, `nfo`).
 - `--filter-prefix`, `--filter-suffix`, `--filter-contains`, `--filter-omits` – lightweight filename filters applied before work begins.
 - `--no-file-overwrite` – keep originals around by renaming them before writing outputs.
 - `--purge-original-video` – delete the original video once a new one is written from it. Without it, the original is kept where it is, under its own name; only the new video goes to the output directory. If the new video ends up with exactly the original's path (same folder, name and extension), the original is renamed `name_mbackup.ext` instead.
@@ -145,6 +145,8 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 ## Filtered Operations (`--filtered-meta-ops`, `--filtered-filename-ops`)
 
 Each entry is one or more filters and one operation divided by `||`, applied only when every filter matches the file's metadata: `title:contains:Ep 5 | Show: Finale||title:keep-after:| `. Join several filters with `&&` to require all of them: `title:contains:cat&&duration:more-than:3600||title:prefix:[LONG CAT VIDEO] `. Neither side needs escaping, except a `||` or `&&` in a filter's value. For several operations under the same filters, repeat the filters on each entry.
+
+With an NFO metafile, filters and `{{...}}` tags use its element names, such as `originaltitle:contains:Cats`. A repeated element's values are joined by commas.
 
 Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `underscores`, `fixes-only`, or `skip` (the default).
 

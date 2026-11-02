@@ -67,8 +67,8 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 		if fd == nil {
 			continue
 		}
-		// Rename.
-		if err := renameFile(ctx, fd, replaceStyle, skipVideos); err != nil {
+		// Rename. A file from a metadata-only batch has no video to rename, whatever the setting.
+		if err := renameFile(ctx, fd, replaceStyle, skipVideos || fd.OriginalVideoPath == ""); err != nil {
 			vars.AddToErrorArray(err)
 			logger.Pl.E("Failed to rename file %q: %v", fd.OriginalVideoPath, err)
 			// Report where the files are now, so a caller can still find them.
@@ -144,6 +144,12 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 		if err != nil {
 			return err
 		}
+	case sharedconsts.MExtNFO:
+		nfoRW := metawriters.NewNFOFileRW(ctx, metaFile)
+		if _, err := nfoRW.DecodeMetadata(metaFile); err != nil {
+			return err
+		}
+		fp.metadata = metawriters.NFOFields(nfoRW.Meta)
 	}
 
 	if err := fp.process(); err != nil {
@@ -243,10 +249,11 @@ func (fp *fileProcessor) purgeMetafile(fsWriter *file.FSFileWriter) (deleted boo
 	return deleted, nil
 }
 
-// writeResult handles the purge and move operations.
+// writeResult handles the move and purge operations.
 func (fp *fileProcessor) writeResult() error {
 	var (
 		err         error
+		purging     bool
 		deletedMeta bool
 	)
 	fsWriter, err := file.NewFSFileWriter(fp.fd, fp.skipVideos, fp.outputDir)
@@ -254,12 +261,20 @@ func (fp *fileProcessor) writeResult() error {
 		return err
 	}
 
-	if deletedMeta, err = fp.purgeMetafile(fsWriter); err != nil {
-		return err
+	// A metafile being purged stays where it is.
+	if abstractions.IsSet(keys.MetaPurge) {
+		if purging, err = fsWriter.PurgesMetafile(fp.fd.MetaFilePath); err != nil {
+			return fmt.Errorf("failed to purge metafile: %w", err)
+		}
 	}
 
 	// Rename in place, or move into the output directory if one is set.
-	if err := fsWriter.RenameAndMoveFiles(deletedMeta); err != nil {
+	if err := fsWriter.RenameAndMoveFiles(purging); err != nil {
+		return err
+	}
+
+	// Purge the metafile now the files are moved.
+	if deletedMeta, err = fp.purgeMetafile(fsWriter); err != nil {
 		return err
 	}
 

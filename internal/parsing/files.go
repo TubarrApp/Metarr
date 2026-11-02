@@ -21,6 +21,15 @@ func ReadOnlyExt(ext string) bool {
 	return err != nil
 }
 
+// HoldsThumbnail reports whether a thumbnail can be embedded in a file of extension ext.
+func HoldsThumbnail(ext string) bool {
+	switch strings.ToLower(ext) {
+	case sharedconsts.ExtMP4, sharedconsts.ExtM4V, sharedconsts.ExtMKV:
+		return true
+	}
+	return false
+}
+
 // OutputExt returns the extension the video at path is written with: the output filetype if set, else its own, or
 // .mkv (which holds the most codecs) if its own is read-only, reporting that swap with replaced.
 func OutputExt(path string) (ext string, replaced bool) {

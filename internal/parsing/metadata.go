@@ -32,13 +32,25 @@ func (mtp *MetaTemplateParser) FillMetaTemplateTag(inputStr string, j map[string
 		return inputStr, false
 	}
 
-	return mtp.fillMetaTemplateTags(inputStr, j), true
+	result, _ = mtp.fillMetaTemplateTags(inputStr, j)
+	return result, true
 }
 
-// fillMetaTemplateTags fills every tag it can in one pass, leaving unfillable tags as written.
+// FillAllTemplateTags returns the string with its template tags filled, or false if it can't fill every one.
+func (mtp *MetaTemplateParser) FillAllTemplateTags(inputStr string, j map[string]any) (result string, filled bool) {
+	result, filled = mtp.fillMetaTemplateTags(inputStr, j)
+	if !filled {
+		logger.Pl.W("Skipping an operation: could not fill every template tag in %q (file %q)", inputStr, mtp.jsonFileName)
+		return "", false
+	}
+	return result, true
+}
+
+// fillMetaTemplateTags fills every tag it can in one pass, leaving unfillable tags as written, and reports whether it filled them all.
 //
 // Filled values aren't scanned again, so a value containing "{{...}}" stays literal.
-func (mtp *MetaTemplateParser) fillMetaTemplateTags(s string, j map[string]any) string {
+func (mtp *MetaTemplateParser) fillMetaTemplateTags(s string, j map[string]any) (result string, allFilled bool) {
+	allFilled = true
 	var b strings.Builder
 	for {
 		open := strings.Index(s, "{{")
@@ -56,18 +68,19 @@ func (mtp *MetaTemplateParser) fillMetaTemplateTags(s string, j map[string]any) 
 			b.WriteString(val)
 		} else {
 			b.WriteString(s[open : end+2])
+			allFilled = false
 		}
 		s = s[end+2:]
 	}
 	b.WriteString(s)
-	return b.String()
+	return b.String(), allFilled
 }
 
 // fillTag returns the metadata value for a template tag, and whether it has a usable value.
 func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (result string, success bool) {
 	v, found := j[template]
 	if template == "" || !found || v == nil {
-		logger.Pl.D(1, "Value for JSON key %q does not exist in file %q", template, mtp.jsonFileName)
+		logger.Pl.D(1, "Value for metadata field %q does not exist in file %q", template, mtp.jsonFileName)
 		return "", false
 	}
 	switch v := v.(type) {
@@ -80,11 +93,11 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 	case bool:
 		result = strconv.FormatBool(v)
 	default:
-		logger.Pl.E("JSON key %v does not contain a text or number value (variable is of type %T), not parsing (file %q)", template, v, mtp.jsonFileName)
+		logger.Pl.E("Metadata field %v does not contain a text or number value (variable is of type %T), not parsing (file %q)", template, v, mtp.jsonFileName)
 		return "", false
 	}
 	if result == "" {
-		logger.Pl.E("JSON key %v is empty, not parsing (file %q)", template, mtp.jsonFileName)
+		logger.Pl.E("Metadata field %v is empty, not parsing (file %q)", template, mtp.jsonFileName)
 		return "", false
 	}
 	return result, true

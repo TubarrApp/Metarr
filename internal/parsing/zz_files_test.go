@@ -6,6 +6,24 @@ import (
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
+// TestHoldsThumbnail tests only the containers thumbnails are written to report holding one, whatever the extension's case.
+func TestHoldsThumbnail(t *testing.T) {
+	for ext, want := range map[string]bool{
+		sharedconsts.ExtMP4:  true,
+		sharedconsts.ExtM4V:  true,
+		sharedconsts.ExtMKV:  true,
+		".MP4":               true,
+		sharedconsts.ExtMOV:  false,
+		sharedconsts.ExtWEBM: false,
+		sharedconsts.ExtAVI:  false,
+		"":                   false,
+	} {
+		if got := HoldsThumbnail(ext); got != want {
+			t.Errorf("HoldsThumbnail(%q) = %v, want %v", ext, got, want)
+		}
+	}
+}
+
 // TestOutputExt tests a video keeps its own extension, unless FFmpeg can't write it, when none is set.
 func TestOutputExt(t *testing.T) {
 	for _, c := range []struct {

@@ -180,7 +180,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 	}
 
 	// 0. "all-x" overrides first, so per-field operations build on them.
-	if overrideJSONFields(currentMeta, ops.SetOverrides) {
+	if overrideJSONFields(currentMeta, ops.SetOverrides, mtp) {
 		edited = true
 	}
 
@@ -341,7 +341,7 @@ func resolveDatesFrom(ops *models.MetaOps, val string) {
 }
 
 // overrideJSONFields sets every field in each "all-x" group to its override value, adding missing fields.
-func overrideJSONFields(j map[string]any, overrides map[enums.OverrideMetaType]string) (edited bool) {
+func overrideJSONFields(j map[string]any, overrides map[enums.OverrideMetaType]string, mtp *parsing.MetaTemplateParser) (edited bool) {
 	set := func(val string, fields ...string) {
 		for _, k := range fields {
 			if cur, ok := j[k].(string); ok && cur == val {
@@ -353,7 +353,11 @@ func overrideJSONFields(j map[string]any, overrides map[enums.OverrideMetaType]s
 		}
 	}
 
-	for overrideType, val := range overrides {
+	for overrideType, override := range overrides {
+		val, filled := mtp.FillAllTemplateTags(override, j)
+		if !filled {
+			continue
+		}
 		switch overrideType {
 		case enums.OverrideMetaCredits:
 			set(val, models.JSONGroupFields[sharedconsts.MetaOpAllCredits]...)
@@ -387,8 +391,8 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 		if val, exists := j[r.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag.
-				result, isTemplate := mtp.FillMetaTemplateTag(r.Replacement, j)
-				if result == r.Replacement && isTemplate {
+				result, filled := mtp.FillAllTemplateTags(r.Replacement, j)
+				if !filled {
 					continue
 				}
 				r.Replacement = result
@@ -419,8 +423,8 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaRepl
 		if val, exists := j[rp.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag.
-				replacement, isTemplate := mtp.FillMetaTemplateTag(rp.Replacement, j)
-				if replacement == rp.Replacement && isTemplate {
+				replacement, filled := mtp.FillAllTemplateTags(rp.Replacement, j)
+				if !filled {
 					continue
 				}
 
@@ -455,8 +459,8 @@ func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaRepl
 		if val, exists := j[rs.Field]; exists {
 			if strVal, ok := val.(string); ok {
 				// Fill tag.
-				replacement, isTemplate := mtp.FillMetaTemplateTag(rs.Replacement, j)
-				if replacement == rs.Replacement && isTemplate {
+				replacement, filled := mtp.FillAllTemplateTags(rs.Replacement, j)
+				if !filled {
 					continue
 				}
 
@@ -499,8 +503,8 @@ func (rw *JSONFileRW) regexReplaceJSON(j map[string]any, rr []models.MetaRegexRe
 		if !ok {
 			continue
 		}
-		replacement, isTemplate := mtp.FillMetaTemplateTag(r.Replacement, j)
-		if replacement == r.Replacement && isTemplate {
+		replacement, filled := mtp.FillAllTemplateTags(r.Replacement, j)
+		if !filled {
 			continue
 		}
 		if result := r.Regex.ReplaceAllString(strVal, replacement); result != strVal {
@@ -523,8 +527,8 @@ func (rw *JSONFileRW) jsonSuffix(j map[string]any, file string, sfx []models.Met
 
 	// Fill tags, leaving out suffixes whose tags can't be filled.
 	fields, values := byField(sfx, func(s models.MetaSuffix) (string, string, bool) {
-		result, isTemplate := mtp.FillMetaTemplateTag(s.Suffix, j)
-		return s.Field, result, s.Field != "" && s.Suffix != "" && (result != s.Suffix || !isTemplate)
+		result, filled := mtp.FillAllTemplateTags(s.Suffix, j)
+		return s.Field, result, s.Field != "" && s.Suffix != "" && filled
 	})
 
 	// Process.
@@ -557,8 +561,8 @@ func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.Met
 
 	// Fill tags, leaving out prefixes whose tags can't be filled.
 	fields, values := byField(pfx, func(p models.MetaPrefix) (string, string, bool) {
-		result, isTemplate := mtp.FillMetaTemplateTag(p.Prefix, j)
-		return p.Field, result, p.Field != "" && p.Prefix != "" && (result != p.Prefix || !isTemplate)
+		result, filled := mtp.FillAllTemplateTags(p.Prefix, j)
+		return p.Field, result, p.Field != "" && p.Prefix != "" && filled
 	})
 
 	// Process.
@@ -624,7 +628,13 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 		if n.Field == "" || n.Value == "" {
 			continue
 		}
-		n.Value, _ = mtp.FillMetaTemplateTag(n.Value, j)
+
+		// A tag left unfilled (e.g. a missing metadata field) skips the op, rather than writing "{{...}}" into the field.
+		value, filled := mtp.FillAllTemplateTags(n.Value, j)
+		if !filled {
+			continue
+		}
+		n.Value = value
 
 		// If field doesn't exist at all, add it.
 		if _, exists := j[n.Field]; !exists {
@@ -783,16 +793,14 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 			continue
 		}
 
-		before := strVal
 		deletedTags, result := dates.StripDateTags(strVal, d.Loc)
-		result = rw.cleanFieldValue(result)
-
-		j[fld] = result
-
-		if j[fld] != before {
-			logger.Pl.I("Deleted date tags %v at from field %q (operation: %v)", deletedTags, fld, d)
-			edited = true
+		if len(deletedTags) == 0 {
+			continue
 		}
+
+		j[fld] = rw.cleanFieldValue(result)
+		logger.Pl.I("Deleted date tags %v at from field %q (operation: %v)", deletedTags, fld, d)
+		edited = true
 	}
 	return edited, nil
 }
@@ -896,7 +904,5 @@ func (rw *JSONFileRW) updateMeta(newMeta map[string]any) {
 
 // cleanFieldValue trims leading/trailing whitespaces after deletions.
 func (rw *JSONFileRW) cleanFieldValue(value string) string {
-	cleaned := strings.TrimSpace(value)
-	cleaned = strings.Join(strings.Fields(cleaned), " ")
-	return cleaned
+	return strings.TrimSpace(value)
 }

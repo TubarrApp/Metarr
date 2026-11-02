@@ -1,9 +1,12 @@
 package ffmpeg
 
 import (
+	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
@@ -18,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
@@ -29,6 +33,9 @@ var (
 	availableCodecsCache     string
 	availableCodecsCacheOnce sync.Once
 )
+
+// thumbnailClient downloads thumbnails, giving up on a server that stops answering.
+var thumbnailClient = &http.Client{Timeout: 30 * time.Second}
 
 // availableEncoders returns FFmpeg's encoder list, read once.
 func availableEncoders(ctx context.Context) string {
@@ -65,8 +72,14 @@ type ffCommandBuilder struct {
 	audioCodec []string
 	audioRate  []string
 
+	// Streams to keep
+	streamMapping []string
+
 	// Thumbnail
-	thumbnail []string
+	thumbnailInput []string
+	thumbnail      []string
+	thumbnailCount int
+	tempThumbnails []string // Thumbnail files made for this video, removed once it's done.
 
 	// Other parameters
 	qualityParameter []string
@@ -130,108 +143,304 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	if abstractions.IsSet(keys.StripThumbnails) {
 		stripThumbnails = abstractions.GetBool(keys.StripThumbnails)
 	}
+	// Start afresh, as the builder is reused when FFmpeg is retried.
+	b.thumbnailInput = nil
+	b.thumbnail = nil
+	b.thumbnailCount = 0
 	if !stripThumbnails {
-		b.setThumbnail(fd.EmbedThumbnail(), parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
+		b.setThumbnail(ctx, fd.EmbedThumbnail(), parsing.GetBaseNameWithoutExt(fd.OriginalVideoPath), outExt, fd.HasEmbeddedThumbnail)
 	}
+
+	// The video's own thumbnails stay unless stripped or replaced. Copying only keeps them as thumbnails within a container other than Matroska.
+	sameContainer := strings.EqualFold(filepath.Ext(b.inputFile), outExt)
+	if !stripThumbnails && len(b.thumbnail) == 0 && (!sameContainer || strings.EqualFold(outExt, sharedconsts.ExtMKV)) {
+		if err := b.keepThumbnails(ctx, outExt); err != nil {
+			return nil, err
+		}
+	}
+
+	// Set the streams to keep.
+	b.setStreamMapping(ctx, outExt, !stripThumbnails && len(b.thumbnail) == 0)
 
 	// Return the fully appended argument string.
 	return b.buildFinalCommand(args, useHWDecode)
 }
 
+// setStreamMapping keeps the streams the output container can hold, as FFmpeg otherwise keeps only one of each type.
+func (b *ffCommandBuilder) setStreamMapping(ctx context.Context, outExt string, keepThumbnails bool) {
+	inExt := strings.ToLower(filepath.Ext(b.inputFile))
+	outExt = strings.ToLower(outExt)
+
+	// Video ("v" includes thumbnails, "V" doesn't) and audio. Thumbnails are only copied within a container.
+	video := "0:V?"
+	if keepThumbnails && inExt == outExt {
+		video = "0:v?"
+	}
+	b.streamMapping = []string{"-map", video, "-map", "0:a?"}
+
+	// Subtitles.
+	b.streamMapping = append(b.streamMapping, b.subtitleMaps(ctx, inExt, outExt)...)
+
+	// Attachments (e.g. subtitle fonts), which only Matroska holds.
+	if outExt == sharedconsts.ExtMKV {
+		b.streamMapping = append(b.streamMapping, "-map", "0:t?")
+	}
+
+	// Data streams aren't mapped, as copying some fails (e.g. timecodes, which MP4 makes again itself).
+
+	// Copy anything no later option sets a codec for (e.g. a second video stream).
+	b.streamMapping = append(b.streamMapping, "-c", "copy")
+
+	// Convert copied video the output container can't take as it is.
+	b.streamMapping = append(b.streamMapping, b.bitstreamFilters(ctx, outExt)...)
+}
+
+// bitstreamFilters returns the filters copied H.264 and HEVC streams need to go in a file of extension outExt.
+func (b *ffCommandBuilder) bitstreamFilters(ctx context.Context, outExt string) []string {
+	switch outExt {
+	case sharedconsts.ExtAVI, sharedconsts.ExtMPEG, sharedconsts.ExtMPG, sharedconsts.ExtVOB:
+	default:
+		return nil
+	}
+
+	// Only the first video stream can be encoded rather than copied.
+	encoding := b.videoCodecGPU != nil || (len(b.videoCodecSoftware) >= 2 && b.videoCodecSoftware[1] != consts.FFVCodecKeyCopy)
+
+	var filters []string
+	for i, codec := range probeStreamCodecs(ctx, b.inputFile, "V") {
+		if i == 0 && encoding {
+			continue
+		}
+		switch codec {
+		case sharedconsts.VCodecH264:
+			filters = append(filters, "-bsf:v:"+strconv.Itoa(i), "h264_mp4toannexb")
+		case sharedconsts.VCodecHEVC:
+			filters = append(filters, "-bsf:v:"+strconv.Itoa(i), "hevc_mp4toannexb")
+		}
+	}
+	return filters
+}
+
+// subtitleMaps returns the maps for the subtitle streams a file of extension outExt can hold, from one of inExt.
+func (b *ffCommandBuilder) subtitleMaps(ctx context.Context, inExt, outExt string) []string {
+	// A container holds its own, and Matroska holds any.
+	if inExt == outExt || outExt == sharedconsts.ExtMKV {
+		return []string{"-map", "0:s?"}
+	}
+
+	subtitles := probeStreamCodecs(ctx, b.inputFile, "s")
+	if subtitleEncoderFor(inExt, outExt) == "" {
+		if len(subtitles) > 0 {
+			logger.Pl.W("Leaving out the subtitles of %q, as %s files can't hold them", b.inputFile, outExt)
+		}
+		return nil
+	}
+
+	// Text converts to what the container holds, images can't.
+	var subtitleMaps []string
+	for i, codec := range subtitles {
+		if _, bitmap := bitmapSubtitleCodecs[codec]; bitmap {
+			logger.Pl.W("Leaving out subtitle stream %d of %q, as %s subtitles can't be converted for a %s file", i, b.inputFile, codec, outExt)
+			continue
+		}
+		subtitleMaps = append(subtitleMaps, "-map", "0:s:"+strconv.Itoa(i))
+	}
+	return subtitleMaps
+}
+
+// probeStreamCodecs returns the codec names of a file's streams of a type ("s", "t"), in order, blank if unknown.
+func probeStreamCodecs(ctx context.Context, inputFile, streamType string) []string {
+	cmd := exec.CommandContext(ctx, "ffprobe",
+		"-v", "error",
+		"-select_streams", streamType,
+		"-show_entries", "stream=codec_name",
+		"-of", "json",
+		inputFile,
+	)
+	raw, err := cmd.Output()
+	if err != nil {
+		logger.Pl.E("Failed to check the %q streams of %q: %v", streamType, inputFile, err)
+		return nil
+	}
+
+	var probed ffprobeCodecOutput
+	if err := json.Unmarshal(raw, &probed); err != nil {
+		logger.Pl.E("Failed to read the %q streams of %q: %v", streamType, inputFile, err)
+		return nil
+	}
+	codecs := make([]string, 0, len(probed.Streams))
+	for _, stream := range probed.Streams {
+		codecs = append(codecs, stream.CodecName)
+	}
+	return codecs
+}
+
 // setThumbnail sets the thumbnail image in the video metadata.
-//
-// NOTE: Uses -map to avoid accumulating thumbnails, if numerous functions need -map additions at some point,
-// it will be necessary to create something like a b.streamMapping field and setStreamMapping() function.
-func (b *ffCommandBuilder) setThumbnail(thumbnailURL, videoBaseName, outExt string, hasEmbeddedThumbnail bool) {
+func (b *ffCommandBuilder) setThumbnail(ctx context.Context, thumbnailURL, videoBaseName, outExt string, hasEmbeddedThumbnail bool) {
 	if thumbnailURL == "" {
 		if hasEmbeddedThumbnail {
 			logger.Pl.I("Video %q has an embedded thumbnail. Will copy existing attached_pic.", b.inputFile)
-
-			switch strings.ToLower(outExt) {
-			case sharedconsts.ExtMP4,
-				sharedconsts.ExtM4V,
-				sharedconsts.ExtMOV:
-
-				b.thumbnail = []string{
-					"-map", "0:V", // Map only regular video streams (excludes existing attached_pic).
-					"-map", "0:a?", // Map audio streams if present.
-					"-map", "0:s?", // Map subtitle streams if present.
-					"-map", "0:d?", // Map data streams if present.
-					"-map", "0:t?", // Map attachment streams if present.
-					"-map", "0:v", // Now map attached_pic (will be only the first one found).
-					"-c", "copy",
-					"-disposition:v:1", "attached_pic",
-				}
-
-			case sharedconsts.ExtMKV:
-				b.thumbnail = []string{
-					"-map", "0",
-					"-c", "copy",
-				}
-
-			default:
-				logger.Pl.D(1, "Copying attached thumbnails not supported for extension: %s", outExt)
-			}
-			return
 		}
 		return
 	}
 
 	// Thumbnail URL not "" beyond here...
 
+	// Cut to leave room in the thumbnail's file name.
+	videoBaseName = sharedparsing.SanitizePathComponent(videoBaseName, 150)
+
 	// A file given with --thumbnail is used where it is (its JPG copy goes in the temp dir), anything else is downloaded.
 	thumbnail, jpgPath := thumbnailURL, filepath.Join(os.TempDir(), "thumb_"+videoBaseName+".jpg")
 	if thumbnailURL != abstractions.GetString(keys.Thumbnail) || parsing.IsHTTPURL(thumbnailURL) {
 		var err error
-		if thumbnail, err = downloadThumbnail(thumbnailURL, videoBaseName); err != nil {
+		if thumbnail, err = downloadThumbnail(ctx, thumbnailURL, videoBaseName); err != nil {
 			logger.Pl.E("Could not download thumbnail %q: %v", thumbnailURL, err)
 			return
 		}
-		jpgPath = parsing.GetFilepathWithoutExt(thumbnail) + ".jpg"
+		b.tempThumbnails = append(b.tempThumbnails, thumbnail)
+		jpgPath = parsing.GetFilepathWithoutExt(thumbnail) + "_converted.jpg"
 	}
 
-	// Ensure JPG.
+	// Ensure JPG, going by what the file holds, as its name may not say.
 	var err error
-	thumbExt := strings.ToLower(filepath.Ext(thumbnail))
-	if thumbExt != ".jpg" && thumbExt != ".jpeg" {
+	if codecs := probeStreamCodecs(ctx, thumbnail, "v"); len(codecs) != 1 || codecs[0] != jpgCodec {
 		if thumbnail, err = convertToJPG(thumbnail, jpgPath); err != nil {
 			logger.Pl.E("Could not convert thumbnail %q to JPG: %v", thumbnail, err)
 			return
 		}
+		b.tempThumbnails = append(b.tempThumbnails, jpgPath)
 	}
 
+	b.embedThumbnail(ctx, thumbnail, outExt, thumbnailFilename, thumbnailMimetype)
+}
+
+// keepThumbnails embeds the video's own thumbnails in the new video, for where copying them wouldn't keep them as thumbnails.
+func (b *ffCommandBuilder) keepThumbnails(ctx context.Context, outExt string) error {
+	// Find the thumbnails, if there are any.
+	thumbnails := probeThumbnailStreams(ctx, b.inputFile)
+	if len(thumbnails) == 0 {
+		return nil
+	}
+	if !parsing.HoldsThumbnail(outExt) {
+		logger.Pl.W("Leaving out the thumbnail of %q, as %s files can't hold one", b.inputFile, outExt)
+		return nil
+	}
+
+	for _, stream := range thumbnails {
+		tmp, err := os.CreateTemp("", "thumb_*.jpg")
+		if err != nil {
+			return fmt.Errorf("failed to make a temporary file for the thumbnail of %q: %w", b.inputFile, err)
+		}
+		b.tempThumbnails = append(b.tempThumbnails, tmp.Name())
+		if err := tmp.Close(); err != nil {
+			return fmt.Errorf("failed to close temporary thumbnail %q: %w", tmp.Name(), err)
+		}
+
+		// Take it out unchanged if it's a JPG, or Matroska can attach it as it is, else as a JPG.
+		args := []string{"-y", "-v", "error", "-i", b.inputFile, "-map", "0:" + strconv.Itoa(stream.Index), "-frames:v", "1", "-update", "1", "-f", "image2"}
+		if stream.CodecName == jpgCodec || (strings.EqualFold(outExt, sharedconsts.ExtMKV) && stream.Tags.Mimetype != "") {
+			args = append(args, "-c", "copy")
+		} else {
+			args = append(args, jpgQualityArgs...)
+		}
+		if out, err := exec.CommandContext(ctx, "ffmpeg", append(args, tmp.Name())...).CombinedOutput(); err != nil {
+			return fmt.Errorf("failed to take out the thumbnail of %q: %w\n%s", b.inputFile, err, out)
+		}
+
+		b.embedThumbnail(ctx, tmp.Name(), outExt, cmp.Or(stream.Tags.Filename, thumbnailFilename), cmp.Or(stream.Tags.Mimetype, thumbnailMimetype))
+	}
+	return nil
+}
+
+// thumbnailStream is a thumbnail embedded in a video.
+type thumbnailStream struct {
+	Index       int    `json:"index"`
+	CodecName   string `json:"codec_name"`
+	Disposition struct {
+		AttachedPic int `json:"attached_pic"`
+	} `json:"disposition"`
+	Tags struct {
+		Filename string `json:"filename"`
+		Mimetype string `json:"mimetype"`
+	} `json:"tags"`
+}
+
+// probeThumbnailStreams returns a file's embedded thumbnails.
+func probeThumbnailStreams(ctx context.Context, inputFile string) []thumbnailStream {
+	cmd := exec.CommandContext(ctx, "ffprobe",
+		"-v", "error",
+		"-select_streams", "v",
+		"-show_entries", "stream=index,codec_name:stream_disposition=attached_pic:stream_tags=filename,mimetype",
+		"-of", "json",
+		inputFile,
+	)
+	raw, err := cmd.Output()
+	if err != nil {
+		logger.Pl.E("Failed to check %q for thumbnails: %v", inputFile, err)
+		return nil
+	}
+
+	var probed struct {
+		Streams []thumbnailStream `json:"streams"`
+	}
+	if err := json.Unmarshal(raw, &probed); err != nil {
+		logger.Pl.E("Failed to read the thumbnail check of %q: %v", inputFile, err)
+		return nil
+	}
+	var thumbnails []thumbnailStream
+	for _, stream := range probed.Streams {
+		if stream.Disposition.AttachedPic == 1 {
+			thumbnails = append(thumbnails, stream)
+		}
+	}
+	return thumbnails
+}
+
+// embedThumbnail adds the arguments embedding an image file as a thumbnail of the output, if its container can hold one.
+func (b *ffCommandBuilder) embedThumbnail(ctx context.Context, thumbnail, outExt, filename, mimetype string) {
 	ext := strings.ToLower(outExt)
 	switch ext {
 	case sharedconsts.ExtMP4,
-		sharedconsts.ExtM4V,
-		sharedconsts.ExtMOV:
+		sharedconsts.ExtM4V:
 
-		b.thumbnail = []string{
-			"-i", thumbnail, // add the thumbnail as a second input.
-			"-map", "0:V", // map only regular video streams (excludes any existing attached_pic).
-			"-map", "0:a?", // map audio streams if present.
-			"-map", "0:s?", // map subtitle streams if present.
-			"-map", "0:d?", // map data streams if present.
-			"-map", "0:t?", // map attachment streams if present.
-			"-map", "1", // map new thumbnail.
-			"-c:v:1", "mjpeg", // always use mjpeg codec for thumbnail.
-			"-disposition:v:1", "attached_pic", // mark as cover art.
-		}
+		// The thumbnail comes after the video's own video streams, and any thumbnails before it.
+		index := strconv.Itoa(max(len(probeStreamCodecs(ctx, b.inputFile, "V")), 1) + b.thumbnailCount)
+
+		b.thumbnailInput = append(b.thumbnailInput, "-i", thumbnail) // add the thumbnail as another input.
+		b.thumbnail = append(b.thumbnail,
+			"-map", strconv.Itoa(b.thumbnailCount+1), // map new thumbnail, copied as the stream mapping sets.
+			"-disposition:v:"+index, "attached_pic", // mark as a thumbnail.
+		)
+		b.thumbnailCount++
 
 	case sharedconsts.ExtMKV:
-		b.thumbnail = []string{
+		// The thumbnail is attached after any attachments the video has, which keep their own mimetypes.
+		index := strconv.Itoa(len(probeStreamCodecs(ctx, b.inputFile, "t")) + b.thumbnailCount)
+		b.thumbnail = append(b.thumbnail,
 			"-attach", thumbnail,
-			"-metadata:s:t", "mimetype=image/jpeg",
-		}
+			"-metadata:s:t:"+index, "mimetype="+mimetype,
+			"-metadata:s:t:"+index, "filename="+filename,
+		)
+		b.thumbnailCount++
 
 	default:
 		logger.Pl.D(1, "Thumbnail embedding not supported for extension: %s", ext)
 	}
 }
 
+// removeTempThumbnails removes the thumbnail files made for this video.
+func (b *ffCommandBuilder) removeTempThumbnails() {
+	for _, path := range b.tempThumbnails {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			logger.Pl.W("Failed to remove temporary thumbnail %q: %v", path, err)
+		}
+	}
+}
+
 // convertToJPG converts an image to a JPG at outputPath for embedding.
 func convertToJPG(inputPath, outputPath string) (string, error) {
-	cmd := exec.Command("ffmpeg", "-y", "-i", inputPath, outputPath)
+	args := append([]string{"-y", "-i", inputPath}, jpgQualityArgs...)
+	cmd := exec.Command("ffmpeg", append(args, outputPath)...)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to convert %q to jpg: %w", filepath.Ext(inputPath), err)
 	}
@@ -241,12 +450,16 @@ func convertToJPG(inputPath, outputPath string) (string, error) {
 // downloadThumbnail downloads a thumbnail from a URL to a temporary file.
 //
 // Returns the local file path to use with FFmpeg -attach.
-func downloadThumbnail(urlStr, videoBaseName string) (string, error) {
+func downloadThumbnail(ctx context.Context, urlStr, videoBaseName string) (string, error) {
 	if urlStr == "" {
 		return "", nil
 	}
 
-	resp, err := http.Get(urlStr)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := thumbnailClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -600,20 +813,19 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 	inExt := strings.ToLower(filepath.Ext(b.inputFile))
 	outExt = strings.ToLower(outExt)
 
-	if outExt == "" || strings.EqualFold(inExt, outExt) {
-		b.formatFlagsMap = copyPreset
+	b.formatFlagsMap = copyPreset
+	if outExt == "" || inExt == outExt {
 		return
 	}
 
 	logger.Pl.D(2, "Making default format map for input extension: %q, output extension: %q. (File: %q)",
 		inExt, outExt, b.inputFile)
 
-	// Get format preset from map.
-	b.formatFlagsMap = copyPreset
-	// Fall back to copy preset if no mapping found.
-	b.formatFlagsMap = copyPreset
-	logger.Pl.D(1, "No format mapping found for %s to %s conversion, using copy preset",
-		inExt, outExt)
+	// Convert subtitles for a container that can't take them as they are.
+	if encoder := subtitleEncoderFor(inExt, outExt); encoder != "" {
+		b.formatFlagsMap = maps.Clone(copyPreset)
+		b.formatFlagsMap[consts.FFmpegCS] = encoder
+	}
 }
 
 // setFormatFlags sets flags for the transcoding format, e.g. codec, etc.
@@ -686,9 +898,11 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	args = append(args, "-y", "-i", b.inputFile)
 
 	// If thumbnail present, add it as an input (must appear before metadata).
-	if len(b.thumbnail) > 0 {
-		args = append(args, b.thumbnail...)
-	}
+	args = append(args, b.thumbnailInput...)
+
+	// Add the streams to keep, then the thumbnail's.
+	args = append(args, b.streamMapping...)
+	args = append(args, b.thumbnail...)
 
 	// Add format and codec flags.
 	args = append(args, formatArgs...)
@@ -776,6 +990,8 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 		totalCapacity += 2 // consts.FFmpegFilter + filter chain
 	}
 	totalCapacity += len(b.formatFlagsMap)
+	totalCapacity += len(b.thumbnailInput)
+	totalCapacity += len(b.streamMapping)
 	totalCapacity += len(b.thumbnail)
 
 	if abstractions.IsSet(keys.ExtraFFmpegArgs) {

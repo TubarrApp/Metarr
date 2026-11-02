@@ -4,14 +4,92 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
+	"metarr/internal/domain/enums"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 
 	"github.com/TubarrApp/gocommon/sharedenums"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
+
+// TestJSONOpsFillTemplates tests meta ops read template tags from the JSON, and are skipped if they can't all be filled.
+func TestJSONOpsFillTemplates(t *testing.T) {
+	const data = `{"title":"Title","studio":"A & B","plot":"old text"}`
+	plotRegex := regexp.MustCompile("old")
+
+	for _, tc := range []struct {
+		name, field, want string
+		op                func(ops *models.MetaOps, value string)
+	}{
+		{"set", "artist", "A & B", func(ops *models.MetaOps, value string) {
+			ops.SetFields = []models.MetaSetField{{Field: "artist", Value: value}}
+		}},
+		{"prefix", "title", "A & BTitle", func(ops *models.MetaOps, value string) {
+			ops.Prefixes = []models.MetaPrefix{{Field: "title", Prefix: value}}
+		}},
+		{"suffix", "title", "TitleA & B", func(ops *models.MetaOps, value string) {
+			ops.Suffixes = []models.MetaSuffix{{Field: "title", Suffix: value}}
+		}},
+		{"replace", "plot", "A & B text", func(ops *models.MetaOps, value string) {
+			ops.Replaces = []models.MetaReplace{{Field: "plot", Value: "old", Replacement: value}}
+		}},
+		{"replace-prefix", "plot", "A & B text", func(ops *models.MetaOps, value string) {
+			ops.ReplacePrefixes = []models.MetaReplacePrefix{{Field: "plot", Prefix: "old", Replacement: value}}
+		}},
+		{"replace-suffix", "plot", "old A & B", func(ops *models.MetaOps, value string) {
+			ops.ReplaceSuffixes = []models.MetaReplaceSuffix{{Field: "plot", Suffix: "text", Replacement: value}}
+		}},
+		{"regex-replace", "plot", "A & B text", func(ops *models.MetaOps, value string) {
+			ops.RegexReplaces = []models.MetaRegexReplace{{Field: "plot", Regex: plotRegex, Replacement: value}}
+		}},
+		{"all-titles set", "title", "A & B", func(ops *models.MetaOps, value string) {
+			ops.SetOverrides = map[enums.OverrideMetaType]string{enums.OverrideMetaTitles: value}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// A tag the JSON has, then one it doesn't, alone or with one it has.
+			for _, value := range []string{"{{studio}}", "{{nope}}", "{{studio}} {{nope}}"} {
+				path := filepath.Join(t.TempDir(), "v.json")
+				if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+					t.Fatal(err)
+				}
+				f, err := os.OpenFile(path, os.O_RDWR, 0o600)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() { _ = f.Close() })
+				rw := NewJSONFileRW(t.Context(), f)
+				if _, err := rw.DecodeJSON(f); err != nil {
+					t.Fatal(err)
+				}
+
+				ops := models.NewMetaOps()
+				tc.op(ops, value)
+				edited, err := rw.MakeJSONEdits(f, &models.FileData{MetaOps: ops, ModelMOverwrite: true})
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				if value == "{{studio}}" {
+					if got := rw.Meta[tc.field]; !edited || got != tc.want {
+						t.Errorf("%s = %q (edited %v), want %q", tc.field, got, edited, tc.want)
+					}
+					continue
+				}
+				got, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if edited || string(got) != data {
+					t.Errorf("value %q wasn't skipped, edited %v:\n%s", value, edited, got)
+				}
+			}
+		})
+	}
+}
 
 // TestJSONOpsRerun tests that meta ops run again on edited JSON don't stack prefixes or suffixes, and a date tag op
 // replaces the tag already there.

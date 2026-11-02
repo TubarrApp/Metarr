@@ -3,6 +3,7 @@ package file
 
 import (
 	"fmt"
+	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
@@ -230,33 +231,63 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	return metaMap, nil
 }
 
-// MatchVideoWithMetadata matches video files with their corresponding metadata files.
+// MatchVideoWithMetadata matches video files with their metadata files, closest names first, each metafile going to one video.
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, batchID int64) (map[string]*models.FileData, error) {
 	logger.Pl.D(3, "Entering metadata and video file matching loop...")
 
-	// Pre-process metaFiles into a lookup map.
-	metaLookup := make(map[string]*models.FileData, len(metaFiles))
-	for metaFilename, metaFileData := range metaFiles {
-		baseKey := NormalizeFilename(TrimMetafileSuffixes(metaFilename, ""))
-		metaLookup[baseKey] = metaFileData
+	// Pre-process metaFiles into lookup maps by the video name they match, in name order so runs match alike.
+	exact := make(map[string][]*models.FileData, len(metaFiles))      // The metafile's name, whole or without its extension.
+	trimmed := make(map[string][]*models.FileData, len(metaFiles))    // Without a known suffix, e.g. ".info.json".
+	normalized := make(map[string][]*models.FileData, len(metaFiles)) // Any of those, regardless of case and spacing.
+	for _, metaFilename := range slices.Sorted(maps.Keys(metaFiles)) {
+		metaFileData := metaFiles[metaFilename]
+		metaBase := parsing.GetBaseNameWithoutExt(metaFilename)
+		trimmedBase := TrimMetafileSuffixes(metaFilename, "")
+
+		exact[metaFilename] = append(exact[metaFilename], metaFileData)
+		exact[metaBase] = append(exact[metaBase], metaFileData)
+		trimmed[trimmedBase] = append(trimmed[trimmedBase], metaFileData)
+		for _, name := range []string{metaFilename, metaBase, trimmedBase} {
+			normalized[NormalizeFilename(name)] = append(normalized[NormalizeFilename(name)], metaFileData)
+		}
 	}
 
-	// Find metadata file matches for video files.
-	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
-	for videoFilename := range videoFiles {
-		videoData := videoFiles[videoFilename]
-		if videoData == nil {
+	// Find metadata file matches for video files, closest matches first.
+	videoNames := make([]string, 0, len(videoFiles))
+	for _, videoFilename := range slices.Sorted(maps.Keys(videoFiles)) {
+		if videoFiles[videoFilename] == nil {
 			logger.Pl.W("Skipping nil video file entry: %s", videoFilename)
 			continue
 		}
-		videoBase := parsing.GetBaseNameWithoutExt(videoFilename)
-		normalizedVideoBase := NormalizeFilename(videoBase)
+		videoNames = append(videoNames, videoFilename)
+	}
+	matchedFiles := make(map[string]*models.FileData, len(videoFiles))
+	claimed := make(map[*models.FileData]bool, len(metaFiles))
+	for _, step := range []struct {
+		lookup    map[string][]*models.FileData
+		normalize bool
+	}{{exact, false}, {trimmed, false}, {normalized, true}} {
+		for _, videoFilename := range videoNames {
+			if _, matched := matchedFiles[videoFilename]; matched {
+				continue
+			}
+			videoData := videoFiles[videoFilename]
 
-		if fileData, exists := metaLookup[normalizedVideoBase]; exists && fileData != nil { // This checks if the key exists in the metaLookup map.
-			matchedFiles[videoFilename] = videoData
-			matchedFiles[videoFilename].MetaFilePath = fileData.MetaFilePath
-			matchedFiles[videoFilename].MetaDirectory = fileData.MetaDirectory
-			matchedFiles[videoFilename].MetaFileType = fileData.MetaFileType
+			videoBase := parsing.GetBaseNameWithoutExt(videoFilename)
+			if step.normalize {
+				videoBase = NormalizeFilename(videoBase)
+			}
+			for _, fileData := range step.lookup[videoBase] {
+				if fileData == nil || claimed[fileData] {
+					continue
+				}
+				claimed[fileData] = true
+				videoData.MetaFilePath = fileData.MetaFilePath
+				videoData.MetaDirectory = fileData.MetaDirectory
+				videoData.MetaFileType = fileData.MetaFileType
+				matchedFiles[videoFilename] = videoData
+				break
+			}
 		}
 	}
 	if len(matchedFiles) == 0 {

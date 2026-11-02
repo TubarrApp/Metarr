@@ -8,6 +8,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"os/exec"
 
 	"github.com/TubarrApp/gocommon/logging"
@@ -53,12 +54,6 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
 			logger.Pl.I("Video %q has an embedded thumbnail", fd.OriginalVideoPath)
 			fd.HasEmbeddedThumbnail = true
-
-			// Thumbnail embedded in file, missing in metafile.
-			if fd.EmbedThumbnail() == "" {
-				logger.Pl.I("Thumbnail exists in video %q, but no thumbnail found in metadata. Will process video.", fd.OriginalVideoPath)
-				return false
-			}
 			break
 		}
 	}
@@ -75,8 +70,8 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		return false
 	}
 
-	// No thumbnail in file but thumbnail exists in metadata.
-	if !fd.HasEmbeddedThumbnail && fd.EmbedThumbnail() != "" {
+	// No thumbnail in file but thumbnail exists in metadata, in a file that can hold one.
+	if !fd.HasEmbeddedThumbnail && fd.EmbedThumbnail() != "" && parsing.HoldsThumbnail(extension) {
 		logger.Pl.I("No thumbnail in video %q, found thumbnail %q", fd.OriginalVideoPath, fd.EmbedThumbnail())
 		return false
 	}

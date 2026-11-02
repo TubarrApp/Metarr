@@ -13,6 +13,7 @@ import (
 	"sync"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
 var (
@@ -91,7 +92,14 @@ func RenameToBackup(filename string) (backupName string, err error) {
 // Returns "" if an existing backup is identical to the file.
 func nextBackupPath(originalFilePath string) (string, error) {
 	ext := filepath.Ext(originalFilePath)
-	base := parsing.GetFilepathWithoutExt(originalFilePath) + sharedconsts.BackupTag
+	base := parsing.GetFilepathWithoutExt(originalFilePath)
+
+	// A name near the filesystem's limit is cut, leaving room for the tag, extension and a " (n)" suffix.
+	name := filepath.Base(base)
+	if room := sharedconsts.MaxNameBytes - len(sharedconsts.BackupTag) - len(ext) - len(" (9999)"); len(name) > room {
+		base = filepath.Join(filepath.Dir(base), sharedparsing.SanitizePathComponent(name, room))
+	}
+	base += sharedconsts.BackupTag
 
 	for n := 1; ; n++ {
 		candidate := base + ext

@@ -46,6 +46,33 @@ func TestFillMetaTemplateTag(t *testing.T) {
 	}
 }
 
+// TestFillAllTemplateTags tests a string only counts as filled if every tag was, however its value reads.
+func TestFillAllTemplateTags(t *testing.T) {
+	logger.Pl.Console = io.Discard
+	mtp := NewMetaTemplateParser("test.json")
+	j := map[string]any{"title": "Cats", "braces": "{{literal}}", "empty": "", "tags": []any{"a"}}
+
+	for _, tc := range []struct {
+		in, want string
+		filled   bool
+	}{
+		{"plain", "plain", true},
+		{"{{title}}", "Cats", true},
+		{"{{title}} and {{title}}", "Cats and Cats", true},
+		{"a {{ b", "a {{ b", true},
+		{"a }} b {{ c", "a }} b {{ c", true},
+		{"{{braces}}", "{{literal}}", true},
+		{"{{nope}}", "", false},
+		{"{{title}} {{nope}}", "", false},
+		{"{{empty}}", "", false},
+		{"{{tags}}", "", false},
+	} {
+		if got, filled := mtp.FillAllTemplateTags(tc.in, j); got != tc.want || filled != tc.filled {
+			t.Errorf("FillAllTemplateTags(%q) = %q, %v; want %q, %v", tc.in, got, filled, tc.want, tc.filled)
+		}
+	}
+}
+
 // TestMakeDateTagFormats tests a date tag is made in every format, including the two without a year.
 func TestMakeDateTagFormats(t *testing.T) {
 	fd := &models.FileData{MDates: &models.MetadataDates{FormattedDate: "2024-05-01"}}

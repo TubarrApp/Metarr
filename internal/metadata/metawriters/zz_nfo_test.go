@@ -10,6 +10,7 @@ import (
 	"metarr/internal/domain/enums"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 )
 
 // TestMain gives the global logger a console writer, since the zero value has none.
@@ -39,7 +40,7 @@ func TestOverrideXMLFields(t *testing.T) {
 		enums.OverrideMetaTitles:  "Cats & Dogs",
 		enums.OverrideMetaDates:   "2024-05-01",
 		enums.OverrideMetaCredits: "Mr Cat",
-	})
+	}, parsing.NewMetaTemplateParser("test.nfo"))
 	if !edited {
 		t.Fatal("expected edits")
 	}
@@ -68,14 +69,14 @@ func TestOverrideXMLFields(t *testing.T) {
 		}
 	}
 
-	if _, edited := rw.overrideXMLFields(got, map[enums.OverrideMetaType]string{enums.OverrideMetaCredits: "Mr Cat"}); edited {
+	if _, edited := rw.overrideXMLFields(got, map[enums.OverrideMetaType]string{enums.OverrideMetaCredits: "Mr Cat"}, parsing.NewMetaTemplateParser("test.nfo")); edited {
 		t.Error("re-applying the same override should report no edit")
 	}
 }
 
 // TestOverrideXMLFieldsAddsActor tests that a credits override adds an actor when the NFO has none.
 func TestOverrideXMLFieldsAddsActor(t *testing.T) {
-	got, _ := (&NFOFileRW{}).overrideXMLFields("<movie>\n</movie>", map[enums.OverrideMetaType]string{enums.OverrideMetaCredits: "Mr Cat"})
+	got, _ := (&NFOFileRW{}).overrideXMLFields("<movie>\n</movie>", map[enums.OverrideMetaType]string{enums.OverrideMetaCredits: "Mr Cat"}, parsing.NewMetaTemplateParser("test.nfo"))
 	if !strings.Contains(got, "<name>Mr Cat</name>") {
 		t.Errorf("expected an actor named Mr Cat in:\n%s", got)
 	}
@@ -102,7 +103,7 @@ func TestOverrideJSONFields(t *testing.T) {
 	if !overrideJSONFields(j, map[enums.OverrideMetaType]string{
 		enums.OverrideMetaTitles: "Cats",
 		enums.OverrideMetaDates:  "2024-05-01",
-	}) {
+	}, parsing.NewMetaTemplateParser("test.json")) {
 		t.Fatal("expected edits")
 	}
 

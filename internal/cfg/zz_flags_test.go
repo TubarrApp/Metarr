@@ -1,13 +1,31 @@
 package cfg
 
 import (
+	"io"
 	"slices"
 	"testing"
 
+	"metarr/internal/abstractions"
+	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/domain/logger"
 
 	"github.com/spf13/viper"
 )
+
+// TestMinFreeMemFlagIsRead tests the --min-free-mem value reaches the setting the resource check reads.
+func TestMinFreeMemFlagIsRead(t *testing.T) {
+	logger.Pl.Console = io.Discard
+	if err := rootCmd.PersistentFlags().Parse([]string{"--" + keys.MinFreeMemInput, "1K"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Settings checked later may fail with none given, but this one's read before them.
+	_ = execute()
+	if got := abstractions.GetUint64(keys.MinFreeMem); got != consts.KB {
+		t.Errorf("min free memory = %d, want %d", got, consts.KB)
+	}
+}
 
 // TestPathFlagsKeepCommasAndQuotes tests file and directory flags take each path whole, even with commas and quotes,
 // and are repeated for several.

@@ -88,13 +88,19 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 		}
 	})
 
-	// Send jobs to workers.
+	// Send jobs to workers, stopping on cancellation.
+sendJobs:
 	for name, data := range batch.bp.syncMapToRegularMap(&batch.bp.files.matched) {
-		jobs <- workItem{
+		job := workItem{
 			filename:     name,
 			fileData:     data,
 			metaFilename: batch.bp.filepaths.metaFile,
 			skipVids:     skipVideos,
+		}
+		select {
+		case jobs <- job:
+		case <-ctx.Done():
+			break sendJobs
 		}
 	}
 	close(jobs)
@@ -144,7 +150,7 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 
 // processMetadataFiles processes metafiles such as .json, .nfo, and so on.
 func processMetadataFiles(ctx context.Context, bp *batchProcessor, skipVideos bool, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) {
-	for _, fd := range matchedFiles {
+	for name, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
 		case sharedconsts.MExtJSON:
@@ -157,6 +163,9 @@ func processMetadataFiles(ctx context.Context, bp *batchProcessor, skipVideos bo
 		if err != nil {
 			vars.AddToErrorArray(err)
 			logger.Pl.E("Failed processing metadata for file %q: %v", fd.OriginalVideoPath, err)
+
+			// Without its metadata, the file goes no further.
+			bp.files.matched.Delete(name)
 
 			muFailed.Lock()
 			bp.logFailedVideos()
