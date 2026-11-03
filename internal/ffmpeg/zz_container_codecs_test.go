@@ -57,7 +57,7 @@ func TestContainerCodecsWithFFmpeg(t *testing.T) {
 	}
 	for src, args := range sources {
 		args = append([]string{"-v", "error"}, args...)
-		if out, err := exec.Command("ffmpeg", append(args, src)...).CombinedOutput(); err != nil {
+		if out, err := exec.Command(sharedconsts.ProgramFFmpeg, append(args, src)...).CombinedOutput(); err != nil {
 			t.Fatalf("making source clip %s: %v\n%s", src, err, out)
 		}
 	}
@@ -123,12 +123,12 @@ func checkContainerCodec(t *testing.T, src, ext, codec string, listed bool, setC
 		t.Fatal(err)
 	}
 	args = append([]string{"-v", "error"}, args...)
-	output, runErr := exec.Command("ffmpeg", args...).CombinedOutput()
+	output, runErr := exec.Command(sharedconsts.ProgramFFmpeg, args...).CombinedOutput()
 
 	// Read back the codec FFmpeg wrote.
 	var probed string
 	if runErr == nil {
-		p, err := exec.Command("ffprobe", "-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", out).CombinedOutput()
+		p, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-show_entries", "stream=codec_name", "-of", "csv=p=0", out).CombinedOutput()
 		if err != nil {
 			runErr = err
 			output = p

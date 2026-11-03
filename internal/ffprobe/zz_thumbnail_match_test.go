@@ -16,7 +16,7 @@ import (
 
 // TestEmbeddedThumbnailNotInMetafile tests a video isn't reprocessed for having a thumbnail its metafile doesn't name, unless it's being stripped.
 func TestEmbeddedThumbnailNotInMetafile(t *testing.T) {
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if _, err := exec.LookPath(sharedconsts.ProgramFFmpeg); err != nil {
 		t.Skip("FFmpeg isn't installed")
 	}
 	logger.Pl.Console = io.Discard
@@ -24,11 +24,11 @@ func TestEmbeddedThumbnailNotInMetafile(t *testing.T) {
 
 	dir := t.TempDir()
 	thumbnail := filepath.Join(dir, "thumbnail.jpg")
-	if out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=d=0.1:s=32x32", "-frames:v", "1", thumbnail).CombinedOutput(); err != nil {
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=d=0.1:s=32x32", "-frames:v", "1", thumbnail).CombinedOutput(); err != nil {
 		t.Fatalf("making thumbnail: %v\n%s", err, out)
 	}
 	path := filepath.Join(dir, "v.mp4")
-	if out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=64x36:r=5:d=0.4", "-i", thumbnail,
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=64x36:r=5:d=0.4", "-i", thumbnail,
 		"-map", "0", "-map", "1", "-c:v:0", "mpeg4", "-c:v:1", "copy", "-disposition:v:1", "attached_pic", path).CombinedOutput(); err != nil {
 		t.Fatalf("making source video: %v\n%s", err, out)
 	}
@@ -48,13 +48,13 @@ func TestEmbeddedThumbnailNotInMetafile(t *testing.T) {
 
 // TestMissingThumbnailOnlyMattersWhereItFits tests a video without the metadata's thumbnail is only reprocessed in a container that can hold one.
 func TestMissingThumbnailOnlyMattersWhereItFits(t *testing.T) {
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if _, err := exec.LookPath(sharedconsts.ProgramFFmpeg); err != nil {
 		t.Skip("FFmpeg isn't installed")
 	}
 	logger.Pl.Console = io.Discard
 
 	path := filepath.Join(t.TempDir(), "v.mp4")
-	if out, err := exec.Command("ffmpeg", "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=64x36:r=5:d=0.4", "-c:v", "mpeg4", path).CombinedOutput(); err != nil {
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-nostdin", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=64x36:r=5:d=0.4", "-c:v", "mpeg4", path).CombinedOutput(); err != nil {
 		t.Fatalf("making source video: %v\n%s", err, out)
 	}
 	fd := models.NewFileData()

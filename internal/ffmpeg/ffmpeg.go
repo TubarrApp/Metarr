@@ -6,20 +6,18 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/vars"
+	"metarr/internal/ffprobe"
 	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"metarr/internal/report"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -33,7 +31,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	outputFileExt, replaced := parsing.OutputExt(fd.OriginalVideoPath)
 
 	// Work out the codecs, stopping here if the video needs no processing.
-	targetVCodec, targetACodec, skip, err := prepareCodecs(ctx, fd, outputFileExt, replaced)
+	targetVCodec, targetACodec, reencode, skip, err := prepareCodecs(ctx, fd, outputFileExt, replaced)
 	if err != nil {
 		return err
 	}
@@ -54,14 +52,14 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}()
 
 	// Write the new video to the temp path, then move it into place.
-	if err := executeFFmpeg(ctx, fd, tmpOutPath, targetVCodec, targetACodec, outputFileExt); err != nil {
+	if err := executeFFmpeg(ctx, fd, tmpOutPath, targetVCodec, targetACodec, outputFileExt, reencode); err != nil {
 		return err
 	}
 	return finalizeOutput(fd, tmpOutPath, outputFileExt, replaced)
 }
 
-// prepareCodecs returns the codecs to write a video in, or whether it needs no processing at all.
-func prepareCodecs(ctx context.Context, fd *models.FileData, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, skip bool, err error) {
+// prepareCodecs returns the codecs to write a video in and whether to encode it again in its own, or whether it needs no processing at all.
+func prepareCodecs(ctx context.Context, fd *models.FileData, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, reencode, skip bool, err error) {
 	inputFilePath := fd.OriginalVideoPath
 	inputFileExt := filepath.Ext(inputFilePath)
 
@@ -75,27 +73,35 @@ func prepareCodecs(ctx context.Context, fd *models.FileData, outputFileExt strin
 	targetVCodec = getOutputCodecString(keys.TranscodeVideoCodecMap, inputFileVCodec, sharedconsts.Video)
 	targetACodec = getOutputCodecString(keys.TranscodeAudioCodecMap, inputFileACodec, sharedconsts.Audio)
 
+	// A video already in the target output codec may still need encoding.
+	reencode = reencodeVideo(ctx, inputFilePath, inputFileVCodec)
+
 	// A video FFmpeg can't rewrite is left alone unless it needs changing, then written anew beside it.
 	if replaced {
-		if skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, inputFileExt) {
-			return "", "", true, nil
+		if !reencode && skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, inputFileExt) {
+			return "", "", false, true, nil
 		}
 		logger.Pl.W("FFmpeg can't write %s files that play, so %q will be written as a %s file, keeping the original", inputFileExt, inputFilePath, outputFileExt)
 	}
 
 	// Make sure the output container can hold the codecs.
 	if targetVCodec, err = fitVideoCodecToContainer(ctx, inputFilePath, outputFileExt, inputFileVCodec.Codec, targetVCodec); err != nil {
-		return "", "", false, err
+		return "", "", false, false, err
 	}
 	if targetACodec, err = fitAudioCodecToContainer(ctx, inputFilePath, outputFileExt, inputFileACodec.Codec, targetACodec); err != nil {
-		return "", "", false, err
+		return "", "", false, false, err
+	}
+
+	// A video encoded again with no codec named stays in its own, which the container was just checked for.
+	if reencode && (targetVCodec == "" || targetVCodec == sharedconsts.VCodecCopy) {
+		targetVCodec = inputFileVCodec.Codec
 	}
 
 	// Return early if no processing is needed.
-	if skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt) {
-		return "", "", true, nil
+	if !reencode && skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt) {
+		return "", "", false, true, nil
 	}
-	return targetVCodec, targetACodec, false, nil
+	return targetVCodec, targetACodec, reencode, false, nil
 }
 
 // prepareOutputPaths sets the video's post-FFmpeg path in its model, and returns the temp path FFmpeg writes to.
@@ -121,13 +127,13 @@ func prepareOutputPaths(fd *models.FileData, outputFileExt string) (tmpOutPath s
 }
 
 // executeFFmpeg runs FFmpeg to write the new video at tmpOutPath, trying again if it fails.
-func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath, targetVCodec, targetACodec, outputFileExt string) error {
+func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath, targetVCodec, targetACodec, outputFileExt string, reencode bool) error {
 	inputFilePath := fd.OriginalVideoPath
 	baseName := parsing.GetBaseNameWithoutExt(inputFilePath)
 
 	// Run the FFmpeg command (n total attempts).
 	maxAttempts := 3
-	durationUS := probeDurationUS(inputFilePath)
+	durationUS := ffprobe.ProbeDurationUS(inputFilePath)
 	builder, err := newFfCommandBuilder(fd, tmpOutPath)
 	if err != nil {
 		return err
@@ -136,7 +142,7 @@ func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath, targetV
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.
-		args, err := builder.buildCommand(ctx, fd, targetVCodec, targetACodec, outputFileExt)
+		args, err := builder.buildCommand(ctx, fd, targetVCodec, targetACodec, outputFileExt, reencode)
 		if err != nil {
 			return err
 		}
@@ -305,7 +311,7 @@ func getCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec,
 	}
 
 	// Determine codecs and video compression level.
-	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = probeCodecs(inputFile); err != nil {
+	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = ffprobe.ProbeCodecs(inputFile); err != nil {
 		return blankFromCodec, blankFromCodec, err
 	}
 
@@ -320,193 +326,4 @@ func getCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec,
 	// Log and return detected codecs.
 	logger.Pl.D(1, "Detected codecs - video: %s, audio: %s", videoCodec.Codec, audioCodec.Codec)
 	return videoCodec, audioCodec, nil
-}
-
-// ffprobeBPPPFOutput holds info used to grab codecs and calculate BPPPF (compression level).
-type ffprobeCodecOutput struct {
-	Streams []ffprobeCodecOutputStream `json:"streams"`
-	Format  struct {
-		BitRate string `json:"bit_rate"`
-	} `json:"format"`
-}
-
-// ffprobeCodecOutputStream holds the info grabbed for the stream.
-type ffprobeCodecOutputStream struct {
-	CodecType    string `json:"codec_type"`
-	CodecName    string `json:"codec_name"`
-	Width        int    `json:"width"`
-	Height       int    `json:"height"`
-	AvgFrameRate string `json:"avg_frame_rate"`
-	BitRate      string `json:"bit_rate"`
-	SampleRate   string `json:"sample_rate"`
-	Channels     int    `json:"channels"`
-	Disposition  struct {
-		AttachedPic int `json:"attached_pic"`
-	} `json:"disposition"`
-}
-
-// probeCodecs determines the codecs and compression level of the video and audio through FFprobe.
-func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompression, videoCompression sharedconsts.CompressionLevel, err error) {
-	if inputFile == "" {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, fmt.Errorf("input file sent in empty")
-	}
-
-	// FFprobe command to grab relevant values.
-	cmd := exec.Command("ffprobe",
-		"-v", "error",
-		"-show_entries",
-		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels:stream_disposition=attached_pic:format=bit_rate",
-		"-of", "json",
-		inputFile,
-	)
-
-	// Run.
-	raw, err := cmd.Output()
-	if err != nil {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, err
-	}
-
-	var vInfo ffprobeCodecOutput
-	if err := json.Unmarshal(raw, &vInfo); err != nil {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, err
-	}
-
-	// Find the first video and audio streams. A thumbnail isn't the video.
-	var video *ffprobeCodecOutputStream
-	var audio *ffprobeCodecOutputStream
-	for i := range vInfo.Streams {
-		stream := &vInfo.Streams[i]
-
-		switch stream.CodecType {
-		case "video":
-			if video == nil && stream.Disposition.AttachedPic == 0 {
-				video = stream
-				videoCodec = strings.TrimSpace(video.CodecName)
-				logger.Pl.I("Got video codec from '%s' as '%s'", inputFile, videoCodec)
-			}
-		case "audio":
-			if audio == nil {
-				audio = stream
-				audioCodec = strings.TrimSpace(audio.CodecName)
-				logger.Pl.I("Got audio codec from '%s' as '%s'", inputFile, audioCodec)
-			}
-		}
-	}
-
-	// Determine video compression level, left unknown if it can't be worked out so the codecs still count.
-	if video == nil {
-		logger.Pl.I("No video stream in '%s', so only its audio can be transcoded", inputFile)
-	} else if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, inputFile); err != nil {
-		logger.Pl.W("Can't tell how compressed the video in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
-		videoCompression = sharedconsts.CompressionBlank
-	}
-
-	// Determine audio compression level, likewise.
-	if audio != nil {
-		if audioCompression, err = getAudioCompressionLevel(audio, inputFile); err != nil {
-			logger.Pl.W("Can't tell how compressed the audio in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
-			audioCompression = sharedconsts.CompressionBlank
-		}
-	}
-
-	return audioCodec, videoCodec, audioCompression, videoCompression, nil
-}
-
-// getVideoCompressionLevel determines the compression level of a video stream through BPPPF, using the file's bitrate when the stream has none.
-func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, inputFile string) (sharedconsts.CompressionLevel, error) {
-	// Validate video dimensions.
-	if video.Width <= 0 || video.Height <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid video dimensions: %dx%d", video.Width, video.Height)
-	}
-
-	// Parse average frame rate.
-	numerator, denominator, ok := strings.Cut(video.AvgFrameRate, "/")
-	if !ok {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
-	}
-
-	num, err := strconv.ParseFloat(numerator, 64)
-	if err != nil {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q: %w", video.AvgFrameRate, err)
-	}
-
-	den, err := strconv.ParseFloat(denominator, 64)
-	if err != nil || den <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
-	}
-
-	frameRate := num / den
-	if frameRate <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
-	}
-
-	// Parse video bitrate, else the whole file's.
-	bitRate, err := strconv.ParseFloat(cmp.Or(video.BitRate, fileBitRate), 64)
-	if err != nil || bitRate <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("no video bitrate (stream %q, file %q)", video.BitRate, fileBitRate)
-	}
-
-	// Calculate BPPPF.
-	bpppf := bitRate / (float64(video.Width) * float64(video.Height) * frameRate)
-
-	// Determine compression level.
-	compressionLevel := "low compression"
-	var compression sharedconsts.CompressionLevel
-	switch {
-	case bpppf < sharedconsts.BPPPFHighCompressionThreshold:
-		compression = sharedconsts.CompressionHigh
-		compressionLevel = "high compression"
-	case bpppf < sharedconsts.BPPPFMediumCompressionThreshold:
-		compression = sharedconsts.CompressionMedium
-		compressionLevel = "average compression"
-	default:
-		compression = sharedconsts.CompressionLow
-	}
-
-	logger.Pl.I("Video '%s''s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s.", inputFile, bitRate, video.Width, video.Height, frameRate, compressionLevel)
-	return compression, nil
-}
-
-// getAudioCompressionLevel determines the compression level of an audio stream.
-func getAudioCompressionLevel(audio *ffprobeCodecOutputStream, inputFile string) (sharedconsts.CompressionLevel, error) {
-	if audio == nil {
-		return sharedconsts.CompressionBlank, fmt.Errorf("audio stream is nil")
-	}
-
-	// Parse audio sample rate.
-	sampleRate, err := strconv.ParseFloat(audio.SampleRate, 64)
-	if err != nil || sampleRate <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio sample rate %q", audio.SampleRate)
-	}
-
-	// Validate audio channels.
-	if audio.Channels <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio channel count %d", audio.Channels)
-	}
-
-	// Parse audio bitrate.
-	bitRate, err := strconv.ParseFloat(audio.BitRate, 64)
-	if err != nil || bitRate <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio bitrate %q", audio.BitRate)
-	}
-
-	// Calculate bits per second per channel, normalised to 48 kHz.
-	bpspc := bitRate / float64(audio.Channels) * (48000 / sampleRate)
-
-	// Determine compression level.
-	compressionLevel := "low compression"
-	var compression sharedconsts.CompressionLevel
-	switch {
-	case bpspc < sharedconsts.AudioBPSPCHighCompressionThreshold:
-		compression = sharedconsts.CompressionHigh
-		compressionLevel = "high compression"
-	case bpspc < sharedconsts.AudioBPSPCMediumCompressionThreshold:
-		compression = sharedconsts.CompressionMedium
-		compressionLevel = "average compression"
-	default:
-		compression = sharedconsts.CompressionLow
-	}
-
-	logger.Pl.I("Video '%s's audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the audio has %s.", inputFile, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
-	return compression, nil
 }

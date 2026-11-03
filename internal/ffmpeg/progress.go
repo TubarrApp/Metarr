@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"metarr/internal/domain/logger"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -88,23 +87,4 @@ func (p *progressWriter) report(done bool) {
 		progressPrefix, pct, frame, fps, speed, eta, p.pass, p.passes); err != nil {
 		logger.Pl.E("Failed to output FFmpeg progress: %v", err)
 	}
-}
-
-// probeDurationUS returns a file's duration in microseconds, or 0 if FFprobe can't read it.
-func probeDurationUS(inputFile string) int64 {
-	out, err := exec.Command("ffprobe",
-		"-v", "error",
-		"-show_entries", "format=duration",
-		"-of", "default=noprint_wrappers=1:nokey=1",
-		inputFile,
-	).Output()
-	if err != nil {
-		logger.Pl.D(1, "Could not read the duration of %q, progress will have no percentage: %v", inputFile, err)
-		return 0
-	}
-	secs, err := strconv.ParseFloat(strings.TrimSpace(string(out)), 64)
-	if err != nil || secs <= 0 {
-		return 0
-	}
-	return int64(secs * 1e6)
 }

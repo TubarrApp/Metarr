@@ -139,9 +139,11 @@ var PixFmtEquivalents = map[string][]string{
 	"yuv444p":     {"vuyx"},
 	"yuv444p10le": {"yuv444p16le", "xv30le"},
 	"nv12":        {"yuv420p"},
+	"nv21":        {"yuv420p"},
 	"p010le":      {"yuv420p10le"},
 	"p012le":      {"yuv420p12le"},
 	"nv16":        {"yuv422p"},
+	"nv20le":      {"yuv422p10le"},
 	"p210le":      {"yuv422p10le"},
 	"y210le":      {"yuv422p10le"},
 }

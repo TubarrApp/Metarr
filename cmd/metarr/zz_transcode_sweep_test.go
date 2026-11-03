@@ -624,7 +624,7 @@ type sweepProbed struct {
 // sweepProbe reads a file's streams.
 func sweepProbe(path string) (sweepProbed, error) {
 	var probed sweepProbed
-	out, err := exec.Command("ffprobe", "-v", "error", "-show_entries",
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-show_entries",
 		"stream=codec_type,codec_name,pix_fmt,width,height:stream_disposition=attached_pic", "-of", "json", path).Output()
 	if err != nil {
 		return probed, err
@@ -694,7 +694,7 @@ type sweepDecoded struct {
 func sweepDecode(path, scratch string) sweepDecoded {
 	videoLevels := filepath.Join(scratch, "video.levels")
 	audioLevels := filepath.Join(scratch, "audio.levels")
-	cmd := exec.Command("ffmpeg", "-hide_banner", "-nostats", "-v", "error", "-y", "-i", path,
+	cmd := exec.Command(sharedconsts.ProgramFFmpeg, "-hide_banner", "-nostats", "-v", "error", "-y", "-i", path,
 		"-map", "0:V:0?", "-map", "0:a:0?",
 		"-vf", "format=yuv420p,signalstats,metadata=print:file="+videoLevels,
 		"-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level:file="+audioLevels,
@@ -815,7 +815,7 @@ func (sw *sweep) fixture(src sweepSource) *sweepFixture {
 		defer func() { _ = os.RemoveAll(dir) }()
 
 		path := filepath.Join(dir, "source"+src.Ext)
-		if out, err := exec.Command("ffmpeg", src.makeArgs(sw.assets, path)...).CombinedOutput(); err != nil {
+		if out, err := exec.Command(sharedconsts.ProgramFFmpeg, src.makeArgs(sw.assets, path)...).CombinedOutput(); err != nil {
 			fx.err = fmt.Errorf("%s", sweepCleanLine(sweepFirstError(string(out))))
 			return
 		}
@@ -1316,8 +1316,8 @@ func sweepMP4Family(ext string) bool {
 
 // sweepCheckPixFmt checks an encoded video came out in the pixel format asked.
 func sweepCheckPixFmt(c sweepCase, source, got, gotPixFmt string) []sweepIssue {
-	// Only an encoder sets a pixel format, and Metarr copies a video already in the codec asked.
-	if got == source || got != c.ArgsCodec {
+	// Only an encoder sets a pixel format, and Metarr only encodes a video in its own codec if nothing names another for it.
+	if got != c.ArgsCodec || (got == source && !sweepEncodesOwnCodec(c, source)) {
 		return nil
 	}
 	args := strings.Fields(strings.ReplaceAll(c.VideoArgs, sweepArgSeparator, " "))
@@ -1334,10 +1334,32 @@ func sweepCheckPixFmt(c sweepCase, source, got, gotPixFmt string) []sweepIssue {
 	if (got == sharedconsts.VCodecH264 && strings.HasPrefix(asked, "gray")) || asked == "yuva420p" {
 		return nil
 	}
+
+	// Full range formats have the same bit depth and chroma.
+	asked = strings.Replace(asked, "yuvj", "yuv", 1)
+	gotPixFmt = strings.Replace(gotPixFmt, "yuvj", "yuv", 1)
 	if gotPixFmt != asked && !slices.Contains(consts.PixFmtEquivalents[asked], gotPixFmt) {
 		return []sweepIssue{{class: "wrong-pixel-format", detail: fmt.Sprintf("%s: asked %s, got %s", got, asked, gotPixFmt)}}
 	}
 	return nil
+}
+
+// sweepEncodesOwnCodec reports whether a video with a -pix_fmt set for its own codec would be encoded in it: "copy" or
+// another codec named for it, or extra args replacing the codec, leave it as it is.
+func sweepEncodesOwnCodec(c sweepCase, source string) bool {
+	var entries []string
+	if c.VideoCodecs != "" {
+		entries = []string{c.VideoCodecs}
+	}
+	all, pairs, err := sharedparsing.ParseCodecMappings(entries, sharedvalidation.ValidateVideoCodec)
+	if err != nil {
+		return false
+	}
+	want, settled := sweepWant(all, pairs, source)
+	if !settled || (want != "" && want != source) {
+		return false
+	}
+	return !slices.ContainsFunc(sweepVideoOverrides, func(o string) bool { return sweepHasOption(c.ExtraArgs, o) })
 }
 
 // sweepDecodeComplaint returns the first error from decoding a file that says something's wrong with it. Timestamps
@@ -1365,7 +1387,7 @@ func sweepAssets(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	for _, ext := range sweepThumbnailExts {
-		out, err := exec.Command("ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", "color=black:s=64x64", "-frames:v", "1", "-update", "1",
+		out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", "color=black:s=64x64", "-frames:v", "1", "-update", "1",
 			filepath.Join(dir, "thumb."+ext)).CombinedOutput()
 		if err != nil {
 			t.Fatalf("making the %s thumbnail: %v\n%s", ext, err, out)
@@ -1569,7 +1591,7 @@ func TestTranscodeSweep(t *testing.T) {
 		sweepClipSeconds = clip
 	}
 
-	versionOut, err := exec.Command("ffmpeg", "-hide_banner", "-version").Output()
+	versionOut, err := exec.Command(sharedconsts.ProgramFFmpeg, "-hide_banner", "-version").Output()
 	if err != nil {
 		t.Skipf("FFmpeg isn't installed: %v", err)
 	}

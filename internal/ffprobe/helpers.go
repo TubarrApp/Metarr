@@ -4,9 +4,12 @@
 package ffprobe
 
 import (
+	"cmp"
+	"fmt"
 	"metarr/internal/domain/logger"
 	"metarr/internal/parsing"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -236,4 +239,103 @@ func (tags ffprobeTags) get(key string) string {
 	}
 
 	return ""
+}
+
+// getVideoCompressionLevel determines the compression level of a video stream through BPPPF, using the file's bitrate when the stream has none.
+func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, inputFile string) (sharedconsts.CompressionLevel, error) {
+	// Validate video dimensions.
+	if video.Width <= 0 || video.Height <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid video dimensions: %dx%d", video.Width, video.Height)
+	}
+
+	// Parse average frame rate.
+	numerator, denominator, ok := strings.Cut(video.AvgFrameRate, "/")
+	if !ok {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
+	}
+
+	num, err := strconv.ParseFloat(numerator, 64)
+	if err != nil {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q: %w", video.AvgFrameRate, err)
+	}
+
+	den, err := strconv.ParseFloat(denominator, 64)
+	if err != nil || den <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
+	}
+
+	frameRate := num / den
+	if frameRate <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid average frame rate %q", video.AvgFrameRate)
+	}
+
+	// Parse video bitrate, else the whole file's.
+	bitRate, err := strconv.ParseFloat(cmp.Or(video.BitRate, fileBitRate), 64)
+	if err != nil || bitRate <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("no video bitrate (stream %q, file %q)", video.BitRate, fileBitRate)
+	}
+
+	// Calculate BPPPF.
+	bpppf := bitRate / (float64(video.Width) * float64(video.Height) * frameRate)
+
+	// Determine compression level.
+	compressionLevel := "low compression"
+	var compression sharedconsts.CompressionLevel
+	switch {
+	case bpppf < sharedconsts.BPPPFHighCompressionThreshold:
+		compression = sharedconsts.CompressionHigh
+		compressionLevel = "high compression"
+	case bpppf < sharedconsts.BPPPFMediumCompressionThreshold:
+		compression = sharedconsts.CompressionMedium
+		compressionLevel = "average compression"
+	default:
+		compression = sharedconsts.CompressionLow
+	}
+
+	logger.Pl.I("Video '%s''s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s.", inputFile, bitRate, video.Width, video.Height, frameRate, compressionLevel)
+	return compression, nil
+}
+
+// getAudioCompressionLevel determines the compression level of an audio stream.
+func getAudioCompressionLevel(audio *ffprobeCodecOutputStream, inputFile string) (sharedconsts.CompressionLevel, error) {
+	if audio == nil {
+		return sharedconsts.CompressionBlank, fmt.Errorf("audio stream is nil")
+	}
+
+	// Parse audio sample rate.
+	sampleRate, err := strconv.ParseFloat(audio.SampleRate, 64)
+	if err != nil || sampleRate <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio sample rate %q", audio.SampleRate)
+	}
+
+	// Validate audio channels.
+	if audio.Channels <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio channel count %d", audio.Channels)
+	}
+
+	// Parse audio bitrate.
+	bitRate, err := strconv.ParseFloat(audio.BitRate, 64)
+	if err != nil || bitRate <= 0 {
+		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio bitrate %q", audio.BitRate)
+	}
+
+	// Calculate bits per second per channel, normalised to 48 kHz.
+	bpspc := bitRate / float64(audio.Channels) * (48000 / sampleRate)
+
+	// Determine compression level.
+	compressionLevel := "low compression"
+	var compression sharedconsts.CompressionLevel
+	switch {
+	case bpspc < sharedconsts.AudioBPSPCHighCompressionThreshold:
+		compression = sharedconsts.CompressionHigh
+		compressionLevel = "high compression"
+	case bpspc < sharedconsts.AudioBPSPCMediumCompressionThreshold:
+		compression = sharedconsts.CompressionMedium
+		compressionLevel = "average compression"
+	default:
+		compression = sharedconsts.CompressionLow
+	}
+
+	logger.Pl.I("Video '%s's audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the audio has %s.", inputFile, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
+	return compression, nil
 }

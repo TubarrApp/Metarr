@@ -412,6 +412,25 @@ func ValidateAndSetVideoArgs(lines []string) error {
 	return nil
 }
 
+// ValidateEncoderSettings refuses encoder settings that can't work, before any file is touched.
+func ValidateEncoderSettings() error {
+	// Auto always encodes in software. With a GPU, which encoder runs is only known per video.
+	gpu := strings.ToLower(abstractions.GetString(keys.TranscodeGPU))
+
+	err := sharedparsing.CheckEncoderSettings(sharedmodels.EncoderSettings{
+		VideoArgs:   abstractions.GetStringSlice(keys.TranscodeVideoArgs),
+		VideoCodecs: abstractions.GetStringSlice(keys.TranscodeVideoCodecInput),
+		AudioCodecs: abstractions.GetStringSlice(keys.TranscodeAudioCodecInput),
+		ExtraArgs:   abstractions.GetString(keys.ExtraFFmpegArgs),
+		OutputExt:   abstractions.GetString(keys.OutputFiletype),
+		Software:    gpu == "" || gpu == sharedconsts.AccelTypeAuto,
+	})
+	if err != nil {
+		return fmt.Errorf("invalid encoder settings: %w", err)
+	}
+	return nil
+}
+
 // ValidateExtraFFmpegArgs refuses extra FFmpeg args holding an option that only works when encoding.
 func ValidateExtraFFmpegArgs(a string) error {
 	args, err := sharedparsing.ShellSplit(a)

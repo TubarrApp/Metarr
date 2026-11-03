@@ -3,7 +3,6 @@ package ffmpeg
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"maps"
@@ -12,6 +11,7 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/vars"
+	"metarr/internal/ffprobe"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
 	"net/http"
@@ -24,8 +24,8 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
-	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // availableCodecsCache caches the codecs in FFmpeg to avoid repeated calls.
@@ -104,7 +104,7 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) (*ffCommandBuil
 }
 
 // buildCommand constructs the complete FFmpeg command.
-func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, desiredVCodec, desiredACodec, outExt string) ([]string, error) {
+func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, desiredVCodec, desiredACodec, outExt string, reencode bool) ([]string, error) {
 	if b.inputFile == "" || b.outputFile == "" {
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
@@ -116,19 +116,28 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 	}
 	availableCodecs := availableEncoders(ctx)
 
+	// A video encoded again has no codec to copy, not even its own.
+	copyVCodec := currentVCodec.Codec
+	if reencode {
+		copyVCodec = ""
+	}
+
 	// Get GPU flags/codecs.
 	accelType, useHWDecode := b.setHWAccelFlags()
-	b.setGPUAccelerationCodec(accelType, currentVCodec.Codec, desiredVCodec, availableCodecs)
+	b.setGPUAccelerationCodec(accelType, copyVCodec, desiredVCodec, availableCodecs)
 
 	logger.Pl.D(1, "Transcoding to codec %q from current codec %q", desiredVCodec, currentVCodec)
 
 	// Get software codecs.
 	if b.videoCodecGPU == nil {
-		if err := b.setVideoSoftwareCodec(currentVCodec.Codec, desiredVCodec, availableCodecs); err != nil {
+		if err := b.setVideoSoftwareCodec(copyVCodec, desiredVCodec, availableCodecs); err != nil {
 			return nil, err
 		}
 	}
 	if err := b.setAudioCodec(currentACodec.Codec, desiredACodec, availableCodecs); err != nil {
+		return nil, err
+	}
+	if err := b.checkCopiedAudioFilter(currentACodec.Codec); err != nil {
 		return nil, err
 	}
 	if err := b.setVideoEncoderArgs(ctx, accelType, desiredVCodec); err != nil {
@@ -207,7 +216,7 @@ func (b *ffCommandBuilder) bitstreamFilters(ctx context.Context, outExt string) 
 	encoding := b.videoCodecGPU != nil || (len(b.videoCodecSoftware) >= 2 && b.videoCodecSoftware[1] != consts.FFVCodecKeyCopy)
 
 	var filters []string
-	for i, codec := range probeStreamCodecs(ctx, b.inputFile, "V") {
+	for i, codec := range ffprobe.ProbeStreamCodecs(ctx, b.inputFile, "V") {
 		if i == 0 && encoding {
 			continue
 		}
@@ -238,7 +247,7 @@ func (b *ffCommandBuilder) subtitleMaps(ctx context.Context, inExt, outExt strin
 		return []string{"-map", "0:s?"}
 	}
 
-	subtitles := probeStreamCodecs(ctx, b.inputFile, "s")
+	subtitles := ffprobe.ProbeStreamCodecs(ctx, b.inputFile, "s")
 	if subtitleEncoderFor(inExt, outExt) == "" {
 		if len(subtitles) > 0 {
 			logger.Pl.W("Leaving out the subtitles of %q, as %s files can't hold them", b.inputFile, outExt)
@@ -256,33 +265,6 @@ func (b *ffCommandBuilder) subtitleMaps(ctx context.Context, inExt, outExt strin
 		subtitleMaps = append(subtitleMaps, "-map", "0:s:"+strconv.Itoa(i))
 	}
 	return subtitleMaps
-}
-
-// probeStreamCodecs returns the codec names of a file's streams of a type ("s", "t"), in order, blank if unknown.
-func probeStreamCodecs(ctx context.Context, inputFile, streamType string) []string {
-	cmd := exec.CommandContext(ctx, "ffprobe",
-		"-v", "error",
-		"-select_streams", streamType,
-		"-show_entries", "stream=codec_name",
-		"-of", "json",
-		inputFile,
-	)
-	raw, err := cmd.Output()
-	if err != nil {
-		logger.Pl.E("Failed to check the %q streams of %q: %v", streamType, inputFile, err)
-		return nil
-	}
-
-	var probed ffprobeCodecOutput
-	if err := json.Unmarshal(raw, &probed); err != nil {
-		logger.Pl.E("Failed to read the %q streams of %q: %v", streamType, inputFile, err)
-		return nil
-	}
-	codecs := make([]string, 0, len(probed.Streams))
-	for _, stream := range probed.Streams {
-		codecs = append(codecs, stream.CodecName)
-	}
-	return codecs
 }
 
 // setThumbnail sets the thumbnail image in the video metadata.
@@ -313,7 +295,7 @@ func (b *ffCommandBuilder) setThumbnail(ctx context.Context, thumbnailURL, video
 
 	// Ensure JPG, going by what the file holds, as its name may not say.
 	var err error
-	if codecs := probeStreamCodecs(ctx, thumbnail, "v"); len(codecs) != 1 || codecs[0] != jpgCodec {
+	if codecs := ffprobe.ProbeStreamCodecs(ctx, thumbnail, "v"); len(codecs) != 1 || codecs[0] != jpgCodec {
 		if thumbnail, err = convertToJPG(thumbnail, jpgPath); err != nil {
 			logger.Pl.E("Could not convert thumbnail %q to JPG: %v", thumbnail, err)
 			return
@@ -327,7 +309,7 @@ func (b *ffCommandBuilder) setThumbnail(ctx context.Context, thumbnailURL, video
 // keepThumbnails embeds the video's own thumbnails in the new video, for where copying them wouldn't keep them as thumbnails.
 func (b *ffCommandBuilder) keepThumbnails(ctx context.Context, outExt string) error {
 	// Find the thumbnails, if there are any.
-	thumbnails := probeThumbnailStreams(ctx, b.inputFile)
+	thumbnails := ffprobe.ProbeThumbnailStreams(ctx, b.inputFile)
 	if len(thumbnails) == 0 {
 		return nil
 	}
@@ -353,57 +335,13 @@ func (b *ffCommandBuilder) keepThumbnails(ctx context.Context, outExt string) er
 		} else {
 			args = append(args, jpgQualityArgs...)
 		}
-		if out, err := exec.CommandContext(ctx, "ffmpeg", append(args, tmp.Name())...).CombinedOutput(); err != nil {
+		if out, err := exec.CommandContext(ctx, sharedconsts.ProgramFFmpeg, append(args, tmp.Name())...).CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to take out the thumbnail of %q: %w\n%s", b.inputFile, err, out)
 		}
 
 		b.embedThumbnail(ctx, tmp.Name(), outExt, cmp.Or(stream.Tags.Filename, thumbnailFilename), cmp.Or(stream.Tags.Mimetype, thumbnailMimetype))
 	}
 	return nil
-}
-
-// thumbnailStream is a thumbnail embedded in a video.
-type thumbnailStream struct {
-	Index       int    `json:"index"`
-	CodecName   string `json:"codec_name"`
-	Disposition struct {
-		AttachedPic int `json:"attached_pic"`
-	} `json:"disposition"`
-	Tags struct {
-		Filename string `json:"filename"`
-		Mimetype string `json:"mimetype"`
-	} `json:"tags"`
-}
-
-// probeThumbnailStreams returns a file's embedded thumbnails.
-func probeThumbnailStreams(ctx context.Context, inputFile string) []thumbnailStream {
-	cmd := exec.CommandContext(ctx, "ffprobe",
-		"-v", "error",
-		"-select_streams", "v",
-		"-show_entries", "stream=index,codec_name:stream_disposition=attached_pic:stream_tags=filename,mimetype",
-		"-of", "json",
-		inputFile,
-	)
-	raw, err := cmd.Output()
-	if err != nil {
-		logger.Pl.E("Failed to check %q for thumbnails: %v", inputFile, err)
-		return nil
-	}
-
-	var probed struct {
-		Streams []thumbnailStream `json:"streams"`
-	}
-	if err := json.Unmarshal(raw, &probed); err != nil {
-		logger.Pl.E("Failed to read the thumbnail check of %q: %v", inputFile, err)
-		return nil
-	}
-	var thumbnails []thumbnailStream
-	for _, stream := range probed.Streams {
-		if stream.Disposition.AttachedPic == 1 {
-			thumbnails = append(thumbnails, stream)
-		}
-	}
-	return thumbnails
 }
 
 // embedThumbnail adds the arguments embedding an image file as a thumbnail of the output, if its container can hold one.
@@ -414,7 +352,7 @@ func (b *ffCommandBuilder) embedThumbnail(ctx context.Context, thumbnail, outExt
 		sharedconsts.ExtM4V:
 
 		// The thumbnail comes after the video's own video streams, taken to be one if they can't be read, and any thumbnails before it.
-		videoStreams := probeStreamCodecs(ctx, b.inputFile, "V")
+		videoStreams := ffprobe.ProbeStreamCodecs(ctx, b.inputFile, "V")
 		videoCount := len(videoStreams)
 		if videoStreams == nil {
 			videoCount = 1
@@ -430,7 +368,7 @@ func (b *ffCommandBuilder) embedThumbnail(ctx context.Context, thumbnail, outExt
 
 	case sharedconsts.ExtMKV:
 		// The thumbnail is attached after any attachments the video has, which keep their own mimetypes.
-		index := strconv.Itoa(len(probeStreamCodecs(ctx, b.inputFile, "t")) + b.thumbnailCount)
+		index := strconv.Itoa(len(ffprobe.ProbeStreamCodecs(ctx, b.inputFile, "t")) + b.thumbnailCount)
 		b.thumbnail = append(b.thumbnail,
 			"-attach", thumbnail,
 			"-metadata:s:t:"+index, "mimetype="+mimetype,
@@ -455,7 +393,7 @@ func (b *ffCommandBuilder) removeTempThumbnails() {
 // convertToJPG converts an image to a JPG at outputPath for embedding.
 func convertToJPG(inputPath, outputPath string) (string, error) {
 	args := append([]string{"-y", "-i", inputPath}, jpgQualityArgs...)
-	cmd := exec.Command("ffmpeg", append(args, outputPath)...)
+	cmd := exec.Command(sharedconsts.ProgramFFmpeg, append(args, outputPath)...)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to convert %q to jpg: %w", filepath.Ext(inputPath), err)
 	}
@@ -528,6 +466,22 @@ func downloadThumbnail(ctx context.Context, urlStr, videoBaseName string) (strin
 	}
 
 	return tmpPath, nil
+}
+
+// checkCopiedAudioFilter returns an error if extra FFmpeg args filter audio that's being copied, which would stop FFmpeg.
+func (b *ffCommandBuilder) checkCopiedAudioFilter(currentACodec string) error {
+	// A file with no audio has nothing to filter, and audio that couldn't be read is left for FFmpeg to judge.
+	if currentACodec == "" || currentACodec == sharedconsts.CodecCopy {
+		return nil
+	}
+	if len(b.audioCodec) < 2 || b.audioCodec[1] != sharedconsts.ACodecCopy || !abstractions.IsSet(keys.ExtraFFmpegArgs) {
+		return nil
+	}
+	extraArgs, err := sharedparsing.ShellSplit(abstractions.GetString(keys.ExtraFFmpegArgs))
+	if err != nil {
+		return err
+	}
+	return sharedvalidation.ValidateCopiedAudioFilter(extraArgs)
 }
 
 // setAudioCodec gets the audio codec for transcode operations.
@@ -634,7 +588,7 @@ func (b *ffCommandBuilder) setVideoSoftwareCodec(currentVCodec, desiredVCodec, a
 
 // ffmpegAvailableCodecs lists codecs available in FFmpeg.
 func ffmpegAvailableCodecs(ctx context.Context) (output string) {
-	cmd := exec.CommandContext(ctx, "ffmpeg", "-encoders")
+	cmd := exec.CommandContext(ctx, sharedconsts.ProgramFFmpeg, "-encoders")
 	outBytes, err := cmd.Output()
 	result := strings.TrimSpace(string(outBytes))
 	if err != nil {
@@ -743,14 +697,7 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 	}
 
 	// Get the target codec's args.
-	var encoderArgs sharedmodels.EncoderArgs
-	if abstractions.IsSet(keys.TranscodeVideoArgsMap) {
-		argsMap, ok := abstractions.Get(keys.TranscodeVideoArgsMap).(map[string]sharedmodels.EncoderArgs)
-		if !ok {
-			logger.Pl.DevE("Got wrong type %T for video encoder args map", abstractions.Get(keys.TranscodeVideoArgsMap))
-		}
-		encoderArgs = argsMap[desiredVCodec]
-	}
+	encoderArgs := videoEncoderArgs(desiredVCodec)
 	b.videoFilter = encoderArgs.VideoFilter
 
 	// The bitrate for the video's resolution, never above its own.
@@ -761,6 +708,9 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 
 	// Software encoders take the args as written.
 	if !onGPU {
+		if err := sharedvalidation.ValidateSoftwareEncoderArgs(desiredVCodec, encoderArgs); err != nil {
+			return err
+		}
 		if encoderArgs.Quality != "" {
 			b.qualityParameter = []string{consts.FFmpegCRF, encoderArgs.Quality}
 		}
@@ -844,7 +794,7 @@ func (b *ffCommandBuilder) setEvenSize(ctx context.Context, askedPixFmt string) 
 	}
 
 	// Only odd sizes matter, in formats with less colour detail than picture detail (4:4:4 and RGB can be any size).
-	width, height, sourcePixFmt := probeVideoFrame(ctx, b.inputFile)
+	width, height, sourcePixFmt := ffprobe.ProbeVideoFrame(ctx, b.inputFile)
 	if width%2 == 0 && height%2 == 0 {
 		return nil
 	}

@@ -23,7 +23,7 @@ import (
 func makeClip(t *testing.T, name string, args ...string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
-	if out, err := exec.Command("ffmpeg", append(append([]string{"-v", "error", "-y"}, args...), path)...).CombinedOutput(); err != nil {
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, append(append([]string{"-v", "error", "-y"}, args...), path)...).CombinedOutput(); err != nil {
 		t.Fatalf("making %s: %v\n%s", name, err, out)
 	}
 	return path
@@ -251,7 +251,7 @@ func TestAACIntoAVIArgs(t *testing.T) {
 // lastAudioTime returns when a file's first audio stream ends, going by its last packet.
 func lastAudioTime(t *testing.T, path string) float64 {
 	t.Helper()
-	out, err := exec.Command("ffprobe", "-v", "error", "-select_streams", "a:0", "-show_entries", "packet=pts_time", "-of", "csv=p=0", path).Output()
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-select_streams", "a:0", "-show_entries", "packet=pts_time", "-of", "csv=p=0", path).Output()
 	if err != nil {
 		t.Fatalf("probing %s: %v", path, err)
 	}

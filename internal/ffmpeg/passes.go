@@ -14,6 +14,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // ffmpegLogAddress matches the memory address FFmpeg logs beside a component's name.
@@ -70,7 +72,7 @@ func ffmpegPass(i, passes int) int {
 // runFFmpeg runs FFmpeg, printing its progress as the given pass, and returns its output if it fails.
 func runFFmpeg(ctx context.Context, args []string, durationUS int64, pass, passes int, inputFile string) (string, error) {
 	args = append([]string{"-progress", "pipe:1", "-nostats", "-loglevel", "level+info"}, args...) // level+ tags each line, so ffmpegFailure can find the errors.
-	command := exec.CommandContext(ctx, "ffmpeg", args...)
+	command := exec.CommandContext(ctx, sharedconsts.ProgramFFmpeg, args...)
 	logger.Pl.I("Constructed FFmpeg command for %q:\n\n%v\n", inputFile, command.String())
 
 	// Progress goes to stdout as progress lines, the rest of FFmpeg's output to stderr.

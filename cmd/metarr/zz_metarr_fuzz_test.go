@@ -338,7 +338,7 @@ func (r *metarrFuzzRun) check(output string, ok bool) {
 
 // fuzzPlayable reports whether ffprobe finds a video stream in path.
 func fuzzPlayable(path string) bool {
-	out, err := exec.Command("ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type",
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=codec_type",
 		"-of", "csv=p=0", path).Output()
 	return err == nil && strings.TrimSpace(string(out)) == "video"
 }
@@ -391,13 +391,13 @@ var metarrFuzzSeeds = []struct {
 // panics, hangs, loses a video, leaves temporary files or invalid JSON, or writes outside its folder, and that a
 // successful run did what its flags asked.
 func FuzzMetarr(f *testing.F) {
-	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+	for _, tool := range []string{sharedconsts.ProgramFFmpeg, sharedconsts.ProgramFFprobe} {
 		if _, err := exec.LookPath(tool); err != nil {
 			f.Skipf("%s isn't installed: %v", tool, err)
 		}
 	}
 	clipPath := filepath.Join(f.TempDir(), "clip.mp4")
-	if out, err := exec.Command("ffmpeg", "-loglevel", "error", "-y",
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-loglevel", "error", "-y",
 		"-f", "lavfi", "-i", "testsrc=duration=1:size=64x64:rate=5",
 		"-f", "lavfi", "-i", "sine=d=1",
 		"-shortest", "-pix_fmt", "yuv420p", clipPath).CombinedOutput(); err != nil {
@@ -407,7 +407,7 @@ func FuzzMetarr(f *testing.F) {
 	if err != nil {
 		f.Fatal(err)
 	}
-	encoders, err := exec.Command("ffmpeg", "-hide_banner", "-encoders").Output()
+	encoders, err := exec.Command(sharedconsts.ProgramFFmpeg, "-hide_banner", "-encoders").Output()
 	if err != nil {
 		f.Fatal(err)
 	}

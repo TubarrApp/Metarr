@@ -11,6 +11,7 @@ import (
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/ffprobe"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
@@ -45,12 +46,12 @@ func TestVideoBitrateCapped(t *testing.T) {
 		t.Skip("FFmpeg with libx264 isn't installed")
 	}
 	in := filepath.Join(t.TempDir(), "in.mkv")
-	if out, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10", "-t", "2",
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10", "-t", "2",
 		"-c:v", "libx264", "-b:v", "100k", in).CombinedOutput(); err != nil {
 		t.Fatalf("making the input: %v\n%s", err, out)
 	}
 
-	shorterSide, sourceBitrate := probeVideoSize(t.Context(), in)
+	shorterSide, sourceBitrate := ffprobe.ProbeVideoSize(t.Context(), in)
 	if shorterSide != 90 || sourceBitrate <= 0 {
 		t.Fatalf("probeVideoSize = %d, %d; want 90 and the file's bitrate", shorterSide, sourceBitrate)
 	}

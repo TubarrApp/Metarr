@@ -30,7 +30,7 @@ func TestGetCodecsWithoutStreamBitrate(t *testing.T) {
 			in := filepath.Join(dir, tt.file)
 			args := append([]string{"-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=25", "-f", "lavfi", "-i", "sine",
 				"-t", "2"}, tt.args...)
-			if out, err := exec.Command("ffmpeg", append(args, in)...).CombinedOutput(); err != nil {
+			if out, err := exec.Command(sharedconsts.ProgramFFmpeg, append(args, in)...).CombinedOutput(); err != nil {
 				t.Fatalf("making %s: %v\n%s", tt.file, err, out)
 			}
 

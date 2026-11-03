@@ -2,26 +2,24 @@ package ffmpeg
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
+	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
+	"metarr/internal/ffprobe"
 	"metarr/internal/parsing"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
-
-// copyCheckSeconds is how much of a stream a trial copy takes.
-const copyCheckSeconds = "5"
 
 // fitVideoCodecToContainer returns the video codec to write into a file of extension outputExt, from inputFile.
 // A codec chosen to transcode to (or "copy") must fit, as it's never swapped for another. With none chosen, the video's
@@ -167,48 +165,18 @@ func copySurvives(ctx context.Context, inputFile, stream, outputExt string) bool
 	args := slices.Concat(
 		[]string{"-v", "error", "-y"},
 		consts.FFmpegGeneratePTS,
-		[]string{"-t", copyCheckSeconds, "-i", inputFile, "-map", "0:" + stream + ":0", "-c", "copy"},
+		[]string{"-t", consts.CopyCheckSeconds, "-i", inputFile, "-map", "0:" + stream + ":0", "-c", "copy"},
 		outputMuxerArgs(outputExt),
 		[]string{trial},
 	)
-	if err := exec.CommandContext(ctx, "ffmpeg", args...).Run(); err != nil {
+	if err := exec.CommandContext(ctx, sharedconsts.ProgramFFmpeg, args...).Run(); err != nil {
 		return false
 	}
 
 	// It survived if it reads back as the same codec, with at least half of what the source has over that time.
-	sourceCodec, sourceFrames := probeFirstFrames(ctx, inputFile, stream)
-	trialCodec, trialFrames := probeFirstFrames(ctx, trial, stream)
+	sourceCodec, sourceFrames := ffprobe.ProbeFirstFrames(ctx, inputFile, stream)
+	trialCodec, trialFrames := ffprobe.ProbeFirstFrames(ctx, trial, stream)
 	return trialCodec == sourceCodec && trialFrames > 0 && trialFrames >= sourceFrames/2
-}
-
-// probeFirstFrames returns the codec of a file's first stream of a type ("V", "a"), and how many of its frames read back in a trial copy's length.
-func probeFirstFrames(ctx context.Context, path, stream string) (codec string, frames int) {
-	out, err := exec.CommandContext(ctx, "ffprobe",
-		"-v", "error",
-		"-select_streams", stream+":0",
-		"-read_intervals", "%+"+copyCheckSeconds,
-		"-count_frames",
-		"-show_entries", "stream=codec_name,nb_read_frames",
-		"-of", "json",
-		path,
-	).Output()
-	if err != nil {
-		return "", 0
-	}
-
-	var probed struct {
-		Streams []struct {
-			CodecName  string `json:"codec_name"`
-			ReadFrames string `json:"nb_read_frames"`
-		} `json:"streams"`
-	}
-	if err := json.Unmarshal(out, &probed); err != nil || len(probed.Streams) == 0 {
-		return "", 0
-	}
-
-	// A count FFprobe couldn't make isn't a number, and counts as none.
-	frames, _ = strconv.Atoi(probed.Streams[0].ReadFrames)
-	return probed.Streams[0].CodecName, frames
 }
 
 // encoderInstalled reports whether FFmpeg lists the encoder (or its list couldn't be read, so it can't be judged).
@@ -253,4 +221,62 @@ func getOutputCodecString(key string, currentCodec sharedmodels.FromCodec, codec
 	outputCodec = strings.ReplaceAll(outputCodec, ".", "")
 
 	return outputCodec
+}
+
+// reencodeVideo reports whether a video should be encoded again in its own codec: a "codec:codec" pair always does, and
+// with no "copy" or other codec named for it, so does a -pix_fmt in its codec's args that it isn't in.
+func reencodeVideo(ctx context.Context, inputFile string, currentCodec sharedmodels.FromCodec) bool {
+	// A stream the file doesn't have, or that couldn't be read, has nothing to encode.
+	if currentCodec.Codec == "" || currentCodec.Codec == sharedconsts.CodecCopy {
+		return false
+	}
+
+	// Read what was named, as the codec map's default "copy" looks the same as one asked for.
+	plain, pairs, err := sharedparsing.ParseCodecMappings(abstractions.GetStringSlice(keys.TranscodeVideoCodecInput), sharedvalidation.ValidateVideoCodec)
+	if err != nil {
+		logger.Pl.DevE("Video codec entries passed validation but can't be read: %v", err)
+		return false
+	}
+
+	// A pair for this video decides.
+	to, isPair := pairs[currentCodec]
+	if !isPair {
+		to = pairs[sharedmodels.NewFromCodec(currentCodec.Codec, sharedconsts.CompressionBlank)]
+	}
+	if to != "" {
+		return to == currentCodec.Codec
+	}
+
+	// A plain codec other than its own decides too.
+	if plain != "" && plain != currentCodec.Codec {
+		return false
+	}
+
+	// Only the pixel format can be checked on a finished video, so other args would encode it again on every run.
+	args := videoEncoderArgs(currentCodec.Codec)
+	if args.PixFmt != "" {
+		_, _, sourcePixFmt := ffprobe.ProbeVideoFrame(ctx, inputFile)
+		if sourcePixFmt != "" && !pixFmtMatches(currentCodec.Codec, args.PixFmt, sourcePixFmt) {
+			logger.Pl.I("Video %q is %s rather than the %s asked, so encoding it again as %s", inputFile, sourcePixFmt, args.PixFmt, currentCodec.Codec)
+			return true
+		}
+	}
+
+	// A filter that won't run changes the picture of some videos and not others.
+	if args.VideoFilter != "" {
+		logger.Pl.W("Video %q is already %s, so its -vf isn't applied.", inputFile, currentCodec.Codec)
+	}
+	return false
+}
+
+// videoEncoderArgs returns the args set for encoding to a video codec.
+func videoEncoderArgs(codec string) sharedmodels.EncoderArgs {
+	if !abstractions.IsSet(keys.TranscodeVideoArgsMap) {
+		return sharedmodels.EncoderArgs{}
+	}
+	argsMap, ok := abstractions.Get(keys.TranscodeVideoArgsMap).(map[string]sharedmodels.EncoderArgs)
+	if !ok {
+		logger.Pl.DevE("Got wrong type %T for video encoder args map", abstractions.Get(keys.TranscodeVideoArgsMap))
+	}
+	return argsMap[codec]
 }

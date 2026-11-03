@@ -40,7 +40,7 @@ func TestRoundTripWithFFmpeg(t *testing.T) {
 	// Make a short source clip.
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src.mkv")
-	if out, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=s=176x144:d=0.2", src).CombinedOutput(); err != nil {
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-f", "lavfi", "-i", "color=s=176x144:d=0.2", src).CombinedOutput(); err != nil {
 		t.Fatalf("making source clip: %v\n%s", err, out)
 	}
 	tags := roundTripTags
@@ -65,12 +65,12 @@ func TestRoundTripWithFFmpeg(t *testing.T) {
 			case sharedconsts.ExtRMVB:
 				args = append(args, "-f", "rm")
 			}
-			if output, err := exec.Command("ffmpeg", append(args, out)...).CombinedOutput(); err != nil {
+			if output, err := exec.Command(sharedconsts.ProgramFFmpeg, append(args, out)...).CombinedOutput(); err != nil {
 				t.Skipf("FFmpeg can't write %s here: %v\n%s", ext, err, output)
 			}
 
 			// Read it back and compare.
-			probed, err := exec.Command("ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-show_programs", out).Output()
+			probed, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", "-show_programs", out).Output()
 			if err != nil {
 				t.Fatalf("ffprobe: %v", err)
 			}

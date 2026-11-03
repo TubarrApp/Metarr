@@ -67,7 +67,7 @@ func TestRunPasses(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("TMPDIR", dir) // Pass stats folders go here, so leftovers can be found.
 	in := filepath.Join(dir, "in.mp4")
-	if out, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10", "-t", "1",
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10", "-t", "1",
 		"-c:v", "libx264", in).CombinedOutput(); err != nil {
 		t.Fatalf("making the input: %v\n%s", err, out)
 	}

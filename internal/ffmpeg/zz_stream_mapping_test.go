@@ -126,7 +126,7 @@ func TestSkipProcessingExtensionCase(t *testing.T) {
 // testVideoInputs returns FFmpeg inputs for a short video (0), two audio tracks (1, 2), two subtitle tracks (3, 4) and a thumbnail (5).
 func testVideoInputs(t *testing.T) []string {
 	t.Helper()
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if _, err := exec.LookPath(sharedconsts.ProgramFFmpeg); err != nil {
 		t.Skip("FFmpeg isn't installed")
 	}
 	dir := t.TempDir()
@@ -147,7 +147,7 @@ func testVideoInputs(t *testing.T) []string {
 // runTestFFmpeg runs FFmpeg with args, failing the test if it fails.
 func runTestFFmpeg(t *testing.T, args ...string) {
 	t.Helper()
-	if out, err := exec.Command("ffmpeg", append([]string{"-nostdin", "-v", "error", "-y"}, args...)...).CombinedOutput(); err != nil {
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, append([]string{"-nostdin", "-v", "error", "-y"}, args...)...).CombinedOutput(); err != nil {
 		t.Fatalf("ffmpeg %v: %v\n%s", args, err, out)
 	}
 }
@@ -172,7 +172,7 @@ func makeThumbnailVideo(t *testing.T, inputs []string, name string) string {
 // testProbe returns FFprobe's answer for a file's streams, one sorted entry per stream that has one.
 func testProbe(t *testing.T, path, entries string) []string {
 	t.Helper()
-	out, err := exec.Command("ffprobe", "-v", "error", "-show_entries", entries, "-of", "csv=p=0", path).CombinedOutput()
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-show_entries", entries, "-of", "csv=p=0", path).CombinedOutput()
 	if err != nil {
 		t.Fatalf("probing %s: %v\n%s", path, err, out)
 	}
@@ -286,7 +286,7 @@ func TestCopyToContainersNeedingConversionWithFFmpeg(t *testing.T) {
 
 				// Count frames, as the file's still written when FFmpeg can't convert it, with no video that plays.
 				out := executeTestVideo(t, models.NewFileData(), path, outExt)
-				probe, err := exec.Command("ffprobe", "-v", "error", "-count_frames", "-select_streams", "v:0",
+				probe, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-count_frames", "-select_streams", "v:0",
 					"-show_entries", "stream=codec_name,nb_read_frames", "-of", "csv=p=0", out).Output()
 				if err != nil {
 					t.Fatal(err)
@@ -537,7 +537,7 @@ func TestRetriedCommandSameThumbnailsWithFFmpeg(t *testing.T) {
 			defer b.removeTempThumbnails()
 
 			for attempt := 1; attempt <= 2; attempt++ {
-				args, err := b.buildCommand(t.Context(), fd, "", "", tc.outExt)
+				args, err := b.buildCommand(t.Context(), fd, "", "", tc.outExt, false)
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -15,7 +15,7 @@ import (
 
 // TestPurgeOriginalVideo tests the original video is kept unless purged, as a backup if the new video takes its path.
 func TestPurgeOriginalVideo(t *testing.T) {
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
+	if _, err := exec.LookPath(sharedconsts.ProgramFFmpeg); err != nil {
 		t.Skip("FFmpeg isn't installed")
 	}
 	t.Cleanup(func() {
@@ -40,7 +40,7 @@ func TestPurgeOriginalVideo(t *testing.T) {
 			// Make a short source video.
 			dir := t.TempDir()
 			orig := filepath.Join(dir, "video"+sharedconsts.ExtMP4)
-			if out, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc=s=64x36:r=5:d=0.4", "-c:v", "mpeg4", orig).CombinedOutput(); err != nil {
+			if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=s=64x36:r=5:d=0.4", "-c:v", "mpeg4", orig).CombinedOutput(); err != nil {
 				t.Fatalf("making source video: %v\n%s", err, out)
 			}
 

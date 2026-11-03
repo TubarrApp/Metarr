@@ -187,6 +187,11 @@ func execute() (err error) {
 		}
 	}
 
+	// Encoder settings that can't work are refused before any file is touched.
+	if err := validation.ValidateEncoderSettings(); err != nil {
+		return err
+	}
+
 	// Get meta operations and other transformations.
 	if err := initTransformations(); err != nil {
 		return err

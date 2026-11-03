@@ -1,6 +1,9 @@
 // Package consts holds global unchanging constants and variables.
 package consts
 
+// CopyCheckSeconds is how much of a stream a trial copy takes.
+const CopyCheckSeconds = "5"
+
 // Browser name constants.
 const (
 	BrowserChrome  = "chrome"
