@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // TestSendLogsHTTPS tests that logs reach the URL Tubarr passes, over HTTPS with a self-signed certificate.
@@ -30,8 +31,8 @@ func TestSendLogsHTTPS(t *testing.T) {
 		t.Fatal(err)
 	}
 	Pl, sentLogs = pl, 0
-	t.Setenv(logURLEnv, srv.URL+"/metarr-logs")
-	t.Setenv(logTokenEnv, "secret")
+	t.Setenv(sharedconsts.EnvTubarrLogURL, srv.URL+"/metarr-logs")
+	t.Setenv(sharedconsts.EnvTubarrLogToken, "secret")
 
 	Pl.I("hello from metarr")
 	SendLogs()

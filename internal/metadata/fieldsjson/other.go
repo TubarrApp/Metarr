@@ -2,6 +2,7 @@ package fieldsjson
 
 import (
 	"cmp"
+	"math"
 	"metarr/internal/models"
 	"strconv"
 	"strings"
@@ -32,6 +33,9 @@ func fillOtherData(fd *models.FileData, json map[string]any) {
 	o.Keywords = jsonText(json, sharedtags.JKeywords, sharedtags.JTags)
 	o.Language = jsonText(json, sharedtags.JLanguage)
 	o.Track = jsonText(json, sharedtags.JTrackNumber)
+	o.Runtime = runtimeFromDuration(json[sharedtags.JDuration])
+	o.VideoID = jsonText(json, sharedtags.JID)
+	o.Site = jsonText(json, sharedtags.JExtractor)
 
 	// HD video falls back to one worked out from the video's height.
 	o.HDVideo = cmp.Or(jsonText(json, sharedtags.JHDVideo), hdVideoFromHeight(json[sharedtags.JHeight]))
@@ -61,6 +65,15 @@ func jsonText(json map[string]any, keys ...string) string {
 		}
 	}
 	return ""
+}
+
+// runtimeFromDuration returns a duration in seconds as whole minutes, at least 1, for the NFO runtime.
+func runtimeFromDuration(d any) string {
+	seconds, ok := d.(float64)
+	if !ok || seconds <= 0 {
+		return ""
+	}
+	return strconv.Itoa(max(1, int(math.Round(seconds/60))))
 }
 
 // hdVideoFromHeight returns the iTunes HD video flag for a height: 2 for 1080p and up, 1 for 720p, and 0 below.

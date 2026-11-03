@@ -41,6 +41,7 @@ func TestFillShowAndOtherData(t *testing.T) {
 		sharedtags.JEpisodeNumber: 5.0, sharedtags.JEpisodeID: "S02E05", sharedtags.JLicense: "CC BY",
 		sharedtags.JCategories: []any{"Gaming"}, sharedtags.JTags: []any{"a", "b"}, sharedtags.JHeight: 1080.0,
 		sharedtags.JLanguage: "en", sharedtags.JAlbum: "album", sharedtags.JTrackNumber: 3.0, sharedtags.JDiscNumber: 1.0,
+		sharedtags.JDuration: 1132.0, sharedtags.JID: "abc123", sharedtags.JExtractor: "youtube",
 	}
 	fillShowData(fd, json)
 	fillOtherData(fd, json)
@@ -60,9 +61,26 @@ func TestFillShowAndOtherData(t *testing.T) {
 		{"album", fd.MOther.Album, "album"},
 		{"track", fd.MOther.Track, "3"},
 		{"disc", fd.MOther.Disc, "1"},
+		{"runtime", fd.MOther.Runtime, "19"},
+		{"video ID", fd.MOther.VideoID, "abc123"},
+		{"site", fd.MOther.Site, "youtube"},
 	} {
 		if c.got != c.want {
 			t.Errorf("%s = %q, want %q", c.name, c.got, c.want)
+		}
+	}
+}
+
+// TestRuntimeFromDuration tests that seconds become whole minutes, with short videos still counting as a minute.
+func TestRuntimeFromDuration(t *testing.T) {
+	for _, c := range []struct {
+		duration any
+		want     string
+	}{
+		{1132.0, "19"}, {24.0, "1"}, {90.0, "2"}, {3600.0, "60"}, {0.0, ""}, {"1132", ""}, {nil, ""},
+	} {
+		if got := runtimeFromDuration(c.duration); got != c.want {
+			t.Errorf("runtimeFromDuration(%v) = %q, want %q", c.duration, got, c.want)
 		}
 	}
 }

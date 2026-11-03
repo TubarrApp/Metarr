@@ -70,7 +70,7 @@ func nfoRootFor(s *models.MetadataShowData) string {
 	if s == nil {
 		return models.NFORootMovie
 	}
-	if s.EpisodeID != "" || s.SeasonNumber != "" {
+	if s.EpisodeID != "" || s.EpisodeSort != "" || s.SeasonNumber != "" {
 		return models.NFORootEpisode
 	}
 	return models.NFORootMovie
@@ -83,14 +83,26 @@ func addOtherDataToNFO(od *models.MetadataOtherData) (o string) {
 		return ""
 	}
 
-	if od.Genre != "" {
-		o += indentNFO(fmt.Sprintf("<genre>%s</genre>\n", escapeNFO(od.Genre)), 1)
+	// One element per genre and tag, as media servers don't split on commas.
+	for _, g := range makeUniqueArray(strings.Split(od.Genre, ",")) {
+		o += indentNFO(fmt.Sprintf("<genre>%s</genre>\n", escapeNFO(g)), 1)
+	}
+	for _, tag := range makeUniqueArray(strings.Split(od.Keywords, ",")) {
+		o += indentNFO(fmt.Sprintf("<tag>%s</tag>\n", escapeNFO(tag)), 1)
 	}
 	if od.HDVideo != "" {
 		o += indentNFO(fmt.Sprintf("<hdvideo>%s</hdvideo>\n", escapeNFO(od.HDVideo)), 1)
 	}
+	// Kodi only reads originallanguage.
 	if od.Language != "" {
 		o += indentNFO(fmt.Sprintf("<language>%s</language>\n", escapeNFO(od.Language)), 1)
+		o += indentNFO(fmt.Sprintf("<originallanguage>%s</originallanguage>\n", escapeNFO(od.Language)), 1)
+	}
+	if od.Runtime != "" {
+		o += indentNFO(fmt.Sprintf("<runtime>%s</runtime>\n", escapeNFO(od.Runtime)), 1)
+	}
+	if od.VideoID != "" && od.Site != "" {
+		o += indentNFO(fmt.Sprintf("<uniqueid type=\"%s\" default=\"true\">%s</uniqueid>\n", escapeNFO(od.Site), escapeNFO(od.VideoID)), 1)
 	}
 
 	return o
@@ -107,9 +119,11 @@ func addWebDataToNFO(w *models.MetadataWebData) (o string) {
 		o += indentNFO(fmt.Sprintf("<url>%s</url>\n", escapeNFO(w.WebpageURL)), 1)
 	}
 	if w.Thumbnail != "" {
+		o += indentNFO(fmt.Sprintf("<thumb aspect=\"poster\">%s</thumb>\n", escapeNFO(w.Thumbnail)), 1)
 		o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(w.Thumbnail)), 1)
-		o += indentNFO(fmt.Sprintf("<poster>%s</poster>\n", escapeNFO(w.Thumbnail)), 1)
-		o += indentNFO(fmt.Sprintf("<fanart>%s</fanart>\n", escapeNFO(w.Thumbnail)), 1)
+		o += indentNFO("<fanart>\n", 1)
+		o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(w.Thumbnail)), 2)
+		o += indentNFO("</fanart>\n", 1)
 	}
 
 	return o
@@ -123,7 +137,8 @@ func addTitlesAndDescriptionsToNFO(t *models.MetadataTitlesDescs) (o string) {
 	}
 
 	// Add title.
-	if title := firstNonEmpty(t.Fulltitle, t.Title); title != "" {
+	title := firstNonEmpty(t.Fulltitle, t.Title)
+	if title != "" {
 		o += indentNFO(fmt.Sprintf("<title>%s</title>\n", escapeNFO(title)), 1)
 	}
 
@@ -132,9 +147,14 @@ func addTitlesAndDescriptionsToNFO(t *models.MetadataTitlesDescs) (o string) {
 		o += indentNFO(fmt.Sprintf("<plot>%s</plot>\n", escapeNFO(description)), 1)
 	}
 
-	// Add outline.
-	if subtitle := firstNonEmpty(t.Subtitle, t.Synopsis, t.Summary); subtitle != "" {
-		o += indentNFO(fmt.Sprintf("<outline>%s</outline>\n", escapeNFO(subtitle)), 1)
+	// Add outline, kept whole as Kodi's default skin shows it in place of the plot.
+	if outline := firstNonEmpty(t.Synopsis, t.Summary); outline != "" {
+		o += indentNFO(fmt.Sprintf("<outline>%s</outline>\n", escapeNFO(outline)), 1)
+	}
+
+	// Add tagline. Setting all-titles also sets the subtitle, which adds nothing when it's the title.
+	if t.Subtitle != "" && t.Subtitle != title {
+		o += indentNFO(fmt.Sprintf("<tagline>%s</tagline>\n", escapeNFO(t.Subtitle)), 1)
 	}
 
 	return o
@@ -152,13 +172,16 @@ func addDatesToNFO(d *models.MetadataDates) (o string) {
 		o += indentNFO(fmt.Sprintf("<year>%s</year>\n", escapeNFO(d.Year)), 1)
 	}
 
-	// Premiered.
-	if premiered := firstNonEmpty(d.OriginallyAvailableAt, d.CreationTime, d.ReleaseDate); premiered != "" {
+	// Premiered and aired, without any time of day.
+	premiered, _, _ := strings.Cut(firstNonEmpty(d.OriginallyAvailableAt, d.CreationTime, d.ReleaseDate), "T")
+	if premiered != "" {
 		o += indentNFO(fmt.Sprintf("<premiered>%s</premiered>\n", escapeNFO(premiered)), 1)
+		o += indentNFO(fmt.Sprintf("<aired>%s</aired>\n", escapeNFO(premiered)), 1)
 	}
 
-	// Released.
-	if released := firstNonEmpty(d.ReleaseDate, d.OriginallyAvailableAt, d.CreationTime); released != "" {
+	// Released, without any time of day.
+	released, _, _ := strings.Cut(firstNonEmpty(d.ReleaseDate, d.OriginallyAvailableAt, d.CreationTime), "T")
+	if released != "" {
 		o += indentNFO(fmt.Sprintf("<released>%s</released>\n", escapeNFO(released)), 1)
 	}
 
@@ -189,9 +212,15 @@ func addCreditsToNFO(c *models.MetadataCredits) (o string) {
 		o += indentNFO("</actor>\n", 1)
 	}
 
-	// Add writers.
+	// Add writers. Kodi only reads credits.
 	for _, w := range makeUniqueArray(c.Writers, c.Writer) {
 		o += indentNFO(fmt.Sprintf("<writer>%s</writer>\n", escapeNFO(w)), 1)
+		o += indentNFO(fmt.Sprintf("<credits>%s</credits>\n", escapeNFO(w)), 1)
+	}
+
+	// Add studios.
+	for _, s := range makeUniqueArray(c.Studios, c.Studio) {
+		o += indentNFO(fmt.Sprintf("<studio>%s</studio>\n", escapeNFO(s)), 1)
 	}
 
 	// Add publishers.
@@ -217,8 +246,9 @@ func addShowDataToNFO(s *models.MetadataShowData) (o string) {
 			o += indentNFO(fmt.Sprintf("<set>%s</set>\n", escapeNFO(s.Show)), 1)
 		}
 	}
-	if s.EpisodeID != "" {
-		o += indentNFO(fmt.Sprintf("<episode>%s</episode>\n", escapeNFO(s.EpisodeID)), 1)
+	// Media servers need the episode number, which yt-dlp gives as the sort value.
+	if episode := firstNonEmpty(s.EpisodeSort, s.EpisodeID); episode != "" {
+		o += indentNFO(fmt.Sprintf("<episode>%s</episode>\n", escapeNFO(episode)), 1)
 	}
 	if s.SeasonTitle != "" {
 		o += indentNFO(fmt.Sprintf("<seasontitle>%s</seasontitle>\n", escapeNFO(s.SeasonTitle)), 1)

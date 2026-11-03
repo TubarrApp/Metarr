@@ -257,7 +257,7 @@ func nfoRootTag(data string) string {
 func NFOFields(data string) map[string]any {
 	fields := make(map[string]any)
 	decoder := xml.NewDecoder(strings.NewReader(data))
-	var tags []string
+	tags := []string{}
 	for {
 		token, err := decoder.Token()
 		if err != nil {

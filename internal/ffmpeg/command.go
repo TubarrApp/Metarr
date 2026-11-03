@@ -833,7 +833,8 @@ func (b *ffCommandBuilder) setDefaultFormatFlagMap(outExt string) {
 
 	// Convert subtitles for a container that can't take them as they are.
 	if encoder := subtitleEncoderFor(inExt, outExt); encoder != "" {
-		b.formatFlagsMap = maps.Clone(copyPreset)
+		b.formatFlagsMap = make(map[string]string, len(copyPreset)+1)
+		maps.Copy(b.formatFlagsMap, copyPreset)
 		b.formatFlagsMap[consts.FFmpegCS] = encoder
 	}
 }
@@ -958,8 +959,12 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		}
 
 		// Refuse extra FFmpeg arguments containing disallowed options.
-		if blocked, blockedKey := sharedconsts.HasBlockedOptions(extraArgs, sharedconsts.BlockedFFmpegOptions); blocked {
-			logger.Pl.W("Refusing extra FFmpeg arguments for file %q: Option %q is not allowed for FFmpeg.", b.inputFile, blockedKey)
+		if allowInsecureStr, allowInsecure := os.LookupEnv(sharedconsts.EnvAllowInsecureArguments); !allowInsecure || (allowInsecureStr == "" || (allowInsecureStr != "1" && allowInsecureStr != "true")) {
+			if blocked, blockedKey := sharedconsts.HasBlockedOptions(extraArgs, sharedconsts.BlockedFFmpegOptions); blocked {
+				logger.Pl.W("Refusing extra FFmpeg arguments for file %q: Option %q is not allowed for FFmpeg.", b.inputFile, blockedKey)
+			} else {
+				args = append(args, extraArgs...)
+			}
 		} else {
 			args = append(args, extraArgs...)
 		}

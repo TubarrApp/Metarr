@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // Tubarr endpoint, and the token Tubarr passes Metarr to authorize its logs.
 const (
 	tubarrLogServer = "http://127.0.0.1:8827/metarr-logs" // Used when Tubarr doesn't pass logURLEnv.
-	logURLEnv       = "TUBARR_LOG_URL"
-	logTokenEnv     = "TUBARR_LOG_TOKEN"
 	logTokenHeader  = "X-Tubarr-Log-Token"
 )
 
@@ -58,12 +57,12 @@ func SendLogs() {
 		return
 	}
 
-	req, err := http.NewRequest(http.MethodPost, cmp.Or(os.Getenv(logURLEnv), tubarrLogServer), bytes.NewReader(bytes.Join(logs, []byte{})))
+	req, err := http.NewRequest(http.MethodPost, cmp.Or(os.Getenv(sharedconsts.EnvTubarrLogURL), tubarrLogServer), bytes.NewReader(bytes.Join(logs, []byte{})))
 	if err != nil {
 		return
 	}
 	req.Header.Set("Content-Type", "text/plain")
-	req.Header.Set(logTokenHeader, os.Getenv(logTokenEnv))
+	req.Header.Set(logTokenHeader, os.Getenv(sharedconsts.EnvTubarrLogToken))
 	resp, _ := logClient.Do(req) // Do not check error, error expected if running in CLI-only.
 	if resp == nil {
 		return

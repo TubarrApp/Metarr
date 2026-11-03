@@ -272,6 +272,9 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, b
 				continue
 			}
 			videoData := videoFiles[videoFilename]
+			if videoData == nil {
+				continue
+			}
 
 			videoBase := parsing.GetBaseNameWithoutExt(videoFilename)
 			if step.normalize {

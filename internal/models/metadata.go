@@ -320,4 +320,7 @@ type MetadataOtherData struct {
 	Disc      string `json:"disc_number" xml:"disc"`
 	Keywords  string `json:"keywords" xml:"tag"`
 	Copyright string `json:"copyright" xml:"copyright"`
+	Runtime   string `json:"-" xml:"runtime"`
+	VideoID   string `json:"id" xml:"uniqueid"`
+	Site      string `json:"extractor" xml:"-"`
 }
