@@ -15,14 +15,14 @@ func TestMoveVideoNFO(t *testing.T) {
 	logger.Pl.Console = io.Discard
 
 	for _, tc := range []struct {
-		name                      string
-		files                     []string // Made in the "in" folder.
-		video, renamedVideo       string   // Relative to the test's folder.
-		meta, renamedMeta         string
-		noMeta, skipVids          bool
-		want                      []string
-		movedFrom, movedTo        string // A file which must keep its contents when moved.
-		untouched                 string // A file which must keep its contents where it is.
+		name                string
+		files               []string // Made in the "in" folder.
+		video, renamedVideo string   // Relative to the test's folder.
+		meta, renamedMeta   string
+		noMeta, skipVids    bool
+		want                []string
+		movedFrom, movedTo  string // A file which must keep its contents when moved.
+		untouched           string // A file which must keep its contents where it is.
 	}{
 		{
 			name:         "renamed with a JSON metafile",
