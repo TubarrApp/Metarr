@@ -701,19 +701,19 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 	switch accelType {
 	case sharedconsts.AccelTypeVAAPI:
 		// VAAPI requires device node on Linux for encode-only.
-		if vars.OS != "linux" {
+		if vars.OS != sharedconsts.OSLinux {
 			logger.Pl.W("VAAPI acceleration is only available on Linux.")
 			return "", false
 		}
 		if gpuNode == "" {
-			logger.Pl.W("VAAPI requires a device directory on Linux; falling back to software.")
+			logger.Pl.W("VAAPI requires a device directory on Linux. Falling back to software...")
 			return "", false
 		}
 		b.gpuNode = []string{consts.FFmpegDeviceVAAPI, gpuNode}
 
 	case sharedconsts.AccelTypeAMF:
 		// AMF is Windows-only.
-		if vars.OS != "windows" {
+		if vars.OS != sharedconsts.OSWindows {
 			logger.Pl.W("AMF acceleration is only available on Windows.")
 			return "", false
 		}

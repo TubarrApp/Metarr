@@ -133,7 +133,7 @@ func initMetaTransformers() error {
 	}
 
 	// Write a sidecar .nfo file alongside the final video.
-	rootCmd.PersistentFlags().Bool(keys.WriteNFO, false, "Write a sidecar .nfo file (Kodi/Jellyfin format) next to the final video, named to match it")
+	rootCmd.PersistentFlags().Bool(keys.WriteNFO, false, "Write a sidecar .nfo file (Kodi/Jellyfin format) next to the final video, named to match it.")
 	if err := viper.BindPFlag(keys.WriteNFO, rootCmd.PersistentFlags().Lookup(keys.WriteNFO)); err != nil {
 		return err
 	}

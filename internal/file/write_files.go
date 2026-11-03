@@ -72,7 +72,7 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSF
 }
 
 // RenameAndMoveFiles moves the video/meta files to their new paths, in place or in the output directory, leaving out the meta
-// file if noMeta (i.e. it was purged).
+// file if noMeta (i.e. it was purged). The video's NFO file goes with it.
 func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 	fs.muFs.Lock()
 	defer fs.muFs.Unlock()
@@ -90,7 +90,8 @@ func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 	}
 
 	// Move video file.
-	if shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids) {
+	moveVideo := shouldProcess(fs.InputVideo, fs.RenamedVideo, true, fs.SkipVids)
+	if moveVideo {
 		if err := moveOrCopyFile(fs.InputVideo, fs.RenamedVideo); err != nil {
 			return fmt.Errorf("failed to move video file from %q → %q: %w", fs.InputVideo, fs.RenamedVideo, err)
 		}
@@ -102,7 +103,33 @@ func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 			return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
 	}
+
+	// Move the video's NFO file, after the metafile so it can't take a name the metafile needs.
+	if moveVideo {
+		fs.moveVideoNFO()
+	}
 	return nil
+}
+
+// moveVideoNFO moves the NFO file named for the input video to the renamed video's name. An NFO metafile is left to the
+// metafile's own move or purge, and a failure only warns, as the video has already moved.
+func (fs *FSFileWriter) moveVideoNFO() {
+	src := nfoPath(fs.InputVideo)
+	info, err := os.Stat(src)
+	if err != nil || !info.Mode().IsRegular() {
+		return
+	}
+	if metaInfo, err := os.Stat(fs.InputMeta); err == nil && os.SameFile(info, metaInfo) {
+		return
+	}
+	if err := moveOrCopyFile(src, nfoPath(fs.RenamedVideo)); err != nil {
+		logger.Pl.W("Failed to move the video's NFO file: %v", err)
+	}
+}
+
+// nfoPath returns the path of the NFO file named for a video.
+func nfoPath(videoPath string) string {
+	return strings.TrimSuffix(videoPath, filepath.Ext(videoPath)) + sharedconsts.MExtNFO
 }
 
 // PurgesMetafile reports whether the metafile purge setting covers this file.
