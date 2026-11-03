@@ -62,7 +62,6 @@ func processFiles(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	wg := core.Wg
 
 	processMetadataFiles(ctx, batch.bp, skipVideos, batch.bp.syncMapToRegularMap(&batch.bp.files.matched), &muFailed)
-	setupCleanup(ctx, wg, batch, &muFailed)
 
 	processedModels := make([]*models.FileData, 0, matchedCount)
 	numWorkers := max(abstractions.GetInt(keys.Concurrency), 1)
@@ -323,21 +322,4 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	}
 
 	return fd, nil
-}
-
-// setupCleanup watches the context and safely cleans up batch resources on cancellation.
-func setupCleanup(ctx context.Context, wg *sync.WaitGroup, batch *batch, muFailed *sync.Mutex) {
-	go func() {
-		// Wait for context finish or cancellation.
-		<-ctx.Done()
-		logger.Pl.D(2, "Context ended, performing cleanup for batch %d", batch.bp.batchID)
-
-		// Wait for workers to finish.
-		wg.Wait()
-
-		// Log failed videos.
-		muFailed.Lock()
-		batch.bp.logFailedVideos()
-		muFailed.Unlock()
-	}()
 }

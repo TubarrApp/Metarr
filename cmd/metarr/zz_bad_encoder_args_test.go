@@ -59,6 +59,7 @@ func TestBadEncoderArgsAtRunTime(t *testing.T) {
 		{name: "audio filter on encoded audio", flags: []string{audioCodecs + "ac3", extraArgs + "-af volume=0.5"}},
 		{name: "audio filter with a pair on a file with no audio", flags: []string{audioCodecs + "dts:ac3", extraArgs + "-af volume=0.5"}, noAudio: true},
 		{name: "line that might work, for a codec not reached", flags: []string{videoArgs + "vp8:-pix_fmt yuv420p10le"}},
+		{name: "GPU encoder's preset name, for a codec not reached", flags: []string{gpu + "cuda", videoCodecs + "h264:mpeg2", videoArgs + "av1:-preset p5"}, encoder: consts.FFVCodecKeyMPEG2},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()
