@@ -15,6 +15,7 @@ import (
 	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
+	"metarr/internal/report"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,47 +29,20 @@ import (
 
 // ExecuteVideo writes metadata to a single video file.
 func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
-	var tmpOutPath string
-
-	origPath := fd.OriginalVideoPath
-	origExt := filepath.Ext(origPath)
-
 	// Output extension: the one set, else the video's own, or a writable one if FFmpeg can't write its own.
-	outExt, replaced := parsing.OutputExt(origPath)
+	outputFileExt, replaced := parsing.OutputExt(fd.OriginalVideoPath)
 
-	// Get current codecs.
-	currentVCodec, currentACodec, err := getCodecs(fd.OriginalVideoPath)
+	// Work out the codecs, stopping here if the video needs no processing.
+	targetVCodec, targetACodec, skip, err := prepareCodecs(ctx, fd, outputFileExt, replaced)
 	if err != nil {
-		logger.Pl.E("Failed to check input file %q codec: %v", fd.OriginalVideoPath, err)
-	}
-
-	// Check codec mismatches.
-	desiredVCodec := getOutputCodecString(keys.TranscodeVideoCodecMap, currentVCodec, "video")
-	desiredACodec := getOutputCodecString(keys.TranscodeAudioCodecMap, currentACodec, "audio")
-
-	// A video FFmpeg can't rewrite is left alone unless it needs changing, then written anew beside it.
-	if replaced {
-		if skipProcessing(fd, currentVCodec, currentACodec, desiredVCodec, desiredACodec, origExt) {
-			return nil
-		}
-		logger.Pl.W("FFmpeg can't write %s files that play, so %q will be written as a %s file, keeping the original", origExt, origPath, outExt)
-	}
-
-	// Make sure the output container can hold the codecs.
-	if desiredVCodec, desiredACodec, err = fitCodecsToContainer(ctx, origExt, outExt, currentVCodec.Codec, desiredVCodec, currentACodec.Codec, desiredACodec); err != nil {
 		return err
 	}
-
-	// Return early if no processing is needed.
-	if skipProcessing(fd, currentVCodec, currentACodec, desiredVCodec, desiredACodec, outExt) {
+	if skip {
 		return nil
 	}
-	logger.Pl.I("Will execute video from extension %q → %q", origExt, outExt)
 
-	// Set temp output path: DO NOT use user cache or temp dir, can cause cross-device link move failures.
-	fileBase := parsing.GetBaseNameWithoutExt(origPath)
-	tmpOutPath = filepath.Join(fd.VideoDirectory, tempOutputName(fileBase, origExt, outExt))
-	logger.Pl.D(3, "Orig ext: %q, Out ext: %q", origExt, outExt)
+	// Set the paths.
+	tmpOutPath := prepareOutputPaths(fd, outputFileExt)
 
 	// Remove temp file on function end.
 	defer func() {
@@ -79,18 +53,81 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		}
 	}()
 
-	// Set post-FFmpeg video path in model.
-	baseName := parsing.GetBaseNameWithoutExt(origPath)
-	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outExt
+	// Write the new video to the temp path, then move it into place.
+	if err := executeFFmpeg(ctx, fd, tmpOutPath, targetVCodec, targetACodec, outputFileExt); err != nil {
+		return err
+	}
+	return finalizeOutput(fd, tmpOutPath, outputFileExt, replaced)
+}
 
-	logger.Pl.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nPost-FFmpeg Video Path: %s\n\nTemp Output Path: %s", origPath,
+// prepareCodecs returns the codecs to write a video in, or whether it needs no processing at all.
+func prepareCodecs(ctx context.Context, fd *models.FileData, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, skip bool, err error) {
+	inputFilePath := fd.OriginalVideoPath
+	inputFileExt := filepath.Ext(inputFilePath)
+
+	// Get current codecs.
+	inputFileVCodec, inputFileACodec, err := getCodecs(inputFilePath)
+	if err != nil {
+		logger.Pl.E("Failed to check input file %q codec: %v", inputFilePath, err)
+	}
+
+	// Check codec mismatches.
+	targetVCodec = getOutputCodecString(keys.TranscodeVideoCodecMap, inputFileVCodec, sharedconsts.Video)
+	targetACodec = getOutputCodecString(keys.TranscodeAudioCodecMap, inputFileACodec, sharedconsts.Audio)
+
+	// A video FFmpeg can't rewrite is left alone unless it needs changing, then written anew beside it.
+	if replaced {
+		if skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, inputFileExt) {
+			return "", "", true, nil
+		}
+		logger.Pl.W("FFmpeg can't write %s files that play, so %q will be written as a %s file, keeping the original", inputFileExt, inputFilePath, outputFileExt)
+	}
+
+	// Make sure the output container can hold the codecs.
+	if targetVCodec, err = fitVideoCodecToContainer(ctx, inputFilePath, outputFileExt, inputFileVCodec.Codec, targetVCodec); err != nil {
+		return "", "", false, err
+	}
+	if targetACodec, err = fitAudioCodecToContainer(ctx, inputFilePath, outputFileExt, inputFileACodec.Codec, targetACodec); err != nil {
+		return "", "", false, err
+	}
+
+	// Return early if no processing is needed.
+	if skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt) {
+		return "", "", true, nil
+	}
+	return targetVCodec, targetACodec, false, nil
+}
+
+// prepareOutputPaths sets the video's post-FFmpeg path in its model, and returns the temp path FFmpeg writes to.
+func prepareOutputPaths(fd *models.FileData, outputFileExt string) (tmpOutPath string) {
+	inputFilePath := fd.OriginalVideoPath
+	inputFileExt := filepath.Ext(inputFilePath)
+	logger.Pl.I("Will execute video from extension %q → %q", inputFileExt, outputFileExt)
+
+	// Set temp output path: DO NOT use user cache or temp dir, can cause cross-device link move failures.
+	baseName := parsing.GetBaseNameWithoutExt(inputFilePath)
+	tmpOutPath = filepath.Join(fd.VideoDirectory, tempOutputName(baseName, inputFileExt, outputFileExt))
+	logger.Pl.D(3, "Input file ext: %q, Output ext: %q", inputFileExt, outputFileExt)
+
+	// Set post-FFmpeg video path in model.
+	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outputFileExt
+
+	logger.Pl.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nPost-FFmpeg Video Path: %s\n\nTemp Output Path: %s", inputFilePath,
 		fd.MetaFilePath,
 		fd.PostFFmpegVideoPath,
 		tmpOutPath)
 
+	return tmpOutPath
+}
+
+// executeFFmpeg runs FFmpeg to write the new video at tmpOutPath, trying again if it fails.
+func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath, targetVCodec, targetACodec, outputFileExt string) error {
+	inputFilePath := fd.OriginalVideoPath
+	baseName := parsing.GetBaseNameWithoutExt(inputFilePath)
+
 	// Run the FFmpeg command (n total attempts).
 	maxAttempts := 3
-	durationUS := probeDurationUS(origPath)
+	durationUS := probeDurationUS(inputFilePath)
 	builder, err := newFfCommandBuilder(fd, tmpOutPath)
 	if err != nil {
 		return err
@@ -99,20 +136,21 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.
-		args, err := builder.buildCommand(ctx, fd, desiredVCodec, desiredACodec, outExt)
+		args, err := builder.buildCommand(ctx, fd, targetVCodec, targetACodec, outputFileExt)
 		if err != nil {
 			return err
 		}
 
 		// Run command, once per encoding pass.
 		logger.Pl.P("%s!!! Starting FFmpeg attempt %d for %q...\n%s", sharedconsts.ColorCyan, i, baseName, sharedconsts.ColorReset)
-		if stderr, err := runPasses(ctx, args, builder.passes, durationUS, fd.OriginalVideoPath); err != nil {
+		if stderr, err := runPasses(ctx, args, builder.passes, durationUS, inputFilePath); err != nil {
 			if ctx.Err() != nil {
 				return fmt.Errorf("ffmpeg canceled for %q: %w", baseName, ctx.Err())
 			}
 			// Exit if final attempt errored (the caller records the error).
 			if i == maxAttempts {
-				return fmt.Errorf("ffmpeg failed after %d attempts for %q due to error: %w\n\nCaptured output:\n%s", maxAttempts, baseName, err, stderr)
+				return fmt.Errorf("ffmpeg failed after %d attempts for %q due to error: %w: %s\n\nCaptured output:\n%s", maxAttempts, baseName, err,
+					cmp.Or(ffmpegFailure(stderr), "FFmpeg gave no reason"), stderr)
 			}
 
 			// Retry.
@@ -123,12 +161,18 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 		logger.Pl.S("FFmpeg successfully processed %q", baseName)
 		break
 	}
+	return nil
+}
+
+// finalizeOutput moves the new video from tmpOutPath into place, backing up or removing the original as set.
+func finalizeOutput(fd *models.FileData, tmpOutPath, outputFileExt string, replaced bool) (err error) {
+	inputFilePath := fd.OriginalVideoPath
 
 	// Back up the original if the new video takes its path, unless it's purged.
-	samePath := origPath == fd.PostFFmpegVideoPath
+	samePath := inputFilePath == fd.PostFFmpegVideoPath
 	purgeOriginal := abstractions.GetBool(keys.PurgeOriginalVideo)
 	if samePath && (!purgeOriginal || abstractions.GetBool(keys.NoFileOverwrite)) {
-		if fd.BackupVideoPath, err = makeBackup(origPath); err != nil {
+		if fd.BackupVideoPath, err = makeBackup(inputFilePath); err != nil {
 			return err
 		}
 	}
@@ -142,18 +186,18 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	if err := os.Rename(tmpOutPath, fd.PostFFmpegVideoPath); err != nil {
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
-	models.ReportVideoPath(fd.PostFFmpegVideoPath)
+	report.VideoPath(fd.PostFFmpegVideoPath)
 	if !samePath && !replaced && purgeOriginal {
-		logger.Pl.I("Original file not type %s, removing %q", outExt, origPath)
-		if err := os.Remove(origPath); err != nil {
+		logger.Pl.I("Original file not type %s, removing %q", outputFileExt, inputFilePath)
+		if err := os.Remove(inputFilePath); err != nil {
 			vars.AddToErrorArray(err)
-			return fmt.Errorf("failed to remove original file (%s). Error: %w", origPath, err)
+			return fmt.Errorf("failed to remove original file (%s). Error: %w", inputFilePath, err)
 		}
 	}
 
 	// Log success.
 	fmt.Fprintf(os.Stderr, "\n")
-	logger.Pl.S("Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", origPath,
+	logger.Pl.S("Successfully processed video:\n\nOriginal file: %s\nNew file: %s\n\nTitle: %s", inputFilePath,
 		fd.PostFFmpegVideoPath,
 		fd.MTitleDesc.Title)
 
@@ -161,13 +205,13 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 }
 
 // tempOutputName returns the name of a video's temp output file, hashing a base name too long to fit the filesystem's limit.
-func tempOutputName(fileBase, origExt, outExt string) string {
-	name := sharedconsts.TempTag + fileBase + origExt + outExt
+func tempOutputName(fileBase, inputFileExt, outExt string) string {
+	name := sharedconsts.TempTag + fileBase + inputFileExt + outExt
 	if len(name) <= sharedconsts.MaxNameBytes {
 		return name
 	}
 	sum := sha256.Sum256([]byte(fileBase))
-	return sharedconsts.TempTag + hex.EncodeToString(sum[:8]) + origExt + outExt
+	return sharedconsts.TempTag + hex.EncodeToString(sum[:8]) + inputFileExt + outExt
 }
 
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
@@ -175,7 +219,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmode
 	logger.Pl.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	// Write thumbnail.
-	if models.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
+	if parsing.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
 		logger.Pl.I("Thumbnail detected. Will write to file.")
 		return false
 	}
@@ -296,6 +340,9 @@ type ffprobeCodecOutputStream struct {
 	BitRate      string `json:"bit_rate"`
 	SampleRate   string `json:"sample_rate"`
 	Channels     int    `json:"channels"`
+	Disposition  struct {
+		AttachedPic int `json:"attached_pic"`
+	} `json:"disposition"`
 }
 
 // probeCodecs determines the codecs and compression level of the video and audio through FFprobe.
@@ -308,7 +355,7 @@ func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 	cmd := exec.Command("ffprobe",
 		"-v", "error",
 		"-show_entries",
-		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels:format=bit_rate",
+		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels:stream_disposition=attached_pic:format=bit_rate",
 		"-of", "json",
 		inputFile,
 	)
@@ -324,7 +371,7 @@ func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, err
 	}
 
-	// Find the first video and audio streams.
+	// Find the first video and audio streams. A thumbnail isn't the video.
 	var video *ffprobeCodecOutputStream
 	var audio *ffprobeCodecOutputStream
 	for i := range vInfo.Streams {
@@ -332,7 +379,7 @@ func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 
 		switch stream.CodecType {
 		case "video":
-			if video == nil {
+			if video == nil && stream.Disposition.AttachedPic == 0 {
 				video = stream
 				videoCodec = strings.TrimSpace(video.CodecName)
 				logger.Pl.I("Got video codec from '%s' as '%s'", inputFile, videoCodec)
@@ -345,12 +392,11 @@ func probeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 			}
 		}
 	}
-	if video == nil {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, fmt.Errorf("no video stream found")
-	}
 
 	// Determine video compression level, left unknown if it can't be worked out so the codecs still count.
-	if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, inputFile); err != nil {
+	if video == nil {
+		logger.Pl.I("No video stream in '%s', so only its audio can be transcoded", inputFile)
+	} else if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, inputFile); err != nil {
 		logger.Pl.W("Can't tell how compressed the video in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
 		videoCompression = sharedconsts.CompressionBlank
 	}

@@ -38,6 +38,34 @@ func bitrateFor(bitrates map[int]int64, shorterSide int) int64 {
 	return bitrate
 }
 
+// probeVideoFrame returns a video's width, height and pixel format, blank if they can't be read.
+func probeVideoFrame(ctx context.Context, inputFile string) (width, height int, pixFmt string) {
+	out, err := exec.CommandContext(ctx, "ffprobe",
+		"-v", "error",
+		"-select_streams", "V:0",
+		"-show_entries", "stream=width,height,pix_fmt",
+		"-of", "json",
+		inputFile,
+	).Output()
+	if err != nil {
+		logger.Pl.W("Could not read the size of %q: %v", inputFile, err)
+		return 0, 0, ""
+	}
+
+	var probe struct {
+		Streams []struct {
+			Width  int    `json:"width"`
+			Height int    `json:"height"`
+			PixFmt string `json:"pix_fmt"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(out, &probe); err != nil || len(probe.Streams) == 0 {
+		logger.Pl.W("Could not read the size of %q: %v", inputFile, err)
+		return 0, 0, ""
+	}
+	return probe.Streams[0].Width, probe.Streams[0].Height, probe.Streams[0].PixFmt
+}
+
 // probeVideoSize returns a video's shorter side in pixels and its bitrate, the whole file's when the stream has none (as in MKV and WebM).
 func probeVideoSize(ctx context.Context, inputFile string) (shorterSide int, bitrate int64) {
 	out, err := exec.CommandContext(ctx, "ffprobe",

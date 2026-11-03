@@ -87,11 +87,12 @@ func ValidateAndSetVideoCodec(entries []string) error {
 		return err
 	}
 
-	// Plain codec applies to every other codec.
+	// Plain codec applies to every other codec, those not listed here going by the blank source codec.
 	if all != "" {
 		for from := range vCodecMap {
 			vCodecMap[from] = all
 		}
+		vCodecMap[sharedmodels.NewFromCodec("", sharedconsts.CompressionBlank)] = all
 	}
 
 	// Pairs override the plain codec.
@@ -125,11 +126,12 @@ func ValidateAndSetAudioCodec(entries []string) error {
 		return err
 	}
 
-	// Plain codec applies to every other codec.
+	// Plain codec applies to every other codec, those not listed here going by the blank source codec.
 	if all != "" {
 		for from := range aCodecMap {
 			aCodecMap[from] = all
 		}
+		aCodecMap[sharedmodels.NewFromCodec("", sharedconsts.CompressionBlank)] = all
 	}
 
 	// Pairs override the plain codec.

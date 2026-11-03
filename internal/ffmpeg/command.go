@@ -213,12 +213,22 @@ func (b *ffCommandBuilder) bitstreamFilters(ctx context.Context, outExt string) 
 		}
 		switch codec {
 		case sharedconsts.VCodecH264:
-			filters = append(filters, "-bsf:v:"+strconv.Itoa(i), "h264_mp4toannexb")
+			filters = append(filters, "-bsf:v:"+strconv.Itoa(i), h264AnnexBFilter(b.inputFile))
 		case sharedconsts.VCodecHEVC:
 			filters = append(filters, "-bsf:v:"+strconv.Itoa(i), "hevc_mp4toannexb")
 		}
 	}
 	return filters
+}
+
+// h264AnnexBFilter returns the filter for H.264 copied from a file. ASF keeps the stream's headers apart, and without them
+// repeated in the stream an MPEG file loses its video. Elsewhere that can leave a file nothing can open, so it's only for ASF.
+func h264AnnexBFilter(inputFile string) string {
+	switch strings.ToLower(filepath.Ext(inputFile)) {
+	case sharedconsts.ExtASF, sharedconsts.ExtWMV:
+		return "h264_mp4toannexb,dump_extra"
+	}
+	return "h264_mp4toannexb"
 }
 
 // subtitleMaps returns the maps for the subtitle streams a file of extension outExt can hold, from one of inExt.
@@ -403,8 +413,13 @@ func (b *ffCommandBuilder) embedThumbnail(ctx context.Context, thumbnail, outExt
 	case sharedconsts.ExtMP4,
 		sharedconsts.ExtM4V:
 
-		// The thumbnail comes after the video's own video streams, and any thumbnails before it.
-		index := strconv.Itoa(max(len(probeStreamCodecs(ctx, b.inputFile, "V")), 1) + b.thumbnailCount)
+		// The thumbnail comes after the video's own video streams, taken to be one if they can't be read, and any thumbnails before it.
+		videoStreams := probeStreamCodecs(ctx, b.inputFile, "V")
+		videoCount := len(videoStreams)
+		if videoStreams == nil {
+			videoCount = 1
+		}
+		index := strconv.Itoa(videoCount + b.thumbnailCount)
 
 		b.thumbnailInput = append(b.thumbnailInput, "-i", thumbnail) // add the thumbnail as another input.
 		b.thumbnail = append(b.thumbnail,
@@ -517,9 +532,21 @@ func downloadThumbnail(ctx context.Context, urlStr, videoBaseName string) (strin
 
 // setAudioCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, availableCodecs string) error {
+	// AAC staying AAC would normally be copied, but on this route copying leaves it with the wrong timing, so it's encoded again.
+	stayingAAC := currentACodec == sharedconsts.ACodecAAC && (desiredACodec == "" || desiredACodec == sharedconsts.ACodecAAC)
+	if stayingAAC && aacCopyBreaksInAVI(b.inputFile, filepath.Ext(b.outputFile)) {
+		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyAAC}
+		return nil
+	}
+
 	switch desiredACodec {
 	case sharedconsts.ACodecCopy, currentACodec, "": // -- Set and return early. --
 		b.audioCodec = []string{consts.FFmpegCA, sharedconsts.ACodecCopy} // Hardcoded copy (do not use 'desiredACodec').
+
+		// FFmpeg counts TrueHD in MP4 as experimental, even copied.
+		if currentACodec == sharedconsts.ACodecTrueHD {
+			b.audioCodec = append(b.audioCodec, consts.FFmpegStrictExperimental...)
+		}
 		return nil
 
 	case sharedconsts.ACodecAAC, // -- No audio rate needed. --
@@ -531,7 +558,7 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
 
 	case sharedconsts.ACodecOpus:
-		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyOpus}
+		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyOpus, consts.FFmpegAF, consts.OpusLayoutFilter}
 
 	case sharedconsts.ACodecVorbis:
 		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyVorbis}
@@ -747,7 +774,7 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 		b.encoderArgs = append(b.encoderArgs, bitrateArgs...)
 		b.encoderArgs = append(b.encoderArgs, encoderArgs.Args...)
 		b.passes = max(encoderArgs.Passes, 1)
-		return nil
+		return b.setEvenSize(ctx, encoderArgs.PixFmt)
 	}
 	encoder := b.videoCodecGPU[1]
 
@@ -805,6 +832,39 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 	}
 	b.encoderArgs = append(b.encoderArgs, bitrateArgs...)
 	b.encoderArgs = append(b.encoderArgs, encoderArgs.Args...)
+	return nil
+}
+
+// setEvenSize cuts the last row or column off an odd-sized video for the software encoders that refuse one, or returns an
+// error if the video is so small that would spoil it.
+func (b *ffCommandBuilder) setEvenSize(ctx context.Context, askedPixFmt string) error {
+	encoder := b.videoCodecSoftware[1]
+	if encoder != consts.FFVCodecKeyH264 && encoder != consts.FFVCodecKeyH265 {
+		return nil
+	}
+
+	// Only odd sizes matter, in formats with less colour detail than picture detail (4:4:4 and RGB can be any size).
+	width, height, sourcePixFmt := probeVideoFrame(ctx, b.inputFile)
+	if width%2 == 0 && height%2 == 0 {
+		return nil
+	}
+	pixFmt := askedPixFmt
+	if pixFmt == "" {
+		pixFmt = sourcePixFmt
+	}
+	if strings.Contains(pixFmt, "444") || strings.HasPrefix(pixFmt, "gbr") {
+		return nil
+	}
+
+	// Cut the row or column, unless that's too much of the picture.
+	if min(width, height) < consts.MinSideToCut {
+		return fmt.Errorf("encoder %q can't take the odd size %dx%d, and cutting a row or column from a video this small would spoil it", encoder, width, height)
+	}
+	logger.Pl.I("Encoder %q can't take the odd size %dx%d, so cutting its last row or column.", encoder, width, height)
+	if b.videoFilter != "" {
+		b.videoFilter += ","
+	}
+	b.videoFilter += consts.EvenSizeFilter
 	return nil
 }
 
@@ -895,7 +955,9 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	}
 
 	// Add input file (main video).
-	args = append(args, "-y", "-i", b.inputFile)
+	args = append(args, "-y")
+	args = append(args, consts.FFmpegGeneratePTS...)
+	args = append(args, "-i", b.inputFile)
 
 	// If thumbnail present, add it as an input (must appear before metadata).
 	args = append(args, b.thumbnailInput...)
@@ -954,12 +1016,7 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	}
 
 	// Name the muxer for extensions FFmpeg can't pick one for.
-	switch strings.ToLower(outputExt) {
-	case sharedconsts.ExtOGM:
-		args = append(args, consts.FFmpegFormat, consts.FFmpegMuxerOGV)
-	case sharedconsts.ExtRMVB:
-		args = append(args, consts.FFmpegFormat, consts.FFmpegMuxerRM)
-	}
+	args = append(args, outputMuxerArgs(outputExt)...)
 
 	// Add output file last.
 	args = append(args, b.outputFile)
@@ -967,10 +1024,22 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 	return args, nil
 }
 
+// outputMuxerArgs returns the arguments naming the muxer for extensions FFmpeg can't pick one for.
+func outputMuxerArgs(outExt string) []string {
+	switch strings.ToLower(outExt) {
+	case sharedconsts.ExtOGM:
+		return []string{consts.FFmpegFormat, consts.FFmpegMuxerOGV}
+	case sharedconsts.ExtRMVB:
+		return []string{consts.FFmpegFormat, consts.FFmpegMuxerRM}
+	}
+	return nil
+}
+
 // calculateCommandCapacity determines the total length needed for the command.
 func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	const (
 		base = 2 + // "-y", "-i"
+			2 + // consts.FFmpegGeneratePTS
 			1 + // <input file>
 			1 // <output file>
 

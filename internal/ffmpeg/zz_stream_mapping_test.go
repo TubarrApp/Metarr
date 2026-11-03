@@ -177,6 +177,9 @@ func testProbe(t *testing.T, path, entries string) []string {
 		t.Fatalf("probing %s: %v\n%s", path, err, out)
 	}
 	found := strings.Fields(string(out))
+	for i := range found {
+		found[i] = strings.TrimRight(found[i], ",") // FFmpeg 9 can end an entry with a comma.
+	}
 	slices.Sort(found)
 	return found
 }

@@ -87,6 +87,7 @@ const (
 	FFmpegCRF                 = "-crf"
 	FFmpegBA                  = "-b:a"
 	FFmpegAR                  = "-ar"
+	FFmpegAF                  = "-af"
 	FFmpegMetadata            = "-metadata"
 	FFmpegFormat              = "-f"
 )
@@ -98,8 +99,20 @@ const (
 	FFmpegMuxerNull = "null"
 )
 
-var (
-	FFmpegStrictExperimental = []string{"-strict", "experimental"}
+// FFmpegStrictExperimental lets FFmpeg use features it counts as experimental.
+var FFmpegStrictExperimental = []string{"-strict", "experimental"}
+
+// FFmpegGeneratePTS goes before an input, filling in timestamps some containers leave out. It changes nothing in files that have them.
+var FFmpegGeneratePTS = []string{"-fflags", "+genpts"}
+
+// OpusLayoutFilter turns other channel layouts into the nearest the Opus encoder takes (e.g. "5.1(side)", which AC-3 uses, into "5.1").
+const OpusLayoutFilter = "aformat=channel_layouts=7.1|6.1|5.1|5.0|quad|3.0|stereo|mono"
+
+// EvenSizeFilter cuts the last row and column off a video where its size is odd, keeping every other pixel as it was.
+// MinSideToCut is the shortest side that's done for, as a row is too much of a smaller picture to lose.
+const (
+	EvenSizeFilter = "crop=trunc(iw/2)*2:trunc(ih/2)*2"
+	MinSideToCut   = 32
 )
 
 // Audio rate values.

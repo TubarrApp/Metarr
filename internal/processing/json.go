@@ -14,6 +14,7 @@ import (
 	"metarr/internal/metadata/fieldsjson"
 	"metarr/internal/metadata/metawriters"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,7 +166,7 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 	}
 
 	// Write thumbnail.
-	if models.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
+	if parsing.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
 		logger.Pl.I("Skipping FFprobe, thumbnail enforcing write.")
 		return false
 	}

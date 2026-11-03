@@ -10,9 +10,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 )
+
+// ffmpegLogAddress matches the memory address FFmpeg logs beside a component's name.
+var ffmpegLogAddress = regexp.MustCompile(` @ 0x[0-9a-f]+`)
+
+// hardwareProbeLines mark errors from -hwaccel auto trying hardware that isn't there, which FFmpeg moves on from.
+var hardwareProbeLines = []string{"AVHWDeviceContext", "CUDA", "Device creation failed"}
 
 // runPasses runs an FFmpeg command once per encoding pass, returning the failing pass's output with its error.
 func runPasses(ctx context.Context, args []string, passes int, durationUS int64, inputFile string) (stderr string, err error) {
@@ -61,7 +69,7 @@ func ffmpegPass(i, passes int) int {
 
 // runFFmpeg runs FFmpeg, printing its progress as the given pass, and returns its output if it fails.
 func runFFmpeg(ctx context.Context, args []string, durationUS int64, pass, passes int, inputFile string) (string, error) {
-	args = append([]string{"-progress", "pipe:1", "-nostats"}, args...)
+	args = append([]string{"-progress", "pipe:1", "-nostats", "-loglevel", "level+info"}, args...) // level+ tags each line, so ffmpegFailure can find the errors.
 	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	logger.Pl.I("Constructed FFmpeg command for %q:\n\n%v\n", inputFile, command.String())
 
@@ -73,4 +81,20 @@ func runFFmpeg(ctx context.Context, args []string, durationUS int64, pass, passe
 		return stderr.String(), err
 	}
 	return "", nil
+}
+
+// ffmpegFailure returns the first error in FFmpeg's output, which is its cause, as later ones only follow from it ("" if there are none).
+func ffmpegFailure(stderr string) string {
+	for line := range strings.Lines(stderr) {
+		if !strings.Contains(line, "[error]") && !strings.Contains(line, "[fatal]") {
+			continue
+		}
+		if slices.ContainsFunc(hardwareProbeLines, func(probe string) bool { return strings.Contains(line, probe) }) {
+			continue
+		}
+		line = ffmpegLogAddress.ReplaceAllString(line, "")
+		line = strings.NewReplacer("[error] ", "", "[fatal] ", "").Replace(line)
+		return strings.TrimSpace(line)
+	}
+	return ""
 }

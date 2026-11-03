@@ -44,6 +44,11 @@ func OutputExt(path string) (ext string, replaced bool) {
 	return ext, false
 }
 
+// ForceThumbnailWrite reports whether a thumbnail is written even when the file's metadata already matches.
+func ForceThumbnailWrite() bool {
+	return abstractions.GetBool(keys.ForceWriteThumbnails) || abstractions.GetString(keys.Thumbnail) != ""
+}
+
 // IsHTTPURL reports whether s is an absolute http(s) URL.
 func IsHTTPURL(s string) bool {
 	u, err := url.Parse(s)

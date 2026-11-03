@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/keys"
-	"metarr/internal/domain/logger"
+	"metarr/internal/report"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -96,13 +95,7 @@ type FileData struct {
 func (fd *FileData) SetFinalPaths(videoPath, metaPath string) {
 	fd.FinalVideoPath = videoPath
 	fd.FinalMetaPath = metaPath
-
-	if _, err := fmt.Fprintf(os.Stdout, "final video path: %s\n", videoPath); err != nil {
-		logger.Pl.E("Failed to output final video path for %q due to error: %v", videoPath, err)
-	}
-	if _, err := fmt.Fprintf(os.Stdout, "final json path: %s\n", metaPath); err != nil {
-		logger.Pl.E("Failed to output final JSON path for %q due to error: %v", metaPath, err)
-	}
+	report.FinalPaths(videoPath, metaPath)
 }
 
 // EmbedThumbnail returns the thumbnail to embed: --thumbnail if set, else the metadata's.
@@ -111,27 +104,6 @@ func (fd *FileData) EmbedThumbnail() string {
 		return t
 	}
 	return fd.MWebData.Thumbnail
-}
-
-// ForceThumbnailWrite reports whether a thumbnail is written even when the file's metadata already matches.
-func ForceThumbnailWrite() bool {
-	return abstractions.GetBool(keys.ForceWriteThumbnails) || abstractions.GetString(keys.Thumbnail) != ""
-}
-
-// ReportVideoPath prints the video's path as soon as it changes on disk, so a caller can find it if the run fails later.
-func ReportVideoPath(path string) {
-	if _, err := fmt.Fprintf(os.Stdout, "current video path: %s\n", path); err != nil {
-		logger.Pl.E("Failed to output current video path %q due to error: %v", path, err)
-	}
-}
-
-// ReportError prints an error's first line on stdout, beside the paths, so a caller (e.g. Tubarr) can show why a run
-// failed.
-func ReportError(err error) {
-	msg, _, _ := strings.Cut(err.Error(), "\n")
-	if _, err := fmt.Fprintf(os.Stdout, "metarr error: %s\n", msg); err != nil {
-		logger.Pl.E("Failed to output error %q due to error: %v", msg, err)
-	}
 }
 
 // Core contains variables important to the program core.
