@@ -20,6 +20,14 @@ github.com/TubarrApp/gocommon v0.0.0-20261103215806-aa99b1a54224 h1:6smhQMQSIZtO
 github.com/TubarrApp/gocommon v0.0.0-20261103215806-aa99b1a54224/go.mod h1:3lTY71PUj3MqDfxvlkQIaLxH1wXYdl/k9oAJgTzA834=
 github.com/TubarrApp/gocommon v0.0.0-20261103221205-2b54f901aa0d h1:ZFJhGFC/Q31e+aPRJA7zCGojX8WC+2GKOXl2r3tibpI=
 github.com/TubarrApp/gocommon v0.0.0-20261103221205-2b54f901aa0d/go.mod h1:3lTY71PUj3MqDfxvlkQIaLxH1wXYdl/k9oAJgTzA834=
+github.com/TubarrApp/gocommon v0.0.0-20261105023632-c5b219d7f0d5 h1:HnbGg3EjO4pnSSJAgUQdGGPdJtGrjaYnyLhyESJYSKI=
+github.com/TubarrApp/gocommon v0.0.0-20261105023632-c5b219d7f0d5/go.mod h1:3lTY71PUj3MqDfxvlkQIaLxH1wXYdl/k9oAJgTzA834=
+github.com/TubarrApp/gocommon v0.0.0-20261105025940-0021e83bb9a9 h1:kyLHT1PMaWY0Fftl5wBfc4zOAsSV3em/EGTQcoqN/50=
+github.com/TubarrApp/gocommon v0.0.0-20261105025940-0021e83bb9a9/go.mod h1:3lTY71PUj3MqDfxvlkQIaLxH1wXYdl/k9oAJgTzA834=
+github.com/TubarrApp/gocommon v0.0.0-20261105034651-b89694886a87 h1:dDbj3bwx7lrw+yNxgZbmmN/C7JpQ1OnYUAp7KgpaQKY=
+github.com/TubarrApp/gocommon v0.0.0-20261105034651-b89694886a87/go.mod h1:3lTY71PUj3MqDfxvlkQIaLxH1wXYdl/k9oAJgTzA834=
+github.com/TubarrApp/gocommon v0.0.0-20261105040001-feac758b3c1f h1:ekAjO+eM7pjuHOzGW2oBxu+eiCtI6mPziLAhb+cKSTk=
+github.com/TubarrApp/gocommon v0.0.0-20261105040001-feac758b3c1f/go.mod h1:3lTY71PUj3MqDfxvlkQIaLxH1wXYdl/k9oAJgTzA834=
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de h1:FxWPpzIjnTlhPwqqXc4/vE0f7GvRjuAsbW+HOIe8KnA=
 github.com/araddon/dateparse v0.0.0-20210429162001-6b43995a97de/go.mod h1:DCaWoUhZrYW9p1lxo/cm8EmUOOzAPSEZNGF2DK1dJgw=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
