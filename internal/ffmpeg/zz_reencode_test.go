@@ -120,6 +120,10 @@ func TestBuildCommandReencode(t *testing.T) {
 		t.Skip("FFmpeg can't encode H.264")
 	}
 	clip := makeClip(t, "v.mkv", "-f", "lavfi", "-i", "color=black:s=64x64:d=0.2", "-c:v", consts.FFVCodecKeyH264, "-pix_fmt", "yuv420p")
+	video, audio, err := getCodecs(t.Context(), clip)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	for _, c := range []struct {
 		name     string
@@ -135,7 +139,7 @@ func TestBuildCommandReencode(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		args, err := b.buildCommand(t.Context(), fd, sharedconsts.VCodecH264, "", sharedconsts.ExtMKV, c.reencode)
+		args, err := b.buildCommand(t.Context(), fd, video, audio, sharedconsts.VCodecH264, "", sharedconsts.ExtMKV, c.reencode)
 		if err != nil {
 			t.Fatal(err)
 		}

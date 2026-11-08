@@ -10,7 +10,6 @@ import (
 	"metarr/internal/domain/vars"
 	"metarr/internal/models"
 	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 )
@@ -99,6 +98,11 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 
 // runBatch opens a batch's video and JSON paths, processes them, and closes them.
 func runBatch(batch *batch, core *models.Core) ([]*models.FileData, error) {
+	// A batch with no metadata input processes its videos alone, so it has nothing to do if they're skipped.
+	if batch.SkipVideos && batch.JSON == "" {
+		return nil, fmt.Errorf("nothing to process for %q: it has no metadata input and videos are skipped", batch.Video)
+	}
+
 	var openVideo *os.File
 	if !batch.SkipVideos {
 		f, err := os.Open(batch.Video)
@@ -109,11 +113,15 @@ func runBatch(batch *batch, core *models.Core) ([]*models.FileData, error) {
 		defer closeBatchFile(openVideo)
 	}
 
-	openJSON, err := os.Open(batch.JSON)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open %s: %w", batch.JSON, err)
+	var openJSON *os.File
+	if batch.JSON != "" {
+		f, err := os.Open(batch.JSON)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open %s: %w", batch.JSON, err)
+		}
+		openJSON = f
+		defer closeBatchFile(openJSON)
 	}
-	defer closeBatchFile(openJSON)
 
 	processedFiles, err := processBatch(batch, core, openVideo, openJSON)
 	if err != nil {
@@ -124,11 +132,14 @@ func runBatch(batch *batch, core *models.Core) ([]*models.FileData, error) {
 	if !batch.IsDirs {
 		fileOrDirMsg = "File"
 	}
-	var videoDoneMsg string
+	var videoDoneMsg, jsonDoneMsg string
 	if !batch.SkipVideos {
 		videoDoneMsg = fmt.Sprintf("Input Video %s: %q\n", fileOrDirMsg, batch.Video)
 	}
-	logger.Pl.I("Finished tasks for:\n\n%sInput JSON %s: %q\n", videoDoneMsg, fileOrDirMsg, batch.JSON)
+	if batch.JSON != "" {
+		jsonDoneMsg = fmt.Sprintf("Input JSON %s: %q\n", fileOrDirMsg, batch.JSON)
+	}
+	logger.Pl.I("Finished tasks for:\n\n%s%s", videoDoneMsg, jsonDoneMsg)
 	return processedFiles, nil
 }
 
@@ -301,7 +312,7 @@ func processBatch(batch *batch, core *models.Core, openVideo, openMeta *os.File)
 	errArray := vars.GetErrorArray()
 	if len(errArray) == 0 {
 		fmt.Fprintf(os.Stderr, "\n")
-		logger.Pl.S("Successfully processed all files in directory %q with no errors.\n", filepath.Dir(batch.bp.filepaths.metaFile))
+		logger.Pl.S("Successfully processed all files in directory %q with no errors.\n", batch.bp.filepaths.directory)
 		return fdArray, nil
 	}
 	return fdArray, nil

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
 	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
@@ -104,15 +105,9 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) (*ffCommandBuil
 }
 
 // buildCommand constructs the complete FFmpeg command.
-func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, desiredVCodec, desiredACodec, outExt string, reencode bool) ([]string, error) {
+func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, currentVCodec, currentACodec sharedmodels.FromCodec, desiredVCodec, desiredACodec, outExt string, reencode bool) ([]string, error) {
 	if b.inputFile == "" || b.outputFile == "" {
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
-	}
-
-	// Grab current codecs.
-	currentVCodec, currentACodec, err := getCodecs(b.inputFile)
-	if err != nil {
-		logger.Pl.E("Failed to check codecs in file %q: %v", b.inputFile, err)
 	}
 	availableCodecs := availableEncoders(ctx)
 

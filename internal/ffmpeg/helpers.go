@@ -185,6 +185,20 @@ func encoderInstalled(ctx context.Context, encoder string) bool {
 	return encoders == "" || (encoder != "" && strings.Contains(encoders, " "+encoder+" "))
 }
 
+// mapsCompressionLevels reports whether a codec map has a line for a compression level, like lc_h264.
+func mapsCompressionLevels(key string) bool {
+	cMap, ok := abstractions.Get(key).(map[sharedmodels.FromCodec]string)
+	if !ok {
+		return false
+	}
+	for from := range cMap {
+		if from.Compression != sharedconsts.CompressionBlank {
+			return true
+		}
+	}
+	return false
+}
+
 // getOutputCodecString returns the codec required according to mapping.
 func getOutputCodecString(key string, currentCodec sharedmodels.FromCodec, codecType sharedconsts.MediaType) (outputCodec string) {
 	if !abstractions.IsSet(key) {

@@ -1,9 +1,11 @@
 package ffprobe
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
@@ -141,14 +143,14 @@ type ffprobeCodecOutputStream struct {
 	} `json:"disposition"`
 }
 
-// ProbeCodecs determines the codecs and compression level of the video and audio through FFprobe.
-func ProbeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompression, videoCompression sharedconsts.CompressionLevel, err error) {
+// ProbeCodecs determines the video and audio codecs and compression levels, measuring the audio bitrate from its packets if asked and the file has none.
+func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (audioCodec, videoCodec string, audioCompression, videoCompression sharedconsts.CompressionLevel, err error) {
 	if inputFile == "" {
 		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, fmt.Errorf("input file sent in empty")
 	}
 
 	// FFprobe command to grab relevant values.
-	cmd := exec.Command(sharedconsts.ProgramFFprobe,
+	cmd := exec.CommandContext(ctx, sharedconsts.ProgramFFprobe,
 		"-v", "error",
 		"-show_entries",
 		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels:stream_disposition=attached_pic:format=bit_rate",
@@ -189,10 +191,19 @@ func ProbeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 		}
 	}
 
+	// MKV and WebM store no audio bitrate, so measure it when a codec line needs the level.
+	var audioBitRate string
+	if audio != nil {
+		if audio.BitRate == "" && measureAudio {
+			audio.BitRate = probeAudioBitrate(ctx, inputFile)
+		}
+		audioBitRate = audio.BitRate
+	}
+
 	// Determine video compression level, left unknown if it can't be worked out so the codecs still count.
 	if video == nil {
 		logger.Pl.I("No video stream in '%s', so only its audio can be transcoded", inputFile)
-	} else if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, inputFile); err != nil {
+	} else if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, audioBitRate, inputFile); err != nil {
 		logger.Pl.W("Can't tell how compressed the video in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
 		videoCompression = sharedconsts.CompressionBlank
 	}
@@ -206,6 +217,63 @@ func ProbeCodecs(inputFile string) (audioCodec, videoCodec string, audioCompress
 	}
 
 	return audioCodec, videoCodec, audioCompression, videoCompression, nil
+}
+
+// probeAudioBitrate works out the first audio stream's bitrate from its packets, or returns "" if it can't.
+func probeAudioBitrate(ctx context.Context, inputFile string) string {
+	logger.Pl.I("Measuring the audio bitrate of %q from its packets. This reads the whole file, so it can take a while for long videos.", inputFile)
+
+	// List each audio packet's start, length and size, which FFprobe gives in that order.
+	cmd := exec.CommandContext(ctx, sharedconsts.ProgramFFprobe,
+		"-v", "error",
+		"-select_streams", "a:0",
+		"-show_entries", "packet=pts_time,duration_time,size",
+		"-of", "csv=p=0",
+		inputFile,
+	)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		logger.Pl.W("Can't read the audio packets in %q: %v", inputFile, err)
+		return ""
+	}
+	if err := cmd.Start(); err != nil {
+		logger.Pl.W("Can't read the audio packets in %q: %v", inputFile, err)
+		return ""
+	}
+
+	// Add up the sizes line by line, as a long video lists millions of packets.
+	// MKV rounds each packet's length to the millisecond, so time them from the first start to the last end.
+	var totalBytes float64
+	start := math.Inf(1)
+	end := math.Inf(-1)
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		fields := strings.Split(scanner.Text(), ",")
+		if len(fields) != 3 {
+			continue
+		}
+		packetStart, startErr := strconv.ParseFloat(fields[0], 64)
+		packetSeconds, durationErr := strconv.ParseFloat(fields[1], 64)
+		packetBytes, sizeErr := strconv.ParseFloat(fields[2], 64)
+		if startErr != nil || durationErr != nil || sizeErr != nil {
+			continue
+		}
+		start = min(start, packetStart)
+		end = max(end, packetStart+packetSeconds)
+		totalBytes += packetBytes
+	}
+	if err := cmd.Wait(); err != nil {
+		logger.Pl.W("Can't read the audio packets in %q: %v", inputFile, err)
+		return ""
+	}
+	if end <= start {
+		logger.Pl.W("The audio packets in %q have no length, so its bitrate is unknown", inputFile)
+		return ""
+	}
+
+	bitRate := strconv.FormatFloat(totalBytes*8/(end-start), 'f', 0, 64)
+	logger.Pl.I("Measured the audio bitrate of %q as %s bits per second", inputFile, bitRate)
+	return bitRate
 }
 
 // ProbeFirstFrames returns the codec of a file's first stream of a type ("V", "a"), and how many of its frames read back in a trial copy's length.

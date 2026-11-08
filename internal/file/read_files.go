@@ -293,6 +293,11 @@ func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, b
 			}
 		}
 	}
+	for _, videoFilename := range videoNames {
+		if _, matched := matchedFiles[videoFilename]; !matched {
+			logger.Pl.W("No metadata file matches video %q, skipping it", videoFilename)
+		}
+	}
 	if len(matchedFiles) == 0 {
 		return nil, fmt.Errorf("no matching metadata files found for any videos (batch ID: %d)", batchID)
 	}

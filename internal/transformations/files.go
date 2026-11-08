@@ -2,6 +2,7 @@
 package transformations
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -57,9 +58,11 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 			sortedFiles = append(sortedFiles, fd)
 		}
 	}
-	// Sort alphabetically by meta path.
+	// Sort alphabetically by meta path, or video path for a video with no metafile.
 	sort.Slice(sortedFiles, func(i, j int) bool {
-		return sortedFiles[i].MetaFilePath < sortedFiles[j].MetaFilePath
+		a := cmp.Or(sortedFiles[i].MetaFilePath, sortedFiles[i].OriginalVideoPath)
+		b := cmp.Or(sortedFiles[j].MetaFilePath, sortedFiles[j].OriginalVideoPath)
+		return a < b
 	})
 	// Iterate over sorted list.
 	processedDirs := make(map[string]bool)
@@ -127,29 +130,32 @@ func renameFile(ctx context.Context, fileData *models.FileData, style enums.Repl
 		outputDir:     outputDir,
 	}
 
-	metaFile, err := os.Open(fp.fd.MetaFilePath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := metaFile.Close(); err != nil {
-			logger.Pl.E("Error closing file %q: %v", metaFile.Name(), err)
-		}
-	}()
-
-	switch fileData.MetaFileType {
-	case sharedconsts.MExtJSON:
-		jsonRW := metawriters.NewJSONFileRW(ctx, metaFile)
-		fp.metadata, err = jsonRW.DecodeJSON(metaFile)
+	// Read the metadata that name templates are filled from, if the video has a metafile.
+	if fp.fd.MetaFilePath != "" {
+		metaFile, err := os.Open(fp.fd.MetaFilePath)
 		if err != nil {
 			return err
 		}
-	case sharedconsts.MExtNFO:
-		nfoRW := metawriters.NewNFOFileRW(ctx, metaFile)
-		if _, err := nfoRW.DecodeMetadata(metaFile); err != nil {
-			return err
+		defer func() {
+			if err := metaFile.Close(); err != nil {
+				logger.Pl.E("Error closing file %q: %v", metaFile.Name(), err)
+			}
+		}()
+
+		switch fileData.MetaFileType {
+		case sharedconsts.MExtJSON:
+			jsonRW := metawriters.NewJSONFileRW(ctx, metaFile)
+			fp.metadata, err = jsonRW.DecodeJSON(metaFile)
+			if err != nil {
+				return err
+			}
+		case sharedconsts.MExtNFO:
+			nfoRW := metawriters.NewNFOFileRW(ctx, metaFile)
+			if _, err := nfoRW.DecodeMetadata(metaFile); err != nil {
+				return err
+			}
+			fp.metadata = metawriters.NFOFields(nfoRW.Meta)
 		}
-		fp.metadata = metawriters.NFOFields(nfoRW.Meta)
 	}
 
 	if err := fp.process(); err != nil {
@@ -238,7 +244,8 @@ func (fp *fileProcessor) process() error {
 
 // purgeMetafile deletes the metafile if the user requested a purge.
 func (fp *fileProcessor) purgeMetafile(fsWriter *file.FSFileWriter) (deleted bool, err error) {
-	if !abstractions.IsSet(keys.MetaPurge) {
+	// A video with no metafile has none to purge.
+	if !abstractions.IsSet(keys.MetaPurge) || fp.fd.MetaFilePath == "" {
 		return false, nil
 	}
 
@@ -374,6 +381,9 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 	if renamedVideo == "" { // Videos are skipped, so there's no video to name.
 		renamedVPath = ""
 	}
+	if fp.fd.MetaFilePath == "" { // The video has no metafile to name.
+		renamedMPath = ""
+	}
 	if renamedVPath == "" || filepath.IsAbs(renamedVPath) {
 		fp.fd.RenamedVideoPath = renamedVPath
 	} else {
@@ -383,7 +393,7 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		}
 	}
 
-	if filepath.IsAbs(renamedMPath) {
+	if renamedMPath == "" || filepath.IsAbs(renamedMPath) {
 		fp.fd.RenamedMetaPath = renamedMPath
 	} else {
 		fp.fd.RenamedMetaPath, err = filepath.Abs(renamedMPath)

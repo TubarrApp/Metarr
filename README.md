@@ -89,7 +89,7 @@ Quote values with leading or trailing spaces, since YAML trims them otherwise.
 
 ## Inputs, Filtering, and Safety Nets
 
-- `--video-directory`, `--video-file`, `--meta-directory`, `--meta-file` – sources that can be mixed and matched. Only the top level of each directory is read (subdirectories are not searched).
+- `--video-directory`, `--video-file`, `--meta-directory`, `--meta-file` – sources that can be mixed and matched. Only the top level of each directory is read (subdirectories are not searched). Video and metadata sources pair up in the order given. A video directory or file left without one is processed on its own: its existing tags are kept, meta and filtered operations don't apply, filename operations using template tags leave the name as it is, and a templated output directory can't be filled, so the video stays where it is.
 - `--batch-pairs "/videos:/meta"` – pin a video path to a metadata path (file or directory).
 - `--input-video-exts` / `--input-meta-exts` – limit processing to certain extensions (`all` or any video extension, such as `mkv`, `mp4`, `webm` / `all`, `json`, `nfo`).
 - `--filter-prefix`, `--filter-suffix`, `--filter-contains`, `--filter-omits` – lightweight filename filters applied before work begins.

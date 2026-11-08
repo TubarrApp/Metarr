@@ -71,7 +71,7 @@ func TestGetCodecsWithoutVideo(t *testing.T) {
 		"-map", "0", "-map", "1", "-c:a", "aac", "-c:v", "copy", "-disposition:v:0", "attached_pic")
 
 	for _, path := range []string{audioOnly, withThumbnail} {
-		video, audio, err := getCodecs(path)
+		video, audio, err := getCodecs(t.Context(), path)
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}

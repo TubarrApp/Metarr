@@ -174,6 +174,49 @@ func TestRenameMetafileWithoutVideo(t *testing.T) {
 	}
 }
 
+// TestRenameVideoWithoutMetafile tests a video with no metafile is renamed and moved, reports no metafile, and a purge passes it over.
+func TestRenameVideoWithoutMetafile(t *testing.T) {
+	logger.Pl.Console = io.Discard
+	t.Cleanup(viper.Reset)
+	viper.Set(keys.FilenameOpsModels, models.NewFilenameOps())
+	viper.Set(keys.MetaPurge, "all")
+	viper.Set(keys.MetaPurgeEnum, enums.PurgeMetaAll)
+
+	for _, tc := range []struct {
+		name, prefix, want string
+	}{
+		{"plain prefix", "new ", "new v.mp4"},
+		{"template prefix keeps the name", "{{title}} ", "v.mp4"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			in := t.TempDir()
+			out := t.TempDir()
+			viper.Set(keys.OutputDirectory, out)
+			video := filepath.Join(in, "v.mp4")
+			if err := os.WriteFile(video, []byte("x"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			fd := models.NewFileData()
+			fd.OriginalVideoPath = video
+			fd.PostFFmpegVideoPath = video
+			fd.VideoDirectory = in
+			fd.FilenameOps = models.NewFilenameOps()
+			fd.FilenameOps.Prefixes = []models.FOpPrefix{{Value: tc.prefix}}
+
+			if err := RenameFiles(t.Context(), []*models.FileData{fd}); err != nil {
+				t.Fatal(err)
+			}
+			want := filepath.Join(out, tc.want)
+			if _, err := os.Stat(want); err != nil {
+				t.Error(err)
+			}
+			if fd.FinalVideoPath != want || fd.FinalMetaPath != "" || fd.RenamedMetaPath != "" {
+				t.Errorf("final video %q, final metafile %q, renamed metafile %q; want %q and no metafile", fd.FinalVideoPath, fd.FinalMetaPath, fd.RenamedMetaPath, want)
+			}
+		})
+	}
+}
+
 // TestProcessMovesWithoutRename tests that an output directory moves files even when no rename style is set.
 func TestProcessMovesWithoutRename(t *testing.T) {
 	logger.Pl.Console = io.Discard

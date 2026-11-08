@@ -11,6 +11,7 @@ import (
 	"metarr/internal/models"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"time"
 
@@ -40,16 +41,16 @@ func getFileDirs() (videoDirs, videoFiles, metaDirs, metaFiles []string, err err
 		metaDirs = abstractions.GetStringSlice(keys.MetaDirs)
 	}
 
-	// Check batch pairs.
+	// Check batch pairs. They go first, as sources pair up by position and the others needn't come in pairs.
 	if abstractions.IsSet(keys.BatchPairs) {
 		batchPairs, ok := abstractions.Get(keys.BatchPairs).(models.BatchPairs)
 		if !ok {
 			return nil, nil, nil, nil, fmt.Errorf("%s got wrong type %T for expected BatchPairs model", sharedconsts.ErrorfDevError, batchPairs)
 		}
-		videoDirs = append(videoDirs, batchPairs.VideoDirs...)
-		videoFiles = append(videoFiles, batchPairs.VideoFiles...)
-		metaDirs = append(metaDirs, batchPairs.MetaDirs...)
-		metaFiles = append(metaFiles, batchPairs.MetaFiles...)
+		videoDirs = slices.Concat(batchPairs.VideoDirs, videoDirs)
+		videoFiles = slices.Concat(batchPairs.VideoFiles, videoFiles)
+		metaDirs = slices.Concat(batchPairs.MetaDirs, metaDirs)
+		metaFiles = slices.Concat(batchPairs.MetaFiles, metaFiles)
 	}
 
 	if videoDirs, err = absPaths(videoDirs); err != nil {
@@ -65,8 +66,7 @@ func getFileDirs() (videoDirs, videoFiles, metaDirs, metaFiles []string, err err
 		return nil, nil, nil, nil, err
 	}
 
-	videoDirs, videoFiles, metaDirs, metaFiles = getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles)
-	return videoDirs, videoFiles, metaDirs, metaFiles, nil
+	return getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles)
 }
 
 // absPaths returns the paths made absolute, as FFmpeg reads a relative name like "Title:x.mp4" as a protocol.
@@ -83,11 +83,23 @@ func absPaths(paths []string) ([]string, error) {
 }
 
 // getValidFileDirs checks for validity of files and directories, with fallback handling.
-func getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles []string) (vDirs, vFiles, mDirs, mFiles []string) {
-	vDirs, misplacedVFiles := validatePaths("video directory", videoDirs)
-	misplacedVDirs, vFiles := validatePaths("video file", videoFiles)
-	mDirs, misplacedMFiles := validatePaths("Metadata directory", metaDirs)
-	misplacedMDirs, mFiles := validatePaths("Metadata file", metaFiles)
+func getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles []string) (vDirs, vFiles, mDirs, mFiles []string, err error) {
+	vDirs, misplacedVFiles, err := validatePaths("video directory", videoDirs)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	misplacedVDirs, vFiles, err := validatePaths("video file", videoFiles)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	mDirs, misplacedMFiles, err := validatePaths("Metadata directory", metaDirs)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	misplacedMDirs, mFiles, err := validatePaths("Metadata file", metaFiles)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 
 	// Log and reassign misplaced entries.
 	for _, f := range misplacedVFiles {
@@ -106,18 +118,17 @@ func getValidFileDirs(videoDirs, videoFiles, metaDirs, metaFiles []string) (vDir
 		logger.Pl.W("User entered directory %q as file, appending to valid metadata directories", d)
 		mDirs = append(mDirs, d)
 	}
-	return vDirs, vFiles, mDirs, mFiles
+	return vDirs, vFiles, mDirs, mFiles, nil
 }
 
 // validatePaths checks whether each path in 'paths' is a directory or file.
 //
-// It classifies them into dirs and files while logging consistent warnings.
-func validatePaths(kind string, paths []string) (dirs, files []string) {
+// It classifies them into dirs and files, failing on a path it can't read, as leaving one out would pair the rest wrongly.
+func validatePaths(kind string, paths []string) (dirs, files []string, err error) {
 	for _, p := range paths {
 		info, err := os.Stat(p)
 		if err != nil {
-			logger.Pl.E("Failed to stat %s path %q: %v", kind, p, err)
-			continue
+			return nil, nil, fmt.Errorf("failed to stat %s path %q: %w", kind, p, err)
 		}
 		if info.IsDir() {
 			dirs = append(dirs, p)
@@ -125,7 +136,7 @@ func validatePaths(kind string, paths []string) (dirs, files []string) {
 			files = append(files, p)
 		}
 	}
-	return dirs, files
+	return dirs, files, nil
 }
 
 // sysResourceLoop checks the system resources, staying in the loop until resources meet the set criteria.

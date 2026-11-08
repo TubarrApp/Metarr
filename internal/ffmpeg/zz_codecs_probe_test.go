@@ -34,7 +34,7 @@ func TestGetCodecsWithoutStreamBitrate(t *testing.T) {
 				t.Fatalf("making %s: %v\n%s", tt.file, err, out)
 			}
 
-			video, audio, err := getCodecs(in)
+			video, audio, err := getCodecs(t.Context(), in)
 			if err != nil {
 				t.Fatal(err)
 			}

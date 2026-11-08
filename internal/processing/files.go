@@ -147,11 +147,15 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 	}
 }
 
-// processMetadataFiles processes metafiles such as .json, .nfo, and so on.
+// processMetadataFiles processes metafiles such as .json and .nfo, and checks whether a video with none needs FFmpeg.
 func processMetadataFiles(ctx context.Context, bp *batchProcessor, skipVideos bool, matchedFiles map[string]*models.FileData, muFailed *sync.Mutex) {
 	for name, fd := range matchedFiles {
 		var err error
 		switch fd.MetaFileType {
+		case "": // No metafile, so no tags to write, but the thumbnail settings still apply.
+			if !skipVideos && filetypeMetaCheckSwitch(ctx, fd) {
+				fd.MetaAlreadyExists = true
+			}
 		case sharedconsts.MExtJSON:
 			logger.Pl.D(3, "File: %s: Meta file type in model as %v", fd.MetaFilePath, fd.MetaFileType)
 			err = processJSONFile(ctx, fd, skipVideos)
@@ -180,13 +184,15 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 
 	// Batch is a directory request...
 	if batch.IsDirs {
-		metaMap, err = file.GetMetadataFiles(openMeta)
-		if err != nil {
-			batch.bp.addFailure(failedVideo{
-				filename: openMeta.Name(),
-				err:      err.Error(),
-			})
-			return fmt.Errorf("failed to retrieve metadata files in %q: %w", openMeta.Name(), err)
+		if openMeta != nil {
+			metaMap, err = file.GetMetadataFiles(openMeta)
+			if err != nil {
+				batch.bp.addFailure(failedVideo{
+					filename: openMeta.Name(),
+					err:      err.Error(),
+				})
+				return fmt.Errorf("failed to retrieve metadata files in %q: %w", openMeta.Name(), err)
+			}
 		}
 
 		if !skipVideos {
@@ -201,13 +207,15 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 		// Batch is a file request...
 	} else if !batch.IsDirs {
-		metaMap, err = file.GetSingleMetadataFile(openMeta)
-		if err != nil {
-			batch.bp.addFailure(failedVideo{
-				filename: openMeta.Name(),
-				err:      err.Error(),
-			})
-			return fmt.Errorf("failed to retrieve metadata file %q: %w", openMeta.Name(), err)
+		if openMeta != nil {
+			metaMap, err = file.GetSingleMetadataFile(openMeta)
+			if err != nil {
+				batch.bp.addFailure(failedVideo{
+					filename: openMeta.Name(),
+					err:      err.Error(),
+				})
+				return fmt.Errorf("failed to retrieve metadata file %q: %w", openMeta.Name(), err)
+			}
 		}
 
 		if !skipVideos {
@@ -222,15 +230,18 @@ func getFiles(batch *batch, openMeta, openVideo *os.File, skipVideos bool) (err 
 		}
 	}
 
-	// Match video and metadata files.
+	// Match video and metadata files, or take the videos alone if the batch has no metadata input.
 	var matchedFiles map[string]*models.FileData // Do not assign length (just a placeholder var, will show unused otherwise).
-	if !skipVideos {
+	switch {
+	case skipVideos:
+		matchedFiles = metaMap
+	case openMeta == nil:
+		matchedFiles = videoMap
+	default:
 		matchedFiles, err = file.MatchVideoWithMetadata(videoMap, metaMap, batch.ID)
 		if err != nil {
 			return fmt.Errorf("error matching videos with metadata: %w", err)
 		}
-	} else {
-		matchedFiles = metaMap
 	}
 
 	var (
@@ -283,10 +294,12 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 	default:
 	}
 
-	// Print progress for metadata.
-	currentMeta := bp.counts.processedMeta.Add(1)
-	totalMeta := bp.counts.totalMeta.Load()
-	printProgress(typeMeta, currentMeta, totalMeta, fd.MetaDirectory)
+	// Print progress for metadata, if the file has a metafile.
+	if fd.MetaFilePath != "" {
+		currentMeta := bp.counts.processedMeta.Add(1)
+		totalMeta := bp.counts.totalMeta.Load()
+		printProgress(typeMeta, currentMeta, totalMeta, fd.MetaDirectory)
+	}
 
 	// System resource check.
 	sysResourceLoop(ctx, filename)
@@ -314,7 +327,7 @@ func executeFile(ctx context.Context, bp *batchProcessor, skipVideos bool, filen
 
 			currentVideo := bp.counts.processedVideo.Add(1)
 			totalVideo := bp.counts.totalVideo.Load()
-			printProgress(typeVideo, currentVideo, totalVideo, fd.MetaDirectory)
+			printProgress(typeVideo, currentVideo, totalVideo, fd.VideoDirectory)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "\n")

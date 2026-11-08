@@ -14,6 +14,7 @@ import (
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedtags"
+	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
 // ffprobeFormat contains metadata tags.
@@ -241,8 +242,8 @@ func (tags ffprobeTags) get(key string) string {
 	return ""
 }
 
-// getVideoCompressionLevel determines the compression level of a video stream through BPPPF, using the file's bitrate when the stream has none.
-func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, inputFile string) (sharedconsts.CompressionLevel, error) {
+// getVideoCompressionLevel determines the compression level of a video stream through BPPPF, using the file's bitrate less the audio's when the stream has none.
+func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, audioBitRate, inputFile string) (sharedconsts.CompressionLevel, error) {
 	// Validate video dimensions.
 	if video.Width <= 0 || video.Height <= 0 {
 		return sharedconsts.CompressionBlank, fmt.Errorf("invalid video dimensions: %dx%d", video.Width, video.Height)
@@ -275,25 +276,50 @@ func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, inpu
 		return sharedconsts.CompressionBlank, fmt.Errorf("no video bitrate (stream %q, file %q)", video.BitRate, fileBitRate)
 	}
 
+	// Take the audio out of the file's bitrate.
+	if video.BitRate == "" {
+		if audioRate, err := strconv.ParseFloat(audioBitRate, 64); err == nil && audioRate < bitRate {
+			bitRate -= audioRate
+		}
+	}
+
 	// Calculate BPPPF.
 	bpppf := bitRate / (float64(video.Width) * float64(video.Height) * frameRate)
+
+	// Scale the thresholds to how many bits the codec needs.
+	codec, _ := sharedvalidation.ValidateVideoCodec(video.CodecName)
+	scale := videoBitsScale(codec)
 
 	// Determine compression level.
 	compressionLevel := "low compression"
 	var compression sharedconsts.CompressionLevel
 	switch {
-	case bpppf < sharedconsts.BPPPFHighCompressionThreshold:
+	case bpppf < sharedconsts.BPPPFHighCompressionThreshold*scale:
 		compression = sharedconsts.CompressionHigh
 		compressionLevel = "high compression"
-	case bpppf < sharedconsts.BPPPFMediumCompressionThreshold:
+	case bpppf < sharedconsts.BPPPFMediumCompressionThreshold*scale:
 		compression = sharedconsts.CompressionMedium
 		compressionLevel = "average compression"
 	default:
 		compression = sharedconsts.CompressionLow
 	}
 
-	logger.Pl.I("Video '%s''s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s.", inputFile, bitRate, video.Width, video.Height, frameRate, compressionLevel)
+	logger.Pl.I("Video '%s''s %s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s.", inputFile, video.CodecName, bitRate, video.Width, video.Height, frameRate, compressionLevel)
 	return compression, nil
+}
+
+// videoBitsScale returns how many bits a video codec needs for the same picture, compared with H.264.
+func videoBitsScale(codec string) float64 {
+	switch codec {
+	case sharedconsts.VCodecAV1:
+		return 0.5
+	case sharedconsts.VCodecHEVC, sharedconsts.VCodecVP9:
+		return 0.6
+	case sharedconsts.VCodecMPEG2:
+		return 2
+	default:
+		return 1
+	}
 }
 
 // getAudioCompressionLevel determines the compression level of an audio stream.
@@ -322,20 +348,38 @@ func getAudioCompressionLevel(audio *ffprobeCodecOutputStream, inputFile string)
 	// Calculate bits per second per channel, normalised to 48 kHz.
 	bpspc := bitRate / float64(audio.Channels) * (48000 / sampleRate)
 
+	// Scale the thresholds to how many bits the codec needs.
+	codec, _ := sharedvalidation.ValidateAudioCodec(audio.CodecName)
+	scale := audioBitsScale(codec)
+
 	// Determine compression level.
 	compressionLevel := "low compression"
 	var compression sharedconsts.CompressionLevel
 	switch {
-	case bpspc < sharedconsts.AudioBPSPCHighCompressionThreshold:
+	case bpspc < sharedconsts.AudioBPSPCHighCompressionThreshold*scale:
 		compression = sharedconsts.CompressionHigh
 		compressionLevel = "high compression"
-	case bpspc < sharedconsts.AudioBPSPCMediumCompressionThreshold:
+	case bpspc < sharedconsts.AudioBPSPCMediumCompressionThreshold*scale:
 		compression = sharedconsts.CompressionMedium
 		compressionLevel = "average compression"
 	default:
 		compression = sharedconsts.CompressionLow
 	}
 
-	logger.Pl.I("Video '%s's audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the audio has %s.", inputFile, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
+	logger.Pl.I("Video '%s's %s audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the audio has %s.", inputFile, audio.CodecName, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
 	return compression, nil
+}
+
+// audioBitsScale returns how many bits an audio codec needs for the same sound, compared with MP3.
+func audioBitsScale(codec string) float64 {
+	switch codec {
+	case sharedconsts.ACodecOpus:
+		return 0.6
+	case sharedconsts.ACodecAAC, sharedconsts.ACodecEAC3, sharedconsts.ACodecVorbis:
+		return 0.75
+	case sharedconsts.ACodecDTS, sharedconsts.ACodecMP2:
+		return 1.5
+	default:
+		return 1
+	}
 }

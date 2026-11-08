@@ -30,8 +30,14 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	// Output extension: the one set, else the video's own, or a writable one if FFmpeg can't write its own.
 	outputFileExt, replaced := parsing.OutputExt(fd.OriginalVideoPath)
 
+	// Get current codecs, once for working out the targets and building the command.
+	inputFileVCodec, inputFileACodec, err := getCodecs(ctx, fd.OriginalVideoPath)
+	if err != nil {
+		logger.Pl.E("Failed to check input file %q codec: %v", fd.OriginalVideoPath, err)
+	}
+
 	// Work out the codecs, stopping here if the video needs no processing.
-	targetVCodec, targetACodec, reencode, skip, err := prepareCodecs(ctx, fd, outputFileExt, replaced)
+	targetVCodec, targetACodec, reencode, skip, err := prepareCodecs(ctx, fd, inputFileVCodec, inputFileACodec, outputFileExt, replaced)
 	if err != nil {
 		return err
 	}
@@ -52,22 +58,16 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}()
 
 	// Write the new video to the temp path, then move it into place.
-	if err := executeFFmpeg(ctx, fd, tmpOutPath, targetVCodec, targetACodec, outputFileExt, reencode); err != nil {
+	if err := executeFFmpeg(ctx, fd, tmpOutPath, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt, reencode); err != nil {
 		return err
 	}
 	return finalizeOutput(fd, tmpOutPath, outputFileExt, replaced)
 }
 
 // prepareCodecs returns the codecs to write a video in and whether to encode it again in its own, or whether it needs no processing at all.
-func prepareCodecs(ctx context.Context, fd *models.FileData, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, reencode, skip bool, err error) {
+func prepareCodecs(ctx context.Context, fd *models.FileData, inputFileVCodec, inputFileACodec sharedmodels.FromCodec, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, reencode, skip bool, err error) {
 	inputFilePath := fd.OriginalVideoPath
 	inputFileExt := filepath.Ext(inputFilePath)
-
-	// Get current codecs.
-	inputFileVCodec, inputFileACodec, err := getCodecs(inputFilePath)
-	if err != nil {
-		logger.Pl.E("Failed to check input file %q codec: %v", inputFilePath, err)
-	}
 
 	// Check codec mismatches.
 	targetVCodec = getOutputCodecString(keys.TranscodeVideoCodecMap, inputFileVCodec, sharedconsts.Video)
@@ -127,7 +127,7 @@ func prepareOutputPaths(fd *models.FileData, outputFileExt string) (tmpOutPath s
 }
 
 // executeFFmpeg runs FFmpeg to write the new video at tmpOutPath, trying again if it fails.
-func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath, targetVCodec, targetACodec, outputFileExt string, reencode bool) error {
+func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath string, inputFileVCodec, inputFileACodec sharedmodels.FromCodec, targetVCodec, targetACodec, outputFileExt string, reencode bool) error {
 	inputFilePath := fd.OriginalVideoPath
 	baseName := parsing.GetBaseNameWithoutExt(inputFilePath)
 
@@ -142,7 +142,7 @@ func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath, targetV
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.
-		args, err := builder.buildCommand(ctx, fd, targetVCodec, targetACodec, outputFileExt, reencode)
+		args, err := builder.buildCommand(ctx, fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt, reencode)
 		if err != nil {
 			return err
 		}
@@ -304,14 +304,17 @@ func makeBackup(origPath string) (backupPath string, err error) {
 }
 
 // getCodecs checks the input codec to determine if a straight remux is possible.
-func getCodecs(inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec, err error) {
+func getCodecs(ctx context.Context, inputFile string) (videoCodec, audioCodec sharedmodels.FromCodec, err error) {
 	blankFromCodec := sharedmodels.NewFromCodec(sharedconsts.CodecCopy, "")
 	if inputFile == "" {
 		return blankFromCodec, blankFromCodec, fmt.Errorf("input file is empty, cannot check codecs")
 	}
 
+	// Measuring a missing audio bitrate reads the whole file, so only do it when a codec line goes by compression level.
+	measureAudio := mapsCompressionLevels(keys.TranscodeVideoCodecMap) || mapsCompressionLevels(keys.TranscodeAudioCodecMap)
+
 	// Determine codecs and video compression level.
-	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = ffprobe.ProbeCodecs(inputFile); err != nil {
+	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = ffprobe.ProbeCodecs(ctx, inputFile, measureAudio); err != nil {
 		return blankFromCodec, blankFromCodec, err
 	}
 

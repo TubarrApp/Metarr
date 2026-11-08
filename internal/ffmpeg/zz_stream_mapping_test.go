@@ -535,9 +535,13 @@ func TestRetriedCommandSameThumbnailsWithFFmpeg(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer b.removeTempThumbnails()
+			video, audio, err := getCodecs(t.Context(), tc.path)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			for attempt := 1; attempt <= 2; attempt++ {
-				args, err := b.buildCommand(t.Context(), fd, "", "", tc.outExt, false)
+				args, err := b.buildCommand(t.Context(), fd, video, audio, "", "", tc.outExt, false)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -765,7 +769,7 @@ func TestGetCodecsUsesMappingNames(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "v.mkv")
 	runTestFFmpeg(t, append(slices.Clone(inputs), "-map", "0", "-map", "1", "-c:v", "mpeg2video", "-c:a", "pcm_s16le", path)...)
 
-	video, audio, err := getCodecs(path)
+	video, audio, err := getCodecs(t.Context(), path)
 	if err != nil {
 		t.Fatal(err)
 	}

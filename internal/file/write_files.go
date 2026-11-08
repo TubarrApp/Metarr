@@ -43,7 +43,8 @@ func NewFSFileWriter(fd *models.FileData, skipVids bool, outputDir string) (*FSF
 		}
 	}
 
-	if inputMeta == "" && renamedMeta == "" {
+	// A video can have no metafile, so only a metadata-only run needs the meta paths.
+	if skipVids && inputMeta == "" && renamedMeta == "" {
 		return nil, fmt.Errorf("some required meta paths are empty:\n\nMeta src: %q\nMeta dest: %q", inputMeta, renamedMeta)
 	}
 
