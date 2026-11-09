@@ -32,10 +32,11 @@ import (
 
 // JSONFileRW is used to access JSON reading/writing utilities.
 type JSONFileRW struct {
-	ctx  context.Context
-	mu   sync.Mutex
-	Meta map[string]any
-	File *os.File
+	ctx   context.Context
+	mu    sync.Mutex
+	dirty bool // Meta has edits not yet written to File.
+	Meta  map[string]any
+	File  *os.File
 }
 
 // NewJSONFileRW creates a new instance of the JSON file reader/writer.
@@ -88,15 +89,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	return data, nil
 }
 
-// RefreshJSON reloads the metadata map from the file after updates.
-func (rw *JSONFileRW) RefreshJSON() (map[string]any, error) {
-	if rw.File == nil {
-		return nil, errors.New("file passed in nil")
-	}
-	return rw.DecodeJSON(rw.File)
-}
-
-// WriteJSON inserts metadata into the JSON file from a map.
+// WriteJSON inserts metadata from a map, written to the file by Flush.
 func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, error) {
 	if fieldMap == nil {
 		return nil, errors.New("field map passed in nil")
@@ -136,24 +129,14 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 		return currentMeta, nil
 	}
 
-	// Backup if option set.
-	if abstractions.GetBool(keys.NoFileOverwrite) {
-		if err := file.BackupFile(rw.File); err != nil {
-			return currentMeta, fmt.Errorf("failed to create backup: %w", err)
-		}
-	}
-
-	// Write file.
-	if err := rw.writeJSONToFile(rw.File, currentMeta); err != nil {
-		return currentMeta, err
-	}
 	rw.updateMeta(currentMeta)
+	rw.dirty = true
 
-	logger.Pl.D(3, "Successfully updated JSON file with new metadata")
+	logger.Pl.D(3, "Successfully updated JSON metadata")
 	return currentMeta, nil
 }
 
-// MakeJSONEdits applies a series of transformations and writes the final result to the file.
+// MakeJSONEdits applies a series of transformations, written to the file by Flush.
 func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited bool, err error) {
 	if file == nil {
 		return false, errors.New("file passed in nil")
@@ -265,13 +248,9 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		return false, nil
 	}
 
-	// Write new metadata to file.
-	if err := rw.writeJSONToFile(file, currentMeta); err != nil {
-		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
-	}
-
 	// Save the meta back into the model.
 	rw.updateMeta(currentMeta)
+	rw.dirty = true
 	logger.Pl.S("Successfully applied metadata edits to: %v", file.Name())
 
 	return edited, nil
@@ -306,12 +285,8 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 		return false, nil
 	}
 
-	// Write back to file.
-	if err = rw.writeJSONToFile(file, currentMeta); err != nil {
-		return false, fmt.Errorf("failed to write updated JSON to file: %w", err)
-	}
-
 	rw.updateMeta(currentMeta)
+	rw.dirty = true
 	logger.Pl.S("Successfully applied date tag JSON edits to: %v", file.Name())
 
 	return edited, nil
@@ -854,6 +829,27 @@ func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromF
 	}
 	logger.Pl.D(5, "After making paste operation changes: %v", j)
 	return edited
+}
+
+// Flush writes the metadata to the file if it was edited since it was read, backing the file up first if set.
+func (rw *JSONFileRW) Flush() error {
+	if !rw.dirty {
+		return nil
+	}
+
+	// Backup if option set.
+	if abstractions.GetBool(keys.NoFileOverwrite) {
+		if err := file.BackupFile(rw.File); err != nil {
+			return fmt.Errorf("failed to create backup: %w", err)
+		}
+	}
+
+	// Write file.
+	if err := rw.writeJSONToFile(rw.File, rw.Meta); err != nil {
+		return fmt.Errorf("failed to write updated JSON to file: %w", err)
+	}
+	rw.dirty = false
+	return nil
 }
 
 // writeJSONToFile is a private metadata writing helper function.

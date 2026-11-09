@@ -83,8 +83,8 @@ func run() (exitCode int) {
 		}
 	}()
 
-	// Ensure benchmarking is closed on all exit paths.
-	defer benchmark.CloseBenchFiles(logger.Pl, vars.BenchmarkFiles, "", nil)
+	// Ensure benchmarking is closed on all exit paths, reading the files once the flags have set them up.
+	defer func() { benchmark.CloseBenchFiles(logger.Pl, vars.BenchmarkFiles, "", nil) }()
 
 	// Parse configuration.
 	if err := cfg.Execute(); err != nil {

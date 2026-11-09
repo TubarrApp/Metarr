@@ -278,6 +278,55 @@ func TestMakeJSONEditsOrder(t *testing.T) {
 	}
 }
 
+// TestJSONFlush tests that edits reach the file only on Flush, and that Flush leaves an unedited file alone.
+func TestJSONFlush(t *testing.T) {
+	const original = `{"title":"Title"}`
+	path := filepath.Join(t.TempDir(), "v.json")
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.OpenFile(path, os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = f.Close() })
+	rw := NewJSONFileRW(context.Background(), f)
+	if _, err := rw.DecodeJSON(f); err != nil {
+		t.Fatal(err)
+	}
+	read := func() string {
+		t.Helper()
+		b, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(b)
+	}
+
+	// Unedited: nothing written.
+	if err := rw.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != original {
+		t.Fatalf("file = %q after flushing no edits, want it untouched", got)
+	}
+
+	// Edited: written on Flush only.
+	desc := "Text"
+	if _, err := rw.WriteJSON(map[string]*string{"description": &desc}); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); got != original {
+		t.Fatalf("file = %q before Flush, want it untouched", got)
+	}
+	if err := rw.Flush(); err != nil {
+		t.Fatal(err)
+	}
+	if got := read(); !strings.Contains(got, `"description": "Text"`) || !strings.Contains(got, `"title": "Title"`) {
+		t.Errorf("file = %q after Flush, want the new field and the old one", got)
+	}
+}
+
 // ******************************** NFO ops *******************************************************************************************
 
 // nfoTestFile writes data to a temporary NFO file and returns it open for reading and writing.

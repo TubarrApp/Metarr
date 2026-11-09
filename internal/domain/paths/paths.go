@@ -4,9 +4,7 @@ package paths
 import (
 	"errors"
 	"fmt"
-	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
-	"metarr/internal/domain/keys"
 	"os"
 	"path/filepath"
 )
@@ -41,14 +39,7 @@ func InitProgFilesDirs() error {
 	MetarrLogFilePath = filepath.Join(HomeMetarrDir, logFile)
 	fmt.Fprintf(os.Stderr, "Metarr log file path: %q\n", MetarrLogFilePath)
 
-	// Benchmark directory.
-	if abstractions.IsSet(keys.Benchmarking) {
-		BenchmarkDir = filepath.Join(HomeMetarrDir, benchmarkDir)
-		if _, err := os.Stat(BenchmarkDir); os.IsNotExist(err) {
-			if err := os.MkdirAll(BenchmarkDir, consts.PermsGenericDir); err != nil {
-				return fmt.Errorf("failed to make benchmark directory: %w", err)
-			}
-		}
-	}
+	// Benchmark directory, made by the benchmark setup if --benchmark is set (flags aren't parsed yet here).
+	BenchmarkDir = filepath.Join(HomeMetarrDir, benchmarkDir)
 	return nil
 }

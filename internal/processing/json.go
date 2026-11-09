@@ -73,14 +73,10 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	resolveOps(fd, data)
 
 	// Make metadata adjustments per user selection or transformation preset.
-	if edited, err := jsonRW.MakeJSONEdits(file, fd); err != nil {
+	if _, err := jsonRW.MakeJSONEdits(file, fd); err != nil {
 		return err
-	} else if edited {
-		logger.Pl.D(2, "Refreshing JSON metadata after edits were made...")
-		if data, err = jsonRW.RefreshJSON(); err != nil {
-			return err
-		}
 	}
+	data = jsonRW.Meta
 
 	// Fill timestamps and make/delete date tag amendments.
 	if ok = fieldsjson.FillTimestamps(fd, data, jsonRW); !ok {
@@ -102,11 +98,8 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		logger.Pl.D(4, "Skipping making metadata date tag edits, key not set")
 	}
 
-	// Must refresh JSON again after further edits.
-	data, err = jsonRW.RefreshJSON()
-	if err != nil {
-		return err
-	}
+	// Pick up the edits made since.
+	data = jsonRW.Meta
 
 	// Fill other metafields.
 	if data, ok = fieldsjson.FillJSONFields(fd, data, jsonRW); !ok {
@@ -118,6 +111,11 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 
 	// Make date tag and apply to model if necessary.
 	setFilenameDateTag(fd, data)
+
+	// Write the edited metadata to the file once.
+	if err := jsonRW.Flush(); err != nil {
+		return err
+	}
 
 	// Check if metadata is already existent in target file.
 	if !skipVideos {
