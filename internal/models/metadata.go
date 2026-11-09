@@ -11,7 +11,7 @@ import (
 type MetaOps struct {
 	SetOverrides    map[enums.OverrideMetaType]string
 	DateTags        map[string]MetaDateTag
-	DeleteDateTags  map[string]MetaDeleteDateTag
+	DeleteDateTags  map[string]struct{} // Fields to remove every date tag from.
 	SetFields       []MetaSetField
 	Prefixes        []MetaPrefix
 	Suffixes        []MetaSuffix
@@ -33,7 +33,7 @@ func NewMetaOps() *MetaOps {
 		// Initialize all maps to prevent nil map panics.
 		SetOverrides:   make(map[enums.OverrideMetaType]string),
 		DateTags:       make(map[string]MetaDateTag),
-		DeleteDateTags: make(map[string]MetaDeleteDateTag),
+		DeleteDateTags: make(map[string]struct{}),
 
 		// Initialize slices
 		SetFields:       make([]MetaSetField, 0),
@@ -62,7 +62,7 @@ func (fd *FileData) EnsureMetaOps() {
 		fd.MetaOps.DateTags = make(map[string]MetaDateTag, 0)
 	}
 	if fd.MetaOps.DeleteDateTags == nil {
-		fd.MetaOps.DeleteDateTags = make(map[string]MetaDeleteDateTag, 0)
+		fd.MetaOps.DeleteDateTags = make(map[string]struct{}, 0)
 	}
 	if fd.MetaOps.SetFields == nil {
 		fd.MetaOps.SetFields = []MetaSetField{}
@@ -151,12 +151,6 @@ type MetaSetField struct {
 
 // MetaDateTag contains the location for a date tag placement, and format (e.g. ymd).
 type MetaDateTag struct {
-	Loc    sharedenums.DateTagLocation
-	Format sharedenums.DateFormat
-}
-
-// MetaDeleteDateTag contains the location for a date tag placement, and format (e.g. ymd).
-type MetaDeleteDateTag struct {
 	Loc    sharedenums.DateTagLocation
 	Format sharedenums.DateFormat
 }

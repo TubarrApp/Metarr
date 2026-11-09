@@ -954,7 +954,7 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		}
 
 		// Refuse extra FFmpeg arguments containing disallowed options.
-		if allowInsecureStr, allowInsecure := os.LookupEnv(sharedconsts.EnvAllowInsecureArguments); !allowInsecure || (allowInsecureStr == "" || (allowInsecureStr != "1" && allowInsecureStr != "true")) {
+		if !sharedconsts.InsecureArgumentsAllowed() {
 			if blocked, blockedKey := sharedconsts.HasBlockedOptions(extraArgs, sharedconsts.BlockedFFmpegOptions); blocked {
 				logger.Pl.W("Refusing extra FFmpeg arguments for file %q: Option %q is not allowed for FFmpeg.", b.inputFile, blockedKey)
 			} else {

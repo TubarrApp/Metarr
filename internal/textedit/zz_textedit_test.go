@@ -91,11 +91,11 @@ func TestStripDateTagsFormats(t *testing.T) {
 		if _, got := dates.StripDateTags("Title "+tag, sharedenums.DateTagLocSuffix); got != "Title" {
 			t.Errorf("suffix %s: got %q", tag, got)
 		}
-		if _, got := dates.StripDateTags("A "+tag+" B", sharedenums.DateTagLocAll); got != "A B" {
+		if _, got := dates.StripAllDateTags("A " + tag + " B"); got != "A B" {
 			t.Errorf("all %s: got %q", tag, got)
 		}
 	}
-	if _, got := dates.StripDateTags("[Cats] Title [1]", sharedenums.DateTagLocAll); got != "[Cats] Title [1]" {
+	if _, got := dates.StripAllDateTags("[Cats] Title [1]"); got != "[Cats] Title [1]" {
 		t.Errorf("non-date brackets were stripped: %q", got)
 	}
 }
@@ -113,7 +113,7 @@ func TestAddDateTag(t *testing.T) {
 		{"[2024-05-01] Title", sharedenums.DateTagLocPrefix, "[2024-05-01] Title"},
 		{"Title [2023-11-05]", sharedenums.DateTagLocSuffix, "Title [2024-05-01]"},
 		{"Title [2024-05-01]", sharedenums.DateTagLocSuffix, "Title [2024-05-01]"},
-		{"Title", sharedenums.DateTagLocAll, "Title"},
+		{"Title", sharedenums.DateTagLocation(99), "Title"},
 	}
 	for _, tt := range tests {
 		got, changed := dates.AddDateTag(tt.in, tag, tt.loc)

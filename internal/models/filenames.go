@@ -9,7 +9,7 @@ import (
 // FilenameOps contains maps related to filename renaming operations.
 type FilenameOps struct {
 	DateTag         FOpDateTag
-	DeleteDateTags  FOpDeleteDateTag
+	DeleteDateTags  bool // Remove every date tag from the filename.
 	Set             FOpSet
 	Prefixes        []FOpPrefix
 	Suffixes        []FOpSuffix
@@ -31,8 +31,7 @@ func NewFilenameOps() *FilenameOps {
 		RegexReplaces:   make([]FOpRegexReplace, 0),
 		Cuts:            make([]TextCut, 0),
 	}
-	fo.DateTag.DateFormat = sharedenums.DateFmtSkip        // Zero value.
-	fo.DeleteDateTags.DateFormat = sharedenums.DateFmtSkip // Zero value.
+	fo.DateTag.DateFormat = sharedenums.DateFmtSkip // Zero value.
 
 	return fo
 }
@@ -78,12 +77,6 @@ type FOpSuffix struct {
 
 // FOpDateTag is the format and location to enter a date tag onto the filename.
 type FOpDateTag struct {
-	Loc        sharedenums.DateTagLocation
-	DateFormat sharedenums.DateFormat
-}
-
-// FOpDeleteDateTag is the format and location from which to delete a date tag from the filename.
-type FOpDeleteDateTag struct {
 	Loc        sharedenums.DateTagLocation
 	DateFormat sharedenums.DateFormat
 }

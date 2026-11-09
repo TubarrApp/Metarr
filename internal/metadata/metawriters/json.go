@@ -768,8 +768,8 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 	return edited, nil
 }
 
-// jsonFieldDeleteDateTag sets date tags in designated meta fields.
-func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map[string]models.MetaDeleteDateTag, fd *models.FileData) (edited bool, err error) {
+// jsonFieldDeleteDateTag removes every date tag from the designated meta fields.
+func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map[string]struct{}, fd *models.FileData) (edited bool, err error) {
 	if len(deleteDateTag) == 0 {
 		logger.Pl.D(3, "No delete date tag operations to perform")
 		return false, nil
@@ -780,7 +780,7 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 	logger.Pl.D(2, "Deleting metadata date tags for %q...", fd.OriginalVideoPath)
 
 	// Delete date tags:
-	for fld, d := range deleteDateTag {
+	for fld := range deleteDateTag {
 		val, exists := j[fld]
 		if !exists {
 			logger.Pl.D(3, "Field %q not found in metadata", fld)
@@ -793,13 +793,13 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 			continue
 		}
 
-		deletedTags, result := dates.StripDateTags(strVal, d.Loc)
+		deletedTags, result := dates.StripAllDateTags(strVal)
 		if len(deletedTags) == 0 {
 			continue
 		}
 
 		j[fld] = rw.cleanFieldValue(result)
-		logger.Pl.I("Deleted date tags %v at from field %q (operation: %v)", deletedTags, fld, d)
+		logger.Pl.I("Deleted date tags %v from field %q", deletedTags, fld)
 		edited = true
 	}
 	return edited, nil

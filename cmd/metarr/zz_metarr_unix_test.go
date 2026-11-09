@@ -38,6 +38,292 @@ import (
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
 
+// ******************************** Bad encoder args **********************************************************************************
+
+// TestBadEncoderArgsAtRunTime runs Metarr through its real flags: settings that can't work stop before FFmpeg runs and leave
+// the video as it was, saying why, while anything that might work is left alone.
+func TestBadEncoderArgsAtRunTime(t *testing.T) {
+	encoders, err := exec.Command(sharedconsts.ProgramFFmpeg, "-hide_banner", "-encoders").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoders), " "+consts.FFVCodecKeyH264+" ") {
+		t.Skip("FFmpeg can't encode H.264")
+	}
+
+	const (
+		videoCodecs = "--" + keys.TranscodeVideoCodecInput + "="
+		audioCodecs = "--" + keys.TranscodeAudioCodecInput + "="
+		videoArgs   = "--" + keys.TranscodeVideoArgs + "="
+		extraArgs   = "--" + keys.ExtraFFmpegArgs + "="
+		gpu         = "--" + keys.TranscodeGPU + "="
+	)
+
+	for _, c := range []struct {
+		name     string
+		flags    []string
+		noAudio  bool
+		encoder  string // Skipped without this encoder.
+		wantStop bool
+		want     string // In the output.
+	}{
+		// Refused at startup, whatever the video.
+		{name: "copy line", flags: []string{videoArgs + "copy:-crf 20"}, wantStop: true, want: "does nothing, as copied video isn't encoded"},
+		{name: "another encoder's option", flags: []string{videoArgs + "h264:-x265-params log-level=error"}, wantStop: true, want: "-x265-params does nothing on h264"},
+		{name: "line for copied video", flags: []string{videoCodecs + "copy", videoArgs + "h264:-crf 20"}, wantStop: true, want: "h264 encoder args do nothing"},
+		{name: "AV1 preset name", flags: []string{videoArgs + "av1:-preset medium"}, wantStop: true, want: "av1 -preset is a number"},
+		{name: "VP9 profile name", flags: []string{videoArgs + "vp9:-profile:v main"}, wantStop: true, want: "vp9 -profile:v is a number"},
+		{name: "audio filter on copied audio", flags: []string{extraArgs + "-af volume=0.5"}, wantStop: true, want: "-af in extra FFmpeg args"},
+		{name: "audio option on copied audio", flags: []string{extraArgs + "-b:a 32k"}, wantStop: true, want: "-b:a in extra FFmpeg args"},
+
+		// Only known for each video: audio left copied by a pair for another codec, and a GPU encoder the build doesn't have.
+		{name: "audio filter on audio a pair leaves copied", flags: []string{audioCodecs + "dts:ac3", extraArgs + "-af volume=0.5"}, wantStop: true, want: "-af in extra FFmpeg args"},
+		{name: "VP9 profile name, falling back to software", flags: []string{gpu + "cuda", videoCodecs + "h264:vp9", videoArgs + "vp9:-profile:v main"}, encoder: consts.FFVCodecKeyVP9, wantStop: true, want: "vp9 -profile:v is a number"},
+
+		// Fine.
+		{name: "working encoder args", flags: []string{videoCodecs + "h264:h264", videoArgs + "h264:-crf 30 -preset ultrafast"}},
+		{name: "audio filter on encoded audio", flags: []string{audioCodecs + "ac3", extraArgs + "-af volume=0.5"}},
+		{name: "audio filter with a pair on a file with no audio", flags: []string{audioCodecs + "dts:ac3", extraArgs + "-af volume=0.5"}, noAudio: true},
+		{name: "line that might work, for a codec not reached", flags: []string{videoArgs + "vp8:-pix_fmt yuv420p10le"}},
+		{name: "GPU encoder's preset name, for a codec not reached", flags: []string{gpu + "cuda", videoCodecs + "h264:mpeg2", videoArgs + "av1:-preset p5"}, encoder: consts.FFVCodecKeyMPEG2},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			if c.encoder != "" && !strings.Contains(string(encoders), " "+c.encoder+" ") {
+				t.Skipf("FFmpeg can't encode with %s", c.encoder)
+			}
+
+			// Make the video, with audio unless the case has none.
+			video, meta := makeReencodeVideo(t)
+			if !c.noAudio {
+				withAudio := video + ".audio.mkv"
+				if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-y", "-i", video, "-f", "lavfi", "-i", "sine=d=0.2:r=48000",
+					"-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", withAudio).CombinedOutput(); err != nil {
+					t.Fatalf("adding audio: %v\n%s", err, out)
+				}
+				if err := os.Rename(withAudio, video); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := os.ReadFile(video)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Run Metarr.
+			home := t.TempDir()
+			cmd := exec.CommandContext(t.Context(), os.Args[0], append([]string{"--" + keys.VideoFiles + "=" + video, "--" + keys.MetaFiles + "=" + meta}, c.flags...)...)
+			cmd.Dir = home
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "TMPDIR=" + home, metarrAsMainEnv + "=1"}
+			out, runErr := cmd.CombinedOutput()
+			output := string(out)
+
+			// How it ended, and why.
+			if stopped := runErr != nil; stopped != c.wantStop {
+				t.Errorf("stopped = %t, want %t: %v\n%s", stopped, c.wantStop, runErr, output)
+			}
+			if c.want != "" && !strings.Contains(output, c.want) {
+				t.Errorf("output doesn't say %q:\n%s", c.want, output)
+			}
+
+			// A stopped video never reached FFmpeg, and is left as it was.
+			if c.wantStop {
+				if sweepCommand.MatchString(output) {
+					t.Errorf("FFmpeg ran before stopping:\n%s", output)
+				}
+				after, err := os.ReadFile(video)
+				if err != nil {
+					t.Fatalf("the original is gone: %v", err)
+				}
+				if string(before) != string(after) {
+					t.Error("the original changed")
+				}
+			}
+		})
+	}
+}
+
+// ******************************** Re-encoding ***************************************************************************************
+
+// reencodeRun is what one Metarr run on a video did.
+type reencodeRun struct {
+	command string // The FFmpeg command run, "" if the video needed no processing.
+	output  string
+}
+
+// TestReencodeWithFFmpeg runs Metarr twice on an 8-bit H.264 video through its real flags, as a second run shows whether a
+// video would be encoded again every time it's processed.
+func TestReencodeWithFFmpeg(t *testing.T) {
+	encoders, err := exec.Command(sharedconsts.ProgramFFmpeg, "-hide_banner", "-encoders").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoders), " "+consts.FFVCodecKeyH264+" ") {
+		t.Skip("FFmpeg can't encode H.264")
+	}
+
+	const (
+		tenBitArgs = "h264:-pix_fmt yuv420p10le"
+		filterNote = "so its -vf isn't applied"
+		encodeH264 = consts.FFmpegCV0 + " " + consts.FFVCodecKeyH264
+	)
+
+	for _, c := range []struct {
+		name        string
+		codecs      string
+		args        string
+		wantEncoded [2]bool
+		wantPixFmt  string   // What the video should be in after both runs.
+		wantInFirst []string // In the first run's command.
+		wantWarning [2]bool
+	}{
+		{name: "nothing named, pixel format differs", args: tenBitArgs, wantEncoded: [2]bool{true, false}, wantPixFmt: "yuv420p10le"},
+		{name: "plain own codec, pixel format differs", codecs: "h264", args: tenBitArgs, wantEncoded: [2]bool{true, false}, wantPixFmt: "yuv420p10le"},
+		{name: "pair for another source, pixel format differs", codecs: "hevc:mpeg2", args: tenBitArgs, wantEncoded: [2]bool{true, false}, wantPixFmt: "yuv420p10le"},
+		{name: "pixel format matches", args: "h264:-pix_fmt yuv420p", wantPixFmt: "yuv420p"},
+		{name: "already the target, other args only", codecs: "hevc:h264", args: "h264:-crf 30 -preset ultrafast", wantPixFmt: "yuv420p"},
+		{name: "pair to copy, with another source encoded to it", codecs: "h264:copy,hevc:h264", args: tenBitArgs, wantPixFmt: "yuv420p"},
+		{name: "plain copy, with another source encoded to it", codecs: "copy,hevc:h264", args: tenBitArgs, wantPixFmt: "yuv420p"},
+		{name: "pair to own codec", codecs: "h264:h264", wantEncoded: [2]bool{true, true}, wantPixFmt: "yuv420p"},
+		{
+			name: "pair to own codec uses its args", codecs: "h264:h264", args: "h264:-crf 30 -preset ultrafast", wantEncoded: [2]bool{true, true}, wantPixFmt: "yuv420p",
+			wantInFirst: []string{"-crf 30", "-preset ultrafast"},
+		},
+		{name: "filter alone", args: "h264:-vf hflip", wantPixFmt: "yuv420p", wantWarning: [2]bool{true, true}},
+		{name: "filter on a pair to copy, with another source encoded to it", codecs: "h264:copy,hevc:h264", args: "h264:-vf hflip", wantPixFmt: "yuv420p"},
+		{
+			name: "filter runs with a differing pixel format", args: tenBitArgs + " -vf hflip", wantEncoded: [2]bool{true, false}, wantPixFmt: "yuv420p10le",
+			wantInFirst: []string{"hflip"}, wantWarning: [2]bool{false, true},
+		},
+		{name: "filter runs with a pair to own codec", codecs: "h264:h264", args: "h264:-vf hflip", wantEncoded: [2]bool{true, true}, wantPixFmt: "yuv420p", wantInFirst: []string{"hflip"}},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			video, meta := makeReencodeVideo(t)
+
+			// Build the flags.
+			flags := []string{"--" + keys.VideoFiles + "=" + video, "--" + keys.MetaFiles + "=" + meta}
+			if c.codecs != "" {
+				flags = append(flags, "--"+keys.TranscodeVideoCodecInput+"="+c.codecs)
+			}
+			if c.args != "" {
+				flags = append(flags, "--"+keys.TranscodeVideoArgs+"="+c.args)
+			}
+
+			for i := range 2 {
+				run := runReencodeMetarr(t, flags)
+
+				// Encoded or not.
+				if got := strings.Contains(run.command, encodeH264); got != c.wantEncoded[i] {
+					t.Errorf("run %d: encoded = %t, want %t\ncommand: %s", i+1, got, c.wantEncoded[i], run.command)
+				}
+
+				// The warning for a filter that won't run.
+				if got := strings.Contains(run.output, filterNote); got != c.wantWarning[i] {
+					t.Errorf("run %d: warned = %t, want %t", i+1, got, c.wantWarning[i])
+				}
+
+				// The args of the run that encodes.
+				if i == 0 {
+					for _, want := range c.wantInFirst {
+						if !strings.Contains(run.command, want) {
+							t.Errorf("want %q in: %s", want, run.command)
+						}
+					}
+				}
+
+				// The video that's left.
+				if got := reencodePixFmt(t, video); got != c.wantPixFmt {
+					t.Errorf("run %d: pixel format = %s, want %s", i+1, got, c.wantPixFmt)
+				}
+			}
+		})
+	}
+
+	// A video encoded to another codec stops being encoded once it's there.
+	t.Run("another codec is encoded once", func(t *testing.T) {
+		t.Parallel()
+		if !strings.Contains(string(encoders), " "+consts.FFVCodecKeyMPEG2+" ") {
+			t.Skip("FFmpeg can't encode MPEG-2")
+		}
+		video, meta := makeReencodeVideo(t)
+		flags := []string{
+			"--" + keys.VideoFiles + "=" + video, "--" + keys.MetaFiles + "=" + meta,
+			"--" + keys.TranscodeVideoCodecInput + "=h264:mpeg2", "--" + keys.TranscodeVideoArgs + "=mpeg2:-pix_fmt yuv422p",
+		}
+		encodeMPEG2 := consts.FFmpegCV0 + " " + consts.FFVCodecKeyMPEG2
+
+		if first := runReencodeMetarr(t, flags); !strings.Contains(first.command, encodeMPEG2) {
+			t.Errorf("first run: want %q in: %s", encodeMPEG2, first.command)
+		}
+		if second := runReencodeMetarr(t, flags); strings.Contains(second.command, encodeMPEG2) {
+			t.Errorf("second run encoded again: %s", second.command)
+		}
+		if got := reencodePixFmt(t, video); got != "yuv422p" {
+			t.Errorf("pixel format = %s, want yuv422p", got)
+		}
+	})
+}
+
+// makeReencodeVideo writes an 8-bit H.264 video and its metadata.
+func makeReencodeVideo(t *testing.T) (video, meta string) {
+	t.Helper()
+	dir := t.TempDir()
+	video = filepath.Join(dir, "video.mkv")
+	meta = filepath.Join(dir, "video.json")
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=64x64:d=0.2:r=10",
+		"-c:v", consts.FFVCodecKeyH264, "-preset", "ultrafast", "-pix_fmt", "yuv420p", video).CombinedOutput(); err != nil {
+		t.Fatalf("making video: %v\n%s", err, out)
+	}
+	info, err := json.Marshal(map[string]any{
+		"id":          "reencode",
+		"title":       "Encoded Again",
+		"fulltitle":   "Encoded Again",
+		"description": "About encoding again",
+		"uploader":    "An Uploader",
+		"upload_date": "20240102",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(meta, info, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return video, meta
+}
+
+// runReencodeMetarr runs Metarr, failing the test if it fails.
+func runReencodeMetarr(t *testing.T, flags []string) reencodeRun {
+	t.Helper()
+	home := t.TempDir()
+	cmd := exec.CommandContext(t.Context(), os.Args[0], flags...)
+	cmd.Dir = home
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "TMPDIR=" + home, metarrAsMainEnv + "=1"}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("running Metarr with %q: %v\n%s", flags, err, out)
+	}
+
+	// Read the command it ran.
+	run := reencodeRun{output: string(out)}
+	if matches := sweepCommand.FindAllStringSubmatch(run.output, -1); len(matches) > 0 {
+		run.command = matches[len(matches)-1][1]
+	}
+	return run
+}
+
+// reencodePixFmt returns a video's pixel format.
+func reencodePixFmt(t *testing.T, path string) string {
+	t.Helper()
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-select_streams", "V:0", "-show_entries", "stream=pix_fmt", "-of", "default=nw=1:nk=1", path).Output()
+	if err != nil {
+		t.Fatalf("probing %s: %v", path, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// ******************************** Transcode sweep ***********************************************************************************
+
 // Settings for the sweep, which is skipped unless told how many cases to run, as it takes minutes and needs the real FFmpeg.
 const (
 	sweepRunsEnv    = "METARR_SWEEP_RUNS"    // How many random cases to run.
@@ -1700,4 +1986,124 @@ func TestTranscodeSweep(t *testing.T) {
 	if len(groups) > 0 {
 		t.Errorf("found %d kinds of problem", len(groups))
 	}
+}
+
+// ******************************** Video only ****************************************************************************************
+
+// TestVideoWithoutMetafile runs Metarr on a video given with no metafile, which keeps its own tags and still goes through
+// the video settings.
+func TestVideoWithoutMetafile(t *testing.T) {
+	if _, err := exec.LookPath(sharedconsts.ProgramFFmpeg); err != nil {
+		t.Skip("FFmpeg isn't installed")
+	}
+	const title = "Kept Title"
+
+	for _, c := range []struct {
+		name        string
+		ext         string
+		thumbnail   bool
+		flags       []string
+		wantFFmpeg  bool
+		wantName    string // The video's name afterwards, in the output directory if one is set.
+		wantOutDir  bool
+		wantNoThumb bool
+	}{
+		{name: "nothing to change", ext: sharedconsts.ExtMKV, flags: []string{"--" + keys.WriteNFO}, wantName: "video.mkv"},
+		{name: "new container keeps its tags", ext: sharedconsts.ExtMKV, flags: []string{"--" + keys.OutputFiletype + "=mp4"}, wantFFmpeg: true, wantName: "video.mp4"},
+		{name: "thumbnail stripped", ext: sharedconsts.ExtMP4, thumbnail: true, flags: []string{"--" + keys.StripThumbnails}, wantFFmpeg: true, wantName: "video.mp4", wantNoThumb: true},
+		{name: "thumbnail kept", ext: sharedconsts.ExtMP4, thumbnail: true, wantName: "video.mp4"},
+		{
+			name: "renamed, moved and purge passed over", ext: sharedconsts.ExtMKV,
+			flags:    []string{"--" + keys.FilenameOpsInput + "=prefix:new ", "--" + keys.MetaPurge + "=all"},
+			wantName: "new video.mkv", wantOutDir: true,
+		},
+		{name: "template keeps the name", ext: sharedconsts.ExtMKV, flags: []string{"--" + keys.FilenameOpsInput + "=prefix:{{title}} "}, wantName: "video.mkv", wantOutDir: true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			video := makeTaggedVideo(t, dir, c.ext, title, c.thumbnail)
+
+			flags := append([]string{"--" + keys.VideoFiles + "=" + video}, c.flags...)
+			wantPath := filepath.Join(dir, c.wantName)
+			if c.wantOutDir {
+				out := filepath.Join(dir, "out")
+				flags = append(flags, "--"+keys.OutputDirectory+"="+out)
+				wantPath = filepath.Join(out, c.wantName)
+			}
+			run := runReencodeMetarr(t, flags)
+
+			// FFmpeg run or not.
+			if got := run.command != ""; got != c.wantFFmpeg {
+				t.Errorf("FFmpeg ran = %t, want %t\ncommand: %s", got, c.wantFFmpeg, run.command)
+			}
+
+			// Where the video is, as reported, with no metafile reported.
+			if !strings.Contains(run.output, "final video path: "+wantPath+"\n") {
+				t.Errorf("final video path not %q in:\n%s", wantPath, run.output)
+			}
+			if !strings.Contains(run.output, "final json path: \n") {
+				t.Errorf("a final metafile path was reported:\n%s", run.output)
+			}
+
+			// Its own tags and thumbnail.
+			if got := probeTitle(t, wantPath); got != title {
+				t.Errorf("title = %q, want %q", got, title)
+			}
+			if c.thumbnail {
+				if got := hasThumbnail(t, wantPath); got == c.wantNoThumb {
+					t.Errorf("has thumbnail = %t, want %t", got, !c.wantNoThumb)
+				}
+			}
+
+			// No NFO is made with no metadata to fill it.
+			if nfos, _ := filepath.Glob(filepath.Join(filepath.Dir(wantPath), "*"+sharedconsts.MExtNFO)); len(nfos) > 0 {
+				t.Errorf("NFO written: %v", nfos)
+			}
+		})
+	}
+}
+
+// makeTaggedVideo writes a short video with a title tag, and a thumbnail if asked.
+func makeTaggedVideo(t *testing.T, dir, ext, title string, thumbnail bool) string {
+	t.Helper()
+	video := filepath.Join(dir, "video"+ext)
+	args := []string{"-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=64x64:d=0.2:r=10"}
+	if thumbnail {
+		thumb := filepath.Join(dir, "thumb.jpg")
+		if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-y", "-f", "lavfi", "-i", "color=red:s=32x32", "-frames:v", "1", thumb).CombinedOutput(); err != nil {
+			t.Fatalf("making thumbnail: %v\n%s", err, out)
+		}
+		args = append(args, "-i", thumb, "-map", "0", "-map", "1", "-c:v:1", "copy", "-disposition:v:1", "attached_pic")
+	}
+	args = append(args, "-c:v:0", "mpeg4", "-metadata", "title="+title, video)
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, args...).CombinedOutput(); err != nil {
+		t.Fatalf("making video: %v\n%s", err, out)
+	}
+	return video
+}
+
+// probeTitle returns a video's title tag.
+func probeTitle(t *testing.T, path string) string {
+	t.Helper()
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-show_entries", "format_tags=title", "-of", "default=nw=1:nk=1", path).Output()
+	if err != nil {
+		t.Fatalf("probing %s: %v", path, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// hasThumbnail reports whether a video has an attached picture.
+func hasThumbnail(t *testing.T, path string) bool {
+	t.Helper()
+	out, err := exec.Command(sharedconsts.ProgramFFprobe, "-v", "error", "-show_entries", "stream_disposition=attached_pic", "-of", "csv=p=0", path).Output()
+	if err != nil {
+		t.Fatalf("probing %s: %v", path, err)
+	}
+	for _, line := range strings.Fields(string(out)) {
+		if line == "1" {
+			return true
+		}
+	}
+	return false
 }

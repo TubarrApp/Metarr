@@ -436,7 +436,7 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 		len(fOps.RegexReplaces) == 0 &&
 
 		fOps.DateTag.DateFormat == sharedenums.DateFmtSkip &&
-		fOps.DeleteDateTags.DateFormat == sharedenums.DateFmtSkip &&
+		!fOps.DeleteDateTags &&
 		style == enums.RenamingSkip {
 
 		logger.Pl.D(1, "No filename operations or naming style to apply for %q.", fileBase)
@@ -444,8 +444,8 @@ func (fp *fileProcessor) constructNewNames(fileBase string, style enums.ReplaceT
 	}
 
 	// Delete date tags first.
-	if fOps.DeleteDateTags.DateFormat != sharedenums.DateFmtSkip {
-		fileBase = strings.TrimSpace(fp.deleteDateTag(fileBase, fOps.DeleteDateTags))
+	if fOps.DeleteDateTags {
+		fileBase = strings.TrimSpace(fp.deleteDateTag(fileBase))
 	}
 
 	// Explicit string setting e.g. 'title:set:{{year}}\: {{fulltitle}}'.

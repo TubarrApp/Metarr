@@ -118,7 +118,7 @@ Each entry follows `field:operation:value[:value]`. The last part is everything 
 | `copy-to`        | `actors:copy-to:tags`                         | Copy a field’s contents into another field. |
 | `paste-from`     | `title:paste-from:original-title`             | Reverse direction of `copy-to`. |
 | `date-tag`       | `title:date-tag:prefix:ymd`                   | Insert a date tag at the `prefix` or `suffix`. |
-| `delete-date-tag`| `title:delete-date-tag:prefix:ymd`            | Strip date tags from the `prefix`, `suffix`, or `all`. |
+| `delete-date-tag`| `title:delete-date-tag`                       | Remove every date tag from the field, in any date format. |
 
 Date formats are `Ymd`, `ymd`, `Ydm`, `ydm`, `dmY`, `dmy`, `mdY`, `mdy`, `md`, and `dm` (capital `Y` is a four-digit year, lowercase `y` two digits).
 
@@ -140,7 +140,7 @@ Syntax mirrors metadata operations but targets the physical filename (without ex
 | `keep-after`     | `keep-after:\| `                  | Keep only the text after the first `\| `. |
 | `keep-before`    | `keep-before: \|`                 | Keep only the text before the first ` \|`. |
 | `date-tag`       | `date-tag:prefix:ymd`             | Attach a formatted date. |
-| `delete-date-tag`| `delete-date-tag:all:ymd`         | Remove matching tags. |
+| `delete-date-tag`| `delete-date-tag`                 | Remove every date tag, in any date format. |
 
 ## Filtered Operations (`--filtered-meta-ops`, `--filtered-filename-ops`)
 

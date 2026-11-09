@@ -320,15 +320,10 @@ func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, 
 	return result
 }
 
-// deleteDateTag removes date tags from a filename at the specified location(s).
-func (fp *fileProcessor) deleteDateTag(filename string, deleteTag models.FOpDeleteDateTag) string {
-	if deleteTag.DateFormat == sharedenums.DateFmtSkip {
-		logger.Pl.D(1, "No delete date tag configured, keeping original filename: %q", filename)
-		return filename
-	}
-
-	_, result := dates.StripDateTags(filename, deleteTag.Loc)
-	logger.Pl.D(2, "Stripped date tags at %v: %s -> %s", deleteTag.Loc, filename, result)
+// deleteDateTag removes every date tag from a filename.
+func (fp *fileProcessor) deleteDateTag(filename string) string {
+	_, result := dates.StripAllDateTags(filename)
+	logger.Pl.D(2, "Stripped date tags: %s -> %s", filename, result)
 	return result
 }
 

@@ -86,7 +86,7 @@ func FormatAllDates(fd *models.FileData) (result string) {
 	return ""
 }
 
-// StripDateTags removes [yy-mm-dd] or [yyyy-mm-dd] tags from a field string.
+// StripDateTags removes a date tag at the start or end of a field string.
 func StripDateTags(val string, loc sharedenums.DateTagLocation) (dateStrs []string, result string) {
 	val = strings.TrimSpace(val)
 
@@ -111,8 +111,6 @@ func StripDateTags(val string, loc sharedenums.DateTagLocation) (dateStrs []stri
 				return []string{dateStr}, strings.TrimSpace(val[:openTag])
 			}
 		}
-	case sharedenums.DateTagLocAll:
-		return stripAllDateTags(val)
 	}
 	return nil, val
 }
@@ -138,9 +136,9 @@ func AddDateTag(val, tag string, loc sharedenums.DateTagLocation) (result string
 	return val, false
 }
 
-// stripAllDateTags removes all date tags and returns them.
-func stripAllDateTags(val string) (tags []string, cleaned string) {
-	logger.Pl.D(3, "stripAllDateTags input: %q", val)
+// StripAllDateTags removes every date tag in val, in any format Metarr writes one, and returns them.
+func StripAllDateTags(val string) (tags []string, cleaned string) {
+	logger.Pl.D(3, "StripAllDateTags input: %q", val)
 
 	pattern := regex.DateTagWithBracketsCompile()
 	logger.Pl.D(3, "Pattern: %v", pattern.String())

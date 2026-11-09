@@ -14,6 +14,8 @@ import (
 	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
+// ******************************** Op conversion *************************************************************************************
+
 // TestMain gives the global logger a console writer, since the zero value has none and
 // any warning would dereference nil.
 func TestMain(m *testing.M) {
@@ -91,7 +93,7 @@ func TestMetaOpsFromShared(t *testing.T) {
 		"director:copy-to:writer",
 		"writer:paste-from:director",
 		"title:date-tag:prefix:ymd",
-		"title:delete-date-tag:all:Ymd",
+		"title:delete-date-tag",
 		"title:replace:old:new",
 		"title:replace-prefix:pre:post",
 		"title:replace-suffix:suf:fix",
@@ -125,9 +127,8 @@ func TestMetaOpsFromShared(t *testing.T) {
 	if !ok || dt.Loc != sharedenums.DateTagLocPrefix || dt.Format != sharedenums.DateYyMmDd {
 		t.Errorf("DateTags[title] = %+v (ok=%v)", dt, ok)
 	}
-	ddt, ok := got.DeleteDateTags["title"]
-	if !ok || ddt.Loc != sharedenums.DateTagLocAll || ddt.Format != sharedenums.DateYyyyMmDd {
-		t.Errorf("DeleteDateTags[title] = %+v (ok=%v)", ddt, ok)
+	if _, ok := got.DeleteDateTags["title"]; !ok || len(got.DeleteDateTags) != 1 {
+		t.Errorf("DeleteDateTags = %v, want only title", got.DeleteDateTags)
 	}
 
 	if len(got.Replaces) != 1 || got.Replaces[0].Value != "old" || got.Replaces[0].Replacement != "new" {
@@ -174,8 +175,7 @@ func TestMetaOpsEscapedValues(t *testing.T) {
 	}
 }
 
-// TestMetaDateTagRejectsAll keeps date-tag restricted to prefix or suffix, unlike
-// delete-date-tag.
+// TestMetaDateTagRejectsAll keeps date-tag restricted to prefix or suffix.
 func TestMetaDateTagRejectsAll(t *testing.T) {
 	// Built directly, since parsing now rejects this before conversion.
 	ops := []sharedmodels.MetaOps{{Field: "title", OpType: "date-tag", OpLoc: "all", DateFormat: "ymd"}}
@@ -190,7 +190,7 @@ func TestFilenameOpsFromShared(t *testing.T) {
 		"prefix:[DOG VIDEOS]",
 		"suffix:(new)",
 		"date-tag:prefix:ymd",
-		"delete-date-tag:all:Ymd",
+		"delete-date-tag",
 		"replace:old:new",
 		"replace-prefix:pre:post",
 		"replace-suffix:_1:",
@@ -215,8 +215,8 @@ func TestFilenameOpsFromShared(t *testing.T) {
 	if got.DateTag.Loc != sharedenums.DateTagLocPrefix || got.DateTag.DateFormat != sharedenums.DateYyMmDd {
 		t.Errorf("DateTag = %+v", got.DateTag)
 	}
-	if got.DeleteDateTags.Loc != sharedenums.DateTagLocAll {
-		t.Errorf("DeleteDateTags = %+v", got.DeleteDateTags)
+	if !got.DeleteDateTags {
+		t.Error("DeleteDateTags not set")
 	}
 	if len(got.Replaces) != 1 || got.Replaces[0].FindString != "old" {
 		t.Errorf("Replaces = %+v", got.Replaces)
@@ -249,7 +249,7 @@ func TestFilenameOpsRejectsTwoSets(t *testing.T) {
 func TestFilenameOpsCollapseSecondDateTag(t *testing.T) {
 	for _, in := range [][]string{
 		{"date-tag:prefix:ymd", "date-tag:suffix:Ymd"},
-		{"delete-date-tag:prefix:ymd", "delete-date-tag:suffix:Ymd"},
+		{"delete-date-tag", "DELETE-DATE-TAG"},
 	} {
 		parsed, warnings, err := sharedparsing.ParseFilenameOps(in)
 		if err != nil {
@@ -467,4 +467,72 @@ func TestTextOpsKinoCasino(t *testing.T) {
 	if !fops.Cuts[0].KeepBefore {
 		t.Errorf("keep-before not marked After: %+v", fops.Cuts[0])
 	}
+}
+
+// ******************************** Op groups *****************************************************************************************
+
+// TestExpandPlainFields tests that an edit to a plain field also covers its other forms, while a named form stays alone.
+func TestExpandPlainFields(t *testing.T) {
+	ops := NewMetaOps()
+	ops.Prefixes = []MetaPrefix{{Field: "title", Prefix: "[A] "}, {Field: "fulltitle", Prefix: "[B] "}}
+	ops.Cuts = []MetaCut{{Field: "description"}}
+	ops.SetFields = []MetaSetField{{Field: "year", Value: "2020"}, {Field: "artist", Value: "Band"}}
+
+	for _, c := range []struct {
+		name                 string
+		groups               map[string][]string
+		prefixes, cuts, sets []string
+	}{
+		{
+			name:     "json",
+			groups:   JSONGroupFields,
+			prefixes: []string{"title", "fulltitle", "fulltitle"},
+			cuts:     []string{"longdescription", "long_description", "description", "synopsis", "summary", "comment"},
+			sets:     []string{"year", "release_year", "artist", "album_artist"},
+		},
+		{
+			name:     "nfo",
+			groups:   NFOGroupFields,
+			prefixes: []string{"title", "originaltitle", "fulltitle"},
+			cuts:     []string{"plot", "outline", "description"},
+			sets:     []string{"year", "artist"},
+		},
+	} {
+		got := ops.ExpandGroups(c.groups)
+		if f := fieldsOf(got.Prefixes, func(o MetaPrefix) string { return o.Field }); !slices.Equal(f, c.prefixes) {
+			t.Errorf("%s prefixes = %v, want %v", c.name, f, c.prefixes)
+		}
+		if f := fieldsOf(got.Cuts, func(o MetaCut) string { return o.Field }); !slices.Equal(f, c.cuts) {
+			t.Errorf("%s cuts = %v, want %v", c.name, f, c.cuts)
+		}
+		if f := fieldsOf(got.SetFields, func(o MetaSetField) string { return o.Field }); !slices.Equal(f, c.sets) {
+			t.Errorf("%s sets = %v, want %v", c.name, f, c.sets)
+		}
+	}
+}
+
+// TestExpandGroupKeysNarrowestWins tests that a field's date tag beats a group's, and a smaller group's beats a larger one's.
+func TestExpandGroupKeysNarrowestWins(t *testing.T) {
+	ops := NewMetaOps()
+	ops.DateTags["all-titles"] = MetaDateTag{Loc: sharedenums.DateTagLocPrefix}
+	ops.DateTags["title"] = MetaDateTag{Loc: sharedenums.DateTagLocSuffix}
+	ops.DateTags["fulltitle"] = MetaDateTag{Loc: sharedenums.DateTagLocSuffix, Format: sharedenums.DateYyyyMmDd}
+
+	// Map order is random, so repeat to catch an order the result depends on.
+	for range 50 {
+		got := ops.ExpandGroups(JSONGroupFields).DateTags
+		if got["subtitle"].Loc != sharedenums.DateTagLocPrefix || got["title"].Loc != sharedenums.DateTagLocSuffix ||
+			got["fulltitle"].Format != sharedenums.DateYyyyMmDd {
+			t.Fatalf("DateTags = %+v, want subtitle from all-titles, title from title, fulltitle its own", got)
+		}
+	}
+}
+
+// fieldsOf returns the field each operation edits.
+func fieldsOf[T any](ops []T, field func(T) string) []string {
+	out := make([]string, 0, len(ops))
+	for _, o := range ops {
+		out = append(out, field(o))
+	}
+	return out
 }

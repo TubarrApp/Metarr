@@ -20,12 +20,12 @@ func TestMain(m *testing.M) {
 // TestStripAllDateTagsKeepsLines tests only date tags and repeated spaces go, and text with no tags comes back as it was.
 func TestStripAllDateTagsKeepsLines(t *testing.T) {
 	const text = "line one\n\nline  two"
-	tags, got := dates.StripDateTags(text, sharedenums.DateTagLocAll)
+	tags, got := dates.StripAllDateTags(text)
 	if len(tags) != 0 || got != text {
 		t.Errorf("with no tags: %v, %q", tags, got)
 	}
 
-	tags, got = dates.StripDateTags("[25-01-02] "+text, sharedenums.DateTagLocAll)
+	tags, got = dates.StripAllDateTags("[25-01-02] " + text)
 	if want := "line one\n\nline two"; len(tags) != 1 || got != want {
 		t.Errorf("with a tag: %v, %q; want %q", tags, got, want)
 	}

@@ -131,9 +131,9 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 	// Make edits, each building on the last, in the same order as JSON.
 	// Delete date tags before anything else, so other operations can't move them from where they're looked for.
-	for fld, d := range ops.DeleteDateTags {
+	for fld := range ops.DeleteDateTags {
 		if newContent, ok = editXMLField(data, fld, func(s string) (string, bool) {
-			_, result := dates.StripDateTags(s, d.Loc)
+			_, result := dates.StripAllDateTags(s)
 			return result, result != s
 		}); ok {
 			logger.Pl.I("Deleted date tags from XML field %q", fld)

@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+// ******************************** Files *********************************************************************************************
+
 // TestDateTagInNewName tests a date tag replaces one already there, is never stacked, and survives set replacing the name.
 func TestDateTagInNewName(t *testing.T) {
 	logger.Pl.Console = io.Discard
@@ -262,5 +264,108 @@ func TestExistingPath(t *testing.T) {
 	}
 	if got := existingPath(moved, filepath.Join(dir, "gone.mp4")); got != "" {
 		t.Errorf("existingPath(none present) = %q, want empty", got)
+	}
+}
+
+// ******************************** Helpers *******************************************************************************************
+
+// TestFilenameOpsRerun tests that filename ops run again on a processed name don't stack prefixes or suffixes, and a
+// date tag op replaces the tag already there.
+func TestFilenameOpsRerun(t *testing.T) {
+	fp := &fileProcessor{metatagParser: parsing.NewMetaTemplateParser("test.json")}
+	if got := fp.prefixStrings("Title", []models.FOpPrefix{{Value: "[Cats] "}}); got != "[Cats] Title" {
+		t.Errorf("first prefix = %q, want %q", got, "[Cats] Title")
+	}
+
+	const name = "[2023-11-05] [Cats] Title (HD)"
+	if got := fp.prefixStrings(name, []models.FOpPrefix{{Value: "[Cats] "}}); got != name {
+		t.Errorf("prefix again = %q, want %q unchanged", got, name)
+	}
+	if got := fp.suffixStrings(name, []models.FOpSuffix{{Value: " (HD)"}}); got != name {
+		t.Errorf("suffix again = %q, want %q unchanged", got, name)
+	}
+	tag := models.FOpDateTag{Loc: sharedenums.DateTagLocPrefix, DateFormat: sharedenums.DateYyyyMmDd}
+	if got := fp.addDateTag(name, tag, "[2024-05-01]"); got != "[2024-05-01] [Cats] Title (HD)" {
+		t.Errorf("new date tag = %q, want the old one replaced", got)
+	}
+	if got := fp.addDateTag("[23-11-05] Title", tag, "[2023-11-05]"); got != "[2023-11-05] Title" {
+		t.Errorf("date tag in a new format = %q, want the old one replaced", got)
+	}
+	suffix := models.FOpDateTag{Loc: sharedenums.DateTagLocSuffix, DateFormat: sharedenums.DateYyyyMmDd}
+	if got := fp.addDateTag("Title [2023-11-05]", suffix, "[2024-05-01]"); got != "Title [2024-05-01]" {
+		t.Errorf("new suffix date tag = %q, want the old one replaced", got)
+	}
+}
+
+// TestFilenameReplaceAndDelete tests that every prefix replacement runs in order, and that deleting all date tags
+// leaves the rest of the name intact.
+func TestFilenameReplaceAndDelete(t *testing.T) {
+	fp := &fileProcessor{metatagParser: parsing.NewMetaTemplateParser("test.json")}
+	reps := []models.FOpReplacePrefix{{Prefix: "[OLD] ", Replacement: "[NEW] "}, {Prefix: "[NEW] ", Replacement: "[NEWER] "}}
+	if got := fp.replacePrefix("[OLD] Title", reps); got != "[NEWER] Title" {
+		t.Errorf("chained prefix replacements = %q, want both applied", got)
+	}
+
+	if got := fp.deleteDateTag("[2023-11-05] Title [Cats] [01-05-2024]"); got != "Title [Cats]" {
+		t.Errorf("delete all date tags = %q, want %q", got, "Title [Cats]")
+	}
+}
+
+// TestFixContractions tests that every contraction is fixed, case is kept, and non-ASCII text stays intact.
+func TestFixContractions(t *testing.T) {
+	tests := []struct{ in, want string }{
+		{"Don t Stop", "Dont Stop"},
+		{"don t stop, won t stop", "dont stop, wont stop"},
+		{"İstanbul Don t Go", "İstanbul Dont Go"},
+	}
+	for _, tt := range tests {
+		got, _, err := fixContractions(tt.in, tt.in, "video.mp4", enums.RenamingSpaces, false)
+		if err != nil {
+			t.Fatalf("fixContractions(%q): %v", tt.in, err)
+		}
+		if got != tt.want {
+			t.Errorf("fixContractions(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+// ******************************** Restoring the original ****************************************************************************
+
+// TestRestoreOriginalName tests a backed-up original gets its name back only when the new video no longer has it.
+func TestRestoreOriginalName(t *testing.T) {
+	logger.Pl.Console = io.Discard
+	for _, tc := range []struct {
+		name      string
+		newVideo  bool // The new video still has the original's path.
+		wantOwned bool // The original has its own name back.
+	}{
+		{"new video moved or renamed", false, true},
+		{"new video kept the path", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			orig := filepath.Join(dir, "video.mp4")
+			backup := filepath.Join(dir, "video"+sharedconsts.BackupTag+".mp4")
+			if err := os.WriteFile(backup, []byte("original"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if tc.newVideo {
+				if err := os.WriteFile(orig, []byte("new"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			fd := &models.FileData{OriginalVideoPath: orig, BackupVideoPath: backup}
+			if err := restoreOriginalName(fd); err != nil {
+				t.Fatal(err)
+			}
+
+			// The original's bytes are at its own path, or still at the backup's.
+			got, err := os.ReadFile(orig)
+			owned := err == nil && string(got) == "original"
+			if _, err := os.Stat(backup); owned != tc.wantOwned || (err == nil) == tc.wantOwned {
+				t.Errorf("original has its name back: %v, backup left: %v; want %v, %v", owned, err == nil, tc.wantOwned, !tc.wantOwned)
+			}
+		})
 	}
 }

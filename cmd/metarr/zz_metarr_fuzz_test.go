@@ -66,7 +66,7 @@ func fuzzFlags(encoders string) []fuzzFlag {
 	bools := []string{"true", "false"}
 	return []fuzzFlag{
 		{"filename-ops", []string{"prefix:[%s] ", "suffix: %s", "replace:a:%s", "date-tag:prefix:ymd", "date-tag:suffix:dmy",
-			"delete-date-tag:all:ymd", "set:%s", "keep-after:%s", "regex-replace:[aeiou]:%s", "%s"}, 2},
+			"delete-date-tag", "set:%s", "keep-after:%s", "regex-replace:[aeiou]:%s", "%s"}, 2},
 		{"meta-ops", []string{"title:set:%s", "title:prefix:%s ", "title:suffix: %s", "artist:set:%s", "title:replace:a:%s",
 			"title:date-tag:prefix:ymd", "description:copy-to:synopsis", "synopsis:paste-from:title", "title:keep-before:%s",
 			"all-titles:suffix:!", "title:regex-replace:[aeiou]:%s", "%s"}, 3},
