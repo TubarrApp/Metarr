@@ -5,8 +5,11 @@ import (
 	"bytes"
 	"cmp"
 	"crypto/tls"
+	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -47,16 +50,13 @@ func newLogClient() *http.Client {
 	return &http.Client{Timeout: logPostTimeout, Transport: t}
 }
 
-// SendLogs POSTs logs to Tubarr.
+// SendLogs POSTs new log lines to Tubarr, and takes the debug level Tubarr replies with.
 func SendLogs() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
+	// Post even with no new lines, so a quiet Metarr still picks up level changes.
 	logs, next := Pl.LogsSince(sentLogs)
-	if len(logs) == 0 {
-		return
-	}
-
 	req, err := http.NewRequest(http.MethodPost, cmp.Or(os.Getenv(sharedconsts.EnvTubarrLogURL), tubarrLogServer), bytes.NewReader(bytes.Join(logs, []byte{})))
 	if err != nil {
 		return
@@ -69,6 +69,12 @@ func SendLogs() {
 	}
 	if resp.StatusCode == http.StatusOK {
 		sentLogs = next
+
+		// Follow Tubarr's debug level, ignoring replies that aren't one.
+		reply, _ := io.ReadAll(io.LimitReader(resp.Body, 16))
+		if level, err := strconv.Atoi(strings.TrimSpace(string(reply))); err == nil {
+			logging.SetLevel(min(max(level, 0), 5))
+		}
 	}
 	if closeErr := resp.Body.Close(); closeErr != nil {
 		Pl.E("Could not close response body: %v", closeErr)
