@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -252,18 +253,9 @@ func reencodeVideo(ctx context.Context, inputFile string, currentCodec sharedmod
 		return false
 	}
 
-	// A pair for this video decides.
-	to, isPair := pairs[currentCodec]
-	if !isPair {
-		to = pairs[sharedmodels.NewFromCodec(currentCodec.Codec, sharedconsts.CompressionBlank)]
-	}
-	if to != "" {
+	// A pair for this video, or a plain codec other than its own, decides.
+	if to := namedCodec(currentCodec, plain, pairs); to != "" {
 		return to == currentCodec.Codec
-	}
-
-	// A plain codec other than its own decides too.
-	if plain != "" && plain != currentCodec.Codec {
-		return false
 	}
 
 	// Only the pixel format can be checked on a finished video, so other args would encode it again on every run.
@@ -283,6 +275,64 @@ func reencodeVideo(ctx context.Context, inputFile string, currentCodec sharedmod
 	return false
 }
 
+// reencodeAudio reports whether audio should be encoded again in its own codec: a "codec:codec" pair always does, and
+// with no "copy" or other codec named for it, so does an -ac or -ar in its codec's args that it doesn't have.
+func reencodeAudio(ctx context.Context, inputFile string, currentCodec sharedmodels.FromCodec) bool {
+	// A stream the file doesn't have, or that couldn't be read, has nothing to encode.
+	if currentCodec.Codec == "" || currentCodec.Codec == sharedconsts.CodecCopy {
+		return false
+	}
+
+	// Read what was named, as the codec map's default "copy" looks the same as one asked for.
+	plain, pairs, err := sharedparsing.ParseCodecMappings(abstractions.GetStringSlice(keys.TranscodeAudioCodecInput), sharedvalidation.ValidateAudioCodec)
+	if err != nil {
+		logger.Pl.DevE("Audio codec entries passed validation but can't be read: %v", err)
+		return false
+	}
+
+	// A pair for this audio, or a plain codec other than its own, decides.
+	if to := namedCodec(currentCodec, plain, pairs); to != "" {
+		return to == currentCodec.Codec
+	}
+
+	// Only the channels and sample rate can be checked on finished audio, so other args would encode it again on every run.
+	args := audioEncoderArgs(currentCodec.Codec)
+	if args.Channels != "" || args.SampleRate != "" {
+		channels, sampleRate := ffprobe.ProbeAudioFormat(ctx, inputFile)
+		if asked, err := strconv.Atoi(args.Channels); err == nil && channels != 0 && channels != asked {
+			logger.Pl.I("Audio in %q has %d channels rather than the %d asked, so encoding it again as %s", inputFile, channels, asked, currentCodec.Codec)
+			return true
+		}
+
+		// Opus always reads back as 48 kHz, whatever rate it was encoded at, so its rate can't be read.
+		if currentCodec.Codec == sharedconsts.ACodecOpus {
+			sampleRate = 0
+		}
+		if asked, err := strconv.Atoi(args.SampleRate); err == nil && sampleRate != 0 && sampleRate != asked {
+			logger.Pl.I("Audio in %q is %d Hz rather than the %d asked, so encoding it again as %s", inputFile, sampleRate, asked, currentCodec.Codec)
+			return true
+		}
+	}
+
+	// A filter that won't run changes the sound of some videos and not others.
+	if args.Filter != "" {
+		logger.Pl.W("Audio in %q is already %s, so its -af isn't applied.", inputFile, currentCodec.Codec)
+	}
+	return false
+}
+
+// namedCodec returns the codec named for a stream already in its codec: its pair's target, else a plain codec other than its own, else "".
+func namedCodec(currentCodec sharedmodels.FromCodec, plain string, pairs map[sharedmodels.FromCodec]string) string {
+	to, isPair := pairs[currentCodec]
+	if !isPair {
+		to = pairs[sharedmodels.NewFromCodec(currentCodec.Codec, sharedconsts.CompressionBlank)]
+	}
+	if to == "" && plain != currentCodec.Codec {
+		to = plain
+	}
+	return to
+}
+
 // videoEncoderArgs returns the args set for encoding to a video codec.
 func videoEncoderArgs(codec string) sharedmodels.EncoderArgs {
 	if !abstractions.IsSet(keys.TranscodeVideoArgsMap) {
@@ -291,6 +341,15 @@ func videoEncoderArgs(codec string) sharedmodels.EncoderArgs {
 	argsMap, ok := abstractions.Get(keys.TranscodeVideoArgsMap).(map[string]sharedmodels.EncoderArgs)
 	if !ok {
 		logger.Pl.DevE("Got wrong type %T for video encoder args map", abstractions.Get(keys.TranscodeVideoArgsMap))
+	}
+	return argsMap[codec]
+}
+
+// audioEncoderArgs returns the args set for encoding to an audio codec.
+func audioEncoderArgs(codec string) sharedmodels.AudioEncoderArgs {
+	argsMap, err := sharedparsing.ParseAudioEncoderArgs(abstractions.GetStringSlice(keys.TranscodeAudioArgs))
+	if err != nil {
+		logger.Pl.DevE("Audio encoder args passed validation but can't be read: %v", err)
 	}
 	return argsMap[codec]
 }

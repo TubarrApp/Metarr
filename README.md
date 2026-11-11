@@ -75,6 +75,8 @@ transcode-video-args:
   - "hevc:-crf 24 -preset slow"
 transcode-audio-codecs:
   - flac:aac
+transcode-audio-args:
+  - "aac:-b:a 160k -ac 2"
 meta-ops:
   - "title:prefix:[Archive] "
   - "description:suffix: (archived)"
@@ -153,10 +155,11 @@ Additionally, `--rename-style` quickly enforces common conventions: `spaces`, `u
 ## Video and Audio Pipeline
 
 - `--output-ext` – change the container/extension (`mp4`, `mkv`, `webm`, etc.). If a requested codec isn't allowed in the chosen container, Metarr falls back to copying the stream instead.
-- `--transcode-video-codecs` / `--transcode-audio-codecs` – remap codecs via `input:output` pairs (e.g. `av1:h265`, `flac:aac`). A single value applies to every input. Audio and video already in the target codec are copied, with two exceptions for video: a pair such as `hevc:hevc` encodes it again on every run, and a `-pix_fmt` in `--transcode-video-args` for its codec that it isn't in encodes it once, unless `hevc:copy` or a plain `copy` is set. Other args can't be checked on a finished video, so they never start an encode, and a `-vf` left out this way logs a warning.
+- `--transcode-video-codecs` / `--transcode-audio-codecs` – remap codecs via `input:output` pairs (e.g. `av1:h265`, `flac:aac`). A single value applies to every input. Audio and video already in the target codec are copied, with two exceptions: a pair such as `hevc:hevc` or `aac:aac` encodes it again on every run, and an arg for its codec that a finished file can be checked against encodes it once if the file doesn't match, unless `hevc:copy` or a plain `copy` is set. Those args are `-pix_fmt` in `--transcode-video-args`, and `-ac` and `-ar` in `--transcode-audio-args` (Opus always reads back as 48 kHz, so its `-ar` is never compared). Other args can't be checked on a finished file, so they never start an encode, and a `-vf` or `-af` left out this way logs a warning.
 - `--transcode-gpu` – pick `auto`, `cuda`, `vaapi`, `qsv`, `amf`, or `videotoolbox`. Supply device paths via `--transcode-gpu-node` when required.
 - `--transcode-video-args` – FFmpeg arguments used only when encoding to a codec, one `codec:args` per flag (e.g. `av1:-crf 35 -preset 6`). Metarr converts `-crf`, `-pix_fmt` and `-vf` for the encoder that runs, including GPU encoders: a pixel format the encoder doesn't take is swapped for its equivalent (e.g. `yuv420p10le` becomes `p010le` on NVENC), or refused if it has none. CRF goes up to `51` for H.264 and HEVC and `63` for AV1, VP8 and VP9; out-of-range values are clamped. `-pass N` encodes in N passes (up to 3 for H.264, HEVC and MPEG-2, 2 for AV1, VP8 and VP9, clamped); H.264, HEVC, AV1 and MPEG-2 need `-b:v` rather than `-crf` for more than one pass, and GPU encoders always make one. `-b:v` takes one bitrate or one per resolution (e.g. `720=1.5M,1080=3M,2160=10M`): a video gets the largest resolution's at or below its shorter side, else the smallest's, and a target above the source's own bitrate is lowered to it.
-- `--extra-ffmpeg-args` – append custom switches to every FFmpeg command, e.g. `-movflags +faststart`. Options that only work when encoding (`-crf`, `-pix_fmt`, `-vf`, `-pass`, `-b:v`) belong in `--transcode-video-args`.
+- `--transcode-audio-args` – FFmpeg arguments used only when encoding to an audio codec, one `codec:args` per flag (e.g. `aac:-b:a 160k -ac 2`). An `-af` runs before the channel layout filter Metarr gives Opus, and an `-ar` replaces the 48 kHz Metarr gives AC-3, E-AC-3 and DTS.
+- `--extra-ffmpeg-args` – append custom switches to every FFmpeg command, e.g. `-movflags +faststart`. Options that only work when encoding belong in `--transcode-video-args` (`-crf`, `-pix_fmt`, `-vf`, `-pass`, `-b:v`) or `--transcode-audio-args` (`-af`, `-ac`, `-ar`, `-b:a`, `-q:a`).
 - `--force-write-thumbnail` – run FFmpeg to write the thumbnail even when all metadata already matches.
 - `--strip-thumbnail` – remove embedded artwork.
 - `--thumbnail` – embed this image (a file path or http(s) URL) instead of the metadata's thumbnail, always writing it. A local file is used where it is. Can't be combined with `--strip-thumbnail`.

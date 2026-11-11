@@ -37,7 +37,7 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}
 
 	// Work out the codecs, stopping here if the video needs no processing.
-	targetVCodec, targetACodec, reencode, skip, err := prepareCodecs(ctx, fd, inputFileVCodec, inputFileACodec, outputFileExt, replaced)
+	targetVCodec, targetACodec, reencodeV, reencodeA, skip, err := prepareCodecs(ctx, fd, inputFileVCodec, inputFileACodec, outputFileExt, replaced)
 	if err != nil {
 		return err
 	}
@@ -58,14 +58,14 @@ func ExecuteVideo(ctx context.Context, fd *models.FileData) error {
 	}()
 
 	// Write the new video to the temp path, then move it into place.
-	if err := executeFFmpeg(ctx, fd, tmpOutPath, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt, reencode); err != nil {
+	if err := executeFFmpeg(ctx, fd, tmpOutPath, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt, reencodeV, reencodeA); err != nil {
 		return err
 	}
 	return finalizeOutput(fd, tmpOutPath, outputFileExt, replaced)
 }
 
-// prepareCodecs returns the codecs to write a video in and whether to encode it again in its own, or whether it needs no processing at all.
-func prepareCodecs(ctx context.Context, fd *models.FileData, inputFileVCodec, inputFileACodec sharedmodels.FromCodec, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, reencode, skip bool, err error) {
+// prepareCodecs returns the codecs to write a video in and whether its video and audio are encoded again in their own, or whether it needs no processing at all.
+func prepareCodecs(ctx context.Context, fd *models.FileData, inputFileVCodec, inputFileACodec sharedmodels.FromCodec, outputFileExt string, replaced bool) (targetVCodec, targetACodec string, reencodeV, reencodeA, skip bool, err error) {
 	inputFilePath := fd.OriginalVideoPath
 	inputFileExt := filepath.Ext(inputFilePath)
 
@@ -73,35 +73,41 @@ func prepareCodecs(ctx context.Context, fd *models.FileData, inputFileVCodec, in
 	targetVCodec = getOutputCodecString(keys.TranscodeVideoCodecMap, inputFileVCodec, sharedconsts.Video)
 	targetACodec = getOutputCodecString(keys.TranscodeAudioCodecMap, inputFileACodec, sharedconsts.Audio)
 
-	// A video already in the target output codec may still need encoding.
-	reencode = reencodeVideo(ctx, inputFilePath, inputFileVCodec)
+	// Video and audio already in the target output codec may still need encoding.
+	reencodeV = reencodeVideo(ctx, inputFilePath, inputFileVCodec)
+	reencodeA = reencodeAudio(ctx, inputFilePath, inputFileACodec)
 
 	// A video FFmpeg can't rewrite is left alone unless it needs changing, then written anew beside it.
 	if replaced {
-		if !reencode && skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, inputFileExt) {
-			return "", "", false, true, nil
+		if !reencodeV && !reencodeA && skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, inputFileExt) {
+			return "", "", false, false, true, nil
 		}
 		logger.Pl.W("FFmpeg can't write %s files that play, so %q will be written as a %s file, keeping the original", inputFileExt, inputFilePath, outputFileExt)
 	}
 
 	// Make sure the output container can hold the codecs.
 	if targetVCodec, err = fitVideoCodecToContainer(ctx, inputFilePath, outputFileExt, inputFileVCodec.Codec, targetVCodec); err != nil {
-		return "", "", false, false, err
+		return "", "", false, false, false, err
 	}
 	if targetACodec, err = fitAudioCodecToContainer(ctx, inputFilePath, outputFileExt, inputFileACodec.Codec, targetACodec); err != nil {
-		return "", "", false, false, err
+		return "", "", false, false, false, err
 	}
 
 	// A video encoded again with no codec named stays in its own, which the container was just checked for.
-	if reencode && (targetVCodec == "" || targetVCodec == sharedconsts.VCodecCopy) {
+	if reencodeV && (targetVCodec == "" || targetVCodec == sharedconsts.VCodecCopy) {
 		targetVCodec = inputFileVCodec.Codec
 	}
 
-	// Return early if no processing is needed.
-	if !reencode && skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt) {
-		return "", "", false, true, nil
+	// Audio encoded again with no codec named stays in its own too.
+	if reencodeA && (targetACodec == "" || targetACodec == sharedconsts.ACodecCopy) {
+		targetACodec = inputFileACodec.Codec
 	}
-	return targetVCodec, targetACodec, reencode, false, nil
+
+	// Return early if no processing is needed.
+	if !reencodeV && !reencodeA && skipProcessing(fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt) {
+		return "", "", false, false, true, nil
+	}
+	return targetVCodec, targetACodec, reencodeV, reencodeA, false, nil
 }
 
 // prepareOutputPaths sets the video's post-FFmpeg path in its model, and returns the temp path FFmpeg writes to.
@@ -127,7 +133,7 @@ func prepareOutputPaths(fd *models.FileData, outputFileExt string) (tmpOutPath s
 }
 
 // executeFFmpeg runs FFmpeg to write the new video at tmpOutPath, trying again if it fails.
-func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath string, inputFileVCodec, inputFileACodec sharedmodels.FromCodec, targetVCodec, targetACodec, outputFileExt string, reencode bool) error {
+func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath string, inputFileVCodec, inputFileACodec sharedmodels.FromCodec, targetVCodec, targetACodec, outputFileExt string, reencodeV, reencodeA bool) error {
 	inputFilePath := fd.OriginalVideoPath
 	baseName := parsing.GetBaseNameWithoutExt(inputFilePath)
 
@@ -142,7 +148,7 @@ func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath string, 
 
 	for i := 1; i <= maxAttempts; i++ {
 		// Build command.
-		args, err := builder.buildCommand(ctx, fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt, reencode)
+		args, err := builder.buildCommand(ctx, fd, inputFileVCodec, inputFileACodec, targetVCodec, targetACodec, outputFileExt, reencodeV, reencodeA)
 		if err != nil {
 			return err
 		}

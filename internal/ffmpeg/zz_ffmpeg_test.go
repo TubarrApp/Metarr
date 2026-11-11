@@ -263,39 +263,6 @@ func TestSetVideoEncoderArgsRefusesBadValues(t *testing.T) {
 	}
 }
 
-// TestCheckCopiedAudioFilter tests an audio filter stops only when it would stop FFmpeg: on a file's audio being copied.
-func TestCheckCopiedAudioFilter(t *testing.T) {
-	t.Cleanup(func() { abstractions.Set(keys.ExtraFFmpegArgs, "") })
-	copied := []string{consts.FFmpegCA, sharedconsts.ACodecCopy}
-	encoded := []string{consts.FFmpegCA, consts.FFACodecKeyAAC}
-
-	for _, c := range []struct {
-		name    string
-		extra   string
-		audio   []string
-		current string
-		wantErr bool
-	}{
-		{"filter on copied audio", "-af volume=0.5", copied, sharedconsts.ACodecAAC, true},
-		{"long form on copied audio", "-filter:a volume=0.5", copied, sharedconsts.ACodecAAC, true},
-		{"filter on encoded audio", "-af volume=0.5", encoded, sharedconsts.ACodecMP3, false},
-		{"filter on a file with no audio", "-af volume=0.5", copied, "", false},
-		{"filter on audio that couldn't be read", "-af volume=0.5", copied, sharedconsts.CodecCopy, false},
-		{"an option FFmpeg only ignores", "-b:a 128k", copied, sharedconsts.ACodecAAC, false},
-		{"no extra args", "", copied, sharedconsts.ACodecAAC, false},
-	} {
-		abstractions.Set(keys.ExtraFFmpegArgs, c.extra)
-		b := &ffCommandBuilder{audioCodec: c.audio}
-		err := b.checkCopiedAudioFilter(c.current)
-		if (err != nil) != c.wantErr {
-			t.Errorf("%s: got %v, want error %t", c.name, err, c.wantErr)
-		}
-		if err != nil && !strings.Contains(err.Error(), "only works on audio being encoded") {
-			t.Errorf("%s: error %q doesn't say why", c.name, err)
-		}
-	}
-}
-
 // ******************************** Bitrates ******************************************************************************************
 
 // TestBitrateFor tests a video gets the bitrate for the largest resolution at or below its shorter side.
@@ -484,7 +451,11 @@ func TestContainerCodecsWithFFmpeg(t *testing.T) {
 			t.Run(ext+"/audio/"+codec, func(t *testing.T) {
 				t.Parallel()
 				checkContainerCodec(t, audioSrc, ext, codec, sharedvalidation.AudioCodecFits(ext, codec), func(b *ffCommandBuilder) error {
-					return b.setAudioCodec("", codec, encoders)
+					if err := b.setAudioCodec("", codec, encoders); err != nil {
+						return err
+					}
+					b.setAudioEncoderArgs(codec)
+					return nil
 				})
 			})
 		}
@@ -535,6 +506,37 @@ func checkContainerCodec(t *testing.T, src, ext, codec string, listed bool, setC
 }
 
 // ******************************** Encoder args **************************************************************************************
+
+// TestSetAudioEncoderArgs tests a codec's args reach audio encoded to it, its filter going before the layout filter Opus needs.
+func TestSetAudioEncoderArgs(t *testing.T) {
+	t.Cleanup(func() { abstractions.Set(keys.TranscodeAudioArgs, []string{}) })
+	abstractions.Set(keys.TranscodeAudioArgs, []string{"opus:-af volume=0.5 -b:a 96k", "ac3:-ar 44100 -ac 2", "aac:-af loudnorm -ac 1 -b:a 128k"})
+	encoders := " " + consts.FFACodecKeyOpus + " " + consts.FFACodecKeyAC3 + " " + consts.FFACodecKeyAAC + " " + consts.FFACodecKeyMP3 + " "
+
+	for _, c := range []struct {
+		name, current, desired string
+		wantCodec              []string
+		wantRate               []string
+	}{
+		{"filter before the Opus layout filter", sharedconsts.ACodecAAC, sharedconsts.ACodecOpus,
+			[]string{consts.FFmpegCA, consts.FFACodecKeyOpus, consts.FFmpegAF, "volume=0.5," + consts.OpusLayoutFilter, "-b:a", "96k"}, nil},
+		{"rate asked replaces AC-3's 48 kHz", sharedconsts.ACodecAAC, sharedconsts.ACodecAC3,
+			[]string{consts.FFmpegCA, consts.FFACodecKeyAC3, consts.FFmpegAC, "2"}, []string{consts.FFmpegAR, "44100"}},
+		{"filter, channels and other args", sharedconsts.ACodecOpus, sharedconsts.ACodecAAC,
+			[]string{consts.FFmpegCA, consts.FFACodecKeyAAC, consts.FFmpegAF, "loudnorm", consts.FFmpegAC, "1", "-b:a", "128k"}, nil},
+		{"no line", sharedconsts.ACodecAAC, sharedconsts.ACodecMP3, []string{consts.FFmpegCA, sharedconsts.ACodecMP3}, nil},
+		{"copied audio gets nothing", sharedconsts.ACodecAAC, sharedconsts.ACodecAAC, []string{consts.FFmpegCA, sharedconsts.ACodecCopy}, nil},
+	} {
+		b := &ffCommandBuilder{}
+		if err := b.setAudioCodec(c.current, c.desired, encoders); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		b.setAudioEncoderArgs(c.desired)
+		if !slices.Equal(b.audioCodec, c.wantCodec) || !slices.Equal(b.audioRate, c.wantRate) {
+			t.Errorf("%s: got %q and rate %q, want %q and rate %q", c.name, b.audioCodec, b.audioRate, c.wantCodec, c.wantRate)
+		}
+	}
+}
 
 // TestSetVideoEncoderArgs tests that each target codec's args are converted for the encoder that actually runs.
 func TestSetVideoEncoderArgs(t *testing.T) {
@@ -1222,24 +1224,88 @@ func TestReencodeVideo(t *testing.T) {
 	}
 }
 
-// TestBuildCommandReencode tests a video in the codec asked is only sent to an encoder when it's to be encoded again.
+// TestReencodeAudio tests which audio already in a codec is encoded again, going by what was named for it.
+func TestReencodeAudio(t *testing.T) {
+	if !encoderInstalled(t.Context(), consts.FFACodecKeyOpus) {
+		t.Skip("FFmpeg can't encode Opus")
+	}
+	t.Cleanup(func() {
+		abstractions.Set(keys.TranscodeAudioCodecInput, []string{})
+		abstractions.Set(keys.TranscodeAudioArgs, []string{})
+	})
+	aacClip := makeClip(t, "a.mkv", "-f", "lavfi", "-i", "sine=d=0.2:sample_rate=44100", "-ac", "2", "-c:a", consts.FFACodecKeyAAC)
+	opusClip := makeClip(t, "o.mkv", "-f", "lavfi", "-i", "sine=d=0.2:sample_rate=48000", "-ac", "2", "-c:a", consts.FFACodecKeyOpus)
+
+	aac := sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, sharedconsts.CompressionBlank)
+	opus := sharedmodels.NewFromCodec(sharedconsts.ACodecOpus, sharedconsts.CompressionBlank)
+
+	for _, c := range []struct {
+		name    string
+		clip    string
+		source  sharedmodels.FromCodec
+		entries []string
+		args    []string
+		want    bool
+	}{
+		// Nothing named for the audio.
+		{"nothing set", aacClip, aac, nil, nil, false},
+		{"channels differ", aacClip, aac, nil, []string{"aac:-ac 1"}, true},
+		{"channels match", aacClip, aac, nil, []string{"aac:-ac 2"}, false},
+		{"sample rate differs", aacClip, aac, nil, []string{"aac:-ar 48000"}, true},
+		{"sample rate matches", aacClip, aac, nil, []string{"aac:-ar 44100"}, false},
+		{"sample rate written in kHz isn't compared", aacClip, aac, nil, []string{"aac:-ar 48k"}, false},
+		{"args that can't be checked", aacClip, aac, nil, []string{"aac:-b:a 96k -af volume=0.5"}, false},
+		{"another codec's line", aacClip, aac, nil, []string{"opus:-ac 1"}, false},
+
+		// A plain codec.
+		{"plain own codec, channels differ", aacClip, aac, []string{"aac"}, []string{"aac:-ac 1"}, true},
+		{"plain other codec", aacClip, aac, []string{"opus"}, []string{"aac:-ac 1"}, false},
+		{"plain copy", aacClip, aac, []string{"copy"}, []string{"aac:-ac 1"}, false},
+
+		// A pair for the audio.
+		{"pair to own codec", aacClip, aac, []string{"aac:aac"}, nil, true},
+		{"pair to own codec beside plain copy", aacClip, aac, []string{"copy", "aac:aac"}, nil, true},
+		{"pair to copy", aacClip, aac, []string{"aac:copy"}, []string{"aac:-ac 1"}, false},
+		{"pair to another codec", aacClip, aac, []string{"aac:opus"}, []string{"aac:-ac 1"}, false},
+
+		// Opus reads back as 48 kHz, whatever rate it was encoded at.
+		{"Opus sample rate isn't compared", opusClip, opus, nil, []string{"opus:-ar 24000"}, false},
+		{"Opus channels are", opusClip, opus, nil, []string{"opus:-ac 1"}, true},
+
+		// No audio to encode.
+		{"no audio stream", aacClip, sharedmodels.NewFromCodec("", ""), []string{"aac:aac"}, nil, false},
+		{"unreadable audio stream", aacClip, sharedmodels.NewFromCodec(sharedconsts.CodecCopy, ""), []string{"copy:copy"}, nil, false},
+	} {
+		abstractions.Set(keys.TranscodeAudioCodecInput, c.entries)
+		abstractions.Set(keys.TranscodeAudioArgs, c.args)
+		if got := reencodeAudio(t.Context(), c.clip, c.source); got != c.want {
+			t.Errorf("%s: got %t, want %t", c.name, got, c.want)
+		}
+	}
+}
+
+// TestBuildCommandReencode tests video and audio in the codec asked are only sent to an encoder when they're to be encoded again.
 func TestBuildCommandReencode(t *testing.T) {
 	if !encoderInstalled(t.Context(), consts.FFVCodecKeyH264) {
 		t.Skip("FFmpeg can't encode H.264")
 	}
-	clip := makeClip(t, "v.mkv", "-f", "lavfi", "-i", "color=black:s=64x64:d=0.2", "-c:v", consts.FFVCodecKeyH264, "-pix_fmt", "yuv420p")
+	clip := makeClip(t, "v.mkv", "-f", "lavfi", "-i", "color=black:s=64x64:d=0.2", "-f", "lavfi", "-i", "sine=d=0.2",
+		"-c:v", consts.FFVCodecKeyH264, "-pix_fmt", "yuv420p", "-c:a", consts.FFACodecKeyAAC)
 	video, audio, err := getCodecs(t.Context(), clip)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	for _, c := range []struct {
-		name     string
-		reencode bool
-		want     string
+		name      string
+		reencodeV bool
+		reencodeA bool
+		want      string
 	}{
-		{"kept", false, consts.FFmpegCV0 + " " + consts.FFVCodecKeyCopy},
-		{"encoded again", true, consts.FFmpegCV0 + " " + consts.FFVCodecKeyH264},
+		{"video kept", false, false, consts.FFmpegCV0 + " " + consts.FFVCodecKeyCopy},
+		{"video encoded again", true, false, consts.FFmpegCV0 + " " + consts.FFVCodecKeyH264},
+		{"audio kept", false, false, consts.FFmpegCA + " " + consts.FFACodecKeyCopy},
+		{"audio encoded again", false, true, consts.FFmpegCA + " " + consts.FFACodecKeyAAC},
 	} {
 		fd := models.NewFileData()
 		fd.OriginalVideoPath = clip
@@ -1247,7 +1313,7 @@ func TestBuildCommandReencode(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		args, err := b.buildCommand(t.Context(), fd, video, audio, sharedconsts.VCodecH264, "", sharedconsts.ExtMKV, c.reencode)
+		args, err := b.buildCommand(t.Context(), fd, video, audio, sharedconsts.VCodecH264, sharedconsts.ACodecAAC, sharedconsts.ExtMKV, c.reencodeV, c.reencodeA)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -1310,6 +1376,47 @@ func encodeInPixFmt(t *testing.T, encoder, pixFmt string) (got string, ok bool) 
 	// Read it back.
 	_, _, got = ffprobe.ProbeVideoFrame(context.WithoutCancel(t.Context()), path)
 	return got, got != ""
+}
+
+// TestAudioFormatReadBackWithFFmpeg tests audio encoded in any channel count and sample rate an encoder takes counts as in
+// them afterwards, as it would otherwise be encoded again on every run. Opus always reads back as 48 kHz, so its rate isn't checked.
+func TestAudioFormatReadBackWithFFmpeg(t *testing.T) {
+	if testing.Short() {
+		t.Skip("encodes with every encoder, and what they read back as depends on the FFmpeg installed")
+	}
+	t.Cleanup(func() { abstractions.Set(keys.TranscodeAudioArgs, []string{}) })
+	src := makeClip(t, "src.mkv", "-f", "lavfi", "-i", "sine=d=0.2:sample_rate=96000", "-af", "aformat=channel_layouts=7.1", "-c:a", "pcm_s24le")
+	encoders := availableEncoders(t.Context())
+
+	for _, codec := range slices.Sorted(maps.Keys(consts.ACodecToFFACodec)) {
+		if codec == sharedconsts.ACodecCopy || !encoderInstalled(t.Context(), consts.ACodecToFFACodec[codec]) {
+			continue
+		}
+		for _, channels := range []int{1, 2, 6} {
+			for _, rate := range []int{44100, 48000} {
+				// Metarr's own audio args, made before the encodes run side by side.
+				abstractions.Set(keys.TranscodeAudioArgs, []string{fmt.Sprintf("%s:-ac %d -ar %d", codec, channels, rate)})
+				b := &ffCommandBuilder{}
+				if err := b.setAudioCodec("", codec, encoders); err != nil {
+					t.Fatalf("%s: %v", codec, err)
+				}
+				b.setAudioEncoderArgs(codec)
+				audioArgs := slices.Concat(b.audioCodec, b.audioRate)
+
+				t.Run(fmt.Sprintf("%s/%dch/%dHz", codec, channels, rate), func(t *testing.T) {
+					t.Parallel()
+					out := filepath.Join(t.TempDir(), "out.mka")
+					if err := exec.CommandContext(t.Context(), sharedconsts.ProgramFFmpeg, slices.Concat([]string{"-v", "error", "-y", "-i", src}, audioArgs, []string{out})...).Run(); err != nil {
+						t.Skipf("FFmpeg refused %d channels at %d Hz with %s", channels, rate, codec)
+					}
+					gotChannels, gotRate := ffprobe.ProbeAudioFormat(context.WithoutCancel(t.Context()), out)
+					if gotChannels != channels || (gotRate != rate && codec != sharedconsts.ACodecOpus) {
+						t.Errorf("%d channels at %d Hz read back as %d at %d Hz, which would be encoded again on every run", channels, rate, gotChannels, gotRate)
+					}
+				})
+			}
+		}
+	}
 }
 
 // ******************************** Stream mapping ************************************************************************************
@@ -1835,7 +1942,7 @@ func TestRetriedCommandSameThumbnailsWithFFmpeg(t *testing.T) {
 			}
 
 			for attempt := 1; attempt <= 2; attempt++ {
-				args, err := b.buildCommand(t.Context(), fd, video, audio, "", "", tc.outExt, false)
+				args, err := b.buildCommand(t.Context(), fd, video, audio, "", "", tc.outExt, false, false)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -2215,6 +2322,7 @@ func TestSetAudioCodecArgs(t *testing.T) {
 		if err := b.setAudioCodec(c.current, c.desired, encoders); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
+		b.setAudioEncoderArgs(c.desired)
 		if c.wantArg != "" && !slices.Contains(b.audioCodec, c.wantArg) {
 			t.Errorf("%s: got %q, want %q in it", c.name, b.audioCodec, c.wantArg)
 		}

@@ -334,6 +334,36 @@ func ProbeVideoFrame(ctx context.Context, inputFile string) (width, height int, 
 	return probe.Streams[0].Width, probe.Streams[0].Height, probe.Streams[0].PixFmt
 }
 
+// ProbeAudioFormat returns the first audio stream's channel count and sample rate in Hz, 0 if they can't be read.
+func ProbeAudioFormat(ctx context.Context, inputFile string) (channels, sampleRate int) {
+	out, err := exec.CommandContext(ctx, sharedconsts.ProgramFFprobe,
+		"-v", "error",
+		"-select_streams", "a:0",
+		"-show_entries", "stream=channels,sample_rate",
+		"-of", "json",
+		inputFile,
+	).Output()
+	if err != nil {
+		logger.Pl.W("Could not read the channels and sample rate of %q: %v", inputFile, err)
+		return 0, 0
+	}
+
+	var probe struct {
+		Streams []struct {
+			Channels   int    `json:"channels"`
+			SampleRate string `json:"sample_rate"`
+		} `json:"streams"`
+	}
+	if err := json.Unmarshal(out, &probe); err != nil || len(probe.Streams) == 0 {
+		logger.Pl.W("Could not read the channels and sample rate of %q: %v", inputFile, err)
+		return 0, 0
+	}
+
+	// FFprobe gives the sample rate as a string.
+	sampleRate, _ = strconv.Atoi(probe.Streams[0].SampleRate)
+	return probe.Streams[0].Channels, sampleRate
+}
+
 // ProbeVideoSize returns a video's shorter side in pixels and its bitrate, the whole file's when the stream has none (as in MKV and WebM).
 func ProbeVideoSize(ctx context.Context, inputFile string) (shorterSide int, bitrate int64) {
 	out, err := exec.CommandContext(ctx, sharedconsts.ProgramFFprobe,

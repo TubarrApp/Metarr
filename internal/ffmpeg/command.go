@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"io"
 	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
@@ -12,16 +11,15 @@ import (
 	"metarr/internal/domain/logger"
 	"metarr/internal/domain/vars"
 	"metarr/internal/ffprobe"
+	"metarr/internal/file"
 	"metarr/internal/models"
 	"metarr/internal/parsing"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
 	"github.com/TubarrApp/gocommon/sharedmodels"
@@ -34,9 +32,6 @@ var (
 	availableCodecsCache     string
 	availableCodecsCacheOnce sync.Once
 )
-
-// thumbnailClient downloads thumbnails, giving up on a server that stops answering.
-var thumbnailClient = &http.Client{Timeout: 30 * time.Second}
 
 // availableEncoders returns FFmpeg's encoder list, read once.
 func availableEncoders(ctx context.Context) string {
@@ -105,7 +100,7 @@ func newFfCommandBuilder(fd *models.FileData, outputFile string) (*ffCommandBuil
 }
 
 // buildCommand constructs the complete FFmpeg command.
-func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, currentVCodec, currentACodec sharedmodels.FromCodec, desiredVCodec, desiredACodec, outExt string, reencode bool) ([]string, error) {
+func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData, currentVCodec, currentACodec sharedmodels.FromCodec, desiredVCodec, desiredACodec, outExt string, reencodeV, reencodeA bool) ([]string, error) {
 	if b.inputFile == "" || b.outputFile == "" {
 		return nil, fmt.Errorf("input file or output file is empty.\n\nInput file: %v\nOutput file: %v", b.inputFile, b.outputFile)
 	}
@@ -113,8 +108,14 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 
 	// A video encoded again has no codec to copy, not even its own.
 	copyVCodec := currentVCodec.Codec
-	if reencode {
+	if reencodeV {
 		copyVCodec = ""
+	}
+
+	// Audio encoded again likewise.
+	copyACodec := currentACodec.Codec
+	if reencodeA {
+		copyACodec = ""
 	}
 
 	// Get GPU flags/codecs.
@@ -129,12 +130,10 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 			return nil, err
 		}
 	}
-	if err := b.setAudioCodec(currentACodec.Codec, desiredACodec, availableCodecs); err != nil {
+	if err := b.setAudioCodec(copyACodec, desiredACodec, availableCodecs); err != nil {
 		return nil, err
 	}
-	if err := b.checkCopiedAudioFilter(currentACodec.Codec); err != nil {
-		return nil, err
-	}
+	b.setAudioEncoderArgs(desiredACodec)
 	if err := b.setVideoEncoderArgs(ctx, accelType, desiredVCodec); err != nil {
 		return nil, err
 	}
@@ -280,7 +279,7 @@ func (b *ffCommandBuilder) setThumbnail(ctx context.Context, thumbnailURL, video
 	thumbnail, jpgPath := thumbnailURL, filepath.Join(os.TempDir(), "thumb_"+videoBaseName+".jpg")
 	if thumbnailURL != abstractions.GetString(keys.Thumbnail) || parsing.IsHTTPURL(thumbnailURL) {
 		var err error
-		if thumbnail, err = downloadThumbnail(ctx, thumbnailURL, videoBaseName); err != nil {
+		if thumbnail, err = file.DownloadThumbnail(ctx, thumbnailURL, videoBaseName); err != nil {
 			logger.Pl.E("Could not download thumbnail %q: %v", thumbnailURL, err)
 			return
 		}
@@ -395,90 +394,6 @@ func convertToJPG(inputPath, outputPath string) (string, error) {
 	return outputPath, nil
 }
 
-// downloadThumbnail downloads a thumbnail from a URL to a temporary file.
-//
-// Returns the local file path to use with FFmpeg -attach.
-func downloadThumbnail(ctx context.Context, urlStr, videoBaseName string) (string, error) {
-	if urlStr == "" {
-		return "", nil
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, urlStr, nil)
-	if err != nil {
-		return "", err
-	}
-	resp, err := thumbnailClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	if resp == nil {
-		return "", fmt.Errorf("got nil resp in downloadThumbnail()")
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			logger.Pl.E("Failed to close response body due to error: %v", closeErr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to download thumbnail: %s", resp.Status)
-	}
-
-	// Remove query parameters.
-	base, _, _ := strings.Cut(urlStr, "?")
-	base, _, _ = strings.Cut(base, "#")
-
-	// Remove illegal characters
-	cleanBase := strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') ||
-			(r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') ||
-			r == '_' || r == '-' || r == '.' {
-			return r
-		}
-		return '_'
-	}, filepath.Base(base))
-
-	// Limit length to stay below filesystem limits.
-	if len(cleanBase) > 50 {
-		cleanBase = cleanBase[:50]
-	}
-
-	tmpPath := filepath.Join(os.TempDir(), "thumb_"+videoBaseName+"_"+cleanBase)
-
-	file, err := os.Create(tmpPath)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			logger.Pl.E("Failed to close file %q due to error: %v", file.Name(), closeErr)
-		}
-	}()
-
-	if _, err := io.Copy(file, resp.Body); err != nil {
-		return "", err
-	}
-
-	return tmpPath, nil
-}
-
-// checkCopiedAudioFilter returns an error if extra FFmpeg args filter audio that's being copied, which would stop FFmpeg.
-func (b *ffCommandBuilder) checkCopiedAudioFilter(currentACodec string) error {
-	// A file with no audio has nothing to filter, and audio that couldn't be read is left for FFmpeg to judge.
-	if currentACodec == "" || currentACodec == sharedconsts.CodecCopy {
-		return nil
-	}
-	if len(b.audioCodec) < 2 || b.audioCodec[1] != sharedconsts.ACodecCopy || !abstractions.IsSet(keys.ExtraFFmpegArgs) {
-		return nil
-	}
-	extraArgs, err := sharedparsing.ShellSplit(abstractions.GetString(keys.ExtraFFmpegArgs))
-	if err != nil {
-		return err
-	}
-	return sharedvalidation.ValidateCopiedAudioFilter(extraArgs)
-}
-
 // setAudioCodec gets the audio codec for transcode operations.
 func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, availableCodecs string) error {
 	// AAC staying AAC would normally be copied, but on this route copying leaves it with the wrong timing, so it's encoded again.
@@ -507,7 +422,7 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		b.audioCodec = []string{consts.FFmpegCA, desiredACodec}
 
 	case sharedconsts.ACodecOpus:
-		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyOpus, consts.FFmpegAF, consts.OpusLayoutFilter}
+		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyOpus}
 
 	case sharedconsts.ACodecVorbis:
 		b.audioCodec = []string{consts.FFmpegCA, consts.FFACodecKeyVorbis}
@@ -547,6 +462,38 @@ func (b *ffCommandBuilder) setAudioCodec(currentACodec, desiredACodec, available
 		b.audioCodec = nil
 	}
 	return nil
+}
+
+// setAudioEncoderArgs adds the target codec's encoder args to audio being encoded.
+func (b *ffCommandBuilder) setAudioEncoderArgs(desiredACodec string) {
+	// Copied audio has no encoder to set.
+	if len(b.audioCodec) < 2 || b.audioCodec[1] == sharedconsts.ACodecCopy {
+		return
+	}
+	args := audioEncoderArgs(desiredACodec)
+
+	// Run the codec's filter, then the layout filter Opus needs.
+	filter := args.Filter
+	if b.audioCodec[1] == consts.FFACodecKeyOpus {
+		if filter != "" {
+			filter += ","
+		}
+		filter += consts.OpusLayoutFilter
+	}
+	if filter != "" {
+		b.audioCodec = append(b.audioCodec, consts.FFmpegAF, filter)
+	}
+
+	// A sample rate asked replaces the one AC-3, E-AC-3 and DTS get.
+	if args.SampleRate != "" {
+		b.audioRate = []string{consts.FFmpegAR, args.SampleRate}
+	}
+
+	// Then the channels and the other args.
+	if args.Channels != "" {
+		b.audioCodec = append(b.audioCodec, consts.FFmpegAC, args.Channels)
+	}
+	b.audioCodec = append(b.audioCodec, args.Args...)
 }
 
 // setVideoSoftwareCodec gets the audio codec for transcode operations.

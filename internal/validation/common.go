@@ -419,6 +419,7 @@ func ValidateEncoderSettings() error {
 
 	err := sharedparsing.CheckEncoderSettings(sharedmodels.EncoderSettings{
 		VideoArgs:   abstractions.GetStringSlice(keys.TranscodeVideoArgs),
+		AudioArgs:   abstractions.GetStringSlice(keys.TranscodeAudioArgs),
 		VideoCodecs: abstractions.GetStringSlice(keys.TranscodeVideoCodecInput),
 		AudioCodecs: abstractions.GetStringSlice(keys.TranscodeAudioCodecInput),
 		ExtraArgs:   abstractions.GetString(keys.ExtraFFmpegArgs),

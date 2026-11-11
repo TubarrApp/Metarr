@@ -175,6 +175,11 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	rootCmd.PersistentFlags().StringArray(keys.TranscodeAudioArgs, nil, "FFmpeg arguments used when encoding to an audio codec, one codec per flag (e.g. 'aac:-b:a 160k -ac 2')")
+	if err := viper.BindPFlag(keys.TranscodeAudioArgs, rootCmd.PersistentFlags().Lookup(keys.TranscodeAudioArgs)); err != nil {
+		return err
+	}
+
 	// Manual additional FFmpeg arguments.
 	rootCmd.PersistentFlags().String(keys.ExtraFFmpegArgs, "", "Extra FFmpeg arguments added to every FFmpeg command (e.g. '-movflags +faststart')")
 	if err := viper.BindPFlag(keys.ExtraFFmpegArgs, rootCmd.PersistentFlags().Lookup(keys.ExtraFFmpegArgs)); err != nil {

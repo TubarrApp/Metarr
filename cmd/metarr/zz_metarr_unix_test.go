@@ -30,6 +30,7 @@ import (
 
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/keys"
+	"metarr/internal/ffprobe"
 	"metarr/internal/parsing"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
@@ -55,6 +56,7 @@ func TestBadEncoderArgsAtRunTime(t *testing.T) {
 		videoCodecs = "--" + keys.TranscodeVideoCodecInput + "="
 		audioCodecs = "--" + keys.TranscodeAudioCodecInput + "="
 		videoArgs   = "--" + keys.TranscodeVideoArgs + "="
+		audioArgs   = "--" + keys.TranscodeAudioArgs + "="
 		extraArgs   = "--" + keys.ExtraFFmpegArgs + "="
 		gpu         = "--" + keys.TranscodeGPU + "="
 	)
@@ -73,17 +75,19 @@ func TestBadEncoderArgsAtRunTime(t *testing.T) {
 		{name: "line for copied video", flags: []string{videoCodecs + "copy", videoArgs + "h264:-crf 20"}, wantStop: true, want: "h264 encoder args do nothing"},
 		{name: "AV1 preset name", flags: []string{videoArgs + "av1:-preset medium"}, wantStop: true, want: "av1 -preset is a number"},
 		{name: "VP9 profile name", flags: []string{videoArgs + "vp9:-profile:v main"}, wantStop: true, want: "vp9 -profile:v is a number"},
-		{name: "audio filter on copied audio", flags: []string{extraArgs + "-af volume=0.5"}, wantStop: true, want: "-af in extra FFmpeg args"},
-		{name: "audio option on copied audio", flags: []string{extraArgs + "-b:a 32k"}, wantStop: true, want: "-b:a in extra FFmpeg args"},
+		{name: "audio copy line", flags: []string{audioArgs + "copy:-b:a 128k"}, wantStop: true, want: "does nothing, as copied audio isn't encoded"},
+		{name: "line for copied audio", flags: []string{audioCodecs + "copy", audioArgs + "aac:-b:a 128k"}, wantStop: true, want: "aac encoder args do nothing"},
+		{name: "audio filter in extra args", flags: []string{extraArgs + "-af volume=0.5"}, wantStop: true, want: "-af in extra FFmpeg args"},
+		{name: "audio option in extra args", flags: []string{extraArgs + "-b:a 32k"}, wantStop: true, want: "-b:a in extra FFmpeg args"},
+		{name: "audio filter in extra args with audio encoded", flags: []string{audioCodecs + "ac3", extraArgs + "-af volume=0.5"}, wantStop: true, want: "-af in extra FFmpeg args"},
 
-		// Only known for each video: audio left copied by a pair for another codec, and a GPU encoder the build doesn't have.
-		{name: "audio filter on audio a pair leaves copied", flags: []string{audioCodecs + "dts:ac3", extraArgs + "-af volume=0.5"}, wantStop: true, want: "-af in extra FFmpeg args"},
+		// Only known for each video: a GPU encoder the build doesn't have.
 		{name: "VP9 profile name, falling back to software", flags: []string{gpu + "cuda", videoCodecs + "h264:vp9", videoArgs + "vp9:-profile:v main"}, encoder: consts.FFVCodecKeyVP9, wantStop: true, want: "vp9 -profile:v is a number"},
 
 		// Fine.
 		{name: "working encoder args", flags: []string{videoCodecs + "h264:h264", videoArgs + "h264:-crf 30 -preset ultrafast"}},
-		{name: "audio filter on encoded audio", flags: []string{audioCodecs + "ac3", extraArgs + "-af volume=0.5"}},
-		{name: "audio filter with a pair on a file with no audio", flags: []string{audioCodecs + "dts:ac3", extraArgs + "-af volume=0.5"}, noAudio: true},
+		{name: "audio filter on encoded audio", flags: []string{audioCodecs + "ac3", audioArgs + "ac3:-af volume=0.5"}},
+		{name: "audio args for a pair, on a file with no audio", flags: []string{audioCodecs + "dts:ac3", audioArgs + "ac3:-af volume=0.5"}, noAudio: true},
 		{name: "line that might work, for a codec not reached", flags: []string{videoArgs + "vp8:-pix_fmt yuv420p10le"}},
 		{name: "GPU encoder's preset name, for a codec not reached", flags: []string{gpu + "cuda", videoCodecs + "h264:mpeg2", videoArgs + "av1:-preset p5"}, encoder: consts.FFVCodecKeyMPEG2},
 	} {
@@ -96,14 +100,7 @@ func TestBadEncoderArgsAtRunTime(t *testing.T) {
 			// Make the video, with audio unless the case has none.
 			video, meta := makeReencodeVideo(t)
 			if !c.noAudio {
-				withAudio := video + ".audio.mkv"
-				if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-y", "-i", video, "-f", "lavfi", "-i", "sine=d=0.2:r=48000",
-					"-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-shortest", withAudio).CombinedOutput(); err != nil {
-					t.Fatalf("adding audio: %v\n%s", err, out)
-				}
-				if err := os.Rename(withAudio, video); err != nil {
-					t.Fatal(err)
-				}
+				addReencodeAudio(t, video)
 			}
 			before, err := os.ReadFile(video)
 			if err != nil {
@@ -265,6 +262,79 @@ func TestReencodeWithFFmpeg(t *testing.T) {
 	})
 }
 
+// TestReencodeAudioWithFFmpeg runs Metarr twice on a video with stereo 48 kHz AAC through its real flags, as a second run
+// shows whether its audio would be encoded again every time it's processed.
+func TestReencodeAudioWithFFmpeg(t *testing.T) {
+	encoders, err := exec.Command(sharedconsts.ProgramFFmpeg, "-hide_banner", "-encoders").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(encoders), " "+consts.FFVCodecKeyH264+" ") {
+		t.Skip("FFmpeg can't encode H.264")
+	}
+
+	const (
+		filterNote = "so its -af isn't applied"
+		encodeAAC  = consts.FFmpegCA + " " + consts.FFACodecKeyAAC
+	)
+
+	for _, c := range []struct {
+		name        string
+		codecs      string
+		args        string
+		wantEncoded [2]bool
+		wantFormat  string // What the audio should be in after both runs.
+		wantWarning [2]bool
+	}{
+		{name: "nothing named, channels differ", args: "aac:-ac 1", wantEncoded: [2]bool{true, false}, wantFormat: "1ch 48000Hz"},
+		{name: "plain own codec, sample rate differs", codecs: "aac", args: "aac:-ar 44100", wantEncoded: [2]bool{true, false}, wantFormat: "2ch 44100Hz"},
+		{name: "channels and sample rate match", args: "aac:-ac 2 -ar 48000", wantFormat: "2ch 48000Hz"},
+		{name: "other args only", args: "aac:-b:a 64k", wantFormat: "2ch 48000Hz"},
+		{name: "pair to copy, with another source encoded to it", codecs: "aac:copy,mp3:aac", args: "aac:-ac 1", wantFormat: "2ch 48000Hz"},
+		{name: "pair to own codec", codecs: "aac:aac", wantEncoded: [2]bool{true, true}, wantFormat: "2ch 48000Hz"},
+		{name: "filter alone", args: "aac:-af volume=0.5", wantFormat: "2ch 48000Hz", wantWarning: [2]bool{true, true}},
+		{
+			name: "filter runs with differing channels", args: "aac:-ac 1 -af volume=0.5", wantEncoded: [2]bool{true, false}, wantFormat: "1ch 48000Hz",
+			wantWarning: [2]bool{false, true},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			video, meta := makeReencodeVideo(t)
+			addReencodeAudio(t, video)
+
+			// Build the flags.
+			flags := []string{"--" + keys.VideoFiles + "=" + video, "--" + keys.MetaFiles + "=" + meta}
+			if c.codecs != "" {
+				flags = append(flags, "--"+keys.TranscodeAudioCodecInput+"="+c.codecs)
+			}
+			if c.args != "" {
+				flags = append(flags, "--"+keys.TranscodeAudioArgs+"="+c.args)
+			}
+
+			for i := range 2 {
+				run := runReencodeMetarr(t, flags)
+
+				// Encoded or not.
+				if got := strings.Contains(run.command, encodeAAC); got != c.wantEncoded[i] {
+					t.Errorf("run %d: encoded = %t, want %t\ncommand: %s", i+1, got, c.wantEncoded[i], run.command)
+				}
+
+				// The warning for a filter that won't run.
+				if got := strings.Contains(run.output, filterNote); got != c.wantWarning[i] {
+					t.Errorf("run %d: warned = %t, want %t", i+1, got, c.wantWarning[i])
+				}
+
+				// The audio that's left.
+				channels, sampleRate := ffprobe.ProbeAudioFormat(t.Context(), video)
+				if got := fmt.Sprintf("%dch %dHz", channels, sampleRate); got != c.wantFormat {
+					t.Errorf("run %d: audio = %s, want %s", i+1, got, c.wantFormat)
+				}
+			}
+		})
+	}
+}
+
 // makeReencodeVideo writes an 8-bit H.264 video and its metadata.
 func makeReencodeVideo(t *testing.T) (video, meta string) {
 	t.Helper()
@@ -290,6 +360,19 @@ func makeReencodeVideo(t *testing.T) (video, meta string) {
 		t.Fatal(err)
 	}
 	return video, meta
+}
+
+// addReencodeAudio gives a video from makeReencodeVideo stereo 48 kHz AAC audio.
+func addReencodeAudio(t *testing.T, video string) {
+	t.Helper()
+	withAudio := video + ".audio.mkv"
+	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-y", "-i", video, "-f", "lavfi", "-i", "sine=d=0.2:r=48000",
+		"-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-ac", "2", "-shortest", withAudio).CombinedOutput(); err != nil {
+		t.Fatalf("adding audio: %v\n%s", err, out)
+	}
+	if err := os.Rename(withAudio, video); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // runReencodeMetarr runs Metarr, failing the test if it fails.

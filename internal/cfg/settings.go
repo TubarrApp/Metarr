@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedtemplates"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 	"github.com/spf13/viper"
@@ -171,6 +172,11 @@ func execute() (err error) {
 	if viper.IsSet(keys.TranscodeVideoArgs) {
 		if err := validation.ValidateAndSetVideoArgs(viper.GetStringSlice(keys.TranscodeVideoArgs)); err != nil {
 			return err
+		}
+	}
+	if viper.IsSet(keys.TranscodeAudioArgs) {
+		if _, err := sharedparsing.ParseAudioEncoderArgs(viper.GetStringSlice(keys.TranscodeAudioArgs)); err != nil {
+			return fmt.Errorf("invalid --%s: %w", keys.TranscodeAudioArgs, err)
 		}
 	}
 	if viper.IsSet(keys.ExtraFFmpegArgs) {

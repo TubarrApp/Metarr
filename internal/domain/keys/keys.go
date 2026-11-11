@@ -45,6 +45,7 @@ const (
 	TranscodeAudioCodecInput string = "transcode-audio-codecs"
 	TranscodeVideoCodecInput string = "transcode-video-codecs"
 	TranscodeVideoArgs       string = "transcode-video-args"
+	TranscodeAudioArgs       string = "transcode-audio-args"
 
 	ExtraFFmpegArgs      string = "extra-ffmpeg-args"
 	ForceWriteThumbnails string = "force-write-thumbnail"

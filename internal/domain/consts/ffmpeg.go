@@ -87,6 +87,7 @@ const (
 	FFmpegCRF                 = "-crf"
 	FFmpegBA                  = "-b:a"
 	FFmpegAR                  = "-ar"
+	FFmpegAC                  = "-ac"
 	FFmpegAF                  = "-af"
 	FFmpegMetadata            = "-metadata"
 	FFmpegFormat              = "-f"

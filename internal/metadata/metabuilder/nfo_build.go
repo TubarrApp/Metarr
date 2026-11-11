@@ -2,8 +2,11 @@ package metabuilder
 
 import (
 	"fmt"
+	"metarr/internal/abstractions"
+	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
 	"path/filepath"
 	"strings"
 
@@ -118,13 +121,25 @@ func addWebDataToNFO(w *models.MetadataWebData) (o string) {
 	if w.WebpageURL != "" {
 		o += indentNFO(fmt.Sprintf("<url>%s</url>\n", escapeNFO(w.WebpageURL)), 1)
 	}
-	if w.Thumbnail != "" {
-		o += indentNFO(fmt.Sprintf("<thumb aspect=\"poster\">%s</thumb>\n", escapeNFO(w.Thumbnail)), 1)
-		o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(w.Thumbnail)), 1)
-		o += indentNFO("<fanart>\n", 1)
-		o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(w.Thumbnail)), 2)
-		o += indentNFO("</fanart>\n", 1)
+
+	// Leave thumbnails out when stripped, and out for a custom file (saved as a sidecar), or use a custom URL.
+	thumb := w.Thumbnail
+	if custom := abstractions.GetString(keys.Thumbnail); custom != "" {
+		if !parsing.IsHTTPURL(custom) {
+			logger.Pl.I("Leaving thumbnail %q out of the NFO, as a custom thumbnail file was set.", w.Thumbnail)
+			return o
+		}
+		thumb = custom
 	}
+	if thumb == "" || abstractions.GetBool(keys.StripThumbnails) {
+		return o
+	}
+
+	o += indentNFO(fmt.Sprintf("<thumb aspect=\"poster\">%s</thumb>\n", escapeNFO(thumb)), 1)
+	o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(thumb)), 1)
+	o += indentNFO("<fanart>\n", 1)
+	o += indentNFO(fmt.Sprintf("<thumb>%s</thumb>\n", escapeNFO(thumb)), 2)
+	o += indentNFO("</fanart>\n", 1)
 
 	return o
 }

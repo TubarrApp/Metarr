@@ -14,6 +14,7 @@ const (
 	// Media files
 	PermsVideoFile = 0o666
 	PermsJSONFile  = 0o666
+	PermsImageFile = 0o666
 
 	// Other files
 	PermsLogFile = 0o666

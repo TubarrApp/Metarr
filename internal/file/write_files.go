@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"metarr/internal/abstractions"
@@ -9,6 +10,8 @@ import (
 	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/models"
+	"metarr/internal/parsing"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +20,16 @@ import (
 	"github.com/TubarrApp/gocommon/logging"
 	"github.com/TubarrApp/gocommon/sharedconsts"
 )
+
+// posterSuffix ends the name of a video's thumbnail sidecar, which media servers read beside the video.
+const posterSuffix = "-poster"
+
+// posterExts maps image content types to the thumbnail sidecar extensions Metarr writes and moves.
+var posterExts = map[string]string{
+	"image/jpeg": ".jpg",
+	"image/png":  ".png",
+	"image/webp": ".webp",
+}
 
 // FSFileWriter is a model granting access to file writer functions.
 type FSFileWriter struct {
@@ -98,10 +111,16 @@ func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 		}
 	}
 
-	// Move meta file.
+	// Move the video's thumbnail sidecars, whose names no metafile can need.
+	if moveVideo {
+		fs.moveVideoPosters()
+	}
+
+	// Move meta file. A failure still lets the video's NFO follow the video below.
+	var metaErr error
 	if !noMeta && shouldProcess(fs.InputMeta, fs.RenamedMeta, false, fs.SkipVids) {
 		if err := moveOrCopyFile(fs.InputMeta, fs.RenamedMeta); err != nil {
-			return fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.InputMeta, fs.RenamedMeta, err)
+			metaErr = fmt.Errorf("failed to move metadata file from %q → %q: %w", fs.InputMeta, fs.RenamedMeta, err)
 		}
 	}
 
@@ -109,7 +128,134 @@ func (fs *FSFileWriter) RenameAndMoveFiles(noMeta bool) error {
 	if moveVideo {
 		fs.moveVideoNFO()
 	}
+	return metaErr
+}
+
+// moveVideoPosters moves the thumbnail sidecars named for the input video to the renamed video's name, only warning on failure.
+func (fs *FSFileWriter) moveVideoPosters() {
+	for _, ext := range posterExts {
+		src := posterPath(fs.InputVideo, ext)
+		if info, err := os.Stat(src); err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		if err := moveOrCopyFile(src, posterPath(fs.RenamedVideo, ext)); err != nil {
+			logger.Pl.W("Failed to move the video's thumbnail sidecar: %v", err)
+		}
+	}
+}
+
+// posterPath returns the path of a video's thumbnail sidecar with the given extension.
+func posterPath(videoPath, ext string) string {
+	return strings.TrimSuffix(videoPath, filepath.Ext(videoPath)) + posterSuffix + ext
+}
+
+// UpdateThumbnailSidecars saves --thumbnail beside each final video as "<video name>-poster.<ext>", for media servers,
+// or removes the sidecars if --strip-thumbnail is set. A URL only gets a sidecar for a video which can't embed it.
+func UpdateThumbnailSidecars(ctx context.Context, fdArray []*models.FileData) {
+	if abstractions.GetBool(keys.StripThumbnails) {
+		for _, fd := range fdArray {
+			if fd != nil && fd.FinalVideoPath != "" {
+				removePosters(fd.FinalVideoPath, "")
+			}
+		}
+		return
+	}
+
+	thumbnail := abstractions.GetString(keys.Thumbnail)
+	if thumbnail == "" {
+		return
+	}
+	isURL := parsing.IsHTTPURL(thumbnail)
+
+	var (
+		data []byte
+		ext  string
+		err  error
+	)
+	for _, fd := range fdArray {
+		if fd == nil || fd.FinalVideoPath == "" {
+			continue
+		}
+		// The NFO holds a URL and the video embeds it, so no sidecar is needed.
+		if isURL && parsing.HoldsThumbnail(filepath.Ext(fd.FinalVideoPath)) {
+			continue
+		}
+		// Read the thumbnail once, on the first video needing it.
+		if data == nil {
+			if data, ext, err = readPoster(ctx, thumbnail, isURL); err != nil {
+				logger.Pl.E("Not saving thumbnail %q beside the video: %v", thumbnail, err)
+				return
+			}
+		}
+		if err := writePoster(fd.FinalVideoPath, ext, data); err != nil {
+			logger.Pl.E("Failed to save thumbnail %q beside %q: %v", thumbnail, fd.FinalVideoPath, err)
+		}
+	}
+}
+
+// readPoster returns a thumbnail's image and its sidecar extension, downloading it first if it's a URL.
+func readPoster(ctx context.Context, thumbnail string, isURL bool) (data []byte, ext string, err error) {
+	path := thumbnail
+	if isURL {
+		if path, err = DownloadThumbnail(ctx, thumbnail, "sidecar"); err != nil {
+			return nil, "", fmt.Errorf("failed to download it: %w", err)
+		}
+		defer func() {
+			if err := os.Remove(path); err != nil {
+				logger.Pl.W("Failed to remove downloaded thumbnail %q: %v", path, err)
+			}
+		}()
+	}
+	if data, err = os.ReadFile(path); err != nil {
+		return nil, "", fmt.Errorf("failed to read it: %w", err)
+	}
+
+	// Name the sidecar by what the file holds, as its own name may not say.
+	ext, ok := posterExts[http.DetectContentType(data)]
+	if !ok {
+		return nil, "", errors.New("it isn't a JPG, PNG or WebP image")
+	}
+	return data, ext, nil
+}
+
+// writePoster writes a video's thumbnail sidecar, removing any it has with another extension.
+func writePoster(videoPath, ext string, data []byte) error {
+	// Leave existing sidecars alone if overwriting is disabled.
+	if abstractions.GetBool(keys.NoFileOverwrite) {
+		for _, e := range posterExts {
+			if _, err := os.Stat(posterPath(videoPath, e)); err == nil {
+				logger.Pl.I("Thumbnail sidecar %q already exists and overwriting is disabled, skipping", posterPath(videoPath, e))
+				return nil
+			}
+		}
+	}
+
+	dst := posterPath(videoPath, ext)
+	if err := os.WriteFile(dst, data, consts.PermsImageFile); err != nil {
+		return fmt.Errorf("failed to write thumbnail sidecar %q: %w", dst, err)
+	}
+
+	// Remove sidecars with another extension, so media servers only find the new one.
+	removePosters(videoPath, ext)
+	logger.Pl.S("Saved thumbnail sidecar %q", dst)
 	return nil
+}
+
+// removePosters deletes a video's thumbnail sidecars, except the one with keepExt, only warning on failure.
+func removePosters(videoPath, keepExt string) {
+	for _, e := range posterExts {
+		if e == keepExt {
+			continue
+		}
+		path := posterPath(videoPath, e)
+		err := os.Remove(path)
+		switch {
+		case err == nil:
+			logger.Pl.I("Removed thumbnail sidecar %q", path)
+		case !errors.Is(err, os.ErrNotExist):
+			logger.Pl.W("Failed to remove thumbnail sidecar %q: %v", path, err)
+		}
+	}
 }
 
 // moveVideoNFO moves the NFO file named for the input video to the renamed video's name. An NFO metafile is left to the

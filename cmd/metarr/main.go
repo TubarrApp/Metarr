@@ -166,6 +166,9 @@ func run() (exitCode int) {
 
 		// Write additional metadata files (NFOs) if requested.
 		metabuilder.WriteNFOs(fdArray)
+
+		// Save or strip the thumbnail sidecar beside each video, now it's in its final spot.
+		file.UpdateThumbnailSidecars(ctx, fdArray)
 	}
 
 	// Check if shutdown was triggered by signal.
