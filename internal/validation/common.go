@@ -237,13 +237,13 @@ func ValidateAndSetMinFreeMem(minFreeMem string) {
 	}
 
 	if err != nil {
-		logger.Pl.E("Could not get system memory, using default max RAM requirements: %v", err)
+		logger.Pl.W("Could not get system memory, using default max RAM requirements: %v", err)
 		currentAvailableMem.Available = consts.GB // Guess 1 GB (conservative).
 	}
 
 	minFreeMemInt, err := strconv.Atoi(minFreeMem)
 	if err != nil {
-		logger.Pl.E("Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
+		logger.Pl.W("Could not get system memory from invalid argument %q, using default max RAM requirements: %v", minFreeMem, err)
 		currentAvailableMem.Available = consts.GB
 	}
 
@@ -251,7 +251,7 @@ func ValidateAndSetMinFreeMem(minFreeMem string) {
 	parsedMinFree := min(uint64(minFreeMemInt)*multiplyFactor, ninetyPercent)
 
 	if parsedMinFree > 0 {
-		logger.Pl.I("Min RAM to spawn process: %v", parsedMinFree)
+		logger.Pl.D(2, "Min RAM to spawn process: %v", parsedMinFree)
 	}
 	abstractions.Set(keys.MinFreeMem, parsedMinFree)
 }
@@ -260,7 +260,7 @@ func ValidateAndSetMinFreeMem(minFreeMem string) {
 func ValidateAndSetMaxCPU(maxCPU float64) {
 	if maxCPU <= 5.0 {
 		maxCPU = 5.0
-		logger.Pl.E("Max CPU usage entered too low, setting to default lowest: %.2f%%", maxCPU)
+		logger.Pl.W("Max CPU usage entered too low, setting to default lowest: %.2f%%", maxCPU)
 	}
 
 	abstractions.Set(keys.MaxCPU, sharedvalidation.ValidateMaxCPU(maxCPU, false))
@@ -279,7 +279,7 @@ func ValidateAndSetOutputFiletype(o string) error {
 	}
 
 	abstractions.Set(keys.OutputFiletype, o)
-	logger.Pl.I("Outputting files as %s", o)
+	logger.Pl.D(2, "Outputting files as %s", o)
 	return nil
 }
 
@@ -315,7 +315,7 @@ func ValidateAndSetPurgeMetafiles(purgeType string) error {
 	}
 	abstractions.Set(keys.MetaPurgeEnum, e)
 
-	logger.Pl.D(2, "Purge metafiles setting: %v", e)
+	logger.Pl.D(3, "Purge metafiles setting: %v", e)
 	return nil
 }
 
@@ -342,7 +342,7 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) error
 		}
 		inputVExts = append(inputVExts, "all")
 	}
-	logger.Pl.D(2, "Received video input extension filters: %v", inputVExts)
+	logger.Pl.D(3, "Received video input extension filters: %v", inputVExts)
 	abstractions.Set(keys.InputVExts, inputVExts)
 
 	// Metadata extensions.
@@ -368,7 +368,7 @@ func ValidateAndSetInputFiletypes(argsVInputExts, argsMInputExts []string) error
 		}
 		inputMExts = append(inputMExts, "all")
 	}
-	logger.Pl.D(2, "Received meta input extension filter: %v", inputMExts)
+	logger.Pl.D(3, "Received meta input extension filter: %v", inputMExts)
 	abstractions.Set(keys.InputMExts, inputMExts)
 	return nil
 }
@@ -454,22 +454,21 @@ func ValidateAndSetRenameFlag(renameFlag string) {
 	switch renameFlag {
 	case sharedconsts.RenameSpaces:
 		renameFlagEnum = enums.RenamingSpaces
-		logger.Pl.I("Rename style selected: %v", renameFlag)
+		logger.Pl.D(2, "Rename style selected: %v", renameFlag)
 
 	case sharedconsts.RenameUnderscores:
 		renameFlagEnum = enums.RenamingUnderscores
-		logger.Pl.I("Rename style selected: %v", renameFlag)
+		logger.Pl.D(2, "Rename style selected: %v", renameFlag)
 
 	case sharedconsts.RenameFixesOnly:
 		renameFlagEnum = enums.RenamingFixesOnly
-		logger.Pl.I("Rename style selected: %v", renameFlag)
+		logger.Pl.D(2, "Rename style selected: %v", renameFlag)
 
 	case sharedconsts.RenameSkip:
 		renameFlagEnum = enums.RenamingSkip
-		logger.Pl.I("Rename style selected: %v", renameFlag)
+		logger.Pl.D(2, "Rename style selected: %v", renameFlag)
 
 	default:
-		logger.Pl.D(1, "'Spaces', 'underscores' or 'fixes-only' not selected for renaming style, skipping these modifications.")
 		renameFlagEnum = enums.RenamingSkip
 	}
 	abstractions.Set(keys.Rename, renameFlagEnum)

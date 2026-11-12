@@ -31,7 +31,7 @@ func fillNFOTitles(fd *models.FileData) (filled bool) {
 		}
 	}()
 
-	logger.Pl.I("Grab NFO metadata: %v", t)
+	logger.Pl.D(4, "Grab NFO metadata: %v", t)
 
 	if n.Title.Main != "" {
 		if t.Title == "" {

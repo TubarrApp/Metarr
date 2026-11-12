@@ -40,7 +40,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		fd.OriginalVideoPath,
 	)
 
-	logger.Pl.I("Made command for FFprobe:\n\n%v", command.String())
+	logger.Pl.D(2, "Made command for FFprobe:\n\n%v", command.String())
 	output, err := command.Output()
 	if err != nil {
 		logger.Pl.E("Error running FFprobe command: %v. Will not process video.", err)
@@ -60,7 +60,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 	// Check if thumbnail is already present in file.
 	for _, s := range ffData.Streams {
 		if s.Disposition.AttachedPic == 1 && s.CodecType == "video" {
-			logger.Pl.I("Video %q has an embedded thumbnail", fd.OriginalVideoPath)
+			logger.Pl.D(2, "Video %q has an embedded thumbnail", fd.OriginalVideoPath)
 			fd.HasEmbeddedThumbnail = true
 			break
 		}
@@ -105,7 +105,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 		}
 
 		if values.new != values.existing { // Maintain case sensitivity (avoid strings.EqualFold).
-			logger.Pl.D(2, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
+			logger.Pl.D(1, "======== Mismatched meta in file: %q ========\nMismatch in key %q:\nNew value: %q\nIn video as: %q. Will process video.",
 				fd.MetaFilePath, key, values.new, values.existing)
 			matches = false
 		} else {
@@ -180,13 +180,13 @@ func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (audi
 			if video == nil && stream.Disposition.AttachedPic == 0 {
 				video = stream
 				videoCodec = strings.TrimSpace(video.CodecName)
-				logger.Pl.I("Got video codec from '%s' as '%s'", inputFile, videoCodec)
+				logger.Pl.D(2, "Got video codec from '%s' as '%s'", inputFile, videoCodec)
 			}
 		case "audio":
 			if audio == nil {
 				audio = stream
 				audioCodec = strings.TrimSpace(audio.CodecName)
-				logger.Pl.I("Got audio codec from '%s' as '%s'", inputFile, audioCodec)
+				logger.Pl.D(2, "Got audio codec from '%s' as '%s'", inputFile, audioCodec)
 			}
 		}
 	}
@@ -261,6 +261,9 @@ func probeAudioBitrate(ctx context.Context, inputFile string) string {
 		start = min(start, packetStart)
 		end = max(end, packetStart+packetSeconds)
 		totalBytes += packetBytes
+	}
+	if scanner.Err() != nil {
+		logger.Pl.W("Encountered scanner error: %s", scanner.Err().Error())
 	}
 	if err := cmd.Wait(); err != nil {
 		logger.Pl.W("Can't read the audio packets in %q: %v", inputFile, err)

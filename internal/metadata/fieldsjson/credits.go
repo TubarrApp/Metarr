@@ -50,9 +50,7 @@ func fillCredits(fd *models.FileData, json map[string]any, jsonRW *metawriters.J
 		}()
 	}
 
-	if filled = unpackJSON(fieldMap, json); filled {
-		logger.Pl.D(2, "Decoded credits JSON into field map")
-	}
+	filled = unpackJSON(fieldMap, json)
 
 	// Album artist falls back to the artist and vice versa.
 	if c.AlbumArtist == "" {

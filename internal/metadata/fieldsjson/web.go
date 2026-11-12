@@ -77,7 +77,7 @@ func FillWebpageDetails(fd *models.FileData, data map[string]any) bool {
 	thumb, ok := data[sharedtags.JThumbnail].(string)
 	if ok {
 		fd.MWebData.Thumbnail = thumb
-		logger.Pl.I("Found thumbnail: %q", fd.MWebData.Thumbnail)
+		logger.Pl.D(2, "Found thumbnail: %q", fd.MWebData.Thumbnail)
 	}
 
 	logger.Pl.D(2, "Stored URLs for scraping missing fields: %v", fd.MWebData.TryURLs)

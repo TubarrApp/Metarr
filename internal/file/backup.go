@@ -46,7 +46,6 @@ func BackupFile(file *os.File) error {
 		logger.Pl.D(3, "Identical backup of %q already exists, skipping", originalFilePath)
 		return nil
 	}
-	logger.Pl.D(3, "Creating backup of file %q as %q", originalFilePath, backupFilePath)
 
 	// Seek to start for backup.
 	if _, err := file.Seek(0, io.SeekStart); err != nil {

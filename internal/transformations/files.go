@@ -46,7 +46,6 @@ func RenameFiles(ctx context.Context, fdArray []*models.FileData) error {
 	if abstractions.IsSet(keys.Rename) {
 		if style, ok := abstractions.Get(keys.Rename).(enums.ReplaceToStyle); ok {
 			replaceStyle = style
-			logger.Pl.D(2, "Got rename style as %T index %v", replaceStyle, replaceStyle)
 		} else {
 			return fmt.Errorf("%s invalid rename style type %T", sharedconsts.ErrorfDevError, replaceStyle)
 		}
@@ -235,7 +234,7 @@ func (fp *fileProcessor) process() error {
 	}
 
 	// Write changes and handle final operations.
-	logger.Pl.I("Writing final file transformations to filesystem...")
+	logger.Pl.D(2, "Writing final file transformations to filesystem...")
 	if err := fp.writeResult(); err != nil {
 		return err
 	}
@@ -249,7 +248,7 @@ func (fp *fileProcessor) purgeMetafile(fsWriter *file.FSFileWriter) (deleted boo
 		return false, nil
 	}
 
-	logger.Pl.I("Meta purge setting is enabled, attempting to delete metafile %q...", fp.fd.MetaFilePath)
+	logger.Pl.D(2, "Meta purge setting is enabled, attempting to delete metafile %q...", fp.fd.MetaFilePath)
 	if deleted, err = fsWriter.DeleteMetafile(fp.fd.MetaFilePath); err != nil {
 		return false, fmt.Errorf("failed to purge metafile: %w", err)
 	}
@@ -376,7 +375,7 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 		renamedMPath = filepath.Join(metaDir, renamedMeta+metaExt)
 	}
 
-	logger.Pl.D(1, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
+	logger.Pl.D(2, "Final paths with extensions:\nVideo: %s\nMeta: %s", renamedVPath, renamedMPath)
 
 	if renamedVideo == "" { // Videos are skipped, so there's no video to name.
 		renamedVPath = ""
@@ -416,7 +415,6 @@ func (fp *fileProcessor) constructFinalPaths(renamedVideo, renamedMeta, vidExt, 
 			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
 		}
 	}
-	logger.Pl.D(1, "Saved into struct:\nVideo: %s\nMeta: %s", fp.fd.RenamedVideoPath, fp.fd.RenamedMetaPath)
 	return nil
 }
 

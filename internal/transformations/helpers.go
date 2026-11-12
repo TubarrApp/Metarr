@@ -34,7 +34,7 @@ func shouldRenameOrMove(fd *models.FileData) (rename, move bool) {
 
 	switch {
 	case rName != enums.RenamingSkip:
-		logger.Pl.I("Flag detected that %q should be renamed", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Flag detected that %q should be renamed", fd.OriginalVideoPath)
 		rename = true
 	}
 
@@ -151,7 +151,6 @@ func (fp *fileProcessor) setString(filename string, setString models.FOpSet) str
 // replaceStrings applies configured string replacements to a filename.
 func (fp *fileProcessor) replaceStrings(filename string, replaceStrings []models.FOpReplace) string {
 	if len(replaceStrings) == 0 {
-		logger.Pl.D(1, "No string replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
@@ -204,7 +203,6 @@ func (fp *fileProcessor) regexReplace(filename string, rr []models.FOpRegexRepla
 // replaceSuffix applies configured suffix replacements to a filename.
 func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpReplaceSuffix) string {
 	if len(suffixes) == 0 {
-		logger.Pl.D(1, "No suffix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
@@ -227,7 +225,6 @@ func (fp *fileProcessor) replaceSuffix(filename string, suffixes []models.FOpRep
 // replacePrefix applies configured prefix replacements to a filename.
 func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpReplacePrefix) string {
 	if len(prefixes) == 0 {
-		logger.Pl.D(1, "No prefix replacements configured, keeping original filename: %q", filename)
 		return filename
 	}
 
@@ -250,7 +247,6 @@ func (fp *fileProcessor) replacePrefix(filename string, prefixes []models.FOpRep
 // suffixStrings applies configured string suffixes to a filename.
 func (fp *fileProcessor) suffixStrings(filename string, suffixes []models.FOpSuffix) string {
 	if len(suffixes) == 0 {
-		logger.Pl.D(1, "No string suffixes configured, keeping original filename: %q", filename)
 		return filename
 	}
 
@@ -277,7 +273,6 @@ func (fp *fileProcessor) suffixStrings(filename string, suffixes []models.FOpSuf
 // prefixStrings applies configured string prefixes to a filename.
 func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPrefix) string {
 	if len(prefixes) == 0 {
-		logger.Pl.D(1, "No string prefixes configured, keeping original filename: %q", filename)
 		return filename
 	}
 
@@ -304,7 +299,6 @@ func (fp *fileProcessor) prefixStrings(filename string, prefixes []models.FOpPre
 // addDateTag applies a date tag to a filename at the specified location.
 func (fp *fileProcessor) addDateTag(filename string, dateTag models.FOpDateTag, dateTagStr string) string {
 	if dateTag.DateFormat == sharedenums.DateFmtSkip {
-		logger.Pl.D(1, "No date tag configured, keeping original filename: %q", filename)
 		return filename
 	}
 

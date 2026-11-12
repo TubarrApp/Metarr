@@ -135,7 +135,7 @@ func workerVideoProcess(ctx context.Context, wg *sync.WaitGroup, batch *batch, i
 			logger.Pl.I("Worker %d stopping due to context cancellation", id)
 			return
 		default:
-			logger.Pl.D(1, "Worker %d processing file: %s", id, filename)
+			logger.Pl.D(2, "Worker %d processing file: %s", id, filename)
 
 			executed, err := executeFile(ctx, batch.bp, skipVideos, filename, job.fileData)
 			if err != nil {

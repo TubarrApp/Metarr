@@ -66,7 +66,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	// Get web data first (before MakeMetaEdits in case of transformation presets).
 	gotWebData := fieldsjson.FillWebpageDetails(fd, data)
 	if gotWebData {
-		logger.Pl.I("URLs grabbed: %s", fd.MWebData.TryURLs)
+		logger.Pl.D(2, "URLs grabbed: %s", fd.MWebData.TryURLs)
 	}
 
 	// Add the filter-gated operations matching this file.
@@ -94,8 +94,6 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 		} else if !ok {
 			logger.Pl.D(1, "Did not make date tag edits for metadata, tag already exists?")
 		}
-	} else {
-		logger.Pl.D(4, "Skipping making metadata date tag edits, key not set")
 	}
 
 	// Pick up the edits made since.
@@ -105,9 +103,6 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 	if data, ok = fieldsjson.FillJSONFields(fd, data, jsonRW); !ok {
 		logger.Pl.D(2, "Some metafields were unfilled")
 	}
-
-	// Construct date tag:
-	logger.Pl.D(1, "About to make date tag for: %v", file.Name())
 
 	// Make date tag and apply to model if necessary.
 	setFilenameDateTag(fd, data)
@@ -119,7 +114,7 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 
 	// Check if metadata is already existent in target file.
 	if !skipVideos {
-		logger.Pl.D(1, "Checking if metadata already exists in target file %q...", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Checking if metadata already exists in target file %q...", fd.OriginalVideoPath)
 		if filetypeMetaCheckSwitch(ctx, fd) {
 			logger.Pl.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
 			fd.MetaAlreadyExists = true
@@ -130,8 +125,6 @@ func processJSONFile(ctx context.Context, fd *models.FileData, skipVideos bool) 
 
 // filetypeMetaCheckSwitch checks metadata matches by file extension (different extensions store different fields).
 func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
-	logger.Pl.D(4, "Entering filetypeMetaCheckSwitch with %q", fd.OriginalVideoPath)
-
 	// The FFmpeg builder falls back to title when fulltitle is absent, so the
 	// check must use the same value or it will never match (e.g. an NFO with
 	// no <originaltitle>).
@@ -146,7 +139,6 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 		outExt = abstractions.GetString(keys.OutputFiletype)
 	} else {
 		outExt = filepath.Ext(fd.OriginalVideoPath)
-		logger.Pl.D(2, "Got output extension as %s", outExt)
 	}
 
 	currentExt := filepath.Ext(fd.OriginalVideoPath)
@@ -154,8 +146,6 @@ func filetypeMetaCheckSwitch(ctx context.Context, fd *models.FileData) bool {
 
 	if outExt != "" && !strings.HasPrefix(outExt, ".") {
 		outExt = "." + outExt
-
-		logger.Pl.D(2, "Added dot to outExt: %s, currentExt is %s", outExt, currentExt)
 	}
 
 	if outFlagSet && outExt != "" && !strings.EqualFold(outExt, currentExt) {

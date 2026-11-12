@@ -84,7 +84,7 @@ func (rw *JSONFileRW) DecodeJSON(file *os.File) (map[string]any, error) {
 	}
 
 	rw.updateMeta(data)
-	logger.Pl.D(5, "Decoded and stored metadata: %v", data)
+	logger.Pl.D(4, "Decoded and stored metadata: %v", data)
 	success = true
 	return data, nil
 }
@@ -97,7 +97,6 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 
 	// Create a copy of the current metadata.
 	currentMeta := rw.copyMeta()
-	logger.Pl.D(4, "Entering WriteMetadata for file %q", rw.File.Name())
 
 	// Update metadata with new fields.
 	updated := false
@@ -132,7 +131,7 @@ func (rw *JSONFileRW) WriteJSON(fieldMap map[string]*string) (map[string]any, er
 	rw.updateMeta(currentMeta)
 	rw.dirty = true
 
-	logger.Pl.D(3, "Successfully updated JSON metadata")
+	logger.Pl.D(2, "Successfully updated JSON metadata")
 	return currentMeta, nil
 }
 
@@ -142,7 +141,6 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 		return false, errors.New("file passed in nil")
 	}
 	currentMeta := rw.copyMeta()
-	logger.Pl.D(5, "Entering MakeJSONEdits.\nData: %v", currentMeta)
 
 	filename := rw.File.Name()
 	mtp := parsing.NewMetaTemplateParser(file.Name())
@@ -154,7 +152,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// Delete date tags before anything else, so other operations can't move them from where they're looked for.
 	if len(ops.DeleteDateTags) > 0 {
-		logger.Pl.I("Stripping metafield date tags (User entered: %v)", ops.DeleteDateTags)
+		logger.Pl.D(2, "Stripping metafield date tags (User entered: %v)", ops.DeleteDateTags)
 		if ok, err := rw.jsonFieldDeleteDateTag(currentMeta, ops.DeleteDateTags, fd); err != nil {
 			logger.Pl.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
 		} else if ok {
@@ -169,7 +167,7 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 1. Set fields first (establishes baseline values).
 	if len(ops.SetFields) > 0 {
-		logger.Pl.I("Model for file %q applying new field additions", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q applying new field additions", fd.OriginalVideoPath)
 		if ok, err := rw.setJSONField(currentMeta, filename, fd.ModelMOverwrite, ops.SetFields, mtp); err != nil {
 			logger.Pl.E("Failed to set fields with %+v: %v", ops.SetFields, err)
 		} else if ok {
@@ -179,14 +177,14 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 2. Copy/Paste operations (move data between fields).
 	if len(ops.CopyToFields) > 0 {
-		logger.Pl.I("Model for file %q copying to fields", ops.CopyToFields)
+		logger.Pl.D(2, "Model for file %q copying to fields", ops.CopyToFields)
 		if changesMade := rw.copyToField(currentMeta, ops.CopyToFields); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.PasteFromFields) > 0 {
-		logger.Pl.I("Model for file %q pasting from fields", ops.PasteFromFields)
+		logger.Pl.D(2, "Model for file %q pasting from fields", ops.PasteFromFields)
 		if changesMade := rw.pasteFromField(currentMeta, ops.PasteFromFields); changesMade {
 			edited = true
 		}
@@ -194,35 +192,35 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 3. Replace operations (modify existing content).
 	if len(ops.Replaces) > 0 {
-		logger.Pl.I("Model for file %q making replacements", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q making replacements", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSON(currentMeta, ops.Replaces, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.ReplacePrefixes) > 0 {
-		logger.Pl.I("Model for file %q replacing prefixes", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q replacing prefixes", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSONPrefix(currentMeta, ops.ReplacePrefixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.ReplaceSuffixes) > 0 {
-		logger.Pl.I("Model for file %q replacing suffixes", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q replacing suffixes", fd.OriginalVideoPath)
 		if changesMade := rw.replaceJSONSuffix(currentMeta, ops.ReplaceSuffixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.Cuts) > 0 {
-		logger.Pl.I("Model for file %q keeping text around delimiters", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q keeping text around delimiters", fd.OriginalVideoPath)
 		if changesMade := rw.cutJSON(currentMeta, ops.Cuts); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.RegexReplaces) > 0 {
-		logger.Pl.I("Model for file %q making regex replacements", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q making regex replacements", fd.OriginalVideoPath)
 		if changesMade := rw.regexReplaceJSON(currentMeta, ops.RegexReplaces, mtp); changesMade {
 			edited = true
 		}
@@ -230,14 +228,14 @@ func (rw *JSONFileRW) MakeJSONEdits(file *os.File, fd *models.FileData) (edited 
 
 	// 4. Add content (prefix/suffix).
 	if len(ops.Prefixes) > 0 {
-		logger.Pl.I("Model for file %q adding prefixes", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q adding prefixes", fd.OriginalVideoPath)
 		if changesMade := rw.jsonPrefix(currentMeta, filename, ops.Prefixes, mtp); changesMade {
 			edited = true
 		}
 	}
 
 	if len(ops.Suffixes) > 0 {
-		logger.Pl.I("Model for file %q adding suffixes", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Model for file %q adding suffixes", fd.OriginalVideoPath)
 		if changesMade := rw.jsonSuffix(currentMeta, filename, ops.Suffixes, mtp); changesMade {
 			edited = true
 		}
@@ -266,12 +264,11 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	}
 	currentMeta := rw.copyMeta()
 
-	logger.Pl.D(4, "About to perform MakeDateTagEdits operations for file %q", file.Name())
 	ops := fd.MetaOps.ExpandGroups(models.JSONGroupFields)
 
 	// Add date tag.
 	if len(ops.DateTags) > 0 {
-		logger.Pl.I("Adding metafield date tags (User entered: %v)", ops.DateTags)
+		logger.Pl.D(2, "Adding metafield date tags (User entered: %v)", ops.DateTags)
 
 		if ok, err := rw.jsonFieldAddDateTag(currentMeta, ops.DateTags, fd); err != nil {
 			logger.Pl.E("failed to delete date tag in %q: %v", fd.MetaFilePath, err)
@@ -281,7 +278,6 @@ func (rw *JSONFileRW) JSONDateTagEdits(file *os.File, fd *models.FileData) (edit
 	}
 
 	if !edited {
-		logger.Pl.D(1, "No date tag edits made, returning...")
 		return false, nil
 	}
 
@@ -311,7 +307,7 @@ func resolveDatesFrom(ops *models.MetaOps, val string) {
 	}
 
 	// Set date override.
-	logger.Pl.I("Setting %q from field %q → %q", sharedconsts.MetaOpAllDates, ops.DatesFrom, date)
+	logger.Pl.D(3, "Setting %q from field %q → %q", sharedconsts.MetaOpAllDates, ops.DatesFrom, date)
 	ops.SetOverrides[enums.OverrideMetaDates] = date
 }
 
@@ -322,7 +318,7 @@ func overrideJSONFields(j map[string]any, overrides map[enums.OverrideMetaType]s
 			if cur, ok := j[k].(string); ok && cur == val {
 				continue
 			}
-			logger.Pl.I("Overriding JSON field %q → %q", k, val)
+			logger.Pl.D(3, "Overriding JSON field %q → %q", k, val)
 			j[k] = val
 			edited = true
 		}
@@ -353,8 +349,6 @@ func overrideJSONFields(j map[string]any, overrides map[enums.OverrideMetaType]s
 
 // replaceJSON makes user defined JSON replacements.
 func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, mtp *parsing.MetaTemplateParser) (edited bool) {
-	logger.Pl.D(5, "Entering replaceJson with data: %v", j)
-
 	if len(rplce) == 0 {
 		logger.Pl.E("Called replaceJson without replacements")
 		return false
@@ -385,8 +379,6 @@ func (rw *JSONFileRW) replaceJSON(j map[string]any, rplce []models.MetaReplace, 
 
 // replaceJSONPrefix trims defined prefixes from specified fields.
 func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaReplacePrefix, mtp *parsing.MetaTemplateParser) (edited bool) {
-	logger.Pl.D(5, "Entering trimJsonPrefix with data: %v", j)
-
 	if len(rPfx) == 0 {
 		logger.Pl.E("Called trimJsonPrefix without prefixes to trim")
 		return false
@@ -421,8 +413,6 @@ func (rw *JSONFileRW) replaceJSONPrefix(j map[string]any, rPfx []models.MetaRepl
 
 // replaceJSONSuffix trims defined suffixes from specified fields.
 func (rw *JSONFileRW) replaceJSONSuffix(j map[string]any, rSfx []models.MetaReplaceSuffix, mtp *parsing.MetaTemplateParser) (edited bool) {
-	logger.Pl.D(5, "Entering trimJsonSuffix with data: %v", j)
-
 	if len(rSfx) == 0 {
 		logger.Pl.E("Called trimJsonSuffix without prefixes to trim")
 		return false
@@ -493,8 +483,6 @@ func (rw *JSONFileRW) regexReplaceJSON(j map[string]any, rr []models.MetaRegexRe
 
 // jsonSuffix applies suffixes to the fields in the JSON data.
 func (rw *JSONFileRW) jsonSuffix(j map[string]any, file string, sfx []models.MetaSuffix, mtp *parsing.MetaTemplateParser) (edited bool) {
-	logger.Pl.D(5, "Entering jsonSuffix with data: %v", j)
-
 	if len(sfx) == 0 {
 		logger.Pl.E("No new suffixes to add for file %q", file)
 		return false // No replacements to apply.
@@ -527,8 +515,6 @@ func (rw *JSONFileRW) jsonSuffix(j map[string]any, file string, sfx []models.Met
 
 // jsonPrefix applies prefixes to the fields in the JSON data.
 func (rw *JSONFileRW) jsonPrefix(j map[string]any, file string, pfx []models.MetaPrefix, mtp *parsing.MetaTemplateParser) (edited bool) {
-	logger.Pl.D(5, "Entering jsonPrefix with data: %v", j)
-
 	if len(pfx) == 0 {
 		logger.Pl.E("No new prefix replacements found for file %q", file)
 		return false // No replacements to apply.
@@ -587,12 +573,11 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 	)
 
 	if !abstractions.IsSet(keys.MOverwrite) && !abstractions.IsSet(keys.MPreserve) {
-		logger.Pl.I("Model is set to overwrite")
 		metaOW = ow
 	} else {
 		metaOW = abstractions.GetBool(keys.MOverwrite)
 		metaPS = abstractions.GetBool(keys.MPreserve)
-		logger.Pl.I("Meta OW: %v Meta Preserve: %v", metaOW, metaPS)
+		logger.Pl.D(3, "Meta OW: %v Meta Preserve: %v", metaOW, metaPS)
 	}
 
 	logger.Pl.D(3, "Retrieved additions for new field data: %v", newField)
@@ -697,7 +682,6 @@ func (rw *JSONFileRW) setJSONField(j map[string]any, file string, ow bool, newFi
 // jsonFieldAddDateTag sets date tags in designated meta fields.
 func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[string]models.MetaDateTag, fd *models.FileData) (edited bool, err error) {
 	if len(addDateTag) == 0 {
-		logger.Pl.D(3, "No date tag operations to perform")
 		return false, nil
 	}
 	if fd == nil {
@@ -731,13 +715,13 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 		// Apply the tag based on location, replacing an existing tag there.
 		result, changed := dates.AddDateTag(strVal, tag, d.Loc)
 		if !changed {
-			logger.Pl.I("Tag %q already exists in field %q", tag, strVal)
+			logger.Pl.D(3, "Tag %q already exists in field %q", tag, strVal)
 			continue
 		}
 
 		result = rw.cleanFieldValue(result)
 		j[fld] = result
-		logger.Pl.I("Added date tag %q to field %q (location: %v)", tag, fld, d.Loc)
+		logger.Pl.D(3, "Added date tag %q to field %q (location: %v)", tag, fld, d.Loc)
 		edited = true
 	}
 	return edited, nil
@@ -746,7 +730,6 @@ func (rw *JSONFileRW) jsonFieldAddDateTag(j map[string]any, addDateTag map[strin
 // jsonFieldDeleteDateTag removes every date tag from the designated meta fields.
 func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map[string]struct{}, fd *models.FileData) (edited bool, err error) {
 	if len(deleteDateTag) == 0 {
-		logger.Pl.D(3, "No delete date tag operations to perform")
 		return false, nil
 	}
 	if fd == nil {
@@ -774,7 +757,7 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 		}
 
 		j[fld] = rw.cleanFieldValue(result)
-		logger.Pl.I("Deleted date tags %v from field %q", deletedTags, fld)
+		logger.Pl.D(3, "Deleted date tags %v from field %q", deletedTags, fld)
 		edited = true
 	}
 	return edited, nil
@@ -782,8 +765,6 @@ func (rw *JSONFileRW) jsonFieldDeleteDateTag(j map[string]any, deleteDateTag map
 
 // copyToField copies values from one meta field to another.
 func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField) (edited bool) {
-	logger.Pl.D(5, "Entering jsonPrefix with data: %v", j)
-
 	if len(copyTo) == 0 {
 		logger.Pl.E("No new copy operations found")
 		return false
@@ -795,7 +776,7 @@ func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField)
 		if value, found := j[c.Field]; found {
 
 			if val, ok := value.(string); ok {
-				logger.Pl.I("Identified input JSON field '%v', copying to field '%v'", c.Field, c.Dest)
+				logger.Pl.D(3, "Identified input JSON field '%v', copying to field '%v'", c.Field, c.Dest)
 				j[c.Dest] = val
 				edited = true
 
@@ -808,8 +789,6 @@ func (rw *JSONFileRW) copyToField(j map[string]any, copyTo []models.CopyToField)
 
 // pasteFromField copies values from one meta field to another.
 func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromField) (edited bool) {
-	logger.Pl.D(5, "Entering jsonPrefix with data: %v", j)
-
 	if len(paste) == 0 {
 		logger.Pl.E("No new paste operations found")
 		return false
@@ -821,7 +800,7 @@ func (rw *JSONFileRW) pasteFromField(j map[string]any, paste []models.PasteFromF
 		if value, found := j[p.Origin]; found {
 
 			if val, ok := value.(string); ok {
-				logger.Pl.I("Identified input JSON field '%v', pasting to field '%v'", p.Origin, p.Field)
+				logger.Pl.D(3, "Identified input JSON field '%v', pasting to field '%v'", p.Origin, p.Field)
 				j[p.Field] = val
 				edited = true
 			}

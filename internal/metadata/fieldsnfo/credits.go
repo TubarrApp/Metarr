@@ -2,7 +2,6 @@ package fieldsnfo
 
 import (
 	"metarr/internal/domain/enums"
-	"metarr/internal/domain/logger"
 	"metarr/internal/models"
 	"metarr/internal/utils/printout"
 	"slices"
@@ -84,13 +83,7 @@ func fillNFOCredits(fd *models.FileData) (filled bool) {
 
 // fillSingleCredits fills empty singular credits fields from filled arrays.
 func fillSingleCredits(entries []string, target *string) {
-	if target == nil {
-		logger.Pl.D(1, "Target string is nil, skipping...")
-		return
-	}
-
-	if *target != "" {
-		logger.Pl.D(1, "Target string is not empty, skipping...")
+	if target == nil || *target != "" {
 		return
 	}
 

@@ -97,7 +97,7 @@ func processNFOFiles(ctx context.Context, fd *models.FileData, skipVideos bool) 
 
 	// Check if metadata is already existent in target file.
 	if !skipVideos {
-		logger.Pl.D(1, "Checking if metadata already exists in target file %q...", fd.OriginalVideoPath)
+		logger.Pl.D(2, "Checking if metadata already exists in target file %q...", fd.OriginalVideoPath)
 		if filetypeMetaCheckSwitch(ctx, fd) {
 			logger.Pl.I("Metadata already exists in target file %q", fd.OriginalVideoPath)
 			fd.MetaAlreadyExists = true

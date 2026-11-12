@@ -321,7 +321,7 @@ func (fs *FSFileWriter) PurgesMetafile(file string) (bool, error) {
 
 // DeleteMetafile safely removes metadata files once file operations are complete.
 func (fs *FSFileWriter) DeleteMetafile(file string) (deleted bool, err error) {
-	logger.Pl.I("Attempting to delete metafile %q...", file)
+	logger.Pl.D(2, "Attempting to delete metafile %q...", file)
 
 	if purges, err := fs.PurgesMetafile(file); err != nil || !purges {
 		return false, err

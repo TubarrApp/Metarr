@@ -72,7 +72,7 @@ func (rw *NFOFileRW) DecodeMetadata(file *os.File) (*models.NFOData, error) {
 		return nil, fmt.Errorf("failed to seek file: %w", err)
 	}
 
-	logger.Pl.D(3, "Decoded metadata: %+v", rw.Model)
+	logger.Pl.D(4, "Decoded metadata: %+v", rw.Model)
 	return rw.Model, nil
 }
 
@@ -105,7 +105,7 @@ func (rw *NFOFileRW) RefreshMetadata() (*models.NFOData, error) {
 	rw.Model = &input
 	rw.Meta = string(content)
 
-	logger.Pl.D(3, "Refreshed metadata: %+v", rw.Model)
+	logger.Pl.D(4, "Refreshed metadata: %+v", rw.Model)
 	return rw.Model, nil
 }
 
@@ -136,7 +136,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 			_, result := dates.StripAllDateTags(s)
 			return result, result != s
 		}); ok {
-			logger.Pl.I("Deleted date tags from XML field %q", fld)
+			logger.Pl.D(3, "Deleted date tags from XML field %q", fld)
 			data, edited = newContent, true
 		}
 	}
@@ -148,7 +148,7 @@ func (rw *NFOFileRW) MakeMetaEdits(data string, file *os.File, fd *models.FileDa
 
 	// 1. Set fields (establishes baseline values).
 	if len(ops.SetFields) > 0 {
-		logger.Pl.I("Model for file %q applying new field additions", fd.MetaFilePath)
+		logger.Pl.D(2, "Model for file %q applying new field additions", fd.MetaFilePath)
 		if newContent, ok, err = rw.addNewXMLFields(data, fd.ModelMOverwrite, ops.SetFields, mtp); err != nil {
 			logger.Pl.E("failed to add new XML fields with %+v: %v", ops.SetFields, err)
 		} else if ok {
@@ -404,7 +404,7 @@ func (rw *NFOFileRW) setXMLField(data, tag, val string) (dataRtn string, edited 
 		return data, edited
 	}
 
-	logger.Pl.I("Adding XML field %q with value %q", tag, val)
+	logger.Pl.D(3, "Adding XML field %q with value %q", tag, val)
 	if tag == sharedtags.NActors {
 		return rw.addNewActorField(data, escapeXML(val))
 	}
@@ -418,7 +418,7 @@ func (rw *NFOFileRW) pasteXMLField(data, origin, dest string) (dataRtn string, e
 		logger.Pl.D(2, "XML field %q not found, skipping paste into %q", origin, dest)
 		return data, false
 	}
-	logger.Pl.I("Pasting XML field %q into %q", origin, dest)
+	logger.Pl.D(3, "Pasting XML field %q into %q", origin, dest)
 	return rw.setXMLField(data, dest, val)
 }
 
@@ -476,7 +476,7 @@ func (rw *NFOFileRW) DateTagEdits(file *os.File, fd *models.FileData) (edited bo
 		if data, ok = editXMLField(data, fld, func(s string) (string, bool) {
 			return dates.AddDateTag(s, tag, d.Loc)
 		}); ok {
-			logger.Pl.I("Added date tag %q to XML field %q", tag, fld)
+			logger.Pl.D(3, "Added date tag %q to XML field %q", tag, fld)
 			edited = true
 		}
 	}
@@ -610,8 +610,6 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 		metaPS bool
 	)
 
-	logger.Pl.D(5, "Entering addNewXmlFields with data: %v", data)
-
 	if len(newField) == 0 {
 		return data, false, nil // No replacements to apply.
 	}
@@ -642,7 +640,7 @@ func (rw *NFOFileRW) addNewXMLFields(data string, ow bool, newField []models.Met
 			actorNameCheck := fmt.Sprintf("<name>%s</name>", rw.flattenField(value))
 
 			if strings.Contains(flatData, actorNameCheck) {
-				logger.Pl.I("Actor %q is already inserted in the metadata, no need to add...", addition.Value)
+				logger.Pl.D(3, "Actor %q is already inserted in the metadata, no need to add...", addition.Value)
 			} else {
 				if modified, ok := rw.addNewActorField(data, value); ok {
 					data = modified

@@ -20,28 +20,16 @@ const nfoFilePerms = 0o666
 // WriteNFOs writes an NFO file for each model.
 func WriteNFOs(fdArray []*models.FileData) {
 	if !abstractions.GetBool(keys.WriteNFO) {
-		logger.Pl.D(2, "NFO output not requested, skipping NFO generation")
 		return
 	}
 
-	var written int
 	for _, fd := range fdArray {
 		if fd == nil {
 			continue
 		}
-
-		outPath, err := WriteNFO(fd)
-		if err != nil {
+		if _, err := WriteNFO(fd); err != nil {
 			logger.Pl.E("Failed to write NFO for %q: %v", nfoSourcePath(fd), err)
-			continue
 		}
-		if outPath != "" {
-			written++
-		}
-	}
-
-	if written > 0 {
-		logger.Pl.S("Wrote %d NFO file(s)", written)
 	}
 }
 

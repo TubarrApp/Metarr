@@ -29,9 +29,7 @@ func fillTitles(fd *models.FileData, json map[string]any, jsonRW *metawriters.JS
 		}()
 	}
 
-	if filled := unpackJSON(fieldMap, json); filled {
-		logger.Pl.D(2, "Decoded titles JSON into field map")
-	}
+	unpackJSON(fieldMap, json)
 
 	// Fill fieldMap entries.
 	for k, ptr := range fieldMap {

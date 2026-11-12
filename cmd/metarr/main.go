@@ -16,6 +16,7 @@ import (
 	"metarr/internal/report"
 	"metarr/internal/transformations"
 	"metarr/internal/utils/prompt"
+	"net/url"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -26,6 +27,7 @@ import (
 	"github.com/TubarrApp/gocommon/benchmark"
 	"github.com/TubarrApp/gocommon/buildinfo"
 	"github.com/TubarrApp/gocommon/logging"
+	"github.com/TubarrApp/gocommon/sharedconsts"
 )
 
 // Main program string constants.
@@ -69,6 +71,13 @@ func run() (exitCode int) {
 	}
 	logger.Pl = pl
 	logging.TestLogger(pl)
+
+	// Tag every line with the channel Tubarr ran Metarr for, if any.
+	if u, err := url.Parse(os.Getenv(sharedconsts.EnvTubarrLogURL)); err == nil {
+		if channel := u.Query().Get(sharedconsts.TubarrLogURLChannelParam); channel != "" {
+			pl.SetChannel(channel)
+		}
+	}
 
 	// Log build provenance and start time.
 	logger.Pl.I(buildLogFormat, buildinfo.Get())

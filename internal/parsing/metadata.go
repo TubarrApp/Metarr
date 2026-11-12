@@ -97,7 +97,7 @@ func (mtp *MetaTemplateParser) fillTag(template string, j map[string]any) (resul
 		return "", false
 	}
 	if result == "" {
-		logger.Pl.E("Metadata field %v is empty, not parsing (file %q)", template, mtp.jsonFileName)
+		logger.Pl.W("Metadata field %v is empty, not parsing (file %q)", template, mtp.jsonFileName)
 		return "", false
 	}
 	return result, true

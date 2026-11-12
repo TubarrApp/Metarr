@@ -219,12 +219,12 @@ func (fd *FileData) ResolveMetaOps(ops []sharedmodels.MetaOps, filtered []shared
 			return err
 		}
 		if !matched {
-			logger.Pl.D(2, "Filters %v did not match, skipping %d operation(s)", fmo.Filters, len(fmo.MetaOps))
+			logger.Pl.D(1, "Filters %v did not match, skipping %d operation(s)", fmo.Filters, len(fmo.MetaOps))
 			continue
 		}
 
 		for _, op := range fmo.MetaOps {
-			logger.Pl.I("Filters matched, applying meta operation %q to field %q", op.OpType, op.Field)
+			logger.Pl.D(1, "Filters matched, applying meta operation %q to field %q", op.OpType, op.Field)
 			resolved = append(resolved, op)
 		}
 	}
@@ -247,12 +247,12 @@ func (fd *FileData) ResolveFilenameOps(ops []sharedmodels.FilenameOps, filtered 
 			return err
 		}
 		if !matched {
-			logger.Pl.D(2, "Filters %v did not match, skipping %d filename operation(s)", ffo.Filters, len(ffo.FilenameOps))
+			logger.Pl.D(1, "Filters %v did not match, skipping %d filename operation(s)", ffo.Filters, len(ffo.FilenameOps))
 			continue
 		}
 
 		for _, op := range ffo.FilenameOps {
-			logger.Pl.I("Filters matched, applying filename operation %q", op.OpType)
+			logger.Pl.D(1, "Filters matched, applying filename operation %q", op.OpType)
 			resolved = append(resolved, op)
 		}
 	}

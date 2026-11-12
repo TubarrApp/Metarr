@@ -11,7 +11,6 @@ import (
 
 // ValidateAndSetMetaOps parses the meta transformation operations.
 func ValidateAndSetMetaOps(metaOpsInput []string) error {
-	logger.Pl.D(2, "Validating meta operations...")
 	if len(metaOpsInput) == 0 {
 		return nil
 	}
@@ -28,7 +27,7 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Pl.I("Added %d meta operations: %v", len(parsed), sharedparsing.FormatMetaOps(parsed))
+	logger.Pl.D(2, "Added %d meta operations: %v", len(parsed), sharedparsing.FormatMetaOps(parsed))
 
 	// Set values into Viper. The flat form is kept too, since matched filtered operations
 	// are added to it per file, once that file's metadata is read.
@@ -40,7 +39,6 @@ func ValidateAndSetMetaOps(metaOpsInput []string) error {
 // ValidateAndSetFilenameOps checks and validates filename operations.
 func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	if len(filenameOpsInput) == 0 {
-		logger.Pl.D(2, "No filename operations to add.")
 		return nil
 	}
 
@@ -56,7 +54,7 @@ func ValidateAndSetFilenameOps(filenameOpsInput []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Pl.I("Added %d filename operations: %v", len(parsed), sharedparsing.FormatFilenameOps(parsed))
+	logger.Pl.D(2, "Added %d filename operations: %v", len(parsed), sharedparsing.FormatFilenameOps(parsed))
 
 	// Set values into Viper. The flat form is kept too, since matched filtered operations
 	// are added to it per file, once that file's metadata is read.
@@ -81,7 +79,7 @@ func ValidateAndSetFilteredMetaOps(input []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Pl.I("Added %d filtered meta operations", len(parsed))
+	logger.Pl.D(2, "Added %d filtered meta operations", len(parsed))
 
 	abstractions.Set(keys.FilteredMetaOpsModels, parsed)
 	return nil
@@ -103,7 +101,7 @@ func ValidateAndSetFilteredFilenameOps(input []string) error {
 	if err != nil {
 		return err
 	}
-	logger.Pl.I("Added %d filtered filename operations", len(parsed))
+	logger.Pl.D(2, "Added %d filtered filename operations", len(parsed))
 
 	abstractions.Set(keys.FilteredFilenameOpsModels, parsed)
 	return nil

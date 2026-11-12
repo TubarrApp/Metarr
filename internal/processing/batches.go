@@ -76,7 +76,7 @@ func ProcessBatches(core *models.Core) ([]*models.FileData, error) {
 	for _, b := range batches {
 		batch := convertCfgToBatch(b)
 		batch.SkipVideos = batch.SkipVideos || skipVideos
-		logger.Pl.I("Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
+		logger.Pl.D(2, "Starting batch job %d. Skip videos on this run? %v", job, batch.SkipVideos)
 
 		processedFiles, err := runBatch(batch, core)
 		if err != nil {
@@ -156,7 +156,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Pl.P("Finding video and JSON directories...")
+	logger.Pl.D(2, "Finding video and JSON directories...")
 
 	// Make directory batches
 	vDirCount := 0
@@ -189,7 +189,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			vDirCount++
 		}
 	}
-	logger.Pl.I("Got %d directory pairs to process, %d singular JSON directories", vDirCount, len(jsonDirs)-vDirCount)
+	logger.Pl.D(2, "Got %d directory pairs to process, %d singular JSON directories", vDirCount, len(jsonDirs)-vDirCount)
 
 	// Remnant JSON directories
 	if len(jsonDirs) > vDirCount {
@@ -215,7 +215,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			tasks = append(tasks, newBatchConfig)
 		}
 	}
-	logger.Pl.I("Finding video and JSON files...")
+	logger.Pl.D(2, "Finding video and JSON files...")
 
 	// Make file batches
 	if len(videoFiles) > 0 {
@@ -253,7 +253,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			vFileCount++
 		}
 
-		logger.Pl.I("Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
+		logger.Pl.D(2, "Got %d file pairs to process, %d singular JSON files", vFileCount, len(jsonFiles)-len(videoFiles))
 	}
 
 	// Remnant JSON files
@@ -280,7 +280,7 @@ func initializeBatchConfigs() (batchConfig []models.BatchConfig, err error) {
 			tasks = append(tasks, newBatchConfig)
 		}
 	}
-	logger.Pl.I("Got %d batch jobs to perform.", len(tasks))
+	logger.Pl.D(2, "Got %d batch jobs to perform.", len(tasks))
 	return tasks, nil
 }
 

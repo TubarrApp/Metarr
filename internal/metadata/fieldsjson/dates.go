@@ -27,9 +27,7 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		sharedtags.JCreationTime:        &t.CreationTime,
 	}
 
-	if ok := unpackJSON(fieldMap, json); !ok {
-		logger.Pl.E("Failed to unpack date JSON, no dates currently exist in file?")
-	}
+	unpackJSON(fieldMap, json)
 
 	printMap := make(map[string]string, len(fieldMap))
 	if logging.Level() > 1 {
@@ -92,7 +90,6 @@ func FillTimestamps(fd *models.FileData, json map[string]any, jsonRW *metawriter
 		logger.Pl.I("No date found in metadata %q", fd.MetaFilePath)
 		return false
 	}
-	logger.Pl.D(3, "Got a relevant date, proceeding...")
 
 	var err error
 	if t.FormattedDate == "" {
@@ -213,7 +210,7 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 	// Try to fix accidentally using upload date if another date is available.
 	if len(t.Year) == 4 && !strings.HasPrefix(t.CreationTime, t.Year) && len(t.CreationTime) >= 4 {
 
-		logger.Pl.D(1, "Creation time does not match year tag, seeing if other dates are available...")
+		logger.Pl.D(2, "Creation time does not match year tag, seeing if other dates are available...")
 
 		switch {
 		case strings.HasPrefix(t.OriginallyAvailableAt, t.Year):
@@ -221,31 +218,31 @@ func fillEmptyTimestamps(t *models.MetadataDates, b *strings.Builder) bool {
 				t.CreationTime = formatTimeStamp(t.OriginallyAvailableAt, b)
 			}
 
-			logger.Pl.D(1, "Set creation time to %s", t.OriginallyAvailableAt)
+			logger.Pl.D(2, "Set creation time to %s", t.OriginallyAvailableAt)
 
 		case strings.HasPrefix(t.ReleaseDate, t.Year):
 			if !strings.ContainsRune(t.CreationTime, 'T') {
 				t.CreationTime = formatTimeStamp(t.ReleaseDate, b)
 			}
 
-			logger.Pl.D(1, "Set creation time to %s", t.ReleaseDate)
+			logger.Pl.D(2, "Set creation time to %s", t.ReleaseDate)
 
 		case strings.HasPrefix(t.Date, t.Year):
 			if !strings.ContainsRune(t.CreationTime, 'T') {
 				t.CreationTime = formatTimeStamp(t.Date, b)
 			}
 
-			logger.Pl.D(1, "Set creation time to %s", t.Date)
+			logger.Pl.D(2, "Set creation time to %s", t.Date)
 
 		case strings.HasPrefix(t.FormattedDate, t.Year):
 			if !strings.ContainsRune(t.CreationTime, 'T') {
 				t.CreationTime = formatTimeStamp(t.FormattedDate, b)
 			}
 
-			logger.Pl.D(1, "Set creation time to %s", t.FormattedDate)
+			logger.Pl.D(2, "Set creation time to %s", t.FormattedDate)
 
 		default:
-			logger.Pl.D(1, "No full date is from %s, keeping the creation time %q", t.Year, t.CreationTime)
+			logger.Pl.D(2, "No full date is from %s, keeping the creation time %q", t.Year, t.CreationTime)
 		}
 	}
 	return gotDate

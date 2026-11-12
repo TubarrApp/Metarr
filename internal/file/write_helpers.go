@@ -64,7 +64,7 @@ func checkFreeDestination(src, dst string) error {
 
 // copyFile copies src to a new file at dst, verifying the copy against the source's hash.
 func copyFile(src, dst string) (err error) {
-	logger.Pl.I("Copying:\n%q\nto\n%q...", src, dst)
+	logger.Pl.D(2, "Copying:\n%q\nto\n%q...", src, dst)
 
 	sourceFile, err := os.Open(src)
 	if err != nil {
@@ -115,7 +115,7 @@ func copyFile(src, dst string) (err error) {
 		return fmt.Errorf("failed to write destination file: %w", err)
 	}
 	if chmodErr := os.Chmod(dst, sourceInfo.Mode()); chmodErr != nil {
-		logger.Pl.I("Failed to set file permissions, is destination folder remote? (%v)", chmodErr)
+		logger.Pl.W("Failed to set file permissions, is destination folder remote? (%v)", chmodErr)
 	}
 
 	dstHash, err := calculateFileHash(dst)
@@ -144,7 +144,7 @@ func shouldProcess(src, dst string, isVid, skipVids bool) bool {
 		return false
 
 	default:
-		logger.Pl.I("Conducting move/rename file operations for %q", src)
+		logger.Pl.D(2, "Conducting move/rename file operations for %q", src)
 		return true
 	}
 }

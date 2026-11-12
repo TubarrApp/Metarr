@@ -71,7 +71,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading video directory %q: %w", videoDir.Name(), err)
 	}
-	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), sharedconsts.FilterByVidExtensions)
+	logger.Pl.D(2, "Filtering video directory %q:\nFile extensions: %v\n\n", videoDir.Name(), sharedconsts.FilterByVidExtensions)
 
 	// Iterate over video files in directory.
 	videoFiles := make(map[string]*models.FileData, len(files))
@@ -109,7 +109,7 @@ func GetVideoFiles(videoDir *os.File) (map[string]*models.FileData, error) {
 
 			if !strings.Contains(parsing.GetBaseNameWithoutExt(m.OriginalVideoPath), sharedconsts.BackupTag) {
 				videoFiles[file.Name()] = m
-				logger.Pl.I("Added video to queue: %v", videoFilenameBase)
+				logger.Pl.D(2, "Added video to queue: %v", videoFilenameBase)
 			} else {
 				logger.Pl.I("Skipping file %q containing backup tag (%q)", m.OriginalVideoPath, sharedconsts.BackupTag)
 			}
@@ -127,7 +127,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading metadata directory %q: %w", metaDir.Name(), err)
 	}
-	logger.Pl.I("Filtering video directory %q:\nFile extensions: %v\n\n", metaDir.Name(), sharedconsts.FilterByMetaExtension)
+	logger.Pl.D(2, "Filtering metadata directory %q:\nFile extensions: %v\n\n", metaDir.Name(), sharedconsts.FilterByMetaExtension)
 
 	// Iterate over metadata files in directory.
 	metaFiles := make(map[string]*models.FileData, len(files))
@@ -172,7 +172,7 @@ func GetMetadataFiles(metaDir *os.File) (map[string]*models.FileData, error) {
 		// Check if valid metafile is present.
 		for k := range sharedconsts.FilterByMetaExtension {
 			if ext == k {
-				logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), file.Name())
+				logger.Pl.D(3, "Detected %s file %q", strings.ToUpper(ext), file.Name())
 				m.MetaFilePath = filePath
 				m.MetaDirectory = metaDir.Name()
 				m.MetaFileType = strings.ToLower(ext)
@@ -220,7 +220,7 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 	// Check if valid metafile is present.
 	for k := range sharedconsts.FilterByMetaExtension {
 		if ext == k {
-			logger.Pl.D(1, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
+			logger.Pl.D(3, "Detected %s file %q", strings.ToUpper(ext), metaFile.Name())
 			m.MetaFilePath = filename
 			m.MetaDirectory = dir
 			m.MetaFileType = strings.ToLower(ext)
@@ -233,8 +233,6 @@ func GetSingleMetadataFile(metaFile *os.File) (map[string]*models.FileData, erro
 
 // MatchVideoWithMetadata matches video files with their metadata files, closest names first, each metafile going to one video.
 func MatchVideoWithMetadata(videoFiles, metaFiles map[string]*models.FileData, batchID int64) (map[string]*models.FileData, error) {
-	logger.Pl.D(3, "Entering metadata and video file matching loop...")
-
 	// Pre-process metaFiles into lookup maps by the video name they match, in name order so runs match alike.
 	exact := make(map[string][]*models.FileData, len(metaFiles))      // The metafile's name, whole or without its extension.
 	trimmed := make(map[string][]*models.FileData, len(metaFiles))    // Without a known suffix, e.g. ".info.json".

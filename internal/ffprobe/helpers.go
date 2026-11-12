@@ -183,7 +183,7 @@ func getDatePart(timeStr string) string {
 // printArray provides a simple print of metadata captured by FFprobe.
 func printArray(s []string) {
 	str := strings.Join(s, ", ")
-	logger.Pl.I("FFprobe captured %s", str)
+	logger.Pl.D(4, "FFprobe captured %s", str)
 }
 
 // get grabs key based on casing.

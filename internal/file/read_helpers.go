@@ -20,7 +20,7 @@ func hasFileExtension(filename string, extensions map[string]bool) bool {
 		return false
 	}
 	if isSet := extensions[ext]; isSet {
-		logger.Pl.I("File %q has valid extension %q, processing...", filename, ext)
+		logger.Pl.D(3, "File %q has valid extension %q, processing...", filename, ext)
 		return true
 	}
 	logger.Pl.D(3, "File %q does not appear to have an extension contained in the extensions map", filename)

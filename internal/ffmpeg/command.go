@@ -543,7 +543,7 @@ func ffmpegAvailableCodecs(ctx context.Context) (output string) {
 // setGPUAccelerationCodec sets the codec to use for the GPU acceleration (separated from setGPUAcceleration for ordering reasons).
 func (b *ffCommandBuilder) setGPUAccelerationCodec(accelType, currentVCodec, useTranscodeCodec, availableCodecs string) {
 	if accelType == "" || accelType == sharedconsts.AccelTypeAuto {
-		logger.Pl.D(2, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
+		logger.Pl.D(1, "Using 'auto' HW acceleration, will use a standard software codec (e.g. 'libx264')")
 		return
 	}
 
@@ -697,7 +697,7 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 			logger.Pl.W("Metarr can't convert -crf for encoder %q, so it's left out.", encoder)
 		}
 		if b.qualityParameter != nil {
-			logger.Pl.I("Sending -crf %s to encoder %q as %v.", encoderArgs.Quality, encoder, b.qualityParameter)
+			logger.Pl.D(2, "Sending -crf %s to encoder %q as %v.", encoderArgs.Quality, encoder, b.qualityParameter)
 		}
 	}
 
@@ -879,7 +879,7 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		// Look up correct metadata keys by container type.
 		containerKey := parsing.GetContainerKeys(key, outputExt)
 		if containerKey == "" {
-			logger.Pl.D(2, "Not inserting key %q, %s files can't hold it.", key, outputExt)
+			logger.Pl.D(1, "Not inserting key %q, %s files can't hold it.", key, outputExt)
 			continue
 		}
 
@@ -888,8 +888,6 @@ func (b *ffCommandBuilder) buildFinalCommand(formatArgs []string, useHWDecode bo
 		b.builder.WriteString(containerKey)
 		b.builder.WriteByte('=')
 		b.builder.WriteString(strings.ReplaceAll(strings.TrimSpace(value), "\x00", "")) // A NUL stops ffmpeg starting.
-
-		logger.Pl.I("Adding metadata argument: '%s %s'", consts.FFmpegMetadata, b.builder.String())
 		args = append(args, consts.FFmpegMetadata, b.builder.String())
 	}
 
@@ -963,7 +961,5 @@ func (b *ffCommandBuilder) calculateCommandCapacity() int {
 	if abstractions.IsSet(keys.ExtraFFmpegArgs) {
 		totalCapacity += len(strings.Fields(abstractions.GetString(keys.ExtraFFmpegArgs)))
 	}
-
-	logger.Pl.D(3, "Total command capacity calculated as: %d", totalCapacity)
 	return totalCapacity
 }

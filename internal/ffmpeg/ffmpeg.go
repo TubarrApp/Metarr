@@ -114,7 +114,7 @@ func prepareCodecs(ctx context.Context, fd *models.FileData, inputFileVCodec, in
 func prepareOutputPaths(fd *models.FileData, outputFileExt string) (tmpOutPath string) {
 	inputFilePath := fd.OriginalVideoPath
 	inputFileExt := filepath.Ext(inputFilePath)
-	logger.Pl.I("Will execute video from extension %q → %q", inputFileExt, outputFileExt)
+	logger.Pl.D(2, "Will execute video from extension %q → %q", inputFileExt, outputFileExt)
 
 	// Set temp output path: DO NOT use user cache or temp dir, can cause cross-device link move failures.
 	baseName := parsing.GetBaseNameWithoutExt(inputFilePath)
@@ -124,7 +124,7 @@ func prepareOutputPaths(fd *models.FileData, outputFileExt string) (tmpOutPath s
 	// Set post-FFmpeg video path in model.
 	fd.PostFFmpegVideoPath = filepath.Join(fd.VideoDirectory, baseName) + outputFileExt
 
-	logger.Pl.I("Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nPost-FFmpeg Video Path: %s\n\nTemp Output Path: %s", inputFilePath,
+	logger.Pl.D(2, "Video file path data:\n\nOriginal Video Path: %s\nMetadata File Path: %s\nPost-FFmpeg Video Path: %s\n\nTemp Output Path: %s", inputFilePath,
 		fd.MetaFilePath,
 		fd.PostFFmpegVideoPath,
 		tmpOutPath)
@@ -154,7 +154,7 @@ func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath string, 
 		}
 
 		// Run command, once per encoding pass.
-		logger.Pl.P("%s!!! Starting FFmpeg attempt %d for %q...\n%s", sharedconsts.ColorCyan, i, baseName, sharedconsts.ColorReset)
+		logger.Pl.I("Starting FFmpeg attempt %d for %q", i, baseName)
 		if stderr, err := runPasses(ctx, args, builder.passes, durationUS, inputFilePath); err != nil {
 			if ctx.Err() != nil {
 				return fmt.Errorf("ffmpeg canceled for %q: %w", baseName, ctx.Err())
@@ -170,7 +170,6 @@ func executeFFmpeg(ctx context.Context, fd *models.FileData, tmpOutPath string, 
 			continue
 		}
 		// FFmpeg completed successfully: Exit loop.
-		logger.Pl.S("FFmpeg successfully processed %q", baseName)
 		break
 	}
 	return nil
@@ -228,7 +227,7 @@ func tempOutputName(fileBase, inputFileExt, outExt string) string {
 
 // skipProcessing determines whether the program should process this video (meta already exists, file extensions are unchanged, and codecs match).
 func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmodels.FromCodec, desiredVCodec, desiredACodec, outExt string) (skipProcessing bool) {
-	logger.Pl.I("Checking if processing should continue for file %q...", fd.OriginalVideoPath)
+	logger.Pl.D(2, "Checking if processing should continue for file %q...", fd.OriginalVideoPath)
 
 	// Write thumbnail.
 	if parsing.ForceThumbnailWrite() && fd.EmbedThumbnail() != "" {
@@ -274,8 +273,6 @@ func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmode
 		fd.SetFinalPaths(fd.OriginalVideoPath, fd.MetaFilePath)
 		return true
 	}
-
-	logger.Pl.I("Metadata, codec, or file extension mismatch. Continuing to process file %q", fd.OriginalVideoPath)
 	return false
 }
 
@@ -283,7 +280,7 @@ func skipProcessing(fd *models.FileData, currentVCodec, currentACodec sharedmode
 func makeBackup(origPath string) (backupPath string, err error) {
 	origInfo, err := os.Stat(origPath)
 	if os.IsNotExist(err) {
-		logger.Pl.I("File does not exist, safe to proceed overwriting: %s", origPath)
+		logger.Pl.D(2, "File does not exist, safe to proceed overwriting: %s", origPath)
 		return "", nil
 	}
 
@@ -293,7 +290,7 @@ func makeBackup(origPath string) (backupPath string, err error) {
 		return "", fmt.Errorf("failed to rename original file and preserve file is on, aborting: %w", err)
 	}
 	if backupPath == "" {
-		logger.Pl.I("Identical backup of %q already exists, skipping backup", origPath)
+		logger.Pl.D(2, "Identical backup of %q already exists, skipping backup", origPath)
 		return "", nil
 	}
 
@@ -333,6 +330,6 @@ func getCodecs(ctx context.Context, inputFile string) (videoCodec, audioCodec sh
 	}
 
 	// Log and return detected codecs.
-	logger.Pl.D(1, "Detected codecs - video: %s, audio: %s", videoCodec.Codec, audioCodec.Codec)
+	logger.Pl.D(2, "Detected codecs - video: %s, audio: %s", videoCodec.Codec, audioCodec.Codec)
 	return videoCodec, audioCodec, nil
 }

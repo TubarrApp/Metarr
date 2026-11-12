@@ -22,7 +22,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt sharedenu
 	date, found := "", false
 	if fd.MDates.FormattedDate == "" {
 		if date, found = extractDateFromMetadata(metadata); !found {
-			logger.Pl.E("No dates found in the metadata")
+			logger.Pl.W("No date in the metadata of %q, so no date tag added", fd.MetaFilePath)
 			return "", nil
 		}
 	} else {
@@ -44,7 +44,7 @@ func MakeDateTag(metadata map[string]any, fd *models.FileData, dateFmt sharedenu
 
 	// Produce [yyyy-mm-dd] type tag.
 	dateTag := "[" + dateStr + "]"
-	logger.Pl.I("Made date tag %s from file %q", dateTag, fd.MetaFilePath)
+	logger.Pl.D(2, "Made date tag %s from file %q", dateTag, fd.MetaFilePath)
 	return dateTag, nil
 }
 
@@ -69,16 +69,14 @@ func FormatAllDates(fd *models.FileData) (result string) {
 			continue
 		}
 
-		logger.Pl.D(2, "Attempting to format %+v", field)
-
 		if result, madeDate = shareddates.YmdFromMeta(field, logger.Pl); madeDate {
 			d.FormattedDate = result
-			logger.Pl.D(2, "Got formatted date %q", result)
+			logger.Pl.D(3, "Got formatted date %q", result)
 
 			if d.StringDate, err = shareddates.ParseNumDate(d.FormattedDate, logger.Pl); err != nil {
 				logger.Pl.E("Failed to parse date %q: %v", d.FormattedDate, err)
 			}
-			logger.Pl.D(2, "Got string date %q", d.StringDate)
+			logger.Pl.D(3, "Got string date %q", d.StringDate)
 			return result
 		}
 	}
@@ -138,10 +136,7 @@ func AddDateTag(val, tag string, loc sharedenums.DateTagLocation) (result string
 
 // StripAllDateTags removes every date tag in val, in any format Metarr writes one, and returns them.
 func StripAllDateTags(val string) (tags []string, cleaned string) {
-	logger.Pl.D(3, "StripAllDateTags input: %q", val)
-
 	pattern := regex.DateTagWithBracketsCompile()
-	logger.Pl.D(3, "Pattern: %v", pattern.String())
 
 	// Find all tags.
 	tags = pattern.FindAllString(val, -1)
@@ -152,7 +147,6 @@ func StripAllDateTags(val string) (tags []string, cleaned string) {
 
 	// Remove all tags.
 	cleaned = pattern.ReplaceAllString(val, "")
-	logger.Pl.D(3, "After removal: %q", cleaned)
 
 	// Clean up extra spaces.
 	cleaned = strings.TrimSpace(cleaned)

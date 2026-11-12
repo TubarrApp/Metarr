@@ -85,7 +85,6 @@ func FillNFOTimestamps(fd *models.FileData) (filled bool) {
 		logger.Pl.I("No date found in metadata %q", fd.MetaFilePath)
 		return false
 	}
-	logger.Pl.D(3, "Got a relevant date, proceeding...")
 
 	if t.FormattedDate == "" {
 		dates.FormatAllDates(fd)
