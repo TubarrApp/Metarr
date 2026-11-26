@@ -4,7 +4,6 @@ package validation
 import (
 	"context"
 	"fmt"
-	"maps"
 	"metarr/internal/abstractions"
 	"metarr/internal/domain/consts"
 	"metarr/internal/domain/enums"
@@ -69,77 +68,6 @@ func ValidateThumbnail(t string, strip bool) error {
 }
 
 // ---- Validate And Set ------------------------------------------------------------------------------------------
-
-// ValidateAndSetVideoCodec sets mappings for video codec inputs and transcode options.
-func ValidateAndSetVideoCodec(entries []string) error {
-	vCodecMap := map[sharedmodels.FromCodec]string{
-		sharedmodels.NewFromCodec(sharedconsts.VCodecAV1, ""):   sharedconsts.VCodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.VCodecH264, ""):  sharedconsts.VCodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.VCodecHEVC, ""):  sharedconsts.VCodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.VCodecMPEG2, ""): sharedconsts.VCodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.VCodecVP8, ""):   sharedconsts.VCodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.VCodecVP9, ""):   sharedconsts.VCodecCopy,
-	}
-
-	// Grab the 'all to' codec if any are set, as well as 'FromCodec' models and their 'to' codec strings.
-	all, pairs, err := sharedparsing.ParseCodecMappings(entries, sharedvalidation.ValidateVideoCodec)
-	if err != nil {
-		return err
-	}
-
-	// Plain codec applies to every other codec, those not listed here going by the blank source codec.
-	if all != "" {
-		for from := range vCodecMap {
-			vCodecMap[from] = all
-		}
-		vCodecMap[sharedmodels.NewFromCodec("", sharedconsts.CompressionBlank)] = all
-	}
-
-	// Pairs override the plain codec.
-	maps.Copy(vCodecMap, pairs)
-
-	abstractions.Set(keys.TranscodeVideoCodecMap, vCodecMap)
-	return nil
-}
-
-// ValidateAndSetAudioCodec sets mappings for audio codec inputs and transcode options.
-func ValidateAndSetAudioCodec(entries []string) error {
-	aCodecMap := map[sharedmodels.FromCodec]string{
-		sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, ""):    sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecAC3, ""):    sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecALAC, ""):   sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecDTS, ""):    sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecEAC3, ""):   sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecFLAC, ""):   sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecMP2, ""):    sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecMP3, ""):    sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecOpus, ""):   sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecPCM, ""):    sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecTrueHD, ""): sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecVorbis, ""): sharedconsts.ACodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.ACodecWAV, ""):    sharedconsts.ACodecCopy,
-	}
-
-	// Grab the 'all to' codec if any are set, as well as 'FromCodec' models and their 'to' codec strings.
-	all, pairs, err := sharedparsing.ParseCodecMappings(entries, sharedvalidation.ValidateAudioCodec)
-	if err != nil {
-		return err
-	}
-
-	// Plain codec applies to every other codec, those not listed here going by the blank source codec.
-	if all != "" {
-		for from := range aCodecMap {
-			aCodecMap[from] = all
-		}
-		aCodecMap[sharedmodels.NewFromCodec("", sharedconsts.CompressionBlank)] = all
-	}
-
-	// Pairs override the plain codec.
-	maps.Copy(aCodecMap, pairs)
-
-	abstractions.Set(keys.TranscodeAudioCodecMap, aCodecMap)
-	return nil
-}
 
 // ValidateAndSetBatchPairs retrieves valid files and directories from a batch pair entry.
 func ValidateAndSetBatchPairs(batchPairs []string) error {
@@ -398,15 +326,15 @@ func ValidateAndSetVideoArgs(lines []string) error {
 	}
 
 	// Check pixel formats against the FFmpeg installed.
-	for codec, sizes := range argsMap {
-		for size, args := range sizes {
+	for codec, byResolution := range argsMap {
+		for resolution, args := range byResolution {
 			if args.PixFmt == "" {
 				continue
 			}
 			if args.PixFmt, err = ffmpeg.KnownPixFmt(context.Background(), args.PixFmt); err != nil {
 				return fmt.Errorf("invalid --%s for %s: %w", keys.TranscodeVideoArgs, codec, err)
 			}
-			sizes[size] = args
+			byResolution[resolution] = args
 		}
 	}
 

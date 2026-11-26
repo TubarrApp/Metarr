@@ -18,6 +18,8 @@ import (
 
 	"github.com/TubarrApp/gocommon/logging"
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 )
 
 // tagDiff holds the existing and new values of a metadata tag, for comparison.
@@ -143,10 +145,11 @@ type ffprobeCodecOutputStream struct {
 	} `json:"disposition"`
 }
 
-// ProbeCodecs determines the video and audio codecs and compression levels, measuring the audio bitrate from its packets if asked and the file has none.
-func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (audioCodec, videoCodec string, audioCompression, videoCompression sharedconsts.CompressionLevel, err error) {
+// ProbeCodecs determines the video and audio codecs and compression levels, and the video's resolution tier, measuring
+// the audio bitrate from its packets if asked and the file has none.
+func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (videoCodec, audioCodec sharedmodels.FromCodec, err error) {
 	if inputFile == "" {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, fmt.Errorf("input file sent in empty")
+		return videoCodec, audioCodec, fmt.Errorf("input file sent in empty")
 	}
 
 	// FFprobe command to grab relevant values.
@@ -161,12 +164,12 @@ func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (audi
 	// Run.
 	raw, err := cmd.Output()
 	if err != nil {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, err
+		return videoCodec, audioCodec, err
 	}
 
 	var vInfo ffprobeCodecOutput
 	if err := json.Unmarshal(raw, &vInfo); err != nil {
-		return "", "", sharedconsts.CompressionBlank, sharedconsts.CompressionBlank, err
+		return videoCodec, audioCodec, err
 	}
 
 	// Find the first video and audio streams. A thumbnail isn't the video.
@@ -179,14 +182,15 @@ func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (audi
 		case "video":
 			if video == nil && stream.Disposition.AttachedPic == 0 {
 				video = stream
-				videoCodec = strings.TrimSpace(video.CodecName)
-				logger.Pl.D(2, "Got video codec from '%s' as '%s'", inputFile, videoCodec)
+				videoCodec.Codec = strings.TrimSpace(video.CodecName)
+				videoCodec.Resolution = sharedparsing.ResolutionTier(min(video.Width, video.Height))
+				logger.Pl.D(2, "Got video codec from '%s' as '%s'", inputFile, videoCodec.Codec)
 			}
 		case "audio":
 			if audio == nil {
 				audio = stream
-				audioCodec = strings.TrimSpace(audio.CodecName)
-				logger.Pl.D(2, "Got audio codec from '%s' as '%s'", inputFile, audioCodec)
+				audioCodec.Codec = strings.TrimSpace(audio.CodecName)
+				logger.Pl.D(2, "Got audio codec from '%s' as '%s'", inputFile, audioCodec.Codec)
 			}
 		}
 	}
@@ -203,20 +207,20 @@ func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (audi
 	// Determine video compression level, left unknown if it can't be worked out so the codecs still count.
 	if video == nil {
 		logger.Pl.I("No video stream in '%s', so only its audio can be transcoded", inputFile)
-	} else if videoCompression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, audioBitRate, inputFile); err != nil {
+	} else if videoCodec.Compression, err = getVideoCompressionLevel(video, vInfo.Format.BitRate, audioBitRate, inputFile); err != nil {
 		logger.Pl.W("Can't tell how compressed the video in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
-		videoCompression = sharedconsts.CompressionBlank
+		videoCodec.Compression = sharedconsts.CompressionBlank
 	}
 
 	// Determine audio compression level, likewise.
 	if audio != nil {
-		if audioCompression, err = getAudioCompressionLevel(audio, inputFile); err != nil {
+		if audioCodec.Compression, err = getAudioCompressionLevel(audio, inputFile); err != nil {
 			logger.Pl.W("Can't tell how compressed the audio in %q is, so only codec lines without lc_, mc_ or hc_ match it: %v", inputFile, err)
-			audioCompression = sharedconsts.CompressionBlank
+			audioCodec.Compression = sharedconsts.CompressionBlank
 		}
 	}
 
-	return audioCodec, videoCodec, audioCompression, videoCompression, nil
+	return videoCodec, audioCodec, nil
 }
 
 // probeAudioBitrate works out the first audio stream's bitrate from its packets, or returns "" if it can't.
@@ -367,24 +371,22 @@ func ProbeAudioFormat(ctx context.Context, inputFile string) (channels, sampleRa
 	return probe.Streams[0].Channels, sampleRate
 }
 
-// ProbeVideoSize returns a video's shorter side in pixels and its bitrate, the whole file's when the stream has none (as in MKV and WebM).
-func ProbeVideoSize(ctx context.Context, inputFile string) (shorterSide int, bitrate int64) {
+// ProbeVideoBitrate returns a video's bitrate, the whole file's when the stream has none (as in MKV and WebM), or 0 if it can't be read.
+func ProbeVideoBitrate(ctx context.Context, inputFile string) (bitrate int64) {
 	out, err := exec.CommandContext(ctx, sharedconsts.ProgramFFprobe,
 		"-v", "error",
 		"-select_streams", "v:0",
-		"-show_entries", "stream=width,height,bit_rate:format=bit_rate",
+		"-show_entries", "stream=bit_rate:format=bit_rate",
 		"-of", "json",
 		inputFile,
 	).Output()
 	if err != nil {
-		logger.Pl.W("Could not read the size of %q, so no codec[size] line of encoder args applies to it: %v", inputFile, err)
-		return 0, 0
+		logger.Pl.W("Could not read the bitrate of %q, so the target bitrate isn't lowered to match it: %v", inputFile, err)
+		return 0
 	}
 
 	var probe struct {
 		Streams []struct {
-			Width   int    `json:"width"`
-			Height  int    `json:"height"`
 			BitRate string `json:"bit_rate"`
 		} `json:"streams"`
 		Format struct {
@@ -392,19 +394,18 @@ func ProbeVideoSize(ctx context.Context, inputFile string) (shorterSide int, bit
 		} `json:"format"`
 	}
 	if err := json.Unmarshal(out, &probe); err != nil {
-		logger.Pl.W("Could not read the size of %q, so no codec[size] line of encoder args applies to it: %v", inputFile, err)
-		return 0, 0
+		logger.Pl.W("Could not read the bitrate of %q, so the target bitrate isn't lowered to match it: %v", inputFile, err)
+		return 0
 	}
 
-	// The first video stream's size and bitrate, else the file's bitrate.
+	// The first video stream's bitrate, else the file's.
 	if len(probe.Streams) > 0 {
-		shorterSide = min(probe.Streams[0].Width, probe.Streams[0].Height)
 		bitrate, _ = strconv.ParseInt(probe.Streams[0].BitRate, 10, 64)
 	}
 	if bitrate <= 0 {
 		bitrate, _ = strconv.ParseInt(probe.Format.BitRate, 10, 64)
 	}
-	return shorterSide, bitrate
+	return bitrate
 }
 
 // ProbeStreamCodecs returns the codec names of a file's streams of a type ("s", "t"), in order, blank if unknown.

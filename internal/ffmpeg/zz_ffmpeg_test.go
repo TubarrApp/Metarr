@@ -198,36 +198,25 @@ func TestGetCodecsMeasuresAudioOnlyForLevelLines(t *testing.T) {
 	clip := makeClip(t, "v.mkv", "-f", "lavfi", "-i", "color=black:s=64x64:d=1", "-f", "lavfi", "-i", "anoisesrc=d=1:sample_rate=48000",
 		"-c:v", "mpeg4", "-c:a", "aac", "-ac", "2")
 	t.Cleanup(func() {
-		abstractions.Set(keys.TranscodeVideoCodecMap, nil)
-		abstractions.Set(keys.TranscodeAudioCodecMap, nil)
+		abstractions.Set(keys.TranscodeVideoCodecInput, []string{})
+		abstractions.Set(keys.TranscodeAudioCodecInput, []string{})
 	})
 
 	tests := []struct {
-		name      string
-		videoMap  map[sharedmodels.FromCodec]string
-		audioMap  map[sharedmodels.FromCodec]string
-		wantLevel bool
+		name         string
+		videoEntries []string
+		audioEntries []string
+		wantLevel    bool
 	}{
-		{
-			name:     "no level lines",
-			audioMap: map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, ""): sharedconsts.ACodecOpus},
-		},
-		{
-			name:      "an audio level line",
-			audioMap:  map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.ACodecAAC, sharedconsts.CompressionMedium): sharedconsts.ACodecOpus},
-			wantLevel: true,
-		},
-		{
-			name:      "a video level line",
-			videoMap:  map[sharedmodels.FromCodec]string{sharedmodels.NewFromCodec(sharedconsts.VCodecH264, sharedconsts.CompressionLow): sharedconsts.VCodecAV1},
-			wantLevel: true,
-		},
+		{name: "no level lines", audioEntries: []string{"aac:opus"}},
+		{name: "an audio level line", audioEntries: []string{"mc_aac:opus"}, wantLevel: true},
+		{name: "a video level line", videoEntries: []string{"lc_h264:av1"}, wantLevel: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			abstractions.Set(keys.TranscodeVideoCodecMap, tt.videoMap)
-			abstractions.Set(keys.TranscodeAudioCodecMap, tt.audioMap)
+			abstractions.Set(keys.TranscodeVideoCodecInput, tt.videoEntries)
+			abstractions.Set(keys.TranscodeAudioCodecInput, tt.audioEntries)
 			_, audio, err := getCodecs(t.Context(), clip)
 			if err != nil {
 				t.Fatal(err)
@@ -258,36 +247,35 @@ func TestSetVideoEncoderArgsRefusesBadValues(t *testing.T) {
 		{"on a GPU encoder, which takes it", &ffCommandBuilder{videoCodecGPU: []string{consts.FFmpegCV0, "av1_nvenc"}}, sharedconsts.AccelTypeCuda, false},
 		{"on copied video", &ffCommandBuilder{videoCodecSoftware: []string{consts.FFmpegCV0, consts.FFVCodecKeyCopy}}, "", false},
 	} {
-		if err := c.b.setVideoEncoderArgs(t.Context(), c.accel, sharedconsts.VCodecAV1); (err != nil) != c.wantErr {
+		if err := c.b.setVideoEncoderArgs(t.Context(), c.accel, sharedconsts.VCodecAV1, 0); (err != nil) != c.wantErr {
 			t.Errorf("%s: got %v, want error %t", c.name, err, c.wantErr)
 		}
 	}
 }
 
-// ******************************** Sizes and bitrates ********************************************************************************
+// ******************************** Resolutions and bitrates **************************************************************************
 
-// TestArgsForSize tests a video gets the args for the largest size at or below its shorter side, else the plain line's.
-func TestArgsForSize(t *testing.T) {
+// TestArgsForResolution tests a video gets the args of the line covering its resolution tier, else the plain line's.
+func TestArgsForResolution(t *testing.T) {
 	plain := sharedmodels.EncoderArgs{Quality: "30"}
 	hd := sharedmodels.EncoderArgs{Quality: "28"}
 	uhd := sharedmodels.EncoderArgs{Bitrate: "12000000"}
-	sizes := map[int]sharedmodels.EncoderArgs{0: plain, 1080: hd, 2160: uhd}
+	byResolution := map[int]sharedmodels.EncoderArgs{0: plain, 1080: hd, 2160: uhd}
 	tests := []struct {
-		name        string
-		sizes       map[int]sharedmodels.EncoderArgs
-		shorterSide int
-		want        sharedmodels.EncoderArgs
+		name         string
+		byResolution map[int]sharedmodels.EncoderArgs
+		resolution   int
+		want         sharedmodels.EncoderArgs
 	}{
-		{"at a size", sizes, 1080, hd},
-		{"between sizes", sizes, 1440, hd},
-		{"above every size", sizes, 4320, uhd},
-		{"below every size", sizes, 720, plain},
-		{"size unknown", sizes, 0, plain},
-		{"below every size with no plain line", map[int]sharedmodels.EncoderArgs{1080: hd}, 720, sharedmodels.EncoderArgs{}},
+		{"a line's tier", byResolution, 1080, hd},
+		{"another line's tier", byResolution, 2160, uhd},
+		{"a tier no line covers", byResolution, 1440, plain},
+		{"resolution unknown", byResolution, 0, plain},
+		{"a tier no line covers, with no plain line", map[int]sharedmodels.EncoderArgs{1080: hd}, 720, sharedmodels.EncoderArgs{}},
 		{"nothing set", nil, 1080, sharedmodels.EncoderArgs{}},
 	}
 	for _, tt := range tests {
-		if got := argsForSize(tt.sizes, tt.shorterSide); !reflect.DeepEqual(got, tt.want) {
+		if got := argsForResolution(tt.byResolution, tt.resolution); !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%s: got %+v, want %+v", tt.name, got, tt.want)
 		}
 	}
@@ -304,15 +292,18 @@ func TestVideoBitrateCapped(t *testing.T) {
 		t.Fatalf("making the input: %v\n%s", err, out)
 	}
 
-	shorterSide, sourceBitrate := ffprobe.ProbeVideoSize(t.Context(), in)
-	if shorterSide != 90 || sourceBitrate <= 0 {
-		t.Fatalf("probeVideoSize = %d, %d; want 90 and the file's bitrate", shorterSide, sourceBitrate)
+	sourceBitrate := ffprobe.ProbeVideoBitrate(t.Context(), in)
+	if sourceBitrate <= 0 {
+		t.Fatalf("ProbeVideoBitrate = %d, want the file's bitrate", sourceBitrate)
 	}
-	if got := videoBitrate(in, "10000000", sourceBitrate); got != sourceBitrate {
+	if got := videoBitrate(t.Context(), in, "10000000"); got != sourceBitrate {
 		t.Errorf("videoBitrate = %d, want the source's %d", got, sourceBitrate)
 	}
-	if got := videoBitrate(in, "1000", sourceBitrate); got != 1_000 {
+	if got := videoBitrate(t.Context(), in, "1000"); got != 1_000 {
 		t.Errorf("videoBitrate = %d, want 1000, which is under the source's", got)
+	}
+	if got := videoBitrate(t.Context(), in, "0"); got != 0 {
+		t.Errorf("videoBitrate = %d, want 0, which is no target", got)
 	}
 }
 
@@ -326,9 +317,9 @@ func TestSetVideoEncoderArgsBitrate(t *testing.T) {
 		},
 	})
 
-	// No input file, so its size is unknown and the plain line's bitrate is used.
+	// Resolution unknown, so the plain line's bitrate is used, and with no input file to read it isn't lowered.
 	b := &ffCommandBuilder{builder: &strings.Builder{}, videoCodecSoftware: []string{consts.FFmpegCV0, "libx264"}}
-	if err := b.setVideoEncoderArgs(t.Context(), "", sharedconsts.VCodecH264); err != nil {
+	if err := b.setVideoEncoderArgs(t.Context(), "", sharedconsts.VCodecH264, 0); err != nil {
 		t.Fatal(err)
 	}
 	if want := []string{consts.FFmpegBitrate, strconv.Itoa(2_000_000), "-preset", "slow"}; !slices.Equal(b.encoderArgs, want) {
@@ -336,40 +327,25 @@ func TestSetVideoEncoderArgsBitrate(t *testing.T) {
 	}
 }
 
-// TestSetVideoEncoderArgsBySize tests a video gets the size line it reaches, read from the file, with the filter and bitrate of that line.
-func TestSetVideoEncoderArgsBySize(t *testing.T) {
-	if !strings.Contains(availableEncoders(t.Context()), " libx264 ") {
-		t.Skip("FFmpeg with libx264 isn't installed")
-	}
-	in := filepath.Join(t.TempDir(), "in.mkv")
-	if out, err := exec.Command(sharedconsts.ProgramFFmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=160x90:rate=10", "-t", "2",
-		"-c:v", "libx264", "-b:v", "100k", in).CombinedOutput(); err != nil {
-		t.Fatalf("making the input: %v\n%s", err, out)
-	}
+// TestSetVideoEncoderArgsByResolution tests a video gets the line for its resolution tier, with that line's filter and bitrate.
+func TestSetVideoEncoderArgsByResolution(t *testing.T) {
 	t.Cleanup(func() { abstractions.Set(keys.TranscodeVideoArgsMap, map[string]map[int]sharedmodels.EncoderArgs{}) })
+	abstractions.Set(keys.TranscodeVideoArgsMap, map[string]map[int]sharedmodels.EncoderArgs{sharedconsts.VCodecH264: {
+		0:    {Quality: "30", Args: []string{"-preset", "slow"}},
+		1080: {Bitrate: "3000000", VideoFilter: "scale=-2:720", Args: []string{"-preset", "fast"}},
+	}})
 
 	for _, c := range []struct {
 		name       string
-		sizes      map[int]sharedmodels.EncoderArgs
+		resolution int
 		wantArgs   []string
 		wantFilter string
 	}{
-		{
-			"size line the video reaches",
-			map[int]sharedmodels.EncoderArgs{0: {Quality: "30", Args: []string{"-preset", "slow"}}, 90: {Bitrate: "50000", VideoFilter: "scale=-2:72", Args: []string{"-preset", "fast"}}},
-			[]string{consts.FFmpegBitrate, "50000", "-preset", "fast"},
-			"scale=-2:72",
-		},
-		{
-			"size line above the video",
-			map[int]sharedmodels.EncoderArgs{0: {Quality: "30", Args: []string{"-preset", "slow"}}, 720: {Bitrate: "50000", Args: []string{"-preset", "fast"}}},
-			[]string{consts.FFmpegCRF, "30", "-preset", "slow"},
-			"",
-		},
+		{"the line's tier", 1080, []string{consts.FFmpegBitrate, "3000000", "-preset", "fast"}, "scale=-2:720"},
+		{"a tier no line covers", 720, []string{consts.FFmpegCRF, "30", "-preset", "slow"}, ""},
 	} {
-		abstractions.Set(keys.TranscodeVideoArgsMap, map[string]map[int]sharedmodels.EncoderArgs{sharedconsts.VCodecH264: c.sizes})
-		b := &ffCommandBuilder{builder: &strings.Builder{}, inputFile: in, videoCodecSoftware: []string{consts.FFmpegCV0, "libx264"}}
-		if err := b.setVideoEncoderArgs(t.Context(), "", sharedconsts.VCodecH264); err != nil {
+		b := &ffCommandBuilder{builder: &strings.Builder{}, videoCodecSoftware: []string{consts.FFmpegCV0, "libx264"}}
+		if err := b.setVideoEncoderArgs(t.Context(), "", sharedconsts.VCodecH264, c.resolution); err != nil {
 			t.Fatalf("%s: %v", c.name, err)
 		}
 		if got := slices.Concat(b.qualityParameter, b.encoderArgs); !slices.Equal(got, c.wantArgs) || b.videoFilter != c.wantFilter {
@@ -644,7 +620,7 @@ func TestSetVideoEncoderArgs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &ffCommandBuilder{builder: &strings.Builder{}, videoCodecGPU: tt.gpuCodec, videoCodecSoftware: tt.softCodec}
-			err := b.setVideoEncoderArgs(t.Context(), tt.accelType, tt.desired)
+			err := b.setVideoEncoderArgs(t.Context(), tt.accelType, tt.desired, 0)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("error = %v, want error %v", err, tt.wantErr)
 			}
@@ -1089,7 +1065,7 @@ func TestSetVideoEncoderArgsPasses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		b := &ffCommandBuilder{builder: &strings.Builder{}, videoCodecGPU: tt.gpuCodec, videoCodecSoftware: tt.softCodec}
-		if err := b.setVideoEncoderArgs(t.Context(), tt.accelType, sharedconsts.VCodecH264); err != nil {
+		if err := b.setVideoEncoderArgs(t.Context(), tt.accelType, sharedconsts.VCodecH264, 0); err != nil {
 			t.Fatal(err)
 		}
 		if b.passes != tt.want {
@@ -1273,19 +1249,26 @@ func TestReencodeVideo(t *testing.T) {
 		}
 	}
 
-	// A size line only applies to videos that size and up.
-	abstractions.Set(keys.TranscodeVideoCodecInput, []string{})
+	// A resolution line or entry only applies to videos in its tiers, and the 64x64 clip is in the smallest.
+	smallH264 := sharedmodels.FromCodec{Codec: sharedconsts.VCodecH264, Resolution: sharedconsts.VideoResolutions[0]}
 	for _, c := range []struct {
-		name  string
-		sizes map[int]sharedmodels.EncoderArgs
-		want  bool
+		name         string
+		entries      []string
+		byResolution map[int]sharedmodels.EncoderArgs
+		want         bool
 	}{
-		{"size line the video reaches, pixel format differs", map[int]sharedmodels.EncoderArgs{0: eightBit, 64: tenBit}, true},
-		{"size line above the video, plain line matches", map[int]sharedmodels.EncoderArgs{0: eightBit, 720: tenBit}, false},
-		{"only a size line above the video", map[int]sharedmodels.EncoderArgs{720: tenBit}, false},
+		{"args line for the video's tier, pixel format differs", nil, map[int]sharedmodels.EncoderArgs{0: eightBit, 144: tenBit}, true},
+		{"args line for another tier, plain line matches", nil, map[int]sharedmodels.EncoderArgs{0: eightBit, 720: tenBit}, false},
+		{"only an args line for another tier", nil, map[int]sharedmodels.EncoderArgs{720: tenBit}, false},
+		{"pair to own codec for the video's tier", []string{"h264[144]:h264"}, nil, true},
+		{"pair to own codec for another tier", []string{"h264[720+]:h264"}, nil, false},
+		{"resolution entry naming its own codec, pixel format differs", []string{"[144+]:h264"}, map[int]sharedmodels.EncoderArgs{0: tenBit}, true},
+		{"resolution entry naming its own codec, nothing to check", []string{"[144+]:h264"}, nil, false},
+		{"resolution entry naming another codec", []string{"[144+]:hevc"}, map[int]sharedmodels.EncoderArgs{0: tenBit}, false},
 	} {
-		abstractions.Set(keys.TranscodeVideoArgsMap, map[string]map[int]sharedmodels.EncoderArgs{sharedconsts.VCodecH264: c.sizes})
-		if got := reencodeVideo(t.Context(), clip, h264); got != c.want {
+		abstractions.Set(keys.TranscodeVideoCodecInput, c.entries)
+		abstractions.Set(keys.TranscodeVideoArgsMap, map[string]map[int]sharedmodels.EncoderArgs{sharedconsts.VCodecH264: c.byResolution})
+		if got := reencodeVideo(t.Context(), clip, smallH264); got != c.want {
 			t.Errorf("%s: got %t, want %t", c.name, got, c.want)
 		}
 	}
@@ -1773,10 +1756,8 @@ func TestEncodedVideoGetsNoFilterWithFFmpeg(t *testing.T) {
 	if !strings.Contains(availableEncoders(t.Context()), " libx264 ") {
 		t.Skip("FFmpeg can't encode H.264")
 	}
-	t.Cleanup(func() { abstractions.Set(keys.TranscodeVideoCodecMap, nil) })
-	abstractions.Set(keys.TranscodeVideoCodecMap, map[sharedmodels.FromCodec]string{
-		sharedmodels.NewFromCodec(sharedconsts.VCodecH264, ""): sharedconsts.VCodecMPEG2,
-	})
+	t.Cleanup(func() { abstractions.Set(keys.TranscodeVideoCodecInput, []string{}) })
+	abstractions.Set(keys.TranscodeVideoCodecInput, []string{"h264:mpeg2"})
 
 	path := filepath.Join(t.TempDir(), "v.mkv")
 	runTestFFmpeg(t, append(slices.Clone(inputs), "-map", "0", "-map", "1", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", path)...)
@@ -2268,26 +2249,35 @@ func TestFitRefusesUncopyableWithReason(t *testing.T) {
 	}
 }
 
-// TestGetOutputCodecString tests a plain codec reaches sources the map doesn't list, without overriding a listed one or giving a codec to a missing stream.
+// TestGetOutputCodecString tests a stream gets the codec of the entry naming the most about it, the plain codec reaching
+// any codec no pair names, and none when no entry covers it, so its container can choose.
 func TestGetOutputCodecString(t *testing.T) {
-	t.Cleanup(func() { abstractions.Set(keys.TranscodeVideoCodecMap, map[sharedmodels.FromCodec]string{}) })
-	abstractions.Set(keys.TranscodeVideoCodecMap, map[sharedmodels.FromCodec]string{
-		sharedmodels.NewFromCodec(sharedconsts.VCodecH264, ""): sharedconsts.VCodecCopy,
-		sharedmodels.NewFromCodec(sharedconsts.VCodecVP9, ""):  "",
-		sharedmodels.NewFromCodec("", ""):                      sharedconsts.VCodecHEVC,
-	})
+	t.Cleanup(func() { abstractions.Set(keys.TranscodeVideoCodecInput, []string{}) })
+	video := func(codec string, resolution int) sharedmodels.FromCodec {
+		return sharedmodels.FromCodec{Codec: codec, Resolution: resolution}
+	}
+	listed := []string{"hevc", "h264:copy", "vp9:none"}
+	byResolution := []string{"copy", "[720+]:av1", "h264[1080]:hevc"}
 
 	for _, c := range []struct {
-		name, source, want string
+		name    string
+		entries []string
+		source  sharedmodels.FromCodec
+		want    string
 	}{
-		{"listed source", sharedconsts.VCodecH264, sharedconsts.VCodecCopy},
-		{"listed as nothing stays nothing", sharedconsts.VCodecVP9, ""},
-		{"unlisted source gets the plain codec", "mpeg4", sharedconsts.VCodecHEVC},
-		{"no such stream", "", ""},
-		{"stream that couldn't be read", sharedconsts.CodecCopy, ""},
+		{"listed source", listed, video(sharedconsts.VCodecH264, 1080), sharedconsts.VCodecCopy},
+		{"listed as nothing stays nothing", listed, video(sharedconsts.VCodecVP9, 1080), ""},
+		{"unlisted source gets the plain codec", listed, video("mpeg4", 1080), sharedconsts.VCodecHEVC},
+		{"known codec no pair names gets the plain codec", listed, video(sharedconsts.VCodecAV1, 1080), sharedconsts.VCodecHEVC},
+		{"codec no entry covers gets none", []string{"vp9:av1"}, video(sharedconsts.VCodecH264, 1080), ""},
+		{"pair for the video's resolution", byResolution, video(sharedconsts.VCodecH264, 1080), sharedconsts.VCodecHEVC},
+		{"resolution entry", byResolution, video(sharedconsts.VCodecH264, 2160), sharedconsts.VCodecAV1},
+		{"below every resolution entry", byResolution, video(sharedconsts.VCodecH264, 480), sharedconsts.VCodecCopy},
+		{"no such stream", listed, video("", 0), ""},
+		{"stream that couldn't be read", listed, video(sharedconsts.CodecCopy, 0), ""},
 	} {
-		got := getOutputCodecString(keys.TranscodeVideoCodecMap, sharedmodels.NewFromCodec(c.source, ""), sharedconsts.Video)
-		if got != c.want {
+		abstractions.Set(keys.TranscodeVideoCodecInput, c.entries)
+		if got := getOutputCodecString(c.source, sharedconsts.Video); got != c.want {
 			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
 		}
 	}

@@ -89,7 +89,5 @@ const (
 	FilteredMetaOpsModels     string = "INTERNAL-filtered-meta-ops"
 	FilenameOpsFlat           string = "INTERNAL-filename-ops-flat"
 	FilteredFilenameOpsModels string = "INTERNAL-filtered-filename-ops"
-	TranscodeVideoCodecMap    string = "INTERNAL-transcode-video-codec"
-	TranscodeAudioCodecMap    string = "INTERNAL-transcode-audio-codec"
 	TranscodeVideoArgsMap     string = "INTERNAL-transcode-video-args"
 )

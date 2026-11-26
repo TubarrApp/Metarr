@@ -70,8 +70,8 @@ func prepareCodecs(ctx context.Context, fd *models.FileData, inputFileVCodec, in
 	inputFileExt := filepath.Ext(inputFilePath)
 
 	// Check codec mismatches.
-	targetVCodec = getOutputCodecString(keys.TranscodeVideoCodecMap, inputFileVCodec, sharedconsts.Video)
-	targetACodec = getOutputCodecString(keys.TranscodeAudioCodecMap, inputFileACodec, sharedconsts.Audio)
+	targetVCodec = getOutputCodecString(inputFileVCodec, sharedconsts.Video)
+	targetACodec = getOutputCodecString(inputFileACodec, sharedconsts.Audio)
 
 	// Video and audio already in the target output codec may still need encoding.
 	reencodeV = reencodeVideo(ctx, inputFilePath, inputFileVCodec)
@@ -314,10 +314,10 @@ func getCodecs(ctx context.Context, inputFile string) (videoCodec, audioCodec sh
 	}
 
 	// Measuring a missing audio bitrate reads the whole file, so only do it when a codec line goes by compression level.
-	measureAudio := mapsCompressionLevels(keys.TranscodeVideoCodecMap) || mapsCompressionLevels(keys.TranscodeAudioCodecMap)
+	measureAudio := mapsCompressionLevels()
 
-	// Determine codecs and video compression level.
-	if audioCodec.Codec, videoCodec.Codec, audioCodec.Compression, videoCodec.Compression, err = ffprobe.ProbeCodecs(ctx, inputFile, measureAudio); err != nil {
+	// Determine codecs, compression levels and the video's resolution.
+	if videoCodec, audioCodec, err = ffprobe.ProbeCodecs(ctx, inputFile, measureAudio); err != nil {
 		return blankFromCodec, blankFromCodec, err
 	}
 

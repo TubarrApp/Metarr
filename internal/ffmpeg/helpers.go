@@ -186,13 +186,16 @@ func encoderInstalled(ctx context.Context, encoder string) bool {
 	return encoders == "" || (encoder != "" && strings.Contains(encoders, " "+encoder+" "))
 }
 
-// mapsCompressionLevels reports whether a codec map has a line for a compression level, like lc_h264.
-func mapsCompressionLevels(key string) bool {
-	cMap, ok := abstractions.Get(key).(map[sharedmodels.FromCodec]string)
-	if !ok {
-		return false
+// mapsCompressionLevels reports whether a video or audio codec entry goes by compression level, like lc_h264.
+func mapsCompressionLevels() bool {
+	_, videoPairs := videoCodecEntries()
+	for from := range videoPairs {
+		if from.Compression != sharedconsts.CompressionBlank {
+			return true
+		}
 	}
-	for from := range cMap {
+	_, audioPairs := audioCodecEntries()
+	for from := range audioPairs {
 		if from.Compression != sharedconsts.CompressionBlank {
 			return true
 		}
@@ -200,35 +203,24 @@ func mapsCompressionLevels(key string) bool {
 	return false
 }
 
-// getOutputCodecString returns the codec required according to mapping.
-func getOutputCodecString(key string, currentCodec sharedmodels.FromCodec, codecType sharedconsts.MediaType) (outputCodec string) {
-	if !abstractions.IsSet(key) {
-		return
-	}
-
+// getOutputCodecString returns the codec the codec entries name for a stream, blank if none does.
+func getOutputCodecString(currentCodec sharedmodels.FromCodec, codecType sharedconsts.MediaType) (outputCodec string) {
 	// A stream the file doesn't have, or that couldn't be read, has nothing to transcode.
 	if currentCodec.Codec == "" || currentCodec.Codec == sharedconsts.CodecCopy {
 		return
 	}
 
-	// Extract codec from map.
-	cMapInterface := abstractions.Get(key)
-	cMap, ok := cMapInterface.(map[sharedmodels.FromCodec]string)
-	if !ok {
-		logger.Pl.DevE("Got wrong type %T for %s codec map", cMapInterface, codecType)
-		return
+	// Read the entries for the stream's type.
+	var plain string
+	var pairs map[sharedmodels.FromCodec]string
+	if codecType == sharedconsts.Audio {
+		plain, pairs = audioCodecEntries()
+	} else {
+		plain, pairs = videoCodecEntries()
 	}
 
-	// Check for an exact codec and compression-level mapping.
-	outputCodec, ok = cMap[currentCodec]
-	if !ok {
-		// Fall back to the codec mapping without a compression level.
-		outputCodec, ok = cMap[sharedmodels.NewFromCodec(currentCodec.Codec, sharedconsts.CompressionBlank)]
-	}
-	if !ok {
-		// Fall back to the plain codec, kept under a blank source codec, for codecs the map doesn't list.
-		outputCodec = cMap[sharedmodels.NewFromCodec("", sharedconsts.CompressionBlank)]
-	}
+	// The entry naming the most about the stream decides.
+	outputCodec, _ = sharedparsing.CodecFor(currentCodec, plain, pairs)
 
 	// Normalize.
 	outputCodec = strings.ToLower(outputCodec)
@@ -246,30 +238,20 @@ func reencodeVideo(ctx context.Context, inputFile string, currentCodec sharedmod
 		return false
 	}
 
-	// Read what was named, as the codec map's default "copy" looks the same as one asked for.
-	plain, pairs, err := sharedparsing.ParseCodecMappings(abstractions.GetStringSlice(keys.TranscodeVideoCodecInput), sharedvalidation.ValidateVideoCodec)
-	if err != nil {
-		logger.Pl.DevE("Video codec entries passed validation but can't be read: %v", err)
-		return false
-	}
-
-	// A pair for this video, or a plain codec other than its own, decides.
-	if to := namedCodec(currentCodec, plain, pairs); to != "" {
+	// A pair for this video, or a codec other than its own, decides.
+	plain, pairs := videoCodecEntries()
+	if to, pair := sharedparsing.CodecFor(currentCodec, plain, pairs); to != "" && (pair || to != currentCodec.Codec) {
 		return to == currentCodec.Codec
 	}
 
-	// Get the args for the video's size.
-	sizes := videoEncoderArgs(currentCodec.Codec)
-	if len(sizes) == 0 {
-		return false
-	}
-	width, height, sourcePixFmt := ffprobe.ProbeVideoFrame(ctx, inputFile)
-	args := argsForSize(sizes, min(width, height))
-
 	// Only the pixel format can be checked on a finished video, so other args would encode it again on every run.
-	if args.PixFmt != "" && sourcePixFmt != "" && !pixFmtMatches(currentCodec.Codec, args.PixFmt, sourcePixFmt) {
-		logger.Pl.I("Video %q is %s rather than the %s asked, so encoding it again as %s", inputFile, sourcePixFmt, args.PixFmt, currentCodec.Codec)
-		return true
+	args := argsForResolution(videoEncoderArgs(currentCodec.Codec), currentCodec.Resolution)
+	if args.PixFmt != "" {
+		_, _, sourcePixFmt := ffprobe.ProbeVideoFrame(ctx, inputFile)
+		if sourcePixFmt != "" && !pixFmtMatches(currentCodec.Codec, args.PixFmt, sourcePixFmt) {
+			logger.Pl.I("Video %q is %s rather than the %s asked, so encoding it again as %s", inputFile, sourcePixFmt, args.PixFmt, currentCodec.Codec)
+			return true
+		}
 	}
 
 	// A filter that won't run changes the picture of some videos and not others.
@@ -287,15 +269,9 @@ func reencodeAudio(ctx context.Context, inputFile string, currentCodec sharedmod
 		return false
 	}
 
-	// Read what was named, as the codec map's default "copy" looks the same as one asked for.
-	plain, pairs, err := sharedparsing.ParseCodecMappings(abstractions.GetStringSlice(keys.TranscodeAudioCodecInput), sharedvalidation.ValidateAudioCodec)
-	if err != nil {
-		logger.Pl.DevE("Audio codec entries passed validation but can't be read: %v", err)
-		return false
-	}
-
-	// A pair for this audio, or a plain codec other than its own, decides.
-	if to := namedCodec(currentCodec, plain, pairs); to != "" {
+	// A pair for this audio, or a codec other than its own, decides.
+	plain, pairs := audioCodecEntries()
+	if to, pair := sharedparsing.CodecFor(currentCodec, plain, pairs); to != "" && (pair || to != currentCodec.Codec) {
 		return to == currentCodec.Codec
 	}
 
@@ -325,19 +301,25 @@ func reencodeAudio(ctx context.Context, inputFile string, currentCodec sharedmod
 	return false
 }
 
-// namedCodec returns the codec named for a stream already in its codec: its pair's target, else a plain codec other than its own, else "".
-func namedCodec(currentCodec sharedmodels.FromCodec, plain string, pairs map[sharedmodels.FromCodec]string) string {
-	to, isPair := pairs[currentCodec]
-	if !isPair {
-		to = pairs[sharedmodels.NewFromCodec(currentCodec.Codec, sharedconsts.CompressionBlank)]
+// videoCodecEntries returns the video codec entries as written: the plain codec and the pairs.
+func videoCodecEntries() (string, map[sharedmodels.FromCodec]string) {
+	plain, pairs, err := sharedparsing.ParseCodecMappings(abstractions.GetStringSlice(keys.TranscodeVideoCodecInput), sharedvalidation.ValidateVideoCodec)
+	if err != nil {
+		logger.Pl.DevE("Video codec entries passed validation but can't be read: %v", err)
 	}
-	if to == "" && plain != currentCodec.Codec {
-		to = plain
-	}
-	return to
+	return plain, pairs
 }
 
-// videoEncoderArgs returns the args set for encoding to a video codec, by the smallest video size each is for.
+// audioCodecEntries returns the audio codec entries as written: the plain codec and the pairs.
+func audioCodecEntries() (string, map[sharedmodels.FromCodec]string) {
+	plain, pairs, err := sharedparsing.ParseAudioCodecMappings(abstractions.GetStringSlice(keys.TranscodeAudioCodecInput))
+	if err != nil {
+		logger.Pl.DevE("Audio codec entries passed validation but can't be read: %v", err)
+	}
+	return plain, pairs
+}
+
+// videoEncoderArgs returns the args set for encoding to a video codec, by resolution tier, 0 for the plain line.
 func videoEncoderArgs(codec string) map[int]sharedmodels.EncoderArgs {
 	if !abstractions.IsSet(keys.TranscodeVideoArgsMap) {
 		return nil

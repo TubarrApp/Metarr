@@ -122,10 +122,10 @@ func execute() (err error) {
 		}
 	}
 
-	// Parse and verify the audio codec.
+	// Verify the audio codec entries.
 	if viper.IsSet(keys.TranscodeAudioCodecInput) {
-		if err := validation.ValidateAndSetAudioCodec(viper.GetStringSlice(keys.TranscodeAudioCodecInput)); err != nil {
-			return err
+		if _, _, err := sharedparsing.ParseAudioCodecMappings(viper.GetStringSlice(keys.TranscodeAudioCodecInput)); err != nil {
+			return fmt.Errorf("invalid --%s: %w", keys.TranscodeAudioCodecInput, err)
 		}
 	}
 
@@ -165,8 +165,8 @@ func execute() (err error) {
 	}
 
 	if viper.IsSet(keys.TranscodeVideoCodecInput) {
-		if err := validation.ValidateAndSetVideoCodec(viper.GetStringSlice((keys.TranscodeVideoCodecInput))); err != nil {
-			return err
+		if _, _, err := sharedparsing.ParseCodecMappings(viper.GetStringSlice(keys.TranscodeVideoCodecInput), sharedvalidation.ValidateVideoCodec); err != nil {
+			return fmt.Errorf("invalid --%s: %w", keys.TranscodeVideoCodecInput, err)
 		}
 	}
 	if viper.IsSet(keys.TranscodeVideoArgs) {

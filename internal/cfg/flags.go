@@ -160,7 +160,7 @@ func initVideoTransformers() error {
 	}
 
 	// Codecs.
-	rootCmd.PersistentFlags().StringSlice(keys.TranscodeVideoCodecInput, nil, "Codec to use for encoding/decoding")
+	rootCmd.PersistentFlags().StringSlice(keys.TranscodeVideoCodecInput, nil, "Video codec to encode to: one for every video, 'from:to' pairs, or pairs by resolution (e.g. 'hevc', 'vp9:av1', 'h264[1080+]:hevc', '[720+]:av1')")
 	if err := viper.BindPFlag(keys.TranscodeVideoCodecInput, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoCodecInput)); err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringArray(keys.TranscodeVideoArgs, nil, "FFmpeg arguments used when encoding to a video codec, one codec per flag, or one codec and size for videos that size and up (e.g. 'av1:-crf 35 -preset 6', 'av1[4k]:-preset 8')")
+	rootCmd.PersistentFlags().StringArray(keys.TranscodeVideoArgs, nil, "FFmpeg arguments used when encoding to a video codec, one codec per flag, or one codec and resolution (e.g. 'av1:-crf 35 -preset 6', 'av1[1440+]:-preset 8')")
 	if err := viper.BindPFlag(keys.TranscodeVideoArgs, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoArgs)); err != nil {
 		return err
 	}

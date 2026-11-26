@@ -134,7 +134,7 @@ func (b *ffCommandBuilder) buildCommand(ctx context.Context, fd *models.FileData
 		return nil, err
 	}
 	b.setAudioEncoderArgs(desiredACodec)
-	if err := b.setVideoEncoderArgs(ctx, accelType, desiredVCodec); err != nil {
+	if err := b.setVideoEncoderArgs(ctx, accelType, desiredVCodec, currentVCodec.Resolution); err != nil {
 		return nil, err
 	}
 
@@ -625,7 +625,7 @@ func (b *ffCommandBuilder) setHWAccelFlags() (accelType string, useHWDecode bool
 }
 
 // setVideoEncoderArgs sets the target codec's encoder args, converting -crf, -pix_fmt and the video filter for the encoder that runs.
-func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, desiredVCodec string) error {
+func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, desiredVCodec string, resolution int) error {
 	// Start afresh, as the builder is reused when FFmpeg is retried.
 	b.qualityParameter = nil
 	b.encoderArgs = nil
@@ -638,20 +638,14 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 		return nil
 	}
 
-	// Get the target codec's args for the video's size.
-	sizes := videoEncoderArgs(desiredVCodec)
-	shorterSide := 0
-	var sourceBitrate int64
-	if len(sizes) > 0 {
-		shorterSide, sourceBitrate = ffprobe.ProbeVideoSize(ctx, b.inputFile)
-	}
-	encoderArgs := argsForSize(sizes, shorterSide)
+	// Get the target codec's args for the video's resolution.
+	encoderArgs := argsForResolution(videoEncoderArgs(desiredVCodec), resolution)
 	b.videoFilter = encoderArgs.VideoFilter
 
 	// The bitrate asked, never above the video's own.
 	var bitrateArgs []string
 	if encoderArgs.Bitrate != "" {
-		bitrateArgs = []string{consts.FFmpegBitrate, strconv.FormatInt(videoBitrate(b.inputFile, encoderArgs.Bitrate, sourceBitrate), 10)}
+		bitrateArgs = []string{consts.FFmpegBitrate, strconv.FormatInt(videoBitrate(ctx, b.inputFile, encoderArgs.Bitrate), 10)}
 	}
 
 	// Software encoders take the args as written.

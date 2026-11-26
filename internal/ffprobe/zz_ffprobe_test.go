@@ -27,7 +27,8 @@ import (
 
 // ******************************** Compression ***************************************************************************************
 
-// TestProbeCodecsMeasuresMKVAudio tests that an MKV's audio bitrate is measured from its packets only when asked, matching an MP4 copy's.
+// TestProbeCodecsMeasuresMKVAudio tests that an MKV's audio bitrate is measured from its packets only when asked, matching
+// an MP4 copy's, and that the video's resolution tier is read.
 func TestProbeCodecsMeasuresMKVAudio(t *testing.T) {
 	if _, err := exec.LookPath(sharedconsts.ProgramFFmpeg); err != nil {
 		t.Skip("FFmpeg isn't installed")
@@ -56,9 +57,15 @@ func TestProbeCodecsMeasuresMKVAudio(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MP4 audio bitrate %q: %v", out, err)
 	}
-	_, _, storedLevel, _, err := ProbeCodecs(t.Context(), mp4, false)
+	video, audio, err := ProbeCodecs(t.Context(), mp4, false)
+	storedLevel := audio.Compression
 	if err != nil || storedLevel == sharedconsts.CompressionBlank {
 		t.Fatalf("MP4 audio level %q: %v", storedLevel, err)
+	}
+
+	// A 64x64 video is in the smallest resolution tier.
+	if video.Resolution != sharedconsts.VideoResolutions[0] {
+		t.Errorf("video resolution tier %d, want %d", video.Resolution, sharedconsts.VideoResolutions[0])
 	}
 
 	// The MKV's packets add up to the same bitrate.
@@ -71,11 +78,11 @@ func TestProbeCodecsMeasuresMKVAudio(t *testing.T) {
 	}
 
 	// The level is only measured when asked.
-	if _, _, level, _, err := ProbeCodecs(t.Context(), mkv, false); err != nil || level != sharedconsts.CompressionBlank {
-		t.Errorf("not asked: got level %q (%v), want none", level, err)
+	if _, audio, err := ProbeCodecs(t.Context(), mkv, false); err != nil || audio.Compression != sharedconsts.CompressionBlank {
+		t.Errorf("not asked: got level %q (%v), want none", audio.Compression, err)
 	}
-	if _, _, level, _, err := ProbeCodecs(t.Context(), mkv, true); err != nil || level != storedLevel {
-		t.Errorf("asked: got level %q (%v), want the MP4's %q", level, err, storedLevel)
+	if _, audio, err := ProbeCodecs(t.Context(), mkv, true); err != nil || audio.Compression != storedLevel {
+		t.Errorf("asked: got level %q (%v), want the MP4's %q", audio.Compression, err, storedLevel)
 	}
 }
 
