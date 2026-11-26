@@ -258,14 +258,18 @@ func reencodeVideo(ctx context.Context, inputFile string, currentCodec sharedmod
 		return to == currentCodec.Codec
 	}
 
+	// Get the args for the video's size.
+	sizes := videoEncoderArgs(currentCodec.Codec)
+	if len(sizes) == 0 {
+		return false
+	}
+	width, height, sourcePixFmt := ffprobe.ProbeVideoFrame(ctx, inputFile)
+	args := argsForSize(sizes, min(width, height))
+
 	// Only the pixel format can be checked on a finished video, so other args would encode it again on every run.
-	args := videoEncoderArgs(currentCodec.Codec)
-	if args.PixFmt != "" {
-		_, _, sourcePixFmt := ffprobe.ProbeVideoFrame(ctx, inputFile)
-		if sourcePixFmt != "" && !pixFmtMatches(currentCodec.Codec, args.PixFmt, sourcePixFmt) {
-			logger.Pl.I("Video %q is %s rather than the %s asked, so encoding it again as %s", inputFile, sourcePixFmt, args.PixFmt, currentCodec.Codec)
-			return true
-		}
+	if args.PixFmt != "" && sourcePixFmt != "" && !pixFmtMatches(currentCodec.Codec, args.PixFmt, sourcePixFmt) {
+		logger.Pl.I("Video %q is %s rather than the %s asked, so encoding it again as %s", inputFile, sourcePixFmt, args.PixFmt, currentCodec.Codec)
+		return true
 	}
 
 	// A filter that won't run changes the picture of some videos and not others.
@@ -333,12 +337,12 @@ func namedCodec(currentCodec sharedmodels.FromCodec, plain string, pairs map[sha
 	return to
 }
 
-// videoEncoderArgs returns the args set for encoding to a video codec.
-func videoEncoderArgs(codec string) sharedmodels.EncoderArgs {
+// videoEncoderArgs returns the args set for encoding to a video codec, by the smallest video size each is for.
+func videoEncoderArgs(codec string) map[int]sharedmodels.EncoderArgs {
 	if !abstractions.IsSet(keys.TranscodeVideoArgsMap) {
-		return sharedmodels.EncoderArgs{}
+		return nil
 	}
-	argsMap, ok := abstractions.Get(keys.TranscodeVideoArgsMap).(map[string]sharedmodels.EncoderArgs)
+	argsMap, ok := abstractions.Get(keys.TranscodeVideoArgsMap).(map[string]map[int]sharedmodels.EncoderArgs)
 	if !ok {
 		logger.Pl.DevE("Got wrong type %T for video encoder args map", abstractions.Get(keys.TranscodeVideoArgsMap))
 	}

@@ -398,14 +398,16 @@ func ValidateAndSetVideoArgs(lines []string) error {
 	}
 
 	// Check pixel formats against the FFmpeg installed.
-	for codec, args := range argsMap {
-		if args.PixFmt == "" {
-			continue
+	for codec, sizes := range argsMap {
+		for size, args := range sizes {
+			if args.PixFmt == "" {
+				continue
+			}
+			if args.PixFmt, err = ffmpeg.KnownPixFmt(context.Background(), args.PixFmt); err != nil {
+				return fmt.Errorf("invalid --%s for %s: %w", keys.TranscodeVideoArgs, codec, err)
+			}
+			sizes[size] = args
 		}
-		if args.PixFmt, err = ffmpeg.KnownPixFmt(context.Background(), args.PixFmt); err != nil {
-			return fmt.Errorf("invalid --%s for %s: %w", keys.TranscodeVideoArgs, codec, err)
-		}
-		argsMap[codec] = args
 	}
 
 	abstractions.Set(keys.TranscodeVideoArgsMap, argsMap)

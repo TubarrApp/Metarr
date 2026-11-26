@@ -540,7 +540,7 @@ var (
 		"-pix_fmt yuv420p12le", "-pix_fmt yuvj420p", "-pix_fmt nv12", "-pix_fmt p010le", "-pix_fmt gray", "-pix_fmt gray10le", "-pix_fmt gbrp", "-pix_fmt yuva420p", "-pix_fmt rgb24", "-pix_fmt bgra",
 		"-vf hflip", "-vf scale=64:-2", "-vf scale=-2:48", "-vf scale=65:65", "-vf fps=10", "-vf format=yuv420p", "-vf format=yuv444p", "-vf null", "-filter:v vflip", "-vf crop=64:64",
 		"-pass 0", "-pass 1", "-pass 2", "-pass 3", "-pass 9",
-		"-b:v 0", "-b:v 1", "-b:v 1500", "-b:v 100k", "-b:v 1M", "-b:v 1.5M", "-b:v:0 300k", "-b:v 72=100k,720=1M", "-b:v 720=1M,1080=3M", "-b:v 4k=10M",
+		"-b:v 0", "-b:v 1", "-b:v 1500", "-b:v 100k", "-b:v 1M", "-b:v 1.5M", "-b:v:0 300k", "-b:v 10M",
 		"-g 12", "-bf 0", "-r 30", "-s 64x64", "-aspect 16:9", "-maxrate 500k -bufsize 1M", "-threads 1",
 		"-color_primaries bt709 -color_trc bt709 -colorspace bt709", "-movflags +faststart",
 	}
@@ -816,7 +816,7 @@ func randomSweepArgs(r *rand.Rand, codec string) string {
 	_, needsBitrate := sharedconsts.MultiPassNeedsBitrate[codec]
 	if needsBitrate && (used["-pass"] && !slices.Contains(chosen, "-pass 0") && !slices.Contains(chosen, "-pass 1")) {
 		chosen = slices.DeleteFunc(chosen, func(arg string) bool { return strings.HasPrefix(arg, "-crf ") || strings.HasPrefix(arg, "-b:v") })
-		chosen = append(chosen, "-b:v "+sweepPick(r, []string{"1500", "100k", "1M", "72=100k,720=1M"}))
+		chosen = append(chosen, "-b:v "+sweepPick(r, []string{"1500", "100k", "1M"}))
 	}
 	return strings.Join(chosen, sweepArgSeparator)
 }

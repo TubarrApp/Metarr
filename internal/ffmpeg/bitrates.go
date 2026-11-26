@@ -1,17 +1,20 @@
 package ffmpeg
 
 import (
-	"context"
 	"maps"
 	"metarr/internal/domain/logger"
-	"metarr/internal/ffprobe"
 	"slices"
+	"strconv"
+
+	"github.com/TubarrApp/gocommon/sharedmodels"
 )
 
-// videoBitrate returns the bitrate to encode a video at, from bitrates by resolution, lowered to the source's own if that's less.
-func videoBitrate(ctx context.Context, inputFile string, bitrates map[int]int64) int64 {
-	shorterSide, sourceBitrate := ffprobe.ProbeVideoSize(ctx, inputFile)
-	bitrate := bitrateFor(bitrates, shorterSide)
+// videoBitrate returns the bitrate to encode a video at, lowered to the source's own if that's less.
+func videoBitrate(inputFile, asked string, sourceBitrate int64) int64 {
+	bitrate, err := strconv.ParseInt(asked, 10, 64)
+	if err != nil {
+		logger.Pl.DevE("Bitrate %q passed validation but can't be read: %v", asked, err)
+	}
 
 	// A higher bitrate than the source's makes a bigger file, not a better one.
 	if bitrate > 0 && sourceBitrate > 0 && bitrate > sourceBitrate {
@@ -21,17 +24,13 @@ func videoBitrate(ctx context.Context, inputFile string, bitrates map[int]int64)
 	return bitrate
 }
 
-// bitrateFor returns the bitrate for the largest resolution at or below a video's shorter side, else the smallest resolution's.
-func bitrateFor(bitrates map[int]int64, shorterSide int) int64 {
-	resolutions := slices.Sorted(maps.Keys(bitrates))
-	if len(resolutions) == 0 {
-		return 0
-	}
-	bitrate := bitrates[resolutions[0]]
-	for _, resolution := range resolutions {
-		if resolution <= shorterSide {
-			bitrate = bitrates[resolution]
+// argsForSize returns the args for the largest size at or below a video's shorter side, else the plain "codec:" line's.
+func argsForSize(sizes map[int]sharedmodels.EncoderArgs, shorterSide int) sharedmodels.EncoderArgs {
+	var args sharedmodels.EncoderArgs
+	for _, size := range slices.Sorted(maps.Keys(sizes)) {
+		if size <= shorterSide {
+			args = sizes[size]
 		}
 	}
-	return bitrate
+	return args
 }

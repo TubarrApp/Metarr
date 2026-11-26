@@ -170,7 +170,7 @@ func initVideoTransformers() error {
 		return err
 	}
 
-	rootCmd.PersistentFlags().StringArray(keys.TranscodeVideoArgs, nil, "FFmpeg arguments used when encoding to a video codec, one codec per flag (e.g. 'av1:-crf 35 -preset 6')")
+	rootCmd.PersistentFlags().StringArray(keys.TranscodeVideoArgs, nil, "FFmpeg arguments used when encoding to a video codec, one codec per flag, or one codec and size for videos that size and up (e.g. 'av1:-crf 35 -preset 6', 'av1[4k]:-preset 8')")
 	if err := viper.BindPFlag(keys.TranscodeVideoArgs, rootCmd.PersistentFlags().Lookup(keys.TranscodeVideoArgs)); err != nil {
 		return err
 	}

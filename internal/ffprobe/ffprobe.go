@@ -377,7 +377,7 @@ func ProbeVideoSize(ctx context.Context, inputFile string) (shorterSide int, bit
 		inputFile,
 	).Output()
 	if err != nil {
-		logger.Pl.W("Could not read the size of %q, so the smallest -b:v resolution is used: %v", inputFile, err)
+		logger.Pl.W("Could not read the size of %q, so no codec[size] line of encoder args applies to it: %v", inputFile, err)
 		return 0, 0
 	}
 
@@ -392,7 +392,7 @@ func ProbeVideoSize(ctx context.Context, inputFile string) (shorterSide int, bit
 		} `json:"format"`
 	}
 	if err := json.Unmarshal(out, &probe); err != nil {
-		logger.Pl.W("Could not read the size of %q, so the smallest -b:v resolution is used: %v", inputFile, err)
+		logger.Pl.W("Could not read the size of %q, so no codec[size] line of encoder args applies to it: %v", inputFile, err)
 		return 0, 0
 	}
 

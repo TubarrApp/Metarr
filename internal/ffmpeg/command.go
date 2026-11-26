@@ -638,14 +638,20 @@ func (b *ffCommandBuilder) setVideoEncoderArgs(ctx context.Context, accelType, d
 		return nil
 	}
 
-	// Get the target codec's args.
-	encoderArgs := videoEncoderArgs(desiredVCodec)
+	// Get the target codec's args for the video's size.
+	sizes := videoEncoderArgs(desiredVCodec)
+	shorterSide := 0
+	var sourceBitrate int64
+	if len(sizes) > 0 {
+		shorterSide, sourceBitrate = ffprobe.ProbeVideoSize(ctx, b.inputFile)
+	}
+	encoderArgs := argsForSize(sizes, shorterSide)
 	b.videoFilter = encoderArgs.VideoFilter
 
-	// The bitrate for the video's resolution, never above its own.
+	// The bitrate asked, never above the video's own.
 	var bitrateArgs []string
-	if len(encoderArgs.Bitrates) > 0 {
-		bitrateArgs = []string{consts.FFmpegBitrate, strconv.FormatInt(videoBitrate(ctx, b.inputFile, encoderArgs.Bitrates), 10)}
+	if encoderArgs.Bitrate != "" {
+		bitrateArgs = []string{consts.FFmpegBitrate, strconv.FormatInt(videoBitrate(b.inputFile, encoderArgs.Bitrate, sourceBitrate), 10)}
 	}
 
 	// Software encoders take the args as written.
