@@ -54,7 +54,7 @@ func fuzzFlags(encoders string) []fuzzFlag {
 		videoCodecs = append(videoCodecs, "h264", "hevc:h264", "[144+]:h264")
 	}
 	if strings.Contains(encoders, " libx265 ") {
-		videoCodecs = append(videoCodecs, "hevc", "h264:hevc", "h264[144-480]:hevc")
+		videoCodecs = append(videoCodecs, "hevc", "h264:hevc", "h264[144-480]:hevc", "mc_h264:hevc")
 	}
 	audioCodecs := []string{"copy", "aac", "%s"}
 	if strings.Contains(encoders, " libopus ") {
@@ -81,6 +81,8 @@ func fuzzFlags(encoders string) []fuzzFlag {
 		{"transcode-video-args", []string{"h264:-crf 23 -preset ultrafast -vf hflip", "hevc:-crf 51", "h264:-vf scale=32:-2",
 			"hevc:-pix_fmt yuv420p10le", "h264[144]:-b:v 50k -pass 2", "h264:-crf %s", "%s"}, 1},
 		{"transcode-audio-args", []string{"aac:-b:a 64k -ac 1", "aac:-ar 22050", "opus:-af volume=0.5", "aac:-ac %s", "%s"}, 1},
+		{"video-compression-thresholds", []string{"h264:hc<1M,lc>2M", "h264[144]:lc>20k", "h264:hc<%s", "%s"}, 1},
+		{"audio-compression-thresholds", []string{"aac:hc<64k,lc>128k", "aac:lc>%s", "%s"}, 1},
 		{"transcode-gpu", []string{"none", "%s"}, 1},
 		{"extra-ffmpeg-args", []string{"-threads 1", "-movflags +faststart"}, 1},
 		{"concurrency", []string{"1", "2", "%s"}, 1},

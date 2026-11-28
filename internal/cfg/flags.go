@@ -180,6 +180,17 @@ func initVideoTransformers() error {
 		return err
 	}
 
+	// Compression thresholds.
+	rootCmd.PersistentFlags().StringArray(keys.VideoCompressionThresholds, nil, "Bitrates where a source video codec's compression levels change, one codec per flag, or one codec and resolution (e.g. 'h264:hc<2.5M,lc>5M', 'av1[2160]:lc>10M')")
+	if err := viper.BindPFlag(keys.VideoCompressionThresholds, rootCmd.PersistentFlags().Lookup(keys.VideoCompressionThresholds)); err != nil {
+		return err
+	}
+
+	rootCmd.PersistentFlags().StringArray(keys.AudioCompressionThresholds, nil, "Bitrates where a source audio codec's compression levels change, one codec per flag (e.g. 'aac:hc<96k,lc>192k')")
+	if err := viper.BindPFlag(keys.AudioCompressionThresholds, rootCmd.PersistentFlags().Lookup(keys.AudioCompressionThresholds)); err != nil {
+		return err
+	}
+
 	// Manual additional FFmpeg arguments.
 	rootCmd.PersistentFlags().String(keys.ExtraFFmpegArgs, "", "Extra FFmpeg arguments added to every FFmpeg command (e.g. '-movflags +faststart')")
 	if err := viper.BindPFlag(keys.ExtraFFmpegArgs, rootCmd.PersistentFlags().Lookup(keys.ExtraFFmpegArgs)); err != nil {

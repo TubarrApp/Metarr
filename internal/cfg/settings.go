@@ -179,6 +179,16 @@ func execute() (err error) {
 			return fmt.Errorf("invalid --%s: %w", keys.TranscodeAudioArgs, err)
 		}
 	}
+	if viper.IsSet(keys.VideoCompressionThresholds) {
+		if _, err := sharedparsing.ParseVideoCompressionThresholds(viper.GetStringSlice(keys.VideoCompressionThresholds)); err != nil {
+			return fmt.Errorf("invalid --%s: %w", keys.VideoCompressionThresholds, err)
+		}
+	}
+	if viper.IsSet(keys.AudioCompressionThresholds) {
+		if _, err := sharedparsing.ParseAudioCompressionThresholds(viper.GetStringSlice(keys.AudioCompressionThresholds)); err != nil {
+			return fmt.Errorf("invalid --%s: %w", keys.AudioCompressionThresholds, err)
+		}
+	}
 	if viper.IsSet(keys.ExtraFFmpegArgs) {
 		if err := validation.ValidateExtraFFmpegArgs(viper.GetString(keys.ExtraFFmpegArgs)); err != nil {
 			return err

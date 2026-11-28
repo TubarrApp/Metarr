@@ -122,7 +122,7 @@ func CheckMetaMatches(ctx context.Context, extension string, fd *models.FileData
 	return matches
 }
 
-// ffprobeBPPPFOutput holds info used to grab codecs and calculate BPPPF (compression level).
+// ffprobeCodecOutput holds the info used to grab codecs and work out their compression levels.
 type ffprobeCodecOutput struct {
 	Streams []ffprobeCodecOutputStream `json:"streams"`
 	Format  struct {
@@ -138,7 +138,6 @@ type ffprobeCodecOutputStream struct {
 	Height       int    `json:"height"`
 	AvgFrameRate string `json:"avg_frame_rate"`
 	BitRate      string `json:"bit_rate"`
-	SampleRate   string `json:"sample_rate"`
 	Channels     int    `json:"channels"`
 	Disposition  struct {
 		AttachedPic int `json:"attached_pic"`
@@ -156,7 +155,7 @@ func ProbeCodecs(ctx context.Context, inputFile string, measureAudio bool) (vide
 	cmd := exec.CommandContext(ctx, sharedconsts.ProgramFFprobe,
 		"-v", "error",
 		"-show_entries",
-		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,sample_rate,channels:stream_disposition=attached_pic:format=bit_rate",
+		"stream=codec_type,codec_name,width,height,avg_frame_rate,bit_rate,channels:stream_disposition=attached_pic:format=bit_rate",
 		"-of", "json",
 		inputFile,
 	)

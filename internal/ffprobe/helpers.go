@@ -6,6 +6,9 @@ package ffprobe
 import (
 	"cmp"
 	"fmt"
+	"math"
+	"metarr/internal/abstractions"
+	"metarr/internal/domain/keys"
 	"metarr/internal/domain/logger"
 	"metarr/internal/parsing"
 	"slices"
@@ -13,9 +16,14 @@ import (
 	"strings"
 
 	"github.com/TubarrApp/gocommon/sharedconsts"
+	"github.com/TubarrApp/gocommon/sharedmodels"
+	"github.com/TubarrApp/gocommon/sharedparsing"
 	"github.com/TubarrApp/gocommon/sharedtags"
 	"github.com/TubarrApp/gocommon/sharedvalidation"
 )
+
+// fullHDPixels is the pixel count of a 1080p frame, which the compression thresholds are set for.
+const fullHDPixels = 1920 * 1080
 
 // ffprobeFormat contains metadata tags.
 type ffprobeFormat struct {
@@ -242,7 +250,7 @@ func (tags ffprobeTags) get(key string) string {
 	return ""
 }
 
-// getVideoCompressionLevel determines the compression level of a video stream through BPPPF, using the file's bitrate less the audio's when the stream has none.
+// getVideoCompressionLevel determines the compression level of a video stream from its bitrate, using the file's less the audio's when the stream has none.
 func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, audioBitRate, inputFile string) (sharedconsts.CompressionLevel, error) {
 	// Validate video dimensions.
 	if video.Width <= 0 || video.Height <= 0 {
@@ -283,29 +291,54 @@ func getVideoCompressionLevel(video *ffprobeCodecOutputStream, fileBitRate, audi
 		}
 	}
 
-	// Calculate BPPPF.
-	bpppf := bitRate / (float64(video.Width) * float64(video.Height) * frameRate)
+	// Count the pixels and frames by the bits they need: 4K needs about 2.8 times the bits of 1080p, and 60 fps 1.5 times those of 30 fps.
+	pixels := fullHDPixels * math.Pow(float64(video.Width)*float64(video.Height)/fullHDPixels, 0.75)
+	frames := 30 * math.Pow(frameRate/30, 0.585)
 
-	// Scale the thresholds to how many bits the codec needs.
+	// Scale the thresholds to how many bits the codec needs, giving the bitrates high and medium compression run up to.
 	codec, _ := sharedvalidation.ValidateVideoCodec(video.CodecName)
-	scale := videoBitsScale(codec)
+	scale := pixels * frames * videoBitsScale(codec)
+	highBelow := sharedconsts.BPPPFHighCompressionThreshold * scale
+	mediumBelow := sharedconsts.BPPPFMediumCompressionThreshold * scale
+
+	// The user's thresholds for the codec, from its resolution line or else its plain line, replace them.
+	byCodec, _ := sharedparsing.ParseVideoCompressionThresholds(abstractions.GetStringSlice(keys.VideoCompressionThresholds))
+	set, ok := byCodec[codec][sharedparsing.ResolutionTier(min(video.Width, video.Height))]
+	if !ok {
+		set = byCodec[codec][0]
+	}
+	highBelow, mediumBelow = withThresholds(highBelow, mediumBelow, set)
 
 	// Determine compression level.
 	compressionLevel := "low compression"
 	var compression sharedconsts.CompressionLevel
 	switch {
-	case bpppf < sharedconsts.BPPPFHighCompressionThreshold*scale:
+	case bitRate < highBelow:
 		compression = sharedconsts.CompressionHigh
 		compressionLevel = "high compression"
-	case bpppf < sharedconsts.BPPPFMediumCompressionThreshold*scale:
+	case bitRate < mediumBelow:
 		compression = sharedconsts.CompressionMedium
 		compressionLevel = "average compression"
 	default:
 		compression = sharedconsts.CompressionLow
 	}
 
-	logger.Pl.I("Video '%s''s %s stream bit rate (%f), dimensions (%dx%d), and frame rate (%f) determine the video has %s.", inputFile, video.CodecName, bitRate, video.Width, video.Height, frameRate, compressionLevel)
+	logger.Pl.I("Video '%s''s %s stream bit rate (%.0f), dimensions (%dx%d), and frame rate (%f) determine the video has %s, as high compression is below %.0f and medium below %.0f.",
+		inputFile, video.CodecName, bitRate, video.Width, video.Height, frameRate, compressionLevel, highBelow, mediumBelow)
 	return compression, nil
+}
+
+// withThresholds puts the user's thresholds in place of the ones they give, moving any other so the two don't cross.
+func withThresholds(highBelow, mediumBelow float64, set sharedmodels.CompressionThresholds) (float64, float64) {
+	if set.HighBelow > 0 {
+		highBelow = float64(set.HighBelow)
+		mediumBelow = max(mediumBelow, highBelow)
+	}
+	if set.MediumBelow > 0 {
+		mediumBelow = float64(set.MediumBelow)
+		highBelow = min(highBelow, mediumBelow)
+	}
+	return highBelow, mediumBelow
 }
 
 // videoBitsScale returns how many bits a video codec needs for the same picture, compared with H.264.
@@ -328,12 +361,6 @@ func getAudioCompressionLevel(audio *ffprobeCodecOutputStream, inputFile string)
 		return sharedconsts.CompressionBlank, fmt.Errorf("audio stream is nil")
 	}
 
-	// Parse audio sample rate.
-	sampleRate, err := strconv.ParseFloat(audio.SampleRate, 64)
-	if err != nil || sampleRate <= 0 {
-		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio sample rate %q", audio.SampleRate)
-	}
-
 	// Validate audio channels.
 	if audio.Channels <= 0 {
 		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio channel count %d", audio.Channels)
@@ -345,28 +372,32 @@ func getAudioCompressionLevel(audio *ffprobeCodecOutputStream, inputFile string)
 		return sharedconsts.CompressionBlank, fmt.Errorf("invalid audio bitrate %q", audio.BitRate)
 	}
 
-	// Calculate bits per second per channel, normalised to 48 kHz.
-	bpspc := bitRate / float64(audio.Channels) * (48000 / sampleRate)
-
-	// Scale the thresholds to how many bits the codec needs.
+	// Scale the per-channel thresholds to the channel count and how many bits the codec needs.
 	codec, _ := sharedvalidation.ValidateAudioCodec(audio.CodecName)
-	scale := audioBitsScale(codec)
+	scale := float64(audio.Channels) * audioBitsScale(codec)
+	highBelow := sharedconsts.AudioBPSPCHighCompressionThreshold * scale
+	mediumBelow := sharedconsts.AudioBPSPCMediumCompressionThreshold * scale
+
+	// The user's thresholds for the codec replace them.
+	byCodec, _ := sharedparsing.ParseAudioCompressionThresholds(abstractions.GetStringSlice(keys.AudioCompressionThresholds))
+	highBelow, mediumBelow = withThresholds(highBelow, mediumBelow, byCodec[codec])
 
 	// Determine compression level.
 	compressionLevel := "low compression"
 	var compression sharedconsts.CompressionLevel
 	switch {
-	case bpspc < sharedconsts.AudioBPSPCHighCompressionThreshold*scale:
+	case bitRate < highBelow:
 		compression = sharedconsts.CompressionHigh
 		compressionLevel = "high compression"
-	case bpspc < sharedconsts.AudioBPSPCMediumCompressionThreshold*scale:
+	case bitRate < mediumBelow:
 		compression = sharedconsts.CompressionMedium
 		compressionLevel = "average compression"
 	default:
 		compression = sharedconsts.CompressionLow
 	}
 
-	logger.Pl.I("Video '%s's %s audio stream bit rate (%f), sample rate (%s), and channels (%d) determine the audio has %s.", inputFile, audio.CodecName, bitRate, audio.SampleRate, audio.Channels, compressionLevel)
+	logger.Pl.I("Video '%s's %s audio stream bit rate (%.0f) and channels (%d) determine the audio has %s, as high compression is below %.0f and medium below %.0f.",
+		inputFile, audio.CodecName, bitRate, audio.Channels, compressionLevel, highBelow, mediumBelow)
 	return compression, nil
 }
 

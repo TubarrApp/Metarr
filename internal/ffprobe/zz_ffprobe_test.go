@@ -121,6 +121,81 @@ func TestVideoCompressionLevelByCodec(t *testing.T) {
 	}
 }
 
+// TestVideoCompressionLevelBySize tests that the thresholds grow slower than the pixel count and frame rate.
+func TestVideoCompressionLevelBySize(t *testing.T) {
+	logger.Pl.Console = io.Discard
+
+	tests := []struct {
+		name          string
+		codec         string
+		width, height int
+		frameRate     string
+		bitRate       string
+		want          sharedconsts.CompressionLevel
+	}{
+		{name: "480p h264 at 1 Mbps", codec: "h264", width: 854, height: 480, frameRate: "30/1", bitRate: "1000000", want: sharedconsts.CompressionMedium},
+		{name: "480p h264 at 1.6 Mbps", codec: "h264", width: 854, height: 480, frameRate: "30/1", bitRate: "1600000", want: sharedconsts.CompressionLow},
+		{name: "4K hevc at 10 Mbps", codec: "hevc", width: 3840, height: 2160, frameRate: "30/1", bitRate: "10000000", want: sharedconsts.CompressionLow},
+		{name: "4K hevc at 8 Mbps", codec: "hevc", width: 3840, height: 2160, frameRate: "30/1", bitRate: "8000000", want: sharedconsts.CompressionMedium},
+		{name: "1080p60 h264 at 4.5 Mbps", codec: "h264", width: 1920, height: 1080, frameRate: "60/1", bitRate: "4500000", want: sharedconsts.CompressionMedium},
+		{name: "1080p60 h264 at 3.5 Mbps", codec: "h264", width: 1920, height: 1080, frameRate: "60/1", bitRate: "3500000", want: sharedconsts.CompressionHigh},
+		{name: "vertical 1080p h264 like its landscape one", codec: "h264", width: 1080, height: 1920, frameRate: "30/1", bitRate: "3000000", want: sharedconsts.CompressionMedium},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			video := &ffprobeCodecOutputStream{CodecName: tt.codec, Width: tt.width, Height: tt.height, AvgFrameRate: tt.frameRate, BitRate: tt.bitRate}
+			got, err := getVideoCompressionLevel(video, "", "", "test.mp4")
+			if err != nil {
+				t.Fatalf("getVideoCompressionLevel: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestVideoCompressionLevelUserThresholds tests that the user's thresholds replace Metarr's as written, by codec and resolution.
+func TestVideoCompressionLevelUserThresholds(t *testing.T) {
+	logger.Pl.Console = io.Discard
+	t.Cleanup(func() { abstractions.Set(keys.VideoCompressionThresholds, []string{}) })
+	abstractions.Set(keys.VideoCompressionThresholds, []string{"h264:hc<3M,mc<6M", "h264[2160]:hc<10M,lc>20M", "hevc:lc>4M", "av1:hc<2M", "vp9:lc>1M"})
+
+	tests := []struct {
+		name          string
+		codec         string
+		width, height int
+		frameRate     string
+		bitRate       string
+		want          sharedconsts.CompressionLevel
+	}{
+		{name: "1080p h264 at 2.7 Mbps is below hc<", codec: "h264", width: 1920, height: 1080, frameRate: "30/1", bitRate: "2700000", want: sharedconsts.CompressionHigh},
+		{name: "1080p h264 at 5.5 Mbps is below mc<", codec: "h264", width: 1920, height: 1080, frameRate: "30/1", bitRate: "5500000", want: sharedconsts.CompressionMedium},
+		{name: "1080p60 h264 at 6.5 Mbps isn't scaled up", codec: "h264", width: 1920, height: 1080, frameRate: "60/1", bitRate: "6500000", want: sharedconsts.CompressionLow},
+		{name: "4K h264 at 15 Mbps takes its resolution line", codec: "h264", width: 3840, height: 2160, frameRate: "30/1", bitRate: "15000000", want: sharedconsts.CompressionMedium},
+		{name: "1080p hevc at 3.5 Mbps is below lc>", codec: "hevc", width: 1920, height: 1080, frameRate: "30/1", bitRate: "3500000", want: sharedconsts.CompressionMedium},
+		{name: "1080p hevc at 1.2 Mbps keeps Metarr's high compression", codec: "hevc", width: 1920, height: 1080, frameRate: "30/1", bitRate: "1200000", want: sharedconsts.CompressionHigh},
+		{name: "1080p av1 at 1.9 Mbps is below hc<", codec: "av1", width: 1920, height: 1080, frameRate: "30/1", bitRate: "1900000", want: sharedconsts.CompressionHigh},
+		{name: "1080p av1 at 2.2 Mbps keeps Metarr's low compression", codec: "av1", width: 1920, height: 1080, frameRate: "30/1", bitRate: "2200000", want: sharedconsts.CompressionMedium},
+		{name: "1080p vp9 at 1.2 Mbps, with lc> below Metarr's high compression", codec: "vp9", width: 1920, height: 1080, frameRate: "30/1", bitRate: "1200000", want: sharedconsts.CompressionLow},
+		{name: "1080p mpeg2 with no line keeps the thresholds", codec: "mpeg2video", width: 1920, height: 1080, frameRate: "30/1", bitRate: "8000000", want: sharedconsts.CompressionMedium},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			video := &ffprobeCodecOutputStream{CodecName: tt.codec, Width: tt.width, Height: tt.height, AvgFrameRate: tt.frameRate, BitRate: tt.bitRate}
+			got, err := getVideoCompressionLevel(video, "", "", "test.mp4")
+			if err != nil {
+				t.Fatalf("getVideoCompressionLevel: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // TestVideoCompressionLevelLessAudio tests that a video stream without a bitrate gets the file's, less the audio's.
 func TestVideoCompressionLevelLessAudio(t *testing.T) {
 	logger.Pl.Console = io.Discard
@@ -157,27 +232,61 @@ func TestAudioCompressionLevelByCodec(t *testing.T) {
 	logger.Pl.Console = io.Discard
 
 	tests := []struct {
-		name       string
-		codec      string
-		bitRate    string
-		sampleRate string
-		channels   int
-		want       sharedconsts.CompressionLevel
+		name     string
+		codec    string
+		bitRate  string
+		channels int
+		want     sharedconsts.CompressionLevel
 	}{
-		{name: "mp3 stereo at 112k", codec: "mp3", bitRate: "112000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionHigh},
-		{name: "aac stereo at 112k", codec: "aac", bitRate: "112000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionMedium},
-		{name: "aac stereo at 160k", codec: "aac", bitRate: "160000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionMedium},
-		{name: "opus stereo at 160k", codec: "opus", bitRate: "160000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionLow},
-		{name: "aac stereo at 128k and 44.1 kHz", codec: "aac", bitRate: "128000", sampleRate: "44100", channels: 2, want: sharedconsts.CompressionMedium},
-		{name: "mp3 stereo at 300k", codec: "mp3", bitRate: "300000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionLow},
-		{name: "mp2 stereo at 300k", codec: "mp2", bitRate: "300000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionMedium},
-		{name: "dts 5.1 at 768k", codec: "dts", bitRate: "768000", sampleRate: "48000", channels: 6, want: sharedconsts.CompressionMedium},
-		{name: "flac stereo at 900k", codec: "flac", bitRate: "900000", sampleRate: "48000", channels: 2, want: sharedconsts.CompressionLow},
+		{name: "mp3 stereo at 112k", codec: "mp3", bitRate: "112000", channels: 2, want: sharedconsts.CompressionHigh},
+		{name: "aac stereo at 112k", codec: "aac", bitRate: "112000", channels: 2, want: sharedconsts.CompressionMedium},
+		{name: "aac stereo at 160k", codec: "aac", bitRate: "160000", channels: 2, want: sharedconsts.CompressionMedium},
+		{name: "opus stereo at 160k", codec: "opus", bitRate: "160000", channels: 2, want: sharedconsts.CompressionLow},
+		{name: "mp3 mono at 32k", codec: "mp3", bitRate: "32000", channels: 1, want: sharedconsts.CompressionHigh},
+		{name: "mp3 stereo at 300k", codec: "mp3", bitRate: "300000", channels: 2, want: sharedconsts.CompressionLow},
+		{name: "mp2 stereo at 300k", codec: "mp2", bitRate: "300000", channels: 2, want: sharedconsts.CompressionMedium},
+		{name: "dts 5.1 at 768k", codec: "dts", bitRate: "768000", channels: 6, want: sharedconsts.CompressionMedium},
+		{name: "flac stereo at 900k", codec: "flac", bitRate: "900000", channels: 2, want: sharedconsts.CompressionLow},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			audio := &ffprobeCodecOutputStream{CodecName: tt.codec, BitRate: tt.bitRate, SampleRate: tt.sampleRate, Channels: tt.channels}
+			audio := &ffprobeCodecOutputStream{CodecName: tt.codec, BitRate: tt.bitRate, Channels: tt.channels}
+			got, err := getAudioCompressionLevel(audio, "test.mp4")
+			if err != nil {
+				t.Fatalf("getAudioCompressionLevel: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAudioCompressionLevelUserThresholds tests that the user's thresholds replace Metarr's for the whole track, by codec.
+func TestAudioCompressionLevelUserThresholds(t *testing.T) {
+	logger.Pl.Console = io.Discard
+	t.Cleanup(func() { abstractions.Set(keys.AudioCompressionThresholds, []string{}) })
+	abstractions.Set(keys.AudioCompressionThresholds, []string{"aac:hc<64k,lc>256k", "opus:lc>96k"})
+
+	tests := []struct {
+		name     string
+		codec    string
+		bitRate  string
+		channels int
+		want     sharedconsts.CompressionLevel
+	}{
+		{name: "aac stereo at 200k is below lc>", codec: "aac", bitRate: "200000", channels: 2, want: sharedconsts.CompressionMedium},
+		{name: "aac 5.1 at 384k is compared as a whole", codec: "aac", bitRate: "384000", channels: 6, want: sharedconsts.CompressionLow},
+		{name: "aac stereo at 80k is above hc<", codec: "aac", bitRate: "80000", channels: 2, want: sharedconsts.CompressionMedium},
+		{name: "opus stereo at 100k is above lc>", codec: "opus", bitRate: "100000", channels: 2, want: sharedconsts.CompressionLow},
+		{name: "opus stereo at 70k keeps Metarr's high compression", codec: "opus", bitRate: "70000", channels: 2, want: sharedconsts.CompressionHigh},
+		{name: "mp3 with no line keeps the thresholds", codec: "mp3", bitRate: "112000", channels: 2, want: sharedconsts.CompressionHigh},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			audio := &ffprobeCodecOutputStream{CodecName: tt.codec, BitRate: tt.bitRate, Channels: tt.channels}
 			got, err := getAudioCompressionLevel(audio, "test.mp4")
 			if err != nil {
 				t.Fatalf("getAudioCompressionLevel: %v", err)
